@@ -18,6 +18,9 @@ struct MacOSAppShellView: View {
     /// 主要PIDの読取状態を提供するモデルです。
     let liveTelemetryModel: LiveTelemetryModel
 
+    /// 接続セッション履歴を提供するモデルです。
+    let connectionHistoryModel: ConnectionHistoryModel
+
     /// HOME接続要求をApplicationワークフローへ通知するユースケースです。
     let startVehicleConnection: StartVehicleConnectionUseCase
 
@@ -38,6 +41,7 @@ struct MacOSAppShellView: View {
     ///   - settingsModel: アダプター選択状態を提供するモデル。
     ///   - vehicleManagementModel: 登録車両とVIN確認状態を提供するモデル。
     ///   - liveTelemetryModel: 主要PID読取状態を提供するモデル。
+    ///   - connectionHistoryModel: アカウント単位の接続履歴を提供するモデル。
     ///   - startVehicleConnection: HOME接続要求を車両識別とPID取得へ展開するユースケース。
     ///   - accountDeletionPhase: アカウント削除の現在段階。
     ///   - accountDeletionFailure: 直近のアカウント削除失敗。
@@ -47,6 +51,7 @@ struct MacOSAppShellView: View {
         settingsModel: MacOSSettingsPresentationModel,
         vehicleManagementModel: VehicleManagementModel,
         liveTelemetryModel: LiveTelemetryModel,
+        connectionHistoryModel: ConnectionHistoryModel,
         startVehicleConnection: StartVehicleConnectionUseCase,
         accountDeletionPhase: AccountDeletionPhase,
         accountDeletionFailure: AccountDeletionFailure?,
@@ -56,6 +61,7 @@ struct MacOSAppShellView: View {
         self.settingsModel = settingsModel
         self.vehicleManagementModel = vehicleManagementModel
         self.liveTelemetryModel = liveTelemetryModel
+        self.connectionHistoryModel = connectionHistoryModel
         self.startVehicleConnection = startVehicleConnection
         self.accountDeletionPhase = accountDeletionPhase
         self.accountDeletionFailure = accountDeletionFailure
@@ -104,11 +110,13 @@ struct MacOSAppShellView: View {
                     accountSettings: accountSettingsModel.settings,
                     vehicleManagementState: vehicleManagementModel.state,
                     liveTelemetryState: liveTelemetryModel.state,
+                    connectionHistoryState: connectionHistoryModel.state,
                     sendHomeAction: handleHomeAction,
                     sendSettingsAction: settingsModel.send,
                     sendAccountSettingsAction: accountSettingsModel.send,
                     sendVehicleManagementAction: vehicleManagementModel.send,
                     sendLiveTelemetryAction: liveTelemetryModel.send,
+                    sendConnectionHistoryAction: connectionHistoryModel.send,
                     accountDeletionPhase: accountDeletionPhase,
                     accountDeletionFailure: accountDeletionFailure,
                     sendAuthenticationAction: sendAuthenticationAction
@@ -134,6 +142,8 @@ struct MacOSAppShellView: View {
         case let .vehicleConnectionRequested(endpoint):
             selectedDestination = .garage
             startVehicleConnection.execute(endpoint: endpoint)
+        case .vehicleDisconnectionRequested:
+            liveTelemetryModel.send(.stopRequested)
         }
     }
 }

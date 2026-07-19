@@ -9,6 +9,9 @@ enum MacOSSidebarDestination: String, CaseIterable, Identifiable {
     /// リアルタイムログ画面を選択します。
     case liveLog
 
+    /// 接続セッション履歴画面を選択します。
+    case history
+
     /// 整備画面を選択します。
     case maintenance
 
@@ -28,6 +31,8 @@ enum MacOSSidebarDestination: String, CaseIterable, Identifiable {
             "sidebar.home"
         case .liveLog:
             "sidebar.live_log"
+        case .history:
+            "sidebar.connection_history"
         case .maintenance:
             "sidebar.maintenance"
         case .garage:
@@ -44,6 +49,8 @@ enum MacOSSidebarDestination: String, CaseIterable, Identifiable {
             "sidebar.home.subtitle"
         case .liveLog:
             "sidebar.live_log.subtitle"
+        case .history:
+            "sidebar.connection_history.subtitle"
         case .maintenance:
             "sidebar.maintenance.subtitle"
         case .garage:
@@ -60,6 +67,8 @@ enum MacOSSidebarDestination: String, CaseIterable, Identifiable {
             "house.fill"
         case .liveLog:
             "waveform.path.ecg"
+        case .history:
+            "clock.arrow.circlepath"
         case .maintenance:
             "wrench.adjustable.fill"
         case .garage:
@@ -76,12 +85,14 @@ enum MacOSSidebarDestination: String, CaseIterable, Identifiable {
             "1"
         case .liveLog:
             "2"
-        case .maintenance:
+        case .history:
             "3"
-        case .garage:
+        case .maintenance:
             "4"
-        case .settings:
+        case .garage:
             "5"
+        case .settings:
+            "6"
         }
     }
 
@@ -92,12 +103,14 @@ enum MacOSSidebarDestination: String, CaseIterable, Identifiable {
             "⌘1"
         case .liveLog:
             "⌘2"
-        case .maintenance:
+        case .history:
             "⌘3"
-        case .garage:
+        case .maintenance:
             "⌘4"
-        case .settings:
+        case .garage:
             "⌘5"
+        case .settings:
+            "⌘6"
         }
     }
 }

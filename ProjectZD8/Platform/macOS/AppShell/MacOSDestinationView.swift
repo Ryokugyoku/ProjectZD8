@@ -21,6 +21,9 @@ struct MacOSDestinationView: View {
     /// リアルタイムログ画面へ渡す主要PID読取状態です。
     let liveTelemetryState: LiveTelemetryState
 
+    /// 接続履歴画面へ渡す現在の履歴状態です。
+    let connectionHistoryState: ConnectionHistoryState
+
     /// HOMEの操作をAppShellへ通知するクロージャです。
     let sendHomeAction: (MacOSHomeAction) -> Void
 
@@ -35,6 +38,9 @@ struct MacOSDestinationView: View {
 
     /// 主要PID読取操作をLiveTelemetryへ通知します。
     let sendLiveTelemetryAction: (LiveTelemetryAction) -> Void
+
+    /// 接続履歴操作をLogHistoryへ通知します。
+    let sendConnectionHistoryAction: (ConnectionHistoryAction) -> Void
 
     /// Authenticationが管理するアカウント削除の現在段階です。
     let accountDeletionPhase: AccountDeletionPhase
@@ -52,7 +58,10 @@ struct MacOSDestinationView: View {
     var body: some View {
         if destination == .home {
             MacOSHomeView(
-                state: MacOSHomeState(settingsState: settingsState),
+                state: MacOSHomeState(
+                    settingsState: settingsState,
+                    liveTelemetryState: liveTelemetryState
+                ),
                 send: sendHomeAction,
                 metrics: metrics
             )
@@ -60,6 +69,12 @@ struct MacOSDestinationView: View {
             MacOSLiveTelemetryView(
                 state: liveTelemetryState,
                 send: sendLiveTelemetryAction,
+                metrics: metrics
+            )
+        } else if destination == .history {
+            MacOSConnectionHistoryView(
+                state: connectionHistoryState,
+                send: sendConnectionHistoryAction,
                 metrics: metrics
             )
         } else if destination == .garage {

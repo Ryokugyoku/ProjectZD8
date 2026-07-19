@@ -10,37 +10,48 @@ final class LiveTelemetryModel {
     @ObservationIgnored private let readMajorPIDs: ReadMajorOBDPIDsUseCase
     /// PID更新対象と間引き周期を決める方針です。
     @ObservationIgnored private let pollingPolicy: OBDPIDPollingPolicy
+    /// PID取得セッションが終了した原因をLoggingへ通知する処理です。
+    @ObservationIgnored private let sessionDidEnd: @MainActor (ConnectionSessionEndReason) -> Void
     /// 現在画面の表示有無から独立して動く取得タスクです。
     @ObservationIgnored private var pollingTask: Task<Void, Never>?
     /// 古い取得完了を新しい接続状態へ反映しないための世代です。
     @ObservationIgnored private var pollingGeneration: UInt = 0
 
-    /// 初期状態、PID読取ユースケース、更新方針を固定します。
+    /// 初期状態、PID読取ユースケース、更新方針、終了通知先を固定します。
     ///
     /// 責務: PID表示状態を1件の読取ユースケースへ結び付けます。
     /// - Parameters:
     ///   - state: Platformへ公開する初期状態。
     ///   - readMajorPIDs: 主要PID読取と数値化を行うユースケース。
     ///   - pollingPolicy: PIDごとの更新優先度と間引き周期を決める方針。
+    ///   - sessionDidEnd: PID取得終了原因をLoggingへ通知する処理。
     init(
         state: LiveTelemetryState,
         readMajorPIDs: ReadMajorOBDPIDsUseCase,
-        pollingPolicy: OBDPIDPollingPolicy
+        pollingPolicy: OBDPIDPollingPolicy,
+        sessionDidEnd: @escaping @MainActor (ConnectionSessionEndReason) -> Void = { _ in }
     ) {
         self.state = state
         self.readMajorPIDs = readMajorPIDs
         self.pollingPolicy = pollingPolicy
+        self.sessionDidEnd = sessionDidEnd
     }
 
     /// 空の表示状態と既定更新方針を使って生成します。
     ///
     /// 責務: 1件のPID読取ユースケースを標準的なリアルタイム取得モデルへ変換します。
-    /// - Parameter readMajorPIDs: PID読取と数値化を行うユースケース。
-    convenience init(readMajorPIDs: ReadMajorOBDPIDsUseCase) {
+    /// - Parameters:
+    ///   - readMajorPIDs: PID読取と数値化を行うユースケース。
+    ///   - sessionDidEnd: PID取得終了原因をLoggingへ通知する処理。
+    convenience init(
+        readMajorPIDs: ReadMajorOBDPIDsUseCase,
+        sessionDidEnd: @escaping @MainActor (ConnectionSessionEndReason) -> Void = { _ in }
+    ) {
         self.init(
             state: LiveTelemetryState(),
             readMajorPIDs: readMajorPIDs,
-            pollingPolicy: OBDPIDPollingPolicy()
+            pollingPolicy: OBDPIDPollingPolicy(),
+            sessionDidEnd: sessionDidEnd
         )
     }
 
@@ -83,14 +94,20 @@ final class LiveTelemetryModel {
     ///
     /// 責務: 現在世代の取得タスクを取消して待機状態へ戻します。
     private func stop() {
+        let shouldNotifySessionEnd = pollingTask != nil || state.isConnectionActive
         let previousTask = pollingTask
         previousTask?.cancel()
         pollingTask = nil
         pollingGeneration &+= 1
-        state.phase = .idle
-        Task { [readMajorPIDs] in
+        let generation = pollingGeneration
+        state.phase = .stopping
+        state.failureKey = nil
+        Task { [weak self, readMajorPIDs] in
             _ = await previousTask?.value
             await readMajorPIDs.endSession()
+            guard let self, self.pollingGeneration == generation else { return }
+            self.state.phase = .idle
+            if shouldNotifySessionEnd { self.sessionDidEnd(.userDisconnected) }
         }
     }
 
@@ -106,7 +123,7 @@ final class LiveTelemetryModel {
             let initialSamples = try await readMajorPIDs.execute(definitions: definitions, using: endpoint)
             try Task.checkCancellation()
             guard pollingGeneration == generation, !initialSamples.isEmpty else {
-                if initialSamples.isEmpty { throw OBDPIDTelemetryError.incompleteResponse }
+                if initialSamples.isEmpty { throw OBDPIDTelemetryError.noVehicleResponse }
                 await readMajorPIDs.endSession()
                 return
             }
@@ -123,6 +140,7 @@ final class LiveTelemetryModel {
                 let batch = pollingPolicy.definitionsToPoll(from: supportedDefinitions, tick: tick)
                 let samples = try await readMajorPIDs.execute(definitions: batch, using: endpoint)
                 try Task.checkCancellation()
+                guard !samples.isEmpty else { throw OBDPIDTelemetryError.noVehicleResponse }
                 guard pollingGeneration == generation else {
                     await readMajorPIDs.endSession()
                     return
@@ -136,11 +154,27 @@ final class LiveTelemetryModel {
             guard pollingGeneration == generation else { return }
             state.phase = .failed
             state.failureKey = "telemetry.error.pid_catalog_unavailable"
+            sessionDidEnd(.acquisitionFailed)
         } catch OBDPIDTelemetryError.unavailable {
             await readMajorPIDs.endSession()
             guard pollingGeneration == generation else { return }
             state.phase = .failed
             state.failureKey = "telemetry.error.unavailable"
+            sessionDidEnd(.acquisitionFailed)
+        } catch OBDPIDTelemetryError.noVehicleResponse {
+            await readMajorPIDs.endSession()
+            guard pollingGeneration == generation else { return }
+            pollingTask = nil
+            state.phase = .idle
+            state.failureKey = "telemetry.disconnected.no_response"
+            sessionDidEnd(.vehicleNoResponse)
+        } catch OBDPIDTelemetryError.connectionLost {
+            await readMajorPIDs.endSession()
+            guard pollingGeneration == generation else { return }
+            pollingTask = nil
+            state.phase = .idle
+            state.failureKey = "telemetry.disconnected.connection_lost"
+            sessionDidEnd(.connectionLost)
         } catch is CancellationError {
             await readMajorPIDs.endSession()
             return
@@ -149,6 +183,7 @@ final class LiveTelemetryModel {
             guard pollingGeneration == generation else { return }
             state.phase = .failed
             state.failureKey = "telemetry.error.read_failed"
+            sessionDidEnd(.acquisitionFailed)
         }
     }
 

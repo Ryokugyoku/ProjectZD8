@@ -27,6 +27,8 @@ struct MacOSLiveTelemetryView: View {
 
                 if state.phase == .reading {
                     ProgressView("telemetry.status.reading")
+                } else if state.phase == .stopping {
+                    ProgressView("telemetry.status.stopping")
                 } else if let failureKey = state.failureKey {
                     Label(LocalizedStringKey(failureKey), systemImage: "exclamationmark.triangle.fill")
                         .foregroundStyle(.orange)

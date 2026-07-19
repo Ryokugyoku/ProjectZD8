@@ -52,5 +52,21 @@ final class IOSHomeStateTests: XCTestCase {
         XCTAssertEqual(state.connectionEndpoint?.transport, .bluetoothLowEnergy)
         XCTAssertEqual(state.connectionEndpoint?.systemIdentifier, adapter.systemIdentifier)
     }
+
+    /// PID取得中はHOMEが切断操作を公開することを検証します。
+    ///
+    /// 責務: LiveTelemetryの取得段階をiOS HOMEの接続中状態へ変換することを確認します。
+    func testReadingTelemetryPresentsActiveConnection() {
+        var telemetryState = LiveTelemetryState()
+        telemetryState.phase = .reading
+
+        let state = IOSHomeState(
+            settingsState: IOSSettingsState(),
+            liveTelemetryState: telemetryState
+        )
+
+        XCTAssertTrue(state.isConnectionActive)
+        XCTAssertFalse(state.isDisconnecting)
+    }
 }
 #endif

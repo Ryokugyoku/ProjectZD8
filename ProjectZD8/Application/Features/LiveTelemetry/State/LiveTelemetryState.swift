@@ -8,6 +8,8 @@ struct LiveTelemetryState: Equatable {
         case reading
         /// 応答済みPIDを継続取得しています。
         case loaded
+        /// 取得停止と通信資源の解放完了を待っています。
+        case stopping
         /// PID読取または数値化に失敗しました。
         case failed
     }
@@ -22,4 +24,14 @@ struct LiveTelemetryState: Equatable {
     var endpoint: OBDConnectionEndpoint?
     /// 直近の失敗を表示するローカライズキーです。
     var failureKey: String?
+
+    /// HOMEで切断操作を提供する接続中段階かどうかです。
+    var isConnectionActive: Bool {
+        phase == .reading || phase == .loaded || phase == .stopping
+    }
+
+    /// 通信資源の安全な終了完了を待っているかどうかです。
+    var isDisconnecting: Bool {
+        phase == .stopping
+    }
 }

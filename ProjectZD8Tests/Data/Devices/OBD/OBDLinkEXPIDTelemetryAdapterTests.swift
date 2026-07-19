@@ -47,6 +47,23 @@ final class OBDLinkEXPIDTelemetryAdapterTests: XCTestCase {
         }
     }
 
+    /// シリアル応答期限切れを車両無応答として返し、Transportを閉じます。
+    ///
+    /// 責務: 期限切れを自動切断可能なTelemetryエラーへ変換することを確認します。
+    func testTimeoutMapsToNoVehicleResponseAndClosesTransport() async {
+        let transport = PIDTransportFake(responses: [])
+        let adapter = OBDLinkEXPIDTelemetryAdapter(makeTransport: { _ in transport })
+
+        do {
+            _ = try await adapter.read([.init(service: 0x01, pid: 0x0C)], using: endpoint)
+            XCTFail("応答期限切れは成功してはいけません")
+        } catch {
+            let didClose = await transport.didClose
+            XCTAssertEqual(error as? OBDPIDTelemetryError, .noVehicleResponse)
+            XCTAssertTrue(didClose)
+        }
+    }
+
     /// テスト用EXシリアル終端です。
     private var endpoint: OBDConnectionEndpoint {
         OBDConnectionEndpoint(transport: .serial, systemIdentifier: "/dev/cu.fake", displayName: "OBDLink EX")

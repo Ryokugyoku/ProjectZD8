@@ -5,5 +5,7 @@ enum MacOSHomeAction: Equatable {
     case adapterSetupRequested
     /// OBD識別を含む車両接続フローの開始を通知します。
     case vehicleConnectionRequested(OBDConnectionEndpoint)
+    /// PID取得と通信セッションの安全な終了を通知します。
+    case vehicleDisconnectionRequested
 }
 #endif

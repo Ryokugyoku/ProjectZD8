@@ -9,6 +9,9 @@ enum IOSAppShellDestination: String, CaseIterable, Identifiable {
     /// リアルタイムログ画面を選択します。
     case liveLog
 
+    /// 接続セッション履歴画面を選択します。
+    case history
+
     /// 整備画面を選択します。
     case maintenance
 
@@ -25,6 +28,8 @@ enum IOSAppShellDestination: String, CaseIterable, Identifiable {
             "sidebar.home"
         case .liveLog:
             "sidebar.live_log"
+        case .history:
+            "sidebar.connection_history"
         case .maintenance:
             "sidebar.maintenance"
         case .settings:
@@ -39,6 +44,8 @@ enum IOSAppShellDestination: String, CaseIterable, Identifiable {
             "ios.navigation.home"
         case .liveLog:
             "ios.navigation.live_log"
+        case .history:
+            "ios.navigation.history"
         case .maintenance:
             "ios.navigation.maintenance"
         case .settings:
@@ -53,6 +60,8 @@ enum IOSAppShellDestination: String, CaseIterable, Identifiable {
             "sidebar.home.subtitle"
         case .liveLog:
             "sidebar.live_log.subtitle"
+        case .history:
+            "sidebar.connection_history.subtitle"
         case .maintenance:
             "sidebar.maintenance.subtitle"
         case .settings:
@@ -67,6 +76,8 @@ enum IOSAppShellDestination: String, CaseIterable, Identifiable {
             "house.fill"
         case .liveLog:
             "waveform.path.ecg"
+        case .history:
+            "clock.arrow.circlepath"
         case .maintenance:
             "wrench.adjustable.fill"
         case .settings:

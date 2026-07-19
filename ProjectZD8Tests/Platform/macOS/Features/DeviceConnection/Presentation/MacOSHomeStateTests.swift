@@ -58,5 +58,21 @@ final class MacOSHomeStateTests: XCTestCase {
         XCTAssertFalse(state.isDefaultAdapterDetected)
         XCTAssertNil(state.connectionEndpoint)
     }
+
+    /// 通信資源終了中はHOMEが切断操作を無効化する状態を公開します。
+    ///
+    /// 責務: LiveTelemetryの終了段階をmacOS HOMEの切断処理中状態へ変換することを確認します。
+    func testStoppingTelemetryPresentsDisconnectingConnection() {
+        var telemetryState = LiveTelemetryState()
+        telemetryState.phase = .stopping
+
+        let state = MacOSHomeState(
+            settingsState: MacOSSettingsState(),
+            liveTelemetryState: telemetryState
+        )
+
+        XCTAssertTrue(state.isConnectionActive)
+        XCTAssertTrue(state.isDisconnecting)
+    }
 }
 #endif

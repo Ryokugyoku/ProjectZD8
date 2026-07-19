@@ -1,13 +1,13 @@
 import XCTest
 @testable import ProjectZD8
 
-/// HOME接続開始が車両識別とTelemetry開始へ展開されることを検証します。
+/// HOME接続開始がセッション、車両識別、Telemetry開始へ展開されることを検証します。
 @MainActor
 final class StartVehicleConnectionUseCaseTests: XCTestCase {
-    /// 同じOBD終端を識別とTelemetryへ順番に通知します。
+    /// セッション開始後に同じOBD終端を識別とTelemetryへ順番に通知します。
     ///
-    /// 責務: 接続開始ユースケースが必要な2件のApplication通知を欠落なく発行することを確認します。
-    func testExecuteStartsIdentificationThenLiveTelemetry() {
+    /// 責務: 接続開始ユースケースが必要な3件のApplication通知を欠落なく発行することを確認します。
+    func testExecuteStartsSessionThenIdentificationThenLiveTelemetry() {
         var events: [String] = []
         let endpoint = OBDConnectionEndpoint(
             transport: .serial,
@@ -15,6 +15,7 @@ final class StartVehicleConnectionUseCaseTests: XCTestCase {
             displayName: "Test"
         )
         let useCase = StartVehicleConnectionUseCase(
+            startConnectionSession: { events.append("session") },
             identifyVehicle: { received in
                 XCTAssertEqual(received, endpoint)
                 events.append("identify")
@@ -27,6 +28,6 @@ final class StartVehicleConnectionUseCaseTests: XCTestCase {
 
         useCase.execute(endpoint: endpoint)
 
-        XCTAssertEqual(events, ["identify", "telemetry"])
+        XCTAssertEqual(events, ["session", "identify", "telemetry"])
     }
 }

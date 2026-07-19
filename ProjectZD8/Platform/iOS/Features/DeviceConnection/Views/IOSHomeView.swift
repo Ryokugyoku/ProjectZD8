@@ -157,7 +157,16 @@ struct IOSHomeView: View {
     /// デフォルト設定に応じた主要操作です。
     private var primaryAction: some View {
         VStack(alignment: .leading, spacing: 9) {
-            if state.hasDefaultAdapter {
+            if state.isConnectionActive {
+                Button("home.action.disconnect", role: .destructive) {
+                    send(.vehicleDisconnectionRequested)
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+                .frame(maxWidth: .infinity)
+                .accessibilityIdentifier("ios-home-disconnect")
+                .disabled(state.isDisconnecting)
+            } else if state.hasDefaultAdapter {
                 Button("home.action.connect") {
                     if let endpoint = state.connectionEndpoint { send(.vehicleConnectionRequested(endpoint)) }
                 }

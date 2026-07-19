@@ -26,6 +26,10 @@ final class LiveTelemetryModelTests: XCTestCase {
         let readCount = await telemetry.readCount
         XCTAssertGreaterThanOrEqual(readCount, 2)
         model.send(.stopRequested)
+        XCTAssertEqual(model.state.phase, .stopping)
+        for _ in 0..<100 where model.state.phase != .idle {
+            try? await Task.sleep(for: .milliseconds(10))
+        }
         XCTAssertEqual(model.state.phase, .idle)
     }
 
@@ -47,6 +51,62 @@ final class LiveTelemetryModelTests: XCTestCase {
 
         XCTAssertEqual(model.state.phase, .failed)
         XCTAssertEqual(model.state.failureKey, "telemetry.error.pid_catalog_unavailable")
+    }
+
+    /// 切断要求が通信セッション終了後に待機状態へ戻ることを検証します。
+    ///
+    /// 責務: 手動切断が取得取消しと通信資源解放の完了を待つことを確認します。
+    func testStopWaitsForSessionEndBeforeBecomingIdle() async {
+        let telemetry = EndTrackingPIDTelemetryFake()
+        var endReasons: [ConnectionSessionEndReason] = []
+        let model = LiveTelemetryModel(
+            readMajorPIDs: ReadMajorOBDPIDsUseCase(
+                definitionRepository: FixedPIDDefinitionRepository(),
+                telemetry: telemetry
+            ),
+            sessionDidEnd: { endReasons.append($0) }
+        )
+        model.send(.startRequested(endpoint))
+        for _ in 0..<100 where model.state.phase == .reading {
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+
+        model.send(.stopRequested)
+
+        XCTAssertEqual(model.state.phase, .stopping)
+        for _ in 0..<100 where model.state.phase != .idle {
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+        XCTAssertEqual(model.state.phase, .idle)
+        let endCount = await telemetry.endCount
+        XCTAssertGreaterThanOrEqual(endCount, 1)
+        XCTAssertEqual(endReasons, [.userDisconnected])
+    }
+
+    /// 継続取得中に全PID応答が消えた場合の自動切断を検証します。
+    ///
+    /// 責務: ECU無応答を接続中の失敗表示ではなく安全終了済みの未接続状態へ変換することを確認します。
+    func testNoVehicleResponseEndsSessionAndBecomesDisconnected() async {
+        let telemetry = InitialResponseThenEmptyPIDTelemetryFake()
+        var endReasons: [ConnectionSessionEndReason] = []
+        let model = LiveTelemetryModel(
+            readMajorPIDs: ReadMajorOBDPIDsUseCase(
+                definitionRepository: FixedPIDDefinitionRepository(),
+                telemetry: telemetry
+            ),
+            sessionDidEnd: { endReasons.append($0) }
+        )
+
+        model.send(.startRequested(endpoint))
+        for _ in 0..<150 where model.state.failureKey == nil {
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+
+        XCTAssertEqual(model.state.phase, .idle)
+        XCTAssertEqual(model.state.failureKey, "telemetry.disconnected.no_response")
+        let endCount = await telemetry.endCount
+        XCTAssertGreaterThanOrEqual(endCount, 1)
+        XCTAssertEqual(endReasons, [.vehicleNoResponse])
     }
 
     /// テスト用OBD接続終端です。
@@ -120,6 +180,74 @@ private actor CountingPIDTelemetryFake: OBDPIDTelemetryPort {
     ) async throws -> [OBDPIDRequest: [UInt8]] {
         readCount += 1
         return Dictionary(uniqueKeysWithValues: requests.map { ($0, [0x0C, 0x80]) })
+    }
+}
+
+/// 終了通知回数を記録する固定応答PID境界です。
+private actor EndTrackingPIDTelemetryFake: OBDPIDTelemetryPort {
+    /// 受け取った終了通知の回数です。
+    private(set) var endCount = 0
+
+    /// 空の終了通知履歴を生成します。
+    ///
+    /// 責務: 安全終了テスト用のPID境界を初期化します。
+    init() {}
+
+    /// 要求PIDへ固定回転数バイトを返します。
+    ///
+    /// 責務: 1回のPID読取要求を固定応答へ変換します。
+    /// - Parameters:
+    ///   - requests: 応答するPID要求。
+    ///   - endpoint: テストでは使用しない接続終端。
+    /// - Returns: 各要求に対する800 rpm相当バイト。
+    func read(
+        _ requests: [OBDPIDRequest],
+        using endpoint: OBDConnectionEndpoint
+    ) async throws -> [OBDPIDRequest: [UInt8]] {
+        Dictionary(uniqueKeysWithValues: requests.map { ($0, [0x0C, 0x80]) })
+    }
+
+    /// 終了通知回数を増やします。
+    ///
+    /// 責務: 1件の通信セッション終了通知を記録します。
+    func endSession() async {
+        endCount += 1
+    }
+}
+
+/// 初回だけ応答し、その後はECU無応答を再現するPID境界です。
+private actor InitialResponseThenEmptyPIDTelemetryFake: OBDPIDTelemetryPort {
+    /// 受け取った読取回数です。
+    private var readCount = 0
+    /// 受け取った終了通知の回数です。
+    private(set) var endCount = 0
+
+    /// 空の読取・終了履歴を生成します。
+    ///
+    /// 責務: ECU応答消失テスト用のPID境界を初期化します。
+    init() {}
+
+    /// 初回は固定応答、その後は空応答を返します。
+    ///
+    /// 責務: 継続取得中にECU応答が消失する境界を再現します。
+    /// - Parameters:
+    ///   - requests: 初回だけ応答するPID要求。
+    ///   - endpoint: テストでは使用しない接続終端。
+    /// - Returns: 初回は固定応答、2回目以降は空辞書。
+    func read(
+        _ requests: [OBDPIDRequest],
+        using endpoint: OBDConnectionEndpoint
+    ) async throws -> [OBDPIDRequest: [UInt8]] {
+        readCount += 1
+        guard readCount == 1 else { return [:] }
+        return Dictionary(uniqueKeysWithValues: requests.map { ($0, [0x0C, 0x80]) })
+    }
+
+    /// 終了通知回数を増やします。
+    ///
+    /// 責務: 自動切断による通信セッション終了通知を記録します。
+    func endSession() async {
+        endCount += 1
     }
 }
 

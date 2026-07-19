@@ -9,7 +9,10 @@ enum MacOSApplicationComposition {
     ///
     /// 責務: macOSのPID定義永続化とOBDLink EX読取実装をLiveTelemetry状態へ注入します。
     /// - Returns: DB登録済みPIDを読み取れるモデル。
-    static func makeLiveTelemetryModel() -> LiveTelemetryModel {
+    /// - Parameter sessionDidEnd: PID取得終了原因をLoggingへ通知する処理。
+    static func makeLiveTelemetryModel(
+        sessionDidEnd: @escaping @MainActor (ConnectionSessionEndReason) -> Void = { _ in }
+    ) -> LiveTelemetryModel {
         LiveTelemetryModel(
             readMajorPIDs: ReadMajorOBDPIDsUseCase(
                 definitionRepository: makeOBDPIDDefinitionRepository(),
@@ -19,7 +22,8 @@ enum MacOSApplicationComposition {
                     },
                     demo: DemoOBDPIDTelemetryAdapter()
                 )
-            )
+            ),
+            sessionDidEnd: sessionDidEnd
         )
     }
 
@@ -41,7 +45,10 @@ enum MacOSApplicationComposition {
     ///
     /// 責務: macOSの車両保存、写真読込、シリアル識別をVehicleManagementへ結び付けます。
     /// - Returns: private database同期を使用する車両管理モデル。
-    static func makeVehicleManagementModel() -> VehicleManagementModel {
+    /// - Parameter connectionVehicleDidResolve: 接続対象車両をLoggingへ通知する処理。
+    static func makeVehicleManagementModel(
+        connectionVehicleDidResolve: @escaping @MainActor (VehicleProfile) -> Void = { _ in }
+    ) -> VehicleManagementModel {
         VehicleManagementModel(
             state: VehicleManagementState(),
             repository: CloudKitVehicleRepository(),
@@ -53,8 +60,18 @@ enum MacOSApplicationComposition {
                     demo: DemoVehicleIdentificationAdapter()
                 )
             ),
-            photoImporter: VehiclePhotoFileImporter()
+            photoImporter: VehiclePhotoFileImporter(),
+            connectionVehicleDidResolve: connectionVehicleDidResolve
         )
+    }
+
+    /// 製品用の接続セッション保存先を生成します。
+    ///
+    /// 責務: macOSの接続履歴を利用可能なGRDB実装または明示的利用不能境界へ変換します。
+    /// - Returns: Application Support内の接続セッション保存先。
+    static func makeConnectionSessionRepository() -> any ConnectionSessionRepository {
+        (try? GRDBConnectionSessionRepository.openApplicationRepository())
+            ?? UnavailableConnectionSessionRepository()
     }
 
     /// iCloud同期とローカル保持を注入したアカウント設定モデルを生成します。

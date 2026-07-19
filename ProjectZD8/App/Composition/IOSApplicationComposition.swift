@@ -9,7 +9,10 @@ enum IOSApplicationComposition {
     ///
     /// 責務: iOSのPID定義永続化をデモ対応かつ実BLE未提供のLiveTelemetry構成へ注入します。
     /// - Returns: デモBluetoothで継続取得でき、実BLEでは明示的利用不能を返すモデル。
-    static func makeLiveTelemetryModel() -> LiveTelemetryModel {
+    /// - Parameter sessionDidEnd: PID取得終了原因をLoggingへ通知する処理。
+    static func makeLiveTelemetryModel(
+        sessionDidEnd: @escaping @MainActor (ConnectionSessionEndReason) -> Void = { _ in }
+    ) -> LiveTelemetryModel {
         LiveTelemetryModel(
             readMajorPIDs: ReadMajorOBDPIDsUseCase(
                 definitionRepository: makeOBDPIDDefinitionRepository(),
@@ -17,7 +20,8 @@ enum IOSApplicationComposition {
                     live: UnavailableOBDPIDTelemetryAdapter(),
                     demo: DemoOBDPIDTelemetryAdapter()
                 )
-            )
+            ),
+            sessionDidEnd: sessionDidEnd
         )
     }
 
@@ -39,7 +43,10 @@ enum IOSApplicationComposition {
     ///
     /// 責務: iOSの車両保存とデモ対応かつ実BLE未提供の識別境界をVehicleManagementへ結び付けます。
     /// - Returns: private database同期を使用する車両管理モデル。
-    static func makeVehicleManagementModel() -> VehicleManagementModel {
+    /// - Parameter connectionVehicleDidResolve: 接続対象車両をLoggingへ通知する処理。
+    static func makeVehicleManagementModel(
+        connectionVehicleDidResolve: @escaping @MainActor (VehicleProfile) -> Void = { _ in }
+    ) -> VehicleManagementModel {
         VehicleManagementModel(
             state: VehicleManagementState(),
             repository: CloudKitVehicleRepository(),
@@ -49,8 +56,18 @@ enum IOSApplicationComposition {
                     demo: DemoVehicleIdentificationAdapter()
                 )
             ),
-            photoImporter: VehiclePhotoFileImporter()
+            photoImporter: VehiclePhotoFileImporter(),
+            connectionVehicleDidResolve: connectionVehicleDidResolve
         )
+    }
+
+    /// 製品用の接続セッション保存先を生成します。
+    ///
+    /// 責務: iOSの接続履歴を利用可能なGRDB実装または明示的利用不能境界へ変換します。
+    /// - Returns: Application Support内の接続セッション保存先。
+    static func makeConnectionSessionRepository() -> any ConnectionSessionRepository {
+        (try? GRDBConnectionSessionRepository.openApplicationRepository())
+            ?? UnavailableConnectionSessionRepository()
     }
 
     /// iCloud同期とローカル保持を注入したアカウント設定モデルを生成します。

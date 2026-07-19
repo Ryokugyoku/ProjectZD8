@@ -12,7 +12,7 @@ struct IOSAppShellTabBar: View {
     /// 現在のDynamic Type設定です。
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
-    /// 4件の遷移先を半透明のフローティングドックとして提供します。
+    /// 5件の遷移先を半透明のフローティングドックとして提供します。
     ///
     /// 責務: iOS用の下部ナビゲーションを描画し、選択操作をバインディングへ反映します。
     var body: some View {

@@ -36,6 +36,12 @@ actor OBDLinkEXPIDTelemetryAdapter: OBDPIDTelemetryPort {
         do {
             let activeChannel = try await channel(for: endpoint)
             return try await read(commands, using: activeChannel)
+        } catch VehicleIdentificationError.responseTimedOut {
+            await closeActiveSession()
+            throw OBDPIDTelemetryError.noVehicleResponse
+        } catch VehicleIdentificationError.connectionFailed {
+            await closeActiveSession()
+            throw OBDPIDTelemetryError.connectionLost
         } catch {
             await closeActiveSession()
             throw error

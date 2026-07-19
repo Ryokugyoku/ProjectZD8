@@ -13,10 +13,12 @@ final class VehicleManagementModel {
     @ObservationIgnored private let identifyForConnection: IdentifyVehicleForConnectionUseCase
     /// ユーザーが選択した画像を読み込む境界です。
     @ObservationIgnored private let photoImporter: any VehiclePhotoImportPort
+    /// 接続対象車両の確定をLoggingへ通知する処理です。
+    @ObservationIgnored private let connectionVehicleDidResolve: @MainActor (VehicleProfile) -> Void
     /// 現在の車両を所有するAppleアカウント識別子です。
     @ObservationIgnored private var accountIdentifier: String?
 
-    /// 初期状態と注入済み境界を使ってモデルを生成します。
+    /// 初期状態、注入済み境界、車両確定通知先を使ってモデルを生成します。
     ///
     /// 責務: 車両管理状態を永続化、OBD識別、画像取込の各境界へ結び付けます。
     /// - Parameters:
@@ -24,16 +26,19 @@ final class VehicleManagementModel {
     ///   - repository: アカウントスコープ付き車両保存先。
     ///   - identifyForConnection: VINまたは非VIN識別子の取得と登録照合を行うユースケース。
     ///   - photoImporter: 選択画像をプロフィールデータへ変換する境界。
+    ///   - connectionVehicleDidResolve: 接続対象車両の確定をLoggingへ通知する処理。
     init(
         state: VehicleManagementState,
         repository: any VehicleRepository,
         identifyForConnection: IdentifyVehicleForConnectionUseCase,
-        photoImporter: any VehiclePhotoImportPort
+        photoImporter: any VehiclePhotoImportPort,
+        connectionVehicleDidResolve: @escaping @MainActor (VehicleProfile) -> Void = { _ in }
     ) {
         self.state = state
         self.repository = repository
         self.identifyForConnection = identifyForConnection
         self.photoImporter = photoImporter
+        self.connectionVehicleDidResolve = connectionVehicleDidResolve
     }
 
     /// 1件の型付き操作を車両管理状態と副作用へ反映します。
@@ -101,6 +106,7 @@ final class VehicleManagementModel {
             case let .registered(vehicle):
                 state.connectionVehicle = vehicle
                 state.phase = .readyToConnect
+                connectionVehicleDidResolve(vehicle)
             case let .requiresRegistration(snapshot):
                 state.pendingIdentification = snapshot
                 state.phase = .confirmingIdentification
@@ -224,6 +230,7 @@ final class VehicleManagementModel {
     /// - Parameter vehicle: 保存する編集済みプロフィール。
     private func save(_ vehicle: VehicleProfile) async {
         guard let accountIdentifier else { return }
+        let isConnectionRegistration = state.phase == .registering && state.pendingIdentification != nil
         var saved = vehicle
         saved.updatedAt = Date()
         if saved.isDefault {
@@ -242,6 +249,10 @@ final class VehicleManagementModel {
             state.vehicles.sort { $0.updatedAt > $1.updatedAt }
             state.editingVehicle = nil
             state.pendingIdentification = nil
+            if isConnectionRegistration {
+                state.connectionVehicle = saved
+                connectionVehicleDidResolve(saved)
+            }
             state.phase = .idle
             state.failureKey = nil
         } catch {

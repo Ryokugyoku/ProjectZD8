@@ -12,4 +12,8 @@ enum OBDPIDTelemetryError: Error, Equatable {
     case malformedResponse
     /// 要求した全PIDの応答が揃いません。
     case incompleteResponse
+    /// 要求したPID群に対するECU応答が1件もありません。
+    case noVehicleResponse
+    /// アダプターまたは車両との通信境界が失われました。
+    case connectionLost
 }

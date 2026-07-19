@@ -15,6 +15,7 @@ struct IOSLiveTelemetryView: View {
         NavigationStack {
             List {
                 if state.phase == .reading { ProgressView("telemetry.status.reading") }
+                if state.phase == .stopping { ProgressView("telemetry.status.stopping") }
                 if let failureKey = state.failureKey {
                     Label(LocalizedStringKey(failureKey), systemImage: "exclamationmark.triangle.fill")
                         .foregroundStyle(.orange)

@@ -2616,6 +2616,50 @@
         }
       }
     },
+    "history.detail.development.badge" : {"localizations":{"en":{"stringUnit":{"state":"translated","value":"IN DEVELOPMENT"}},"es":{"stringUnit":{"state":"translated","value":"EN DESARROLLO"}},"ja":{"stringUnit":{"state":"translated","value":"開発中"}}}},
+    "history.detail.development.body" : {"localizations":{"en":{"stringUnit":{"state":"translated","value":"Driving signals, charts, and event timelines for this session will appear here in a future update."}},"es":{"stringUnit":{"state":"translated","value":"Las señales de conducción, los gráficos y la cronología de eventos de esta sesión aparecerán aquí en una futura actualización."}},"ja":{"stringUnit":{"state":"translated","value":"このセッションの走行信号、チャート、イベントタイムラインは今後のアップデートで表示されます。"}}}},
+    "history.detail.development.title" : {"localizations":{"en":{"stringUnit":{"state":"translated","value":"Driving log is coming soon"}},"es":{"stringUnit":{"state":"translated","value":"El registro de conducción estará disponible próximamente"}},"ja":{"stringUnit":{"state":"translated","value":"走行ログは現在開発中です"}}}},
+    "history.detail.title" : {"localizations":{"en":{"stringUnit":{"state":"translated","value":"Session details"}},"es":{"stringUnit":{"state":"translated","value":"Detalles de la sesión"}},"ja":{"stringUnit":{"state":"translated","value":"セッション詳細"}}}},
+    "history.empty.body" : {"localizations":{"en":{"stringUnit":{"state":"translated","value":"Start a connection from Home. Each session will be saved here automatically."}},"es":{"stringUnit":{"state":"translated","value":"Inicia una conexión desde Inicio. Cada sesión se guardará aquí automáticamente."}},"ja":{"stringUnit":{"state":"translated","value":"ホームから接続を開始すると、セッションがここへ自動的に保存されます。"}}}},
+    "history.empty.title" : {"localizations":{"en":{"stringUnit":{"state":"translated","value":"No connection history yet"}},"es":{"stringUnit":{"state":"translated","value":"Aún no hay historial de conexiones"}},"ja":{"stringUnit":{"state":"translated","value":"接続履歴はまだありません"}}}},
+    "history.ended" : {"localizations":{"en":{"stringUnit":{"state":"translated","value":"Ended"}},"es":{"stringUnit":{"state":"translated","value":"Finalización"}},"ja":{"stringUnit":{"state":"translated","value":"終了"}}}},
+    "history.error.retry" : {"localizations":{"en":{"stringUnit":{"state":"translated","value":"Try again"}},"es":{"stringUnit":{"state":"translated","value":"Reintentar"}},"ja":{"stringUnit":{"state":"translated","value":"再試行"}}}},
+    "history.error.storage" : {"localizations":{"en":{"stringUnit":{"state":"translated","value":"Connection history could not be loaded."}},"es":{"stringUnit":{"state":"translated","value":"No se pudo cargar el historial de conexiones."}},"ja":{"stringUnit":{"state":"translated","value":"接続履歴を読み込めませんでした。"}}}},
+    "history.eyebrow" : {"localizations":{"en":{"stringUnit":{"state":"translated","value":"SESSION ARCHIVE"}},"es":{"stringUnit":{"state":"translated","value":"ARCHIVO DE SESIONES"}},"ja":{"stringUnit":{"state":"translated","value":"SESSION ARCHIVE"}}}},
+    "history.in.progress" : {"localizations":{"en":{"stringUnit":{"state":"translated","value":"In progress"}},"es":{"stringUnit":{"state":"translated","value":"En curso"}},"ja":{"stringUnit":{"state":"translated","value":"接続中"}}}},
+    "history.refresh" : {"localizations":{"en":{"stringUnit":{"state":"translated","value":"Refresh history"}},"es":{"stringUnit":{"state":"translated","value":"Actualizar historial"}},"ja":{"stringUnit":{"state":"translated","value":"履歴を更新"}}}},
+    "history.session.id" : {"localizations":{"en":{"stringUnit":{"state":"translated","value":"SESSION ID"}},"es":{"stringUnit":{"state":"translated","value":"ID DE SESIÓN"}},"ja":{"stringUnit":{"state":"translated","value":"SESSION ID"}}}},
+    "history.started" : {"localizations":{"en":{"stringUnit":{"state":"translated","value":"Started"}},"es":{"stringUnit":{"state":"translated","value":"Inicio"}},"ja":{"stringUnit":{"state":"translated","value":"開始"}}}},
+    "history.status.completed" : {"localizations":{"en":{"stringUnit":{"state":"translated","value":"Completed"}},"es":{"stringUnit":{"state":"translated","value":"Completada"}},"ja":{"stringUnit":{"state":"translated","value":"完了"}}}},
+    "history.status.connected" : {"localizations":{"en":{"stringUnit":{"state":"translated","value":"Connected"}},"es":{"stringUnit":{"state":"translated","value":"Conectado"}},"ja":{"stringUnit":{"state":"translated","value":"接続中"}}}},
+    "history.status.interrupted" : {"localizations":{"en":{"stringUnit":{"state":"translated","value":"Interrupted"}},"es":{"stringUnit":{"state":"translated","value":"Interrumpida"}},"ja":{"stringUnit":{"state":"translated","value":"中断"}}}},
+    "history.subtitle" : {"localizations":{"en":{"stringUnit":{"state":"translated","value":"Review every vehicle connection by session."}},"es":{"stringUnit":{"state":"translated","value":"Revisa cada conexión del vehículo por sesión."}},"ja":{"stringUnit":{"state":"translated","value":"車両との接続をセッション単位で振り返れます。"}}}},
+    "history.summary.connected" : {"localizations":{"en":{"stringUnit":{"state":"translated","value":"Connected"}},"es":{"stringUnit":{"state":"translated","value":"Conectadas"}},"ja":{"stringUnit":{"state":"translated","value":"接続中"}}}},
+    "history.summary.total" : {"localizations":{"en":{"stringUnit":{"state":"translated","value":"Total"}},"es":{"stringUnit":{"state":"translated","value":"Total"}},"ja":{"stringUnit":{"state":"translated","value":"総セッション"}}}},
+    "history.title" : {"localizations":{"en":{"stringUnit":{"state":"translated","value":"Connection history"}},"es":{"stringUnit":{"state":"translated","value":"Historial de conexiones"}},"ja":{"stringUnit":{"state":"translated","value":"接続履歴"}}}},
+    "history.vehicle.pending" : {"localizations":{"en":{"stringUnit":{"state":"translated","value":"Identifying vehicle"}},"es":{"stringUnit":{"state":"translated","value":"Identificando vehículo"}},"ja":{"stringUnit":{"state":"translated","value":"車両を識別中"}}}},
+    "home.action.disconnect" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Disconnect"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Desconectar"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "切断する"
+          }
+        }
+      }
+    },
     "home.action.connect_unavailable" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -2881,6 +2925,7 @@
         }
       }
     },
+    "ios.navigation.history" : {"localizations":{"en":{"stringUnit":{"state":"translated","value":"History"}},"es":{"stringUnit":{"state":"translated","value":"Historial"}},"ja":{"stringUnit":{"state":"translated","value":"履歴"}}}},
     "ios.navigation.home" : {
       "localizations" : {
         "en" : {
@@ -4914,6 +4959,8 @@
         }
       }
     },
+    "sidebar.connection_history" : {"localizations":{"en":{"stringUnit":{"state":"translated","value":"Connection history"}},"es":{"stringUnit":{"state":"translated","value":"Historial de conexiones"}},"ja":{"stringUnit":{"state":"translated","value":"接続履歴"}}}},
+    "sidebar.connection_history.subtitle" : {"localizations":{"en":{"stringUnit":{"state":"translated","value":"Sessions and driving records"}},"es":{"stringUnit":{"state":"translated","value":"Sesiones y registros de conducción"}},"ja":{"stringUnit":{"state":"translated","value":"セッションと走行記録"}}}},
     "sidebar.garage" : {
       "localizations" : {
         "en" : {
@@ -5200,6 +5247,50 @@
         }
       }
     },
+    "telemetry.disconnected.connection_lost" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The adapter connection was lost. Acquisition ended safely."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se perdió la conexión con el adaptador. La adquisición finalizó de forma segura."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "アダプターとの接続が失われたため、安全に収集を終了しました。"
+          }
+        }
+      }
+    },
+    "telemetry.disconnected.no_response" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The vehicle stopped responding. Ignition may be off; acquisition ended safely."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El vehículo dejó de responder. Es posible que el encendido esté apagado; la adquisición finalizó de forma segura."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "車両応答がなくなりました。イグニッションオフの可能性があるため、安全に収集を終了しました。"
+          }
+        }
+      }
+    },
     "telemetry.error.unavailable" : {
       "localizations" : {
         "en" : {
@@ -5352,6 +5443,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "画面外でもリアルタイム取得を継続中"
+          }
+        }
+      }
+    },
+    "telemetry.status.stopping" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Finishing acquisition and closing the connection…"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Finalizando la adquisición y cerrando la conexión…"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "収集を終了し、接続を閉じています…"
           }
         }
       }

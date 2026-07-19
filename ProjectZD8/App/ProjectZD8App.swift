@@ -15,6 +15,12 @@ struct ProjectZD8App: App {
     /// 主要PIDの1回読取り状態を保持するモデルです。
     @State private var liveTelemetryModel: LiveTelemetryModel
 
+    /// 接続セッションの開始、車両関連付け、終了を保持するモデルです。
+    @State private var connectionSessionLifecycleModel: ConnectionSessionLifecycleModel
+
+    /// アカウント単位の接続履歴を保持するモデルです。
+    @State private var connectionHistoryModel: ConnectionHistoryModel
+
     /// HOME接続要求を車両識別とPID継続取得へ展開するユースケースです。
     private let startVehicleConnection: StartVehicleConnectionUseCase
 
@@ -33,8 +39,18 @@ struct ProjectZD8App: App {
     /// 責務: 現在のプラットフォーム用Compositionからアプリケーションルート依存関係を構築します。
     init() {
         #if os(iOS)
-        let vehicleManagementModel = IOSApplicationComposition.makeVehicleManagementModel()
-        let liveTelemetryModel = IOSApplicationComposition.makeLiveTelemetryModel()
+        let connectionSessionRepository = IOSApplicationComposition.makeConnectionSessionRepository()
+        let connectionHistoryModel = ConnectionHistoryModel(repository: connectionSessionRepository)
+        let connectionSessionLifecycleModel = ConnectionSessionLifecycleModel(
+            repository: connectionSessionRepository,
+            historyDidChange: { connectionHistoryModel.send(.refreshRequested) }
+        )
+        let vehicleManagementModel = IOSApplicationComposition.makeVehicleManagementModel {
+            connectionSessionLifecycleModel.send(.vehicleResolved($0))
+        }
+        let liveTelemetryModel = IOSApplicationComposition.makeLiveTelemetryModel {
+            connectionSessionLifecycleModel.send(.endRequested($0))
+        }
         _authenticationModel = State(
             initialValue: IOSApplicationComposition.makeAuthenticationSessionModel()
         )
@@ -50,15 +66,28 @@ struct ProjectZD8App: App {
         _liveTelemetryModel = State(
             initialValue: liveTelemetryModel
         )
+        _connectionSessionLifecycleModel = State(initialValue: connectionSessionLifecycleModel)
+        _connectionHistoryModel = State(initialValue: connectionHistoryModel)
         startVehicleConnection = StartVehicleConnectionUseCase(
+            startConnectionSession: { connectionSessionLifecycleModel.send(.startRequested) },
             identifyVehicle: { vehicleManagementModel.send(.identifyRequested($0)) },
             startLiveTelemetry: { liveTelemetryModel.send(.startRequested($0)) }
         )
         #endif
 
         #if os(macOS)
-        let vehicleManagementModel = MacOSApplicationComposition.makeVehicleManagementModel()
-        let liveTelemetryModel = MacOSApplicationComposition.makeLiveTelemetryModel()
+        let connectionSessionRepository = MacOSApplicationComposition.makeConnectionSessionRepository()
+        let connectionHistoryModel = ConnectionHistoryModel(repository: connectionSessionRepository)
+        let connectionSessionLifecycleModel = ConnectionSessionLifecycleModel(
+            repository: connectionSessionRepository,
+            historyDidChange: { connectionHistoryModel.send(.refreshRequested) }
+        )
+        let vehicleManagementModel = MacOSApplicationComposition.makeVehicleManagementModel {
+            connectionSessionLifecycleModel.send(.vehicleResolved($0))
+        }
+        let liveTelemetryModel = MacOSApplicationComposition.makeLiveTelemetryModel {
+            connectionSessionLifecycleModel.send(.endRequested($0))
+        }
         _authenticationModel = State(
             initialValue: MacOSApplicationComposition.makeAuthenticationSessionModel()
         )
@@ -74,7 +103,10 @@ struct ProjectZD8App: App {
         _liveTelemetryModel = State(
             initialValue: liveTelemetryModel
         )
+        _connectionSessionLifecycleModel = State(initialValue: connectionSessionLifecycleModel)
+        _connectionHistoryModel = State(initialValue: connectionHistoryModel)
         startVehicleConnection = StartVehicleConnectionUseCase(
+            startConnectionSession: { connectionSessionLifecycleModel.send(.startRequested) },
             identifyVehicle: { vehicleManagementModel.send(.identifyRequested($0)) },
             startLiveTelemetry: { liveTelemetryModel.send(.startRequested($0)) }
         )
@@ -94,6 +126,7 @@ struct ProjectZD8App: App {
                         settingsModel: iOSSettingsModel,
                         vehicleManagementModel: vehicleManagementModel,
                         liveTelemetryModel: liveTelemetryModel,
+                        connectionHistoryModel: connectionHistoryModel,
                         startVehicleConnection: startVehicleConnection,
                         accountDeletionPhase: authenticationModel.state.accountDeletionPhase,
                         accountDeletionFailure: authenticationModel.state.accountDeletionFailure,
@@ -115,6 +148,7 @@ struct ProjectZD8App: App {
                         settingsModel: macOSSettingsModel,
                         vehicleManagementModel: vehicleManagementModel,
                         liveTelemetryModel: liveTelemetryModel,
+                        connectionHistoryModel: connectionHistoryModel,
                         startVehicleConnection: startVehicleConnection,
                         accountDeletionPhase: authenticationModel.state.accountDeletionPhase,
                         accountDeletionFailure: authenticationModel.state.accountDeletionFailure,
@@ -147,6 +181,12 @@ struct ProjectZD8App: App {
         vehicleManagementModel.send(
             .accountIdentifierChanged(authenticationModel.state.session?.userIdentifier)
         )
+        connectionSessionLifecycleModel.send(
+            .accountIdentifierChanged(authenticationModel.state.session?.userIdentifier)
+        )
+        connectionHistoryModel.send(
+            .accountIdentifierChanged(authenticationModel.state.session?.userIdentifier)
+        )
     }
 
     /// ログアウト状態へ変わったときに設定スコープと端末内表示状態を初期化します。
@@ -155,6 +195,9 @@ struct ProjectZD8App: App {
     /// - Parameter phase: Authenticationが確定した新しい認証段階。
     private func handleAuthenticationPhaseChange(_ phase: AuthenticationPhase) {
         guard phase == .signedOut else { return }
+        connectionSessionLifecycleModel.send(.endRequested(.accountSignedOut))
+        connectionSessionLifecycleModel.send(.accountIdentifierChanged(nil))
+        connectionHistoryModel.send(.accountIdentifierChanged(nil))
         accountSettingsModel.send(.accountIdentifierChanged(nil))
         vehicleManagementModel.send(.accountIdentifierChanged(nil))
         liveTelemetryModel.send(.stopRequested)
