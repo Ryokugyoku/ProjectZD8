@@ -17,7 +17,7 @@ final class MacOSAppShellUITests: XCTestCase {
 
     /// macOSサイドバーが要求されたすべての遷移先を公開することを検証します。
     ///
-    /// 責務: macOS AppShellが4件のナビゲーション操作を表示することを確認します。
+    /// 責務: macOS AppShellがGarageを含む5件のナビゲーション操作を表示することを確認します。
     @MainActor
     func testSidebarShowsEveryRequestedDestination() {
         let application = XCUIApplication.authenticatedProjectZD8()
@@ -26,7 +26,23 @@ final class MacOSAppShellUITests: XCTestCase {
         XCTAssertTrue(application.buttons["macos-sidebar-home"].waitForExistence(timeout: 5))
         XCTAssertTrue(application.buttons["macos-sidebar-liveLog"].exists)
         XCTAssertTrue(application.buttons["macos-sidebar-maintenance"].exists)
+        XCTAssertTrue(application.buttons["macos-sidebar-garage"].exists)
         XCTAssertTrue(application.buttons["macos-sidebar-settings"].exists)
+    }
+
+    /// Garageのサイドバー操作が複数車両カタログへ遷移することを検証します。
+    ///
+    /// 責務: Garage選択がmacOS専用車両管理画面を描画することを確認します。
+    @MainActor
+    func testGarageSidebarShowsVehicleCatalog() {
+        let application = XCUIApplication.authenticatedProjectZD8()
+        application.launch()
+
+        let garageButton = application.buttons["macos-sidebar-garage"]
+        XCTAssertTrue(garageButton.waitForExistence(timeout: 5))
+        garageButton.click()
+
+        XCTAssertTrue(application.descendants(matching: .any)["macos-garage-screen"].waitForExistence(timeout: 2))
     }
 
     /// macOSサイドバーの遷移先を操作するとコンテンツ領域が切り替わることを検証します。

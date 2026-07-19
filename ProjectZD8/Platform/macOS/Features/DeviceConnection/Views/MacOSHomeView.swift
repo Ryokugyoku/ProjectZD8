@@ -135,16 +135,13 @@ struct MacOSHomeView: View {
     private var primaryAction: some View {
         VStack(alignment: .leading, spacing: 9 * metrics.scale) {
             if state.hasDefaultAdapter {
-                Button("home.action.connect") {}
+                Button("home.action.connect") {
+                    if let endpoint = state.connectionEndpoint { send(.vehicleConnectionRequested(endpoint)) }
+                }
                     .buttonStyle(.borderedProminent)
                     .controlSize(.large)
-                    .disabled(true)
-                    .accessibilityHint(Text("home.action.connect_unavailable"))
                     .accessibilityIdentifier("macos-home-connect")
-
-                Text("home.action.connect_unavailable")
-                    .font(.system(size: 10.5 * metrics.scale, weight: .medium))
-                    .foregroundStyle(.secondary)
+                    .disabled(state.connectionEndpoint == nil)
             } else {
                 Button {
                     send(.adapterSetupRequested)

@@ -15,6 +15,12 @@ struct MacOSDestinationView: View {
     /// 設定画面へ渡す現在のアカウント同期対象設定です。
     let accountSettings: AccountSettings
 
+    /// Garageへ渡す現在の車両管理状態です。
+    let vehicleManagementState: VehicleManagementState
+
+    /// リアルタイムログ画面へ渡す主要PID読取状態です。
+    let liveTelemetryState: LiveTelemetryState
+
     /// HOMEの操作をAppShellへ通知するクロージャです。
     let sendHomeAction: (MacOSHomeAction) -> Void
 
@@ -23,6 +29,12 @@ struct MacOSDestinationView: View {
 
     /// アカウント同期対象の設定操作を通知するクロージャです。
     let sendAccountSettingsAction: (AccountSettingsAction) -> Void
+
+    /// Garageの型付き操作をVehicleManagementへ通知します。
+    let sendVehicleManagementAction: (VehicleManagementAction) -> Void
+
+    /// 主要PID読取操作をLiveTelemetryへ通知します。
+    let sendLiveTelemetryAction: (LiveTelemetryAction) -> Void
 
     /// Authenticationが管理するアカウント削除の現在段階です。
     let accountDeletionPhase: AccountDeletionPhase
@@ -42,6 +54,19 @@ struct MacOSDestinationView: View {
             MacOSHomeView(
                 state: MacOSHomeState(settingsState: settingsState),
                 send: sendHomeAction,
+                metrics: metrics
+            )
+        } else if destination == .liveLog {
+            MacOSLiveTelemetryView(
+                state: liveTelemetryState,
+                endpoint: settingsState.defaultAdapterPreference?.obdConnectionEndpoint,
+                send: sendLiveTelemetryAction,
+                metrics: metrics
+            )
+        } else if destination == .garage {
+            MacOSGarageView(
+                state: vehicleManagementState,
+                send: sendVehicleManagementAction,
                 metrics: metrics
             )
         } else if destination == .settings {

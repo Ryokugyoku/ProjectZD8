@@ -12,6 +12,12 @@ struct IOSDestinationView: View {
     /// 設定画面へ渡す現在のアカウント同期対象設定です。
     let accountSettings: AccountSettings
 
+    /// HOME登録導線へ渡す現在の車両管理状態です。
+    let vehicleManagementState: VehicleManagementState
+
+    /// リアルタイムログ画面へ渡す主要PID読取状態です。
+    let liveTelemetryState: LiveTelemetryState
+
     /// HOMEの操作をAppShellへ通知するクロージャです。
     let sendHomeAction: (IOSHomeAction) -> Void
 
@@ -20,6 +26,12 @@ struct IOSDestinationView: View {
 
     /// アカウント同期対象の設定操作を通知するクロージャです。
     let sendAccountSettingsAction: (AccountSettingsAction) -> Void
+
+    /// 車両登録操作をVehicleManagementへ通知します。
+    let sendVehicleManagementAction: (VehicleManagementAction) -> Void
+
+    /// 主要PID読取操作をLiveTelemetryへ通知します。
+    let sendLiveTelemetryAction: (LiveTelemetryAction) -> Void
 
     /// Authenticationが管理するアカウント削除の現在段階です。
     let accountDeletionPhase: AccountDeletionPhase
@@ -36,9 +48,22 @@ struct IOSDestinationView: View {
     @ViewBuilder
     var body: some View {
         if destination == .home {
-            IOSHomeView(
-                state: IOSHomeState(settingsState: settingsState),
-                send: sendHomeAction
+            if [.identifying, .confirmingIdentification, .registering, .failed].contains(vehicleManagementState.phase) {
+                IOSVehicleRegistrationView(
+                    state: vehicleManagementState,
+                    send: sendVehicleManagementAction
+                )
+            } else {
+                IOSHomeView(
+                    state: IOSHomeState(settingsState: settingsState),
+                    send: sendHomeAction
+                )
+            }
+        } else if destination == .liveLog {
+            IOSLiveTelemetryView(
+                state: liveTelemetryState,
+                endpoint: settingsState.defaultAdapterPreference?.obdConnectionEndpoint,
+                send: sendLiveTelemetryAction
             )
         } else if destination == .settings {
             IOSSettingsView(

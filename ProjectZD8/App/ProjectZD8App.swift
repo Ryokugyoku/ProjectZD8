@@ -9,6 +9,12 @@ struct ProjectZD8App: App {
     /// Connectionを除く設定をアカウント単位で保持するモデルです。
     @State private var accountSettingsModel: AccountSettingsModel
 
+    /// 登録車両、VIN確認、CloudKit同期を保持するモデルです。
+    @State private var vehicleManagementModel: VehicleManagementModel
+
+    /// 主要PIDの1回読取り状態を保持するモデルです。
+    @State private var liveTelemetryModel: LiveTelemetryModel
+
     #if os(iOS)
     /// iOS設定画面へ注入するプレゼンテーションモデルです。
     @State private var iOSSettingsModel: IOSSettingsPresentationModel
@@ -21,7 +27,7 @@ struct ProjectZD8App: App {
 
     /// プラットフォーム固有の依存関係を組み立ててアプリを生成します。
     ///
-    /// 責務: 現在のプラットフォーム用Compositionから認証、同期設定、Connection設定の各モデルを構築します。
+    /// 責務: 現在のプラットフォーム用Compositionから認証、同期設定、Connection設定、車両管理の各モデルを構築します。
     init() {
         #if os(iOS)
         _authenticationModel = State(
@@ -32,6 +38,12 @@ struct ProjectZD8App: App {
         )
         _iOSSettingsModel = State(
             initialValue: IOSApplicationComposition.makeSettingsPresentationModel()
+        )
+        _vehicleManagementModel = State(
+            initialValue: IOSApplicationComposition.makeVehicleManagementModel()
+        )
+        _liveTelemetryModel = State(
+            initialValue: IOSApplicationComposition.makeLiveTelemetryModel()
         )
         #endif
 
@@ -44,6 +56,12 @@ struct ProjectZD8App: App {
         )
         _macOSSettingsModel = State(
             initialValue: MacOSApplicationComposition.makeSettingsPresentationModel()
+        )
+        _vehicleManagementModel = State(
+            initialValue: MacOSApplicationComposition.makeVehicleManagementModel()
+        )
+        _liveTelemetryModel = State(
+            initialValue: MacOSApplicationComposition.makeLiveTelemetryModel()
         )
         #endif
     }
@@ -59,6 +77,8 @@ struct ProjectZD8App: App {
                     IOSAppShellView(
                         accountSettingsModel: accountSettingsModel,
                         settingsModel: iOSSettingsModel,
+                        vehicleManagementModel: vehicleManagementModel,
+                        liveTelemetryModel: liveTelemetryModel,
                         accountDeletionPhase: authenticationModel.state.accountDeletionPhase,
                         accountDeletionFailure: authenticationModel.state.accountDeletionFailure,
                         sendAuthenticationAction: authenticationModel.send
@@ -77,6 +97,8 @@ struct ProjectZD8App: App {
                     MacOSAppShellView(
                         accountSettingsModel: accountSettingsModel,
                         settingsModel: macOSSettingsModel,
+                        vehicleManagementModel: vehicleManagementModel,
+                        liveTelemetryModel: liveTelemetryModel,
                         accountDeletionPhase: authenticationModel.state.accountDeletionPhase,
                         accountDeletionFailure: authenticationModel.state.accountDeletionFailure,
                         sendAuthenticationAction: authenticationModel.send
@@ -105,6 +127,9 @@ struct ProjectZD8App: App {
         accountSettingsModel.send(
             .accountIdentifierChanged(authenticationModel.state.session?.userIdentifier)
         )
+        vehicleManagementModel.send(
+            .accountIdentifierChanged(authenticationModel.state.session?.userIdentifier)
+        )
     }
 
     /// ログアウト状態へ変わったときに設定スコープと端末内表示状態を初期化します。
@@ -114,6 +139,7 @@ struct ProjectZD8App: App {
     private func handleAuthenticationPhaseChange(_ phase: AuthenticationPhase) {
         guard phase == .signedOut else { return }
         accountSettingsModel.send(.accountIdentifierChanged(nil))
+        vehicleManagementModel.send(.accountIdentifierChanged(nil))
         #if os(iOS)
         iOSSettingsModel = IOSApplicationComposition.makeSettingsPresentationModel()
         #elseif os(macOS)

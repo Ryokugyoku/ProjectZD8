@@ -12,6 +12,9 @@ enum MacOSSidebarDestination: String, CaseIterable, Identifiable {
     /// 整備画面を選択します。
     case maintenance
 
+    /// 複数車両のGarage画面を選択します。
+    case garage
+
     /// 設定画面を選択します。
     case settings
 
@@ -27,6 +30,8 @@ enum MacOSSidebarDestination: String, CaseIterable, Identifiable {
             "sidebar.live_log"
         case .maintenance:
             "sidebar.maintenance"
+        case .garage:
+            "sidebar.garage"
         case .settings:
             "sidebar.settings"
         }
@@ -41,6 +46,8 @@ enum MacOSSidebarDestination: String, CaseIterable, Identifiable {
             "sidebar.live_log.subtitle"
         case .maintenance:
             "sidebar.maintenance.subtitle"
+        case .garage:
+            "sidebar.garage.subtitle"
         case .settings:
             "sidebar.settings.subtitle"
         }
@@ -55,6 +62,8 @@ enum MacOSSidebarDestination: String, CaseIterable, Identifiable {
             "waveform.path.ecg"
         case .maintenance:
             "wrench.adjustable.fill"
+        case .garage:
+            "car.2.fill"
         case .settings:
             "slider.horizontal.3"
         }
@@ -69,8 +78,10 @@ enum MacOSSidebarDestination: String, CaseIterable, Identifiable {
             "2"
         case .maintenance:
             "3"
-        case .settings:
+        case .garage:
             "4"
+        case .settings:
+            "5"
         }
     }
 
@@ -83,8 +94,10 @@ enum MacOSSidebarDestination: String, CaseIterable, Identifiable {
             "⌘2"
         case .maintenance:
             "⌘3"
-        case .settings:
+        case .garage:
             "⌘4"
+        case .settings:
+            "⌘5"
         }
     }
 }

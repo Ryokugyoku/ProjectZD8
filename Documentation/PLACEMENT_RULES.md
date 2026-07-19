@@ -65,6 +65,7 @@ ProjectZD8 uses the following approved product feature set. New production work 
 - `Analysis` owns orchestration of analysis over recorded logs and retrieval of analysis results.
 - `Authentication` owns Apple-account sign-in, credential-state restoration, and the application access gate.
 - `Settings` owns account-scoped persistence and cross-device synchronization for user preferences other than device Connection settings.
+- `VehicleManagement` owns account-scoped vehicle identity, registration, editable vehicle profiles, vehicle imagery, cross-device vehicle synchronization, and selection of a registered vehicle for a Connection workflow.
 
 The approved physical scaffold is:
 
@@ -81,6 +82,7 @@ ProjectZD8/
 │   ├── Authentication/{Actions,State,UseCases,Ports}/
 │   ├── Settings/{Actions,State,UseCases,Ports}/
 │   ├── DeviceConnection/{Actions,State,UseCases,Ports}/
+│   ├── VehicleManagement/{Actions,State,UseCases,Ports}/
 │   ├── LiveTelemetry/{Actions,State,UseCases,Ports}/
 │   ├── Logging/{Actions,State,UseCases}/
 │   ├── LogHistory/{Actions,State,UseCases}/
@@ -94,10 +96,10 @@ ProjectZD8/
 ├── Platform/
 │   ├── iOS/
 │   │   ├── AppShell/
-│   │   └── Features/{Authentication,Settings,DeviceConnection,LiveTelemetry,LogHistory,Analysis}/{Views,Presentation}/
+│   │   └── Features/{Authentication,Settings,DeviceConnection,VehicleManagement,LiveTelemetry,LogHistory,Analysis}/{Views,Presentation}/
 │   └── macOS/
 │       ├── AppShell/
-│       └── Features/{Authentication,Settings,DeviceConnection,LiveTelemetry,LogHistory,Analysis}/{Views,Presentation}/
+│       └── Features/{Authentication,Settings,DeviceConnection,VehicleManagement,LiveTelemetry,LogHistory,Analysis}/{Views,Presentation}/
 ├── Shared/
 │   ├── Foundation/
 │   └── DesignSystem/{Colors,Typography,Components}/
@@ -198,7 +200,20 @@ Group Application and Platform code by product feature before technical subtype.
 
 A Feature is a stable product capability with one durable user or system outcome. A screen, button, framework, transport, database table, temporary workflow step, or implementation technique MUST NOT become a Feature merely to obtain a folder.
 
-The approved Feature names remain `Authentication`, `Settings`, `DeviceConnection`, `LiveTelemetry`, `Logging`, `LogHistory`, and `Analysis`. `Settings` excludes device Connection settings, which remain owned by `DeviceConnection`. Adding, renaming, merging, or splitting a Feature changes product ownership and MUST pass the new-folder approval gate before files or directories are changed.
+The approved Feature names remain `Authentication`, `Settings`, `DeviceConnection`, `VehicleManagement`, `LiveTelemetry`, `Logging`, `LogHistory`, and `Analysis`. `Settings` excludes device Connection settings, which remain owned by `DeviceConnection`. `VehicleManagement` owns vehicle records and their account-scoped synchronization, while `DeviceConnection` continues to own adapter and transport lifecycle; a Connection workflow may cross that boundary only through Domain vehicle identity and narrow Application ports. Adding, renaming, merging, or splitting a Feature changes product ownership and MUST pass the new-folder approval gate before files or directories are changed.
+
+### VehicleManagement ownership contract
+
+`VehicleManagement` is a human-approved product Feature for one durable outcome: keeping the signed-in user's registered vehicles identifiable, editable, and synchronized across supported Apple platforms.
+
+- Domain vehicle identity MUST use an application-owned stable identifier. VIN, chassis numbers, ECU strings, registration plates, and user-entered names MUST NOT be database primary keys.
+- OBD-derived observations MUST retain their source and collection status separately from user-editable profile values. Missing or unverified OBD values MUST NOT be inferred from manufacturer, model, or VIN patterns.
+- `Application/Features/VehicleManagement` owns the identify-or-register workflow, duplicate/conflict decisions, editable profile actions, selected vehicle state, and synchronization status exposed to Platform.
+- `Data/Devices/OBD` may implement vehicle-identification acquisition behind a VehicleManagement Application port. It MUST NOT register a vehicle, choose a duplicate, or mutate presentation state directly.
+- `Data/Persistence/GRDB` may persist the local vehicle catalogue behind a Domain repository contract. `Data/Network/CloudKit` may synchronize account-scoped vehicle records and imagery behind an Application port. Neither implementation may be accessed from a View.
+- iOS and macOS vehicle registration and management layouts MUST remain independent under their respective `Platform/.../Features/VehicleManagement` trees. A shared screen layout, navigation tree, or platform-switching layout type is prohibited.
+- Vehicle imagery is user-owned profile data. Import, encoding, file access, and CloudKit asset transfer MUST remain behind injected ports; Platform may present a picker and dispatch a typed selection but MUST NOT become the durable image store.
+- A HOME Connection action remains owned by `DeviceConnection`, but it may request VehicleManagement identification through a narrow Application port after the adapter boundary is established. Registration success and transport connection success MUST remain distinguishable states.
 
 ### Feature dependency rules
 

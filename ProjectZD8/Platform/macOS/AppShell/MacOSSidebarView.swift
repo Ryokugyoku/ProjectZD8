@@ -29,7 +29,7 @@ struct MacOSSidebarView: View {
                     .font(.system(size: 10 * metrics.scale, weight: .bold, design: .rounded))
                     .tracking(1.8 * metrics.scale)
                     .foregroundStyle(.secondary)
-                    .padding(.top, 26 * metrics.scale)
+                    .padding(.top, (metrics.usesCompactSidebarHeight ? 10 : 26) * metrics.scale)
                     .padding(.horizontal, 10 * metrics.scale)
 
                 VStack(spacing: metrics.rowSpacing) {
@@ -41,7 +41,9 @@ struct MacOSSidebarView: View {
 
                 Spacer(minLength: 20 * metrics.scale)
 
-                footer
+                if !metrics.usesCompactSidebarHeight {
+                    footer
+                }
             }
             .padding(.horizontal, metrics.horizontalPadding)
             .padding(.vertical, metrics.verticalPadding)
@@ -163,10 +165,12 @@ struct MacOSSidebarView: View {
                         .font(.system(size: 14 * metrics.scale, weight: .semibold, design: .rounded))
                         .foregroundStyle(.primary)
 
-                    Text(destination.subtitle)
-                        .font(.system(size: 10.5 * metrics.scale, weight: .medium))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
+                    if !metrics.usesCompactSidebarHeight {
+                        Text(destination.subtitle)
+                            .font(.system(size: 10.5 * metrics.scale, weight: .medium))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
                 }
 
                 Spacer(minLength: 4 * metrics.scale)

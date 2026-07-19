@@ -5,6 +5,34 @@ import UIKit
 /// iOSアプリケーションで使用する実装依存関係を組み立てます。
 @MainActor
 enum IOSApplicationComposition {
+    /// iOSで未提供の実PID読取を明示的利用不能境界へ結び付けます。
+    ///
+    /// 責務: iOSのLiveTelemetryが未検証のBLE成功を表示しない構成を生成します。
+    /// - Returns: 読取要求時に明示的利用不能を返すモデル。
+    static func makeLiveTelemetryModel() -> LiveTelemetryModel {
+        LiveTelemetryModel(
+            readMajorPIDs: ReadMajorOBDPIDsUseCase(
+                definitions: StandardOBDPIDSeed.definitions,
+                telemetry: UnavailableOBDPIDTelemetryAdapter()
+            )
+        )
+    }
+
+    /// CloudKit同期とEX非対応境界を注入した車両管理モデルを生成します。
+    ///
+    /// 責務: iOSの車両保存、写真読込、USB専用EXの非対応境界をVehicleManagementへ結び付けます。
+    /// - Returns: private database同期を使用する車両管理モデル。
+    static func makeVehicleManagementModel() -> VehicleManagementModel {
+        VehicleManagementModel(
+            state: VehicleManagementState(),
+            repository: CloudKitVehicleRepository(),
+            identifyForConnection: IdentifyVehicleForConnectionUseCase(
+                identification: UnavailableVehicleIdentificationAdapter(error: .transportUnsupported)
+            ),
+            photoImporter: VehiclePhotoFileImporter()
+        )
+    }
+
     /// iCloud同期とローカル保持を注入したアカウント設定モデルを生成します。
     ///
     /// 責務: iOSの軽量設定保存実装をSettingsユースケースとアカウント設定状態へ結び付けます。

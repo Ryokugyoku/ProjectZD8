@@ -12,6 +12,12 @@ struct IOSAppShellView: View {
     /// Bluetoothアダプター選択状態を画面操作へ変換するモデルです。
     let settingsModel: IOSSettingsPresentationModel
 
+    /// 車両一覧、登録、同期状態を提供するモデルです。
+    let vehicleManagementModel: VehicleManagementModel
+
+    /// 主要PIDの読取状態を提供するモデルです。
+    let liveTelemetryModel: LiveTelemetryModel
+
     /// Authenticationが管理するアカウント削除の現在段階です。
     let accountDeletionPhase: AccountDeletionPhase
 
@@ -23,22 +29,28 @@ struct IOSAppShellView: View {
 
     /// アカウント設定モデルとConnection設定モデルを注入してiOSルート画面を生成します。
     ///
-    /// 責務: iOS AppShellを同期対象とConnection固有の独立した設定モデルへ結び付けます。
+    /// 責務: iOS AppShellを同期設定、Connection設定、車両管理の独立したモデルへ結び付けます。
     /// - Parameters:
     ///   - accountSettingsModel: 言語と外観を提供するアカウント設定モデル。
     ///   - settingsModel: Bluetooth候補選択状態を提供するモデル。
+    ///   - vehicleManagementModel: 登録車両とVIN確認状態を提供するモデル。
+    ///   - liveTelemetryModel: 主要PID読取状態を提供するモデル。
     ///   - accountDeletionPhase: アカウント削除の現在段階。
     ///   - accountDeletionFailure: 直近のアカウント削除失敗。
     ///   - sendAuthenticationAction: アカウント削除操作の通知先。
     init(
         accountSettingsModel: AccountSettingsModel,
         settingsModel: IOSSettingsPresentationModel,
+        vehicleManagementModel: VehicleManagementModel,
+        liveTelemetryModel: LiveTelemetryModel,
         accountDeletionPhase: AccountDeletionPhase,
         accountDeletionFailure: AccountDeletionFailure?,
         sendAuthenticationAction: @escaping (AuthenticationAction) -> Void
     ) {
         self.accountSettingsModel = accountSettingsModel
         self.settingsModel = settingsModel
+        self.vehicleManagementModel = vehicleManagementModel
+        self.liveTelemetryModel = liveTelemetryModel
         self.accountDeletionPhase = accountDeletionPhase
         self.accountDeletionFailure = accountDeletionFailure
         self.sendAuthenticationAction = sendAuthenticationAction
@@ -73,9 +85,13 @@ struct IOSAppShellView: View {
                 destination: selectedDestination,
                 settingsState: settingsModel.state,
                 accountSettings: accountSettingsModel.settings,
+                vehicleManagementState: vehicleManagementModel.state,
+                liveTelemetryState: liveTelemetryModel.state,
                 sendHomeAction: handleHomeAction,
                 sendSettingsAction: settingsModel.send,
                 sendAccountSettingsAction: accountSettingsModel.send,
+                sendVehicleManagementAction: vehicleManagementModel.send,
+                sendLiveTelemetryAction: liveTelemetryModel.send,
                 accountDeletionPhase: accountDeletionPhase,
                 accountDeletionFailure: accountDeletionFailure,
                 sendAuthenticationAction: sendAuthenticationAction
@@ -98,6 +114,8 @@ struct IOSAppShellView: View {
         case .adapterSetupRequested:
             selectedDestination = .settings
             settingsModel.send(.adapterAttentionRequested)
+        case let .vehicleConnectionRequested(endpoint):
+            vehicleManagementModel.send(.identifyRequested(endpoint))
         }
     }
 }

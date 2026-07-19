@@ -12,6 +12,15 @@ struct DefaultAdapterPreference: Equatable, Sendable {
     /// システムが候補へ割り当てた識別子です。
     let systemIdentifier: String
 
+    /// 保存済み値から通信層へ渡せるOBD物理終端です。
+    var obdConnectionEndpoint: OBDConnectionEndpoint {
+        OBDConnectionEndpoint(
+            transport: transportMode == .bluetooth ? .bluetoothLowEnergy : .serial,
+            systemIdentifier: systemIdentifier,
+            displayName: displayName
+        )
+    }
+
     /// 検出済み候補からデフォルト設定を生成します。
     ///
     /// 責務: 1件の検出結果を次回探索で照合できるデフォルト設定へ変換します。

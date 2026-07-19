@@ -9,6 +9,8 @@ struct IOSHomeState: Equatable {
 
     /// デフォルトアダプターが現在のBluetooth探索で検出済みかどうかです。
     let isDefaultAdapterDetected: Bool
+    /// 接続ボタンからApplicationへ渡すOBD物理終端です。
+    let connectionEndpoint: OBDConnectionEndpoint?
 
     /// iOS設定状態からHOME表示状態を生成します。
     ///
@@ -20,6 +22,7 @@ struct IOSHomeState: Equatable {
         isDefaultAdapterDetected = settingsState.selectedAdapters[.primary].map {
             settingsState.defaultAdapterPreference?.matches($0) == true
         } ?? false
+        connectionEndpoint = settingsState.defaultAdapterPreference?.obdConnectionEndpoint
     }
 }
 #endif

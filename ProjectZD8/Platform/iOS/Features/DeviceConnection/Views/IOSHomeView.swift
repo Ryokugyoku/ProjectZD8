@@ -158,17 +158,14 @@ struct IOSHomeView: View {
     private var primaryAction: some View {
         VStack(alignment: .leading, spacing: 9) {
             if state.hasDefaultAdapter {
-                Button("home.action.connect") {}
+                Button("home.action.connect") {
+                    if let endpoint = state.connectionEndpoint { send(.vehicleConnectionRequested(endpoint)) }
+                }
                     .buttonStyle(.borderedProminent)
                     .controlSize(.large)
                     .frame(maxWidth: .infinity)
-                    .disabled(true)
-                    .accessibilityHint(Text("home.action.connect_unavailable"))
                     .accessibilityIdentifier("ios-home-connect")
-
-                Text("home.action.connect_unavailable")
-                    .font(.caption.weight(.medium))
-                    .foregroundStyle(.secondary)
+                    .disabled(state.connectionEndpoint == nil)
             } else {
                 Button {
                     send(.adapterSetupRequested)

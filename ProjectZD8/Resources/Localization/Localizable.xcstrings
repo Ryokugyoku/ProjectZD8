@@ -1,22 +1,358 @@
 {
   "sourceLanguage" : "ja",
   "strings" : {
-    "account.delete.cancel" : {"localizations":{"en":{"stringUnit":{"state":"translated","value":"Cancel"}},"es":{"stringUnit":{"state":"translated","value":"Cancelar"}},"ja":{"stringUnit":{"state":"translated","value":"キャンセル"}}}},
-    "account.delete.card.description" : {"localizations":{"en":{"stringUnit":{"state":"translated","value":"Permanently remove this account's app settings and saved sign-in information."}},"es":{"stringUnit":{"state":"translated","value":"Elimina permanentemente la configuración de la app y la información de inicio de sesión guardada de esta cuenta."}},"ja":{"stringUnit":{"state":"translated","value":"このアカウントのアプリ設定と保存済みログイン情報を完全に削除します。"}}}},
-    "account.delete.card.title" : {"localizations":{"en":{"stringUnit":{"state":"translated","value":"Delete account"}},"es":{"stringUnit":{"state":"translated","value":"Eliminar cuenta"}},"ja":{"stringUnit":{"state":"translated","value":"アカウントを削除"}}}},
-    "account.delete.confirm" : {"localizations":{"en":{"stringUnit":{"state":"translated","value":"Delete account"}},"es":{"stringUnit":{"state":"translated","value":"Eliminar cuenta"}},"ja":{"stringUnit":{"state":"translated","value":"削除する"}}}},
-    "account.delete.error" : {"localizations":{"en":{"stringUnit":{"state":"translated","value":"Deletion could not be completed. Your sign-in information was retained so you can retry."}},"es":{"stringUnit":{"state":"translated","value":"No se pudo completar la eliminación. Se conservó la información de inicio de sesión para que puedas intentarlo de nuevo."}},"ja":{"stringUnit":{"state":"translated","value":"削除を完了できませんでした。再試行できるようログイン情報は保持されています。"}}}},
-    "account.delete.item.adapter" : {"localizations":{"en":{"stringUnit":{"state":"translated","value":"The default adapter and device-specific connection selection saved on this device"}},"es":{"stringUnit":{"state":"translated","value":"El adaptador predeterminado y la selección de conexión específica del dispositivo guardados en este dispositivo"}},"ja":{"stringUnit":{"state":"translated","value":"この端末に保存したデフォルトアダプターと端末固有の接続選択"}}}},
-    "account.delete.item.credential" : {"localizations":{"en":{"stringUnit":{"state":"translated","value":"The saved Apple sign-in identifier for this app"}},"es":{"stringUnit":{"state":"translated","value":"El identificador guardado de inicio de sesión con Apple para esta app"}},"ja":{"stringUnit":{"state":"translated","value":"このアプリのAppleログイン用に保存した識別情報"}}}},
-    "account.delete.item.shared_settings" : {"localizations":{"en":{"stringUnit":{"state":"translated","value":"Language and appearance settings stored locally and shared through iCloud"}},"es":{"stringUnit":{"state":"translated","value":"La configuración de idioma y apariencia guardada localmente y compartida mediante iCloud"}},"ja":{"stringUnit":{"state":"translated","value":"端末内およびiCloud共有設定に保存した言語と外観"}}}},
-    "account.delete.navigation_title" : {"localizations":{"en":{"stringUnit":{"state":"translated","value":"Delete account"}},"es":{"stringUnit":{"state":"translated","value":"Eliminar cuenta"}},"ja":{"stringUnit":{"state":"translated","value":"アカウント削除"}}}},
-    "account.delete.next" : {"localizations":{"en":{"stringUnit":{"state":"translated","value":"Next"}},"es":{"stringUnit":{"state":"translated","value":"Siguiente"}},"ja":{"stringUnit":{"state":"translated","value":"次へ"}}}},
-    "account.delete.retry" : {"localizations":{"en":{"stringUnit":{"state":"translated","value":"Retry deletion"}},"es":{"stringUnit":{"state":"translated","value":"Reintentar eliminación"}},"ja":{"stringUnit":{"state":"translated","value":"削除を再試行"}}}},
-    "account.delete.review.message" : {"localizations":{"en":{"stringUnit":{"state":"translated","value":"The following data will be permanently deleted and cannot be restored."}},"es":{"stringUnit":{"state":"translated","value":"Los siguientes datos se eliminarán permanentemente y no se podrán restaurar."}},"ja":{"stringUnit":{"state":"translated","value":"次のデータは完全に削除され、元に戻すことはできません。"}}}},
-    "account.delete.review.title" : {"localizations":{"en":{"stringUnit":{"state":"translated","value":"Items to be deleted"}},"es":{"stringUnit":{"state":"translated","value":"Elementos que se eliminarán"}},"ja":{"stringUnit":{"state":"translated","value":"削除される事項"}}}},
-    "account.delete.start" : {"localizations":{"en":{"stringUnit":{"state":"translated","value":"Start account deletion"}},"es":{"stringUnit":{"state":"translated","value":"Iniciar eliminación de cuenta"}},"ja":{"stringUnit":{"state":"translated","value":"アカウント削除を開始"}}}},
-    "account.delete.warning.message" : {"localizations":{"en":{"stringUnit":{"state":"translated","value":"Deleting your account permanently removes app settings and saved sign-in information. This action cannot be undone."}},"es":{"stringUnit":{"state":"translated","value":"Al eliminar tu cuenta se borrarán permanentemente la configuración de la app y la información de inicio de sesión guardada. Esta acción no se puede deshacer."}},"ja":{"stringUnit":{"state":"translated","value":"アカウントを削除すると、アプリ設定と保存済みログイン情報が完全に削除されます。この操作は取り消せません。"}}}},
-    "account.delete.warning.title" : {"localizations":{"en":{"stringUnit":{"state":"translated","value":"Delete this account?"}},"es":{"stringUnit":{"state":"translated","value":"¿Eliminar esta cuenta?"}},"ja":{"stringUnit":{"state":"translated","value":"アカウントを削除しますか？"}}}},
+    "account.delete.cancel" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cancel"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cancelar"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "キャンセル"
+          }
+        }
+      }
+    },
+    "account.delete.card.description" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Permanently remove this account's app settings and saved sign-in information."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elimina permanentemente la configuración de la app y la información de inicio de sesión guardada de esta cuenta."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このアカウントのアプリ設定と保存済みログイン情報を完全に削除します。"
+          }
+        }
+      }
+    },
+    "account.delete.card.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete account"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eliminar cuenta"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "アカウントを削除"
+          }
+        }
+      }
+    },
+    "account.delete.confirm" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete account"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eliminar cuenta"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "削除する"
+          }
+        }
+      }
+    },
+    "account.delete.error" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deletion could not be completed. Your sign-in information was retained so you can retry."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo completar la eliminación. Se conservó la información de inicio de sesión para que puedas intentarlo de nuevo."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "削除を完了できませんでした。再試行できるようログイン情報は保持されています。"
+          }
+        }
+      }
+    },
+    "account.delete.item.adapter" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The default adapter and device-specific connection selection saved on this device"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El adaptador predeterminado y la selección de conexión específica del dispositivo guardados en este dispositivo"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この端末に保存したデフォルトアダプターと端末固有の接続選択"
+          }
+        }
+      }
+    },
+    "account.delete.item.credential" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The saved Apple sign-in identifier for this app"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El identificador guardado de inicio de sesión con Apple para esta app"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このアプリのAppleログイン用に保存した識別情報"
+          }
+        }
+      }
+    },
+    "account.delete.item.shared_settings" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Language and appearance settings stored locally and shared through iCloud"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La configuración de idioma y apariencia guardada localmente y compartida mediante iCloud"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "端末内およびiCloud共有設定に保存した言語と外観"
+          }
+        }
+      }
+    },
+    "account.delete.navigation_title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete account"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eliminar cuenta"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "アカウント削除"
+          }
+        }
+      }
+    },
+    "account.delete.next" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Next"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Siguiente"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "次へ"
+          }
+        }
+      }
+    },
+    "account.delete.retry" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Retry deletion"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reintentar eliminación"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "削除を再試行"
+          }
+        }
+      }
+    },
+    "account.delete.review.message" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The following data will be permanently deleted and cannot be restored."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Los siguientes datos se eliminarán permanentemente y no se podrán restaurar."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "次のデータは完全に削除され、元に戻すことはできません。"
+          }
+        }
+      }
+    },
+    "account.delete.review.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Items to be deleted"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elementos que se eliminarán"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "削除される事項"
+          }
+        }
+      }
+    },
+    "account.delete.start" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Start account deletion"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Iniciar eliminación de cuenta"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "アカウント削除を開始"
+          }
+        }
+      }
+    },
+    "account.delete.warning.message" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deleting your account permanently removes app settings and saved sign-in information. This action cannot be undone."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Al eliminar tu cuenta se borrarán permanentemente la configuración de la app y la información de inicio de sesión guardada. Esta acción no se puede deshacer."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "アカウントを削除すると、アプリ設定と保存済みログイン情報が完全に削除されます。この操作は取り消せません。"
+          }
+        }
+      }
+    },
+    "account.delete.warning.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete this account?"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Eliminar esta cuenta?"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "アカウントを削除しますか？"
+          }
+        }
+      }
+    },
     "auth.capability.analysis" : {
       "localizations" : {
         "en" : {
@@ -765,6 +1101,1455 @@
         }
       }
     },
+    "garage.cancel" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cancel"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cancelar"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "キャンセル"
+          }
+        }
+      }
+    },
+    "garage.default" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Default"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Predeterminado"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "デフォルト"
+          }
+        }
+      }
+    },
+    "garage.edit" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edit"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Editar"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "編集"
+          }
+        }
+      }
+    },
+    "garage.editor.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vehicle profile"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Perfil del vehículo"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "車両プロフィール"
+          }
+        }
+      }
+    },
+    "garage.empty.description" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connect from Home to identify and register a vehicle."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conecta desde Inicio para identificar y registrar un vehículo."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "HOMEから接続し、車両を識別して登録してください。"
+          }
+        }
+      }
+    },
+    "garage.empty.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No vehicles yet"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aún no hay vehículos"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "登録車両がありません"
+          }
+        }
+      }
+    },
+    "garage.energy.%@" : {
+
+    },
+    "garage.energy.cng" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CNG"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "GNC"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CNG"
+          }
+        }
+      }
+    },
+    "garage.energy.diesel" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Diesel"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Diésel"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "軽油"
+          }
+        }
+      }
+    },
+    "garage.energy.electricity" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Electricity"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Electricidad"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "電気"
+          }
+        }
+      }
+    },
+    "garage.energy.gasoline" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gasoline"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gasolina"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ガソリン"
+          }
+        }
+      }
+    },
+    "garage.energy.hydrogen" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hydrogen"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hidrógeno"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "水素"
+          }
+        }
+      }
+    },
+    "garage.energy.lpg" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "LPG"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "GLP"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "LPG"
+          }
+        }
+      }
+    },
+    "garage.energy.other" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Other"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Otro"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "その他"
+          }
+        }
+      }
+    },
+    "garage.error.command_rejected" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The adapter or vehicle rejected the identification request."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El adaptador o el vehículo rechazó la solicitud de identificación."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "アダプターまたは車両が識別要求を拒否しました。"
+          }
+        }
+      }
+    },
+    "garage.error.connection" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The OBDLink EX serial connection could not be opened."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo abrir la conexión serie de OBDLink EX."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OBDLink EXのシリアル接続を開けませんでした。"
+          }
+        }
+      }
+    },
+    "garage.error.delete" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The vehicle could not be deleted."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo eliminar el vehículo."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "車両を削除できませんでした。"
+          }
+        }
+      }
+    },
+    "garage.error.obd_unavailable" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vehicle identification is not available until the verified OBD runtime is connected."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La identificación no está disponible hasta conectar el entorno OBD verificado."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "検証済みOBD実装が接続されるまで車両識別は利用できません。"
+          }
+        }
+      }
+    },
+    "garage.error.malformed_response" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The returned vehicle identifier could not be parsed."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo interpretar el identificador del vehículo recibido."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "取得した車両識別子を解析できませんでした。"
+          }
+        }
+      }
+    },
+    "garage.error.pid_catalog" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The verified PID catalog could not be prepared."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo preparar el catálogo de PID verificado."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "検証済みPIDカタログを準備できませんでした。"
+          }
+        }
+      }
+    },
+    "garage.error.timeout" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The OBD adapter response timed out."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se agotó el tiempo de espera de la respuesta del adaptador OBD."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OBDアダプターの応答が時間内に完了しませんでした。"
+          }
+        }
+      }
+    },
+    "garage.error.photo" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The selected photo could not be loaded."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo cargar la foto seleccionada."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "選択した写真を読み込めませんでした。"
+          }
+        }
+      }
+    },
+    "garage.error.save" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The vehicle could not be saved."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo guardar el vehículo."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "車両を保存できませんでした。"
+          }
+        }
+      }
+    },
+    "garage.error.sync" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vehicles could not be synchronized. Check iCloud and try again."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudieron sincronizar los vehículos. Comprueba iCloud."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "車両を同期できませんでした。iCloudを確認してください。"
+          }
+        }
+      }
+    },
+    "garage.error.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Could not continue"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo continuar"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "処理を続行できません"
+          }
+        }
+      }
+    },
+    "garage.error.vin_unavailable" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A vehicle identifier was not returned, so registration cannot continue."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se recibió un identificador del vehículo y no se puede continuar."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "車両識別子を取得できないため登録を続行できません。"
+          }
+        }
+      }
+    },
+    "garage.eyebrow" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "VEHICLE COLLECTION"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "COLECCIÓN DE VEHÍCULOS"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "VEHICLE COLLECTION"
+          }
+        }
+      }
+    },
+    "garage.field.default" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use as default vehicle"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Usar como vehículo predeterminado"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "デフォルト車両にする"
+          }
+        }
+      }
+    },
+    "garage.field.energy" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Energy sources"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fuentes de energía"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "エネルギー種別"
+          }
+        }
+      }
+    },
+    "garage.field.engine_model" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Engine model"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Modelo de motor"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "エンジン型式"
+          }
+        }
+      }
+    },
+    "garage.field.manufacturer" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Manufacturer"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fabricante"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "メーカー"
+          }
+        }
+      }
+    },
+    "garage.field.model_year" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Model year"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Año del modelo"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "年式"
+          }
+        }
+      }
+    },
+    "garage.field.name" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vehicle name"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nombre del vehículo"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "車両名称"
+          }
+        }
+      }
+    },
+    "garage.field.note" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Notes"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Notas"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "メモ"
+          }
+        }
+      }
+    },
+    "garage.field.powertrain" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Powertrain class"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tipo de propulsión"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "動力分類"
+          }
+        }
+      }
+    },
+    "garage.field.tank" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tank capacity (L)"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Capacidad del depósito (L)"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "タンク容量（L）"
+          }
+        }
+      }
+    },
+    "garage.field.vin" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "VIN"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "VIN"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "VIN"
+          }
+        }
+      }
+    },
+    "garage.identification.all_fields" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All acquired information"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Toda la información adquirida"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "取得した全情報"
+          }
+        }
+      }
+    },
+    "garage.identification.confirm" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Register this vehicle"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Registrar este vehículo"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この車両を登録する"
+          }
+        }
+      }
+    },
+    "garage.identification.description" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Review the OBD-reported identifier and every acquired item before continuing. Unavailable values are not inferred."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Revisa el identificador informado por OBD y todos los datos adquiridos. No se infieren valores ausentes."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OBDが返した識別子と取得できた全項目を確認してください。未取得値は推測しません。"
+          }
+        }
+      }
+    },
+    "garage.identification.eyebrow" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OBD IDENTIFICATION"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "IDENTIFICACIÓN OBD"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OBD IDENTIFICATION"
+          }
+        }
+      }
+    },
+    "garage.identification.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Is this your vehicle?"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Es este tu vehículo?"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この車両を登録しますか？"
+          }
+        }
+      }
+    },
+    "garage.identification.vin" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vehicle Identification Number"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Número de identificación"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "車両識別番号"
+          }
+        }
+      }
+    },
+    "garage.photo" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vehicle photo"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Foto del vehículo"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "車両写真"
+          }
+        }
+      }
+    },
+    "garage.photo.choose" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose photo"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elegir foto"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "写真を選択"
+          }
+        }
+      }
+    },
+    "garage.powertrain.%@" : {
+
+    },
+    "garage.powertrain.batteryElectric" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Battery electric"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eléctrico de batería"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "電気自動車"
+          }
+        }
+      }
+    },
+    "garage.powertrain.combustion" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Combustion"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Combustión"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "内燃機関"
+          }
+        }
+      }
+    },
+    "garage.powertrain.fuelCell" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fuel cell"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pila de combustible"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "燃料電池"
+          }
+        }
+      }
+    },
+    "garage.powertrain.hybrid" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hybrid"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Híbrido"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ハイブリッド"
+          }
+        }
+      }
+    },
+    "garage.powertrain.other" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Other"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Otro"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "その他"
+          }
+        }
+      }
+    },
+    "garage.powertrain.plugInHybrid" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Plug-in hybrid"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Híbrido enchufable"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "プラグインハイブリッド"
+          }
+        }
+      }
+    },
+    "garage.ready" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vehicle identified and ready for connection."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vehículo identificado y listo para conectar."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "登録車両を識別しました。接続準備完了です。"
+          }
+        }
+      }
+    },
+    "garage.ready.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vehicle identified"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vehículo identificado"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "車両を識別しました"
+          }
+        }
+      }
+    },
+    "garage.refresh" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sync"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sincronizar"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "同期"
+          }
+        }
+      }
+    },
+    "garage.registration.navigation" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vehicle registration"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Registro del vehículo"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "車両登録"
+          }
+        }
+      }
+    },
+    "garage.retry" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Try again"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reintentar"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "再試行"
+          }
+        }
+      }
+    },
+    "garage.save" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Save vehicle"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Guardar vehículo"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "車両を保存"
+          }
+        }
+      }
+    },
+    "garage.section.energy" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Power and energy"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Propulsión y energía"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "動力・エネルギー"
+          }
+        }
+      }
+    },
+    "garage.section.identity" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vehicle profile"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Perfil del vehículo"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "車両プロフィール"
+          }
+        }
+      }
+    },
+    "garage.section.other" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Other settings"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Otros ajustes"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "その他"
+          }
+        }
+      }
+    },
+    "garage.status.identifying" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reading vehicle information…"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Leyendo información del vehículo…"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "車両情報を取得しています…"
+          }
+        }
+      }
+    },
+    "garage.status.loading" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Synchronizing vehicles…"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sincronizando vehículos…"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "車両を同期しています…"
+          }
+        }
+      }
+    },
+    "garage.subtitle" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your synchronized collection of registered vehicles."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tu colección sincronizada de vehículos registrados."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "登録車両を美しく整理し、iPhoneと同期します。"
+          }
+        }
+      }
+    },
+    "garage.synced" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cloud synchronization target"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Objetivo de sincronización en la nube"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "クラウド同期対象"
+          }
+        }
+      }
+    },
+    "garage.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Garage"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Garaje"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Garage"
+          }
+        }
+      }
+    },
+    "garage.unknown_manufacturer" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unknown manufacturer"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fabricante desconocido"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "メーカー未設定"
+          }
+        }
+      }
+    },
     "home.action.connect" : {
       "localizations" : {
         "en" : {
@@ -788,6 +2573,7 @@
       }
     },
     "home.action.connect_unavailable" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -3018,6 +4804,50 @@
         }
       }
     },
+    "sidebar.garage" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Garage"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Garaje"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Garage"
+          }
+        }
+      }
+    },
+    "sidebar.garage.subtitle" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vehicles and profiles"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vehículos y perfiles"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "車両とプロフィール"
+          }
+        }
+      }
+    },
     "sidebar.home" : {
       "localizations" : {
         "en" : {
@@ -3214,6 +5044,83 @@
             "value" : "ワークスペースを調整"
           }
         }
+      }
+    },
+    "garage.field.obd_identifier" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "OBD-reported identifier" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Identificador informado por OBD" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "OBD由来識別子" } }
+      }
+    },
+    "obd.pid.engine_coolant_temperature" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Engine coolant temperature" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Temperatura del refrigerante" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "エンジン冷却水温" } }
+      }
+    },
+    "obd.pid.engine_speed" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Engine speed" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Régimen del motor" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "エンジン回転数" } }
+      }
+    },
+    "telemetry.error.read_failed" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Major PIDs could not be read. Check the adapter and vehicle state." } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "No se pudieron leer los PID principales. Comprueba el adaptador y el vehículo." } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "主要PIDを取得できません。アダプターと車両状態を確認してください。" } }
+      }
+    },
+    "telemetry.error.unavailable" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Verified PID reading is not available on this platform." } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "La lectura de PID verificada no está disponible en esta plataforma." } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "このプラットフォームでは検証済みPID読取を利用できません。" } }
+      }
+    },
+    "telemetry.eyebrow" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "OBD LIVE CHECK" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "COMPROBACIÓN OBD" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "OBD LIVE CHECK" } }
+      }
+    },
+    "telemetry.read" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Read major PIDs" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Leer PID principales" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "主要PIDを取得" } }
+      }
+    },
+    "telemetry.refresh" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Read again" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Leer de nuevo" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "再取得" } }
+      }
+    },
+    "telemetry.status.reading" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Reading major PIDs…" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Leyendo PID principales…" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "主要PIDを取得中…" } }
+      }
+    },
+    "telemetry.subtitle" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Reads only the two PIDs currently backed by bundled source definitions." } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Lee solo los dos PID respaldados actualmente por definiciones verificadas." } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "現在一次資料付きで定義済みの2 PIDだけを読み取ります。" } }
+      }
+    },
+    "telemetry.title" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Major PID readings" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Lecturas PID principales" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "主要PID読取" } }
       }
     },
     "ZD8" : {

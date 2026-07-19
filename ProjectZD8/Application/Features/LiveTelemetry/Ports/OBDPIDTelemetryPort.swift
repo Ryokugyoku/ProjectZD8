@@ -1,0 +1,12 @@
+/// 1回のOBD接続で指定PIDの未加工データを読み取る能力です。
+protocol OBDPIDTelemetryPort: Sendable {
+    /// 複数の読取要求を1回の物理接続で実行します。
+    ///
+    /// 責務: 許可済みService/PID要求群を未加工応答バイトへ変換します。
+    /// - Parameters:
+    ///   - requests: 読み取るService/PID要求。
+    ///   - endpoint: OBDアダプターの物理終端。
+    /// - Returns: 要求ごとの未加工データバイト。
+    /// - Throws: 非対応PID、接続、拒否応答、または形式不正の場合のエラー。
+    func read(_ requests: [OBDPIDRequest], using endpoint: OBDConnectionEndpoint) async throws -> [OBDPIDRequest: [UInt8]]
+}

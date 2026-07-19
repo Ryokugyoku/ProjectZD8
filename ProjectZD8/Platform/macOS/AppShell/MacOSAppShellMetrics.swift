@@ -30,17 +30,23 @@ struct MacOSAppShellMetrics: Equatable {
     /// 遷移先プレースホルダーのシンボルサイズです。
     let contentSymbolSize: CGFloat
 
+    /// 低いウインドウ向けにサイドバー補助情報を省略するかどうかです。
+    let usesCompactSidebarHeight: Bool
+
     /// 指定した倍率からAppShellの表示寸法一式を生成します。
     ///
     /// 責務: 制限済みの倍率をmacOS AppShellの各表示寸法へ変換します。
-    /// - Parameter scale: 現在のウインドウに適用する制限済みの表示倍率。
-    init(scale: CGFloat) {
+    /// - Parameters:
+    ///   - scale: 現在のウインドウに適用する制限済みの表示倍率。
+    ///   - usesCompactSidebarHeight: サイドバーを低いウインドウ向けに縮約するかどうか。
+    init(scale: CGFloat, usesCompactSidebarHeight: Bool = false) {
         self.scale = scale
+        self.usesCompactSidebarHeight = usesCompactSidebarHeight
         sidebarWidth = 272 * scale
         horizontalPadding = 14 * scale
-        verticalPadding = 18 * scale
-        rowHeight = 62 * scale
-        rowSpacing = 7 * scale
+        verticalPadding = (usesCompactSidebarHeight ? 10 : 18) * scale
+        rowHeight = (usesCompactSidebarHeight ? 48 : 62) * scale
+        rowSpacing = (usesCompactSidebarHeight ? 3 : 7) * scale
         symbolSize = 20 * scale
         contentTitleSize = 32 * scale
         contentSymbolSize = 72 * scale
@@ -55,7 +61,10 @@ struct MacOSAppShellMetrics: Equatable {
         let widthScale = size.width / 1_200
         let heightScale = size.height / 800
         let boundedScale = min(max(min(widthScale, heightScale), 0.82), 1.35)
-        return MacOSAppShellMetrics(scale: boundedScale)
+        return MacOSAppShellMetrics(
+            scale: boundedScale,
+            usesCompactSidebarHeight: size.height < 560
+        )
     }
 }
 #endif
