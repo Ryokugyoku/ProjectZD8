@@ -43,8 +43,6 @@ struct IOSDrivingLogDevelopmentView: View {
         }
         .padding(30)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .navigationTitle("history.detail.title")
-        .navigationBarTitleDisplayMode(.inline)
         .accessibilityIdentifier("ios-driving-log-development")
     }
 }

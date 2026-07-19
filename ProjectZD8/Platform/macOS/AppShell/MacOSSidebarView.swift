@@ -9,6 +9,9 @@ struct MacOSSidebarView: View {
     /// 現在のウインドウサイズに対応する表示寸法です。
     let metrics: MacOSAppShellMetrics
 
+    /// 正常終了しなかった接続履歴の件数です。
+    let interruptedHistoryCount: Int
+
     /// ポインターが重なっている遷移先を一時的に保持します。
     @State private var hoveredDestination: MacOSSidebarDestination?
 
@@ -175,10 +178,14 @@ struct MacOSSidebarView: View {
 
                 Spacer(minLength: 4 * metrics.scale)
 
-                Text(destination.shortcutLabel)
-                    .font(.system(size: 10 * metrics.scale, weight: .medium, design: .rounded))
-                    .foregroundStyle(.tertiary)
-                    .opacity(isHovered || isSelected ? 1 : 0)
+                if destination == .history, interruptedHistoryCount > 0 {
+                    historyWarningBadge
+                } else {
+                    Text(destination.shortcutLabel)
+                        .font(.system(size: 10 * metrics.scale, weight: .medium, design: .rounded))
+                        .foregroundStyle(.tertiary)
+                        .opacity(isHovered || isSelected ? 1 : 0)
+                }
             }
             .padding(.horizontal, 9 * metrics.scale)
             .frame(maxWidth: .infinity, minHeight: metrics.rowHeight)
@@ -206,6 +213,19 @@ struct MacOSSidebarView: View {
         .accessibilityLabel(Text(destination.title))
         .accessibilityAddTraits(isSelected ? .isSelected : [])
         .accessibilityIdentifier("macos-sidebar-\(destination.rawValue)")
+    }
+
+    /// 正常終了しなかった履歴件数をサイドバー上の注意表示として描画します。
+    private var historyWarningBadge: some View {
+        Label("\(interruptedHistoryCount)", systemImage: "exclamationmark.triangle.fill")
+            .labelStyle(.titleAndIcon)
+            .font(.system(size: 9.5 * metrics.scale, weight: .bold, design: .rounded))
+            .foregroundStyle(.orange)
+            .padding(.horizontal, 7 * metrics.scale)
+            .padding(.vertical, 5 * metrics.scale)
+            .background(Color.orange.opacity(0.12), in: Capsule())
+            .accessibilityLabel(Text("history.warning.interrupted"))
+            .accessibilityValue(Text(interruptedHistoryCount, format: .number))
     }
 }
 #endif

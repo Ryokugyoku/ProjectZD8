@@ -41,7 +41,21 @@ final class ConnectionHistoryModel {
         switch action {
         case let .accountIdentifierChanged(identifier): activateAccount(identifier)
         case .refreshRequested: loadSessions()
+        case let .filterStartDateChanged(date): state.filterStartDate = date
+        case let .filterEndDateChanged(date): state.filterEndDate = date
+        case let .endReasonFilterChanged(filter): state.endReasonFilter = filter
+        case let .sortOrderChanged(order): state.sortOrder = order
+        case .filtersReset: resetFilters()
         }
+    }
+
+    /// セッション一覧の絞り込み条件を標準値へ戻します。
+    ///
+    /// 責務: 現在の履歴状態から日付範囲と終了理由条件だけを初期化します。
+    private func resetFilters() {
+        state.filterStartDate = nil
+        state.filterEndDate = nil
+        state.endReasonFilter = .all
     }
 
     /// 新しいアカウントへ履歴読込範囲を切り替えます。

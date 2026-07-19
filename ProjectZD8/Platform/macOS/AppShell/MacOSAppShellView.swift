@@ -99,7 +99,8 @@ struct MacOSAppShellView: View {
             HStack(spacing: 0) {
                 MacOSSidebarView(
                     selection: $selectedDestination,
-                    metrics: metrics
+                    metrics: metrics,
+                    interruptedHistoryCount: connectionHistoryModel.state.interruptedCount
                 )
 
                 Rectangle()

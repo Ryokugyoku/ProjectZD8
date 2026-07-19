@@ -44,7 +44,6 @@ struct MacOSDrivingLogDevelopmentView: View {
         .padding(36 * metrics.scale)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(nsColor: .windowBackgroundColor))
-        .navigationTitle("history.detail.title")
         .accessibilityIdentifier("macos-driving-log-development")
     }
 }

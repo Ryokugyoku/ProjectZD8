@@ -2594,6 +2594,209 @@
         }
       }
     },
+    "history.active.elapsed" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Elapsed" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Transcurrido" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "経過時間" } }
+      }
+    },
+    "history.active.recording" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "RECORDING IN PROGRESS" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "GRABACIÓN EN CURSO" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "記録中" } }
+      }
+    },
+    "history.active.title" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Active session" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Sesión activa" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "進行中のセッション" } }
+      }
+    },
+    "history.archive.empty" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Completed sessions will be organized here by vehicle." } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Las sesiones finalizadas se organizarán aquí por vehículo." } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "終了したセッションは車両ごとにここへ整理されます。" } }
+      }
+    },
+    "history.archive.title" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Vehicle archive" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Archivo por vehículo" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "車両別アーカイブ" } }
+      }
+    },
+    "history.filter.empty" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "No matching sessions" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "No hay sesiones coincidentes" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "一致するセッションがありません" } }
+      }
+    },
+    "history.filter.empty.body" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Try changing the date range or end reason." } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Cambia el intervalo de fechas o el motivo de finalización." } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "日付範囲または終了理由を変更してください。" } }
+      }
+    },
+    "history.filter.from" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "From" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Desde" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "開始日" } }
+      }
+    },
+    "history.filter.reason" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "End reason" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Motivo de finalización" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "終了の仕方" } }
+      }
+    },
+    "history.filter.reset" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Reset" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Restablecer" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "リセット" } }
+      }
+    },
+    "history.filter.title" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Find sessions" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Buscar sesiones" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "セッションを絞り込む" } }
+      }
+    },
+    "history.filter.to" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "To" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Hasta" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "終了日" } }
+      }
+    },
+    "history.reason.accountSignedOut" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Signed out" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Cierre de sesión" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "サインアウト" } }
+      }
+    },
+    "history.reason.acquisitionFailed" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Acquisition failed" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Error de adquisición" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "取得開始失敗" } }
+      }
+    },
+    "history.reason.all" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "All end reasons" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Todos los motivos" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "すべての終了理由" } }
+      }
+    },
+    "history.reason.connectionLost" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Connection lost" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Conexión perdida" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "接続喪失" } }
+      }
+    },
+    "history.reason.superseded" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Replaced by new session" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Sustituida por una nueva sesión" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "新しい接続で置換" } }
+      }
+    },
+    "history.reason.unexpectedTermination" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Unexpected termination" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Finalización inesperada" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "予期しない終了" } }
+      }
+    },
+    "history.reason.userDisconnected" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Normal disconnect" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Desconexión normal" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "正常終了" } }
+      }
+    },
+    "history.reason.vehicleNoResponse" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Vehicle not responding" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "El vehículo no responde" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "車両が応答不能" } }
+      }
+    },
+    "history.sort.longestDuration" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Longest duration" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Mayor duración" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "走行時間が長い順" } }
+      }
+    },
+    "history.sort.newest" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Newest first" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Más recientes primero" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "日時が新しい順" } }
+      }
+    },
+    "history.sort.oldest" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Oldest first" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Más antiguas primero" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "日時が古い順" } }
+      }
+    },
+    "history.sort.shortestDuration" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Shortest duration" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Menor duración" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "走行時間が短い順" } }
+      }
+    },
+    "history.sort.title" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Sort" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Ordenar" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "並び順" } }
+      }
+    },
+    "history.summary.duration" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Driving time" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Tiempo de conducción" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "総走行時間" } }
+      }
+    },
+    "history.vehicle.sessions" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "sessions" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "sesiones" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "セッション" } }
+      }
+    },
+    "history.vehicle.unassigned" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Unassigned vehicle" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Vehículo sin asignar" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "車両未関連付け" } }
+      }
+    },
+    "history.warning.interrupted" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Sessions needing attention" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Sesiones que requieren atención" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "要確認セッション" } }
+      }
+    },
     "history.detail.development.badge" : {
       "localizations" : {
         "en" : {
