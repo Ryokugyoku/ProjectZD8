@@ -200,9 +200,11 @@
 				};
 			};
 			buildConfigurationList = 9C6E28D2300C7A9200C839C2 /* Build configuration list for PBXProject "ProjectZD8" */;
-			developmentRegion = en;
+			developmentRegion = ja;
 			hasScannedForEncodings = 0;
 			knownRegions = (
+				ja,
+				es,
 				en,
 				Base,
 			);

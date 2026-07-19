@@ -1,0 +1,165 @@
+{
+  "sourceLanguage" : "ja",
+  "strings" : {
+    "sidebar.brand.tagline" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "DRIVE INTELLIGENCE" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "INTELIGENCIA DE CONDUCCIÓN" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "DRIVE INTELLIGENCE" } }
+      }
+    },
+    "sidebar.footer.caption" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Modern driving workspace" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Espacio de conducción moderno" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "モダン・ドライビング・ワークスペース" } }
+      }
+    },
+    "shell.destination.placeholder" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Feature content will appear here."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El contenido de la función aparecerá aquí."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "機能の内容はここに表示されます。"
+          }
+        }
+      }
+    },
+    "sidebar.home" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Home"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Inicio"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ホーム"
+          }
+        }
+      }
+    },
+    "sidebar.home.subtitle" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Overview and highlights" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Resumen y destacados" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "概要とハイライト" } }
+      }
+    },
+    "sidebar.live_log" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Real-Time Log Output"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Salida de registro en tiempo real"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "リアルタイムログ出力"
+          }
+        }
+      }
+    },
+    "sidebar.live_log.subtitle" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Live vehicle signals" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Señales del vehículo en vivo" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "車両信号をライブ表示" } }
+      }
+    },
+    "sidebar.maintenance" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Maintenance"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mantenimiento"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "整備"
+          }
+        }
+      }
+    },
+    "sidebar.maintenance.subtitle" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Service insights" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Información de servicio" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "整備インサイト" } }
+      }
+    },
+    "sidebar.section.navigation" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "NAVIGATION" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "NAVEGACIÓN" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "NAVIGATION" } }
+      }
+    },
+    "sidebar.settings" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Settings"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajustes"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "設定"
+          }
+        }
+      }
+    },
+    "sidebar.settings.subtitle" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Personalize your workspace" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Personaliza tu espacio" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "ワークスペースを調整" } }
+      }
+    }
+  },
+  "version" : "1.0"
+}

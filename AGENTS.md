@@ -28,10 +28,12 @@ Use the smallest sufficient evidence set. Token reduction MUST NOT weaken requir
 - Follow the dependency direction and file placement in `Documentation/PLACEMENT_RULES.md`.
 - Give each file and named declaration one primary responsibility and one primary reason to change.
 - Add Swift DocC to every new or changed declaration, property, initializer, subscript, and method, including `private` declarations.
-- State each method's single responsibility explicitly in its DocC comment.
+- Write all Swift DocC prose in Japanese, including summaries, responsibilities, parameter descriptions, return values, thrown errors, side effects, preconditions, and invariants. DocC syntax and code identifiers may remain in their required source form.
+- State each method's single responsibility explicitly as a Japanese `責務:` sentence in its DocC comment.
 - If the responsibility cannot be described accurately in one sentence, split the method or type until it can.
 - Place each extracted responsibility in a new file when required by the placement rules. Do not create generic `Helpers`, `Utils`, `Common`, or `Managers` dumping grounds.
 - Keep iOS and macOS layout trees in `Platform/iOS` and `Platform/macOS`, respectively. Do not share screen layout types or use large platform `#if` branches to combine them.
+- For macOS UI work, follow `Documentation/CODING_STANDARDS.md` section “macOS visual and layout contract,” including its concept, measurements, interaction states, localization resilience, and visual-evidence checklist.
 - Treat Views as replaceable rendering code. A View may render presentation state, hold short-lived UI-only state, and dispatch a typed user action. It must not perform procedures or own business state.
 - Do not access SwiftData, GRDB, SQL, `ModelContext`, files, network clients, external devices, clocks, or other infrastructure from a View.
 - Put use-case orchestration in `Application`, business rules in `Domain`, infrastructure implementations in `Data`, and dependency construction in `App`.
