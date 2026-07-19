@@ -1,6 +1,6 @@
 # ProjectZD8
 
-ProjectZD8 is a SwiftUI and SwiftData application for Apple platforms.
+ProjectZD8 is a SwiftUI application for iOS and macOS.
 
 ## Requirements
 

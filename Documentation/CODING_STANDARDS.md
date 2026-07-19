@@ -164,6 +164,9 @@ The author and human reviewer should be able to answer **yes** to each applicabl
 - [ ] Does every changed declaration and method have accurate Swift DocC?
 - [ ] Does each method do only what its `Responsibility:` sentence promises?
 - [ ] Were multi-responsibility methods/types split and placed in the correct folder?
+- [ ] Is each changed Feature still a stable product capability rather than a screen or implementation detail?
+- [ ] Are cross-feature workflows owned by one Application outcome without concrete sibling-Feature dependencies?
+- [ ] Were only directories required by implemented responsibilities added?
 - [ ] Is the dependency direction valid, with no framework leaking inward?
 - [ ] Do Views only render state, hold UI-only ephemeral state, and dispatch typed actions?
 - [ ] Can the screen layout be deleted and rebuilt without changing business logic or Data adapters?

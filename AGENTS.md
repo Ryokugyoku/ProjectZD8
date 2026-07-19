@@ -13,6 +13,16 @@ Before changing source code, read:
 
 Preserve unrelated user changes. Do not broaden the requested scope without explicit approval.
 
+## Context-efficient workflow
+
+Use the smallest sufficient evidence set. Token reduction MUST NOT weaken required reading, safety, dependency review, tests, or truthful reporting.
+
+- Start with `git status --short` and `rg` or `rg --files`. After required reading, inspect only the target, direct dependencies, and directly relevant tests or configuration; expand only when evidence requires it.
+- Do not enumerate or read empty scaffold directories, generated output, DerivedData, package caches, binaries, or unrelated features.
+- Reuse same-task evidence; do not reread unchanged files or repeat unchanged checks without a concrete reason.
+- Run the narrowest relevant check first, then broaden validation in proportion to the change's risk. A narrow check does not replace a required broader gate.
+- Summarize results and errors instead of reproducing long logs, and do not repeat evidence across updates and handoff.
+
 ## Mandatory implementation rules
 
 - Follow the dependency direction and file placement in `Documentation/PLACEMENT_RULES.md`.

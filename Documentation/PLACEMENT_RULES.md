@@ -191,7 +191,25 @@ This gate applies to production, test, UI-test, resource, preview, tooling, gene
 
 Group Application and Platform code by product feature before technical subtype. A feature should expose narrow state/actions/use cases and keep internal implementation details private where practical.
 
-Do not create speculative layers or empty directories outside the explicitly approved ProjectZD8 product scaffold. After satisfying the new-folder approval gate, add an approved directory only when its first owned responsibility is implemented. When a folder begins mixing unrelated change reasons, propose a feature or owned-capability split through the same approval gate rather than adding a broader generic folder.
+A Feature is a stable product capability with one durable user or system outcome. A screen, button, framework, transport, database table, temporary workflow step, or implementation technique MUST NOT become a Feature merely to obtain a folder.
+
+The approved Feature names remain `DeviceConnection`, `LiveTelemetry`, `Logging`, `LogHistory`, and `Analysis`. Adding, renaming, merging, or splitting a Feature changes product ownership and MUST pass the new-folder approval gate before files or directories are changed.
+
+### Feature dependency rules
+
+- Code in one Feature MUST NOT depend on another Feature's concrete use case, presentation model, state container, or internal action type.
+- A workflow spanning multiple capabilities MUST have one named Application outcome and one owning Feature. It may cross boundaries only through Domain types, repository contracts, or narrow Application ports.
+- If no existing Feature clearly owns a cross-feature outcome, stop and use the approval gate. Do not place the workflow in `Shared`, `App`, a View, or a generic coordinator as a shortcut.
+- Platform code may adapt the owning Feature's state and actions, but it MUST NOT coordinate sibling Features or bypass Application orchestration.
+
+### Folder growth rules
+
+- Create only the technical subtype directory that owns the first real implementation. Do not create its empty sibling directories, placeholder declarations, or `.gitkeep` files.
+- Do not split a cohesive Feature solely because its file count increased. Split only when responsibilities have different reasons to change, the public state/action surface becomes broad, sibling Features must reach into internals, or a platform change forces unrelated Application or Data changes.
+- When a split trigger appears, propose an owned-capability or Feature-boundary change through the approval gate instead of introducing `Shared`, `Common`, `Helpers`, or a broad `Manager`.
+- Review Feature boundaries as part of the Feature change that exposes the problem. Do not perform an unrelated repository-wide reorganization.
+
+Do not create speculative layers or empty directories outside the explicitly approved ProjectZD8 product scaffold. After satisfying the new-folder approval gate, add an approved directory only when its first owned responsibility is implemented.
 
 ## 7. Current template migration
 
