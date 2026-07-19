@@ -5,7 +5,7 @@ import XCTest
 /// PID専用テーブルのMigration、改訂、制約、復元を検証します。
 @MainActor
 final class GRDBOBDPIDDefinitionRepositoryTests: XCTestCase {
-    /// 初期Migrationと標準seedを取得可能にします。
+    /// 初期Migrationと主要50件の標準seedを取得可能にします。
     ///
     /// 責務: 空DBへPIDテーブルと現在の確認済み定義が作成されることを確認します。
     func testMigratesAndInstallsVerifiedDefinitions() throws {
@@ -13,9 +13,8 @@ final class GRDBOBDPIDDefinitionRepositoryTests: XCTestCase {
         let repository = try GRDBOBDPIDDefinitionRepository(databaseQueue: queue)
         try StandardOBDPIDSeed.install(into: repository)
 
-        XCTAssertEqual(try repository.definition(service: 1, pid: 5), StandardOBDPIDSeed.definitions[0])
-        XCTAssertEqual(try repository.definition(service: 1, pid: 12), StandardOBDPIDSeed.definitions[1])
-        XCTAssertEqual(try repository.definition(service: 1, pid: 13), StandardOBDPIDSeed.definitions[2])
+        XCTAssertEqual(try repository.definitions(), StandardOBDPIDSeed.definitions)
+        XCTAssertEqual(try repository.definitions().count, 50)
     }
 
     /// 登録順に依存せずService/PID順の一覧を取得します。

@@ -32,6 +32,33 @@ final class DemoOBDAdaptersTests: XCTestCase {
         XCTAssertNotEqual(first[engineSpeed], second[engineSpeed])
     }
 
+    /// 登録済み主要50PIDすべてへ数値化可能な正常域応答を返します。
+    ///
+    /// 責務: デモPID境界が主要カタログ全件を欠落なく正常域の値へ変換できることを確認します。
+    func testTelemetryReturnsAllFiftyCatalogValuesWithinDeclaredRanges() async throws {
+        let definitions = StandardOBDPIDSeed.definitions
+        let requests = definitions.map { OBDPIDRequest(service: $0.service, pid: $0.pid) }
+        let readings = try await DemoOBDPIDTelemetryAdapter().read(requests, using: endpoint)
+        let evaluator = OBDPIDFormulaEvaluator()
+
+        XCTAssertEqual(definitions.count, 50)
+        XCTAssertEqual(readings.count, 50)
+        XCTAssertEqual(
+            Set(requests.map(OBDPIDCategory.category(for:))),
+            Set(OBDPIDCategory.allCases)
+        )
+        for category in OBDPIDCategory.allCases {
+            XCTAssertEqual(OBDPIDCategory.category(for: category.representativeRequest), category)
+        }
+        for definition in definitions {
+            let request = OBDPIDRequest(service: definition.service, pid: definition.pid)
+            let bytes = try XCTUnwrap(readings[request])
+            let value = try evaluator.evaluate(definition, bytes: bytes)
+            XCTAssertGreaterThanOrEqual(value, try XCTUnwrap(definition.minimumValue))
+            XCTAssertLessThanOrEqual(value, try XCTUnwrap(definition.maximumValue))
+        }
+    }
+
     /// Bluetoothデモ終端もUSBデモと同じ合成車両へ接続されることを検証します。
     ///
     /// 責務: iOS向けBluetoothデモ終端が通常の識別・PID境界でVINと車速を返すことを確認します。

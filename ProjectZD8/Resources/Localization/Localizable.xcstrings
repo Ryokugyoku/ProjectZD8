@@ -1,6 +1,12 @@
 {
   "sourceLanguage" : "ja",
   "strings" : {
+    "" : {
+
+    },
+    "%lld" : {
+
+    },
     "account.delete.cancel" : {
       "localizations" : {
         "en" : {
@@ -2596,205 +2602,134 @@
     },
     "history.active.elapsed" : {
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Elapsed" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Transcurrido" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "経過時間" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elapsed"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Transcurrido"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "経過時間"
+          }
+        }
       }
     },
     "history.active.recording" : {
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "RECORDING IN PROGRESS" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "GRABACIÓN EN CURSO" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "記録中" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "RECORDING IN PROGRESS"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "GRABACIÓN EN CURSO"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "記録中"
+          }
+        }
       }
     },
     "history.active.title" : {
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Active session" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Sesión activa" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "進行中のセッション" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Active session"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sesión activa"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "進行中のセッション"
+          }
+        }
       }
     },
     "history.archive.empty" : {
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Completed sessions will be organized here by vehicle." } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Las sesiones finalizadas se organizarán aquí por vehículo." } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "終了したセッションは車両ごとにここへ整理されます。" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Completed sessions will be organized here by vehicle."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Las sesiones finalizadas se organizarán aquí por vehículo."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "終了したセッションは車両ごとにここへ整理されます。"
+          }
+        }
       }
     },
     "history.archive.title" : {
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Vehicle archive" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Archivo por vehículo" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "車両別アーカイブ" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vehicle archive"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Archivo por vehículo"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "車両別アーカイブ"
+          }
+        }
       }
     },
-    "history.filter.empty" : {
+    "history.navigation.back" : {
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "No matching sessions" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "No hay sesiones coincidentes" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "一致するセッションがありません" } }
-      }
-    },
-    "history.filter.empty.body" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Try changing the date range or end reason." } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Cambia el intervalo de fechas o el motivo de finalización." } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "日付範囲または終了理由を変更してください。" } }
-      }
-    },
-    "history.filter.from" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "From" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Desde" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "開始日" } }
-      }
-    },
-    "history.filter.reason" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "End reason" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Motivo de finalización" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "終了の仕方" } }
-      }
-    },
-    "history.filter.reset" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Reset" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Restablecer" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "リセット" } }
-      }
-    },
-    "history.filter.title" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Find sessions" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Buscar sesiones" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "セッションを絞り込む" } }
-      }
-    },
-    "history.filter.to" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "To" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Hasta" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "終了日" } }
-      }
-    },
-    "history.reason.accountSignedOut" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Signed out" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Cierre de sesión" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "サインアウト" } }
-      }
-    },
-    "history.reason.acquisitionFailed" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Acquisition failed" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Error de adquisición" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "取得開始失敗" } }
-      }
-    },
-    "history.reason.all" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "All end reasons" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Todos los motivos" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "すべての終了理由" } }
-      }
-    },
-    "history.reason.connectionLost" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Connection lost" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Conexión perdida" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "接続喪失" } }
-      }
-    },
-    "history.reason.superseded" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Replaced by new session" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Sustituida por una nueva sesión" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "新しい接続で置換" } }
-      }
-    },
-    "history.reason.unexpectedTermination" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Unexpected termination" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Finalización inesperada" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "予期しない終了" } }
-      }
-    },
-    "history.reason.userDisconnected" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Normal disconnect" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Desconexión normal" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "正常終了" } }
-      }
-    },
-    "history.reason.vehicleNoResponse" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Vehicle not responding" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "El vehículo no responde" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "車両が応答不能" } }
-      }
-    },
-    "history.sort.longestDuration" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Longest duration" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Mayor duración" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "走行時間が長い順" } }
-      }
-    },
-    "history.sort.newest" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Newest first" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Más recientes primero" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "日時が新しい順" } }
-      }
-    },
-    "history.sort.oldest" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Oldest first" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Más antiguas primero" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "日時が古い順" } }
-      }
-    },
-    "history.sort.shortestDuration" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Shortest duration" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Menor duración" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "走行時間が短い順" } }
-      }
-    },
-    "history.sort.title" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Sort" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Ordenar" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "並び順" } }
-      }
-    },
-    "history.summary.duration" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Driving time" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Tiempo de conducción" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "総走行時間" } }
-      }
-    },
-    "history.vehicle.sessions" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "sessions" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "sesiones" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "セッション" } }
-      }
-    },
-    "history.vehicle.unassigned" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Unassigned vehicle" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Vehículo sin asignar" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "車両未関連付け" } }
-      }
-    },
-    "history.warning.interrupted" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Sessions needing attention" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Sesiones que requieren atención" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "要確認セッション" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Back to vehicle archive"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Volver al archivo de vehículos"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "車両別アーカイブに戻る"
+          }
+        }
       }
     },
     "history.detail.development.badge" : {
@@ -2864,6 +2799,7 @@
       }
     },
     "history.detail.title" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2930,6 +2866,7 @@
       }
     },
     "history.ended" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -3017,7 +2954,162 @@
         }
       }
     },
+    "history.filter.empty" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No matching sessions"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No hay sesiones coincidentes"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "一致するセッションがありません"
+          }
+        }
+      }
+    },
+    "history.filter.empty.body" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Try changing the date range or end reason."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cambia el intervalo de fechas o el motivo de finalización."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "日付範囲または終了理由を変更してください。"
+          }
+        }
+      }
+    },
+    "history.filter.from" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "From"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Desde"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "開始日"
+          }
+        }
+      }
+    },
+    "history.filter.reason" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "End reason"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Motivo de finalización"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "終了の仕方"
+          }
+        }
+      }
+    },
+    "history.filter.reset" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reset"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restablecer"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "リセット"
+          }
+        }
+      }
+    },
+    "history.filter.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Find sessions"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Buscar sesiones"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "セッションを絞り込む"
+          }
+        }
+      }
+    },
+    "history.filter.to" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "To"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hasta"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "終了日"
+          }
+        }
+      }
+    },
     "history.in.progress" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -3035,6 +3127,193 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "接続中"
+          }
+        }
+      }
+    },
+    "history.reason.%@" : {
+
+    },
+    "history.reason.accountSignedOut" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Signed out"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cierre de sesión"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "サインアウト"
+          }
+        }
+      }
+    },
+    "history.reason.acquisitionFailed" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Acquisition failed"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Error de adquisición"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "取得開始失敗"
+          }
+        }
+      }
+    },
+    "history.reason.all" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All end reasons"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Todos los motivos"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "すべての終了理由"
+          }
+        }
+      }
+    },
+    "history.reason.connectionLost" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connection lost"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conexión perdida"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "接続喪失"
+          }
+        }
+      }
+    },
+    "history.reason.superseded" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Replaced by new session"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sustituida por una nueva sesión"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新しい接続で置換"
+          }
+        }
+      }
+    },
+    "history.reason.unexpectedTermination" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unexpected termination"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Finalización inesperada"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "予期しない終了"
+          }
+        }
+      }
+    },
+    "history.reason.userDisconnected" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Normal disconnect"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Desconexión normal"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正常終了"
+          }
+        }
+      }
+    },
+    "history.reason.vehicleNoResponse" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vehicle not responding"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El vehículo no responde"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "車両が応答不能"
           }
         }
       }
@@ -3063,6 +3342,7 @@
       }
     },
     "history.session.id" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -3080,6 +3360,123 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "SESSION ID"
+          }
+        }
+      }
+    },
+    "history.sort.%@" : {
+
+    },
+    "history.sort.longestDuration" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Longest duration"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mayor duración"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "走行時間が長い順"
+          }
+        }
+      }
+    },
+    "history.sort.newest" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Newest first"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Más recientes primero"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "日時が新しい順"
+          }
+        }
+      }
+    },
+    "history.sort.oldest" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Oldest first"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Más antiguas primero"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "日時が古い順"
+          }
+        }
+      }
+    },
+    "history.sort.shortestDuration" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Shortest duration"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Menor duración"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "走行時間が短い順"
+          }
+        }
+      }
+    },
+    "history.sort.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sort"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ordenar"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "並び順"
           }
         }
       }
@@ -3107,6 +3504,7 @@
       }
     },
     "history.status.completed" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -3129,6 +3527,7 @@
       }
     },
     "history.status.connected" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -3151,6 +3550,7 @@
       }
     },
     "history.status.interrupted" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -3195,6 +3595,7 @@
       }
     },
     "history.summary.connected" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -3212,6 +3613,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "接続中"
+          }
+        }
+      }
+    },
+    "history.summary.duration" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Driving time"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tiempo de conducción"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "総走行時間"
           }
         }
       }
@@ -3278,6 +3701,72 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "車両を識別中"
+          }
+        }
+      }
+    },
+    "history.vehicle.sessions" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "sessions"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "sesiones"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "セッション"
+          }
+        }
+      }
+    },
+    "history.vehicle.unassigned" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unassigned vehicle"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vehículo sin asignar"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "車両未関連付け"
+          }
+        }
+      }
+    },
+    "history.warning.interrupted" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sessions needing attention"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sesiones que requieren atención"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "要確認セッション"
           }
         }
       }
@@ -3459,28 +3948,6 @@
         }
       }
     },
-    "home.adapter.setup_required" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Setup required before connection"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Configuración necesaria antes de conectar"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "接続前に設定が必要です"
-          }
-        }
-      }
-    },
     "home.adapter.not_detected" : {
       "localizations" : {
         "en" : {
@@ -3499,6 +3966,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "デフォルトアダプターが検出されませんでした。再度設定してください。"
+          }
+        }
+      }
+    },
+    "home.adapter.setup_required" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Setup required before connection"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Configuración necesaria antes de conectar"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "接続前に設定が必要です"
           }
         }
       }
@@ -4272,6 +4761,370 @@
             "value" : "MOBILE COCKPIT"
           }
         }
+      }
+    },
+    "telemetry.category.engine" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Engine" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Motor" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "エンジン" } }
+      }
+    },
+    "telemetry.category.temperature" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Temperatures" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Temperaturas" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "温度" } }
+      }
+    },
+    "telemetry.category.fuelAndAir" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Fuel and air" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Combustible y aire" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "燃料・吸排気" } }
+      }
+    },
+    "telemetry.category.driving" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Driving input" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Entrada de conducción" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "走行・操作" } }
+      }
+    },
+    "telemetry.category.diagnostics" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Operation and diagnostics" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Funcionamiento y diagnóstico" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "稼働・診断" } }
+      }
+    },
+    "obd.pid.calculated_engine_load" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Calculated engine load" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Carga calculada del motor" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "計算エンジン負荷" } }
+      }
+    },
+    "obd.pid.short_term_fuel_trim_bank_1" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Short-term fuel trim bank 1" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Ajuste de combustible corto banco 1" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "短期燃料補正 バンク1" } }
+      }
+    },
+    "obd.pid.long_term_fuel_trim_bank_1" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Long-term fuel trim bank 1" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Ajuste de combustible largo banco 1" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "長期燃料補正 バンク1" } }
+      }
+    },
+    "obd.pid.short_term_fuel_trim_bank_2" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Short-term fuel trim bank 2" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Ajuste de combustible corto banco 2" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "短期燃料補正 バンク2" } }
+      }
+    },
+    "obd.pid.long_term_fuel_trim_bank_2" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Long-term fuel trim bank 2" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Ajuste de combustible largo banco 2" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "長期燃料補正 バンク2" } }
+      }
+    },
+    "obd.pid.fuel_pressure" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Fuel pressure" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Presión de combustible" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "燃料圧力" } }
+      }
+    },
+    "obd.pid.intake_manifold_pressure" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Intake manifold pressure" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Presión del colector de admisión" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "吸気マニホールド圧力" } }
+      }
+    },
+    "obd.pid.timing_advance" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Timing advance" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Avance de encendido" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "点火時期進角" } }
+      }
+    },
+    "obd.pid.intake_air_temperature" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Intake air temperature" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Temperatura del aire de admisión" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "吸気温度" } }
+      }
+    },
+    "obd.pid.mass_air_flow_rate" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Mass air flow rate" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Caudal de masa de aire" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "吸入空気流量" } }
+      }
+    },
+    "obd.pid.absolute_throttle_position" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Absolute throttle position" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Posición absoluta del acelerador" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "絶対スロットル位置" } }
+      }
+    },
+    "obd.pid.oxygen_sensor_b1s1_voltage" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Oxygen sensor B1S1 voltage" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Voltaje del sensor de oxígeno B1S1" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "O2センサー B1S1 電圧" } }
+      }
+    },
+    "obd.pid.oxygen_sensor_b1s2_voltage" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Oxygen sensor B1S2 voltage" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Voltaje del sensor de oxígeno B1S2" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "O2センサー B1S2 電圧" } }
+      }
+    },
+    "obd.pid.oxygen_sensor_b1s3_voltage" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Oxygen sensor B1S3 voltage" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Voltaje del sensor de oxígeno B1S3" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "O2センサー B1S3 電圧" } }
+      }
+    },
+    "obd.pid.oxygen_sensor_b1s4_voltage" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Oxygen sensor B1S4 voltage" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Voltaje del sensor de oxígeno B1S4" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "O2センサー B1S4 電圧" } }
+      }
+    },
+    "obd.pid.oxygen_sensor_b2s1_voltage" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Oxygen sensor B2S1 voltage" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Voltaje del sensor de oxígeno B2S1" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "O2センサー B2S1 電圧" } }
+      }
+    },
+    "obd.pid.oxygen_sensor_b2s2_voltage" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Oxygen sensor B2S2 voltage" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Voltaje del sensor de oxígeno B2S2" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "O2センサー B2S2 電圧" } }
+      }
+    },
+    "obd.pid.oxygen_sensor_b2s3_voltage" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Oxygen sensor B2S3 voltage" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Voltaje del sensor de oxígeno B2S3" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "O2センサー B2S3 電圧" } }
+      }
+    },
+    "obd.pid.oxygen_sensor_b2s4_voltage" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Oxygen sensor B2S4 voltage" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Voltaje del sensor de oxígeno B2S4" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "O2センサー B2S4 電圧" } }
+      }
+    },
+    "obd.pid.run_time_since_engine_start" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Run time since engine start" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Tiempo desde el arranque del motor" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "エンジン始動後時間" } }
+      }
+    },
+    "obd.pid.distance_with_mil_on" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Distance with MIL on" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Distancia con MIL encendida" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "MIL点灯中の走行距離" } }
+      }
+    },
+    "obd.pid.fuel_rail_pressure_relative" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Fuel rail pressure relative to manifold" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Presión del riel relativa al colector" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "マニホールド相対燃料レール圧" } }
+      }
+    },
+    "obd.pid.fuel_rail_gauge_pressure" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Fuel rail gauge pressure" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Presión manométrica del riel" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "燃料レールゲージ圧" } }
+      }
+    },
+    "obd.pid.commanded_egr" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Commanded EGR" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "EGR comandada" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "指示EGR" } }
+      }
+    },
+    "obd.pid.egr_error" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "EGR error" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Error de EGR" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "EGR誤差" } }
+      }
+    },
+    "obd.pid.commanded_evaporative_purge" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Commanded evaporative purge" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Purga evaporativa comandada" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "指示蒸発ガスパージ" } }
+      }
+    },
+    "obd.pid.fuel_tank_level" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Fuel tank level" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Nivel del depósito de combustible" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "燃料残量" } }
+      }
+    },
+    "obd.pid.warmups_since_codes_cleared" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Warm-ups since codes cleared" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Calentamientos desde el borrado de códigos" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "コード消去後暖機回数" } }
+      }
+    },
+    "obd.pid.distance_since_codes_cleared" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Distance since codes cleared" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Distancia desde el borrado de códigos" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "コード消去後走行距離" } }
+      }
+    },
+    "obd.pid.evap_system_vapor_pressure" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "EVAP system vapor pressure" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Presión de vapor del sistema EVAP" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "蒸発ガス系圧力" } }
+      }
+    },
+    "obd.pid.absolute_barometric_pressure" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Absolute barometric pressure" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Presión barométrica absoluta" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "絶対大気圧" } }
+      }
+    },
+    "obd.pid.catalyst_temperature_b1s1" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Catalyst temperature B1S1" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Temperatura del catalizador B1S1" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "触媒温度 B1S1" } }
+      }
+    },
+    "obd.pid.catalyst_temperature_b2s1" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Catalyst temperature B2S1" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Temperatura del catalizador B2S1" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "触媒温度 B2S1" } }
+      }
+    },
+    "obd.pid.catalyst_temperature_b1s2" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Catalyst temperature B1S2" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Temperatura del catalizador B1S2" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "触媒温度 B1S2" } }
+      }
+    },
+    "obd.pid.catalyst_temperature_b2s2" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Catalyst temperature B2S2" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Temperatura del catalizador B2S2" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "触媒温度 B2S2" } }
+      }
+    },
+    "obd.pid.control_module_voltage" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Control module voltage" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Voltaje del módulo de control" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "制御モジュール電圧" } }
+      }
+    },
+    "obd.pid.absolute_load_value" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Absolute load value" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Valor de carga absoluta" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "絶対負荷値" } }
+      }
+    },
+    "obd.pid.commanded_equivalence_ratio" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Commanded equivalence ratio" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Relación de equivalencia comandada" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "指示当量比" } }
+      }
+    },
+    "obd.pid.relative_throttle_position" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Relative throttle position" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Posición relativa del acelerador" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "相対スロットル位置" } }
+      }
+    },
+    "obd.pid.ambient_air_temperature" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Ambient air temperature" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Temperatura del aire ambiente" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "外気温" } }
+      }
+    },
+    "obd.pid.absolute_throttle_position_b" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Absolute throttle position B" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Posición absoluta del acelerador B" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "絶対スロットル位置B" } }
+      }
+    },
+    "obd.pid.absolute_throttle_position_c" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Absolute throttle position C" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Posición absoluta del acelerador C" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "絶対スロットル位置C" } }
+      }
+    },
+    "obd.pid.accelerator_pedal_position_d" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Accelerator pedal position D" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Posición del pedal del acelerador D" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "アクセルペダル位置D" } }
+      }
+    },
+    "obd.pid.accelerator_pedal_position_e" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Accelerator pedal position E" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Posición del pedal del acelerador E" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "アクセルペダル位置E" } }
+      }
+    },
+    "obd.pid.accelerator_pedal_position_f" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Accelerator pedal position F" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Posición del pedal del acelerador F" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "アクセルペダル位置F" } }
+      }
+    },
+    "obd.pid.commanded_throttle_actuator" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Commanded throttle actuator" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Actuador del acelerador comandado" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "指示スロットルアクチュエータ" } }
+      }
+    },
+    "obd.pid.time_run_with_mil_on" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Time run with MIL on" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Tiempo de funcionamiento con MIL encendida" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "MIL点灯中の稼働時間" } }
       }
     },
     "obd.pid.engine_coolant_temperature" : {

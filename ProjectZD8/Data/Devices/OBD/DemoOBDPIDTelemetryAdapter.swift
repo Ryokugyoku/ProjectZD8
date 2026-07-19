@@ -31,23 +31,65 @@ final class DemoOBDPIDTelemetryAdapter: OBDPIDTelemetryPort {
         let coolant = min(92, 72 + Int(tick / 12))
         var values: [OBDPIDRequest: [UInt8]] = [:]
         for request in requests where request.service == 0x01 {
-            switch request.pid {
-            case 0x04:
-                values[request] = [UInt8(clamping: 28 + Int(speed) * 2)]
-            case 0x05:
-                values[request] = [UInt8(clamping: coolant + 40)]
-            case 0x0C:
-                let encoded = UInt16(clamping: rpm * 4)
-                values[request] = [UInt8(encoded >> 8), UInt8(encoded & 0xFF)]
-            case 0x0D:
-                values[request] = [speed]
-            case 0x11:
-                values[request] = [UInt8(clamping: 22 + Int(speed) * 2)]
-            default:
-                let base = UInt8(truncatingIfNeeded: Int(request.pid) * 17 + Int(tick))
-                values[request] = (0..<8).map { base &+ UInt8($0 * 7) }
-            }
+            values[request] = responseBytes(pid: request.pid, speed: speed, rpm: rpm, coolant: coolant)
         }
         return values
+    }
+
+    /// デモ走行状態を指定PIDの正常域バイトへ符号化します。
+    ///
+    /// 責務: 1件の主要Service 01 PIDを決定的な合成応答バイトへ変換します。
+    /// - Parameters:
+    ///   - pid: 応答するService 01 PID番号。
+    ///   - speed: 現在の合成車速。
+    ///   - rpm: 現在の合成エンジン回転数。
+    ///   - coolant: 現在の合成冷却水温。
+    /// - Returns: 登録済み主要PIDでは正常域の応答バイト、未登録PIDでは `nil`。
+    private func responseBytes(pid: UInt8, speed: UInt8, rpm: Int, coolant: Int) -> [UInt8]? {
+        switch pid {
+        case 0x04: [UInt8(clamping: 55 + Int(speed))]
+        case 0x05: [UInt8(clamping: coolant + 40)]
+        case 0x06...0x09: [128]
+        case 0x0A: [100]
+        case 0x0B: [42]
+        case 0x0C: twoBytes(rpm * 4)
+        case 0x0D: [speed]
+        case 0x0E: [148]
+        case 0x0F: [70]
+        case 0x10: twoBytes(1_200 + Int(speed) * 18)
+        case 0x11: [UInt8(clamping: 42 + Int(speed))]
+        case 0x14...0x1B: [140, 128]
+        case 0x1F: twoBytes(Int(tick % 3_600))
+        case 0x21: [0, 0]
+        case 0x22: twoBytes(3_797)
+        case 0x23: twoBytes(400)
+        case 0x2C: [77]
+        case 0x2D: [128]
+        case 0x2E: [38]
+        case 0x2F: [166]
+        case 0x30: [2]
+        case 0x31: twoBytes(120)
+        case 0x32: [0x80, 0x00]
+        case 0x33: [100]
+        case 0x3C...0x3F: twoBytes(4_900)
+        case 0x42: twoBytes(14_200)
+        case 0x43: twoBytes(64 + Int(speed) * 2)
+        case 0x44: [0x80, 0x00]
+        case 0x45, 0x47, 0x48: [UInt8(clamping: 40 + Int(speed))]
+        case 0x46: [65]
+        case 0x49...0x4C: [UInt8(clamping: 35 + Int(speed))]
+        case 0x4D: [0, 0]
+        default: nil
+        }
+    }
+
+    /// 非負整数を上位バイト優先の2バイトへ符号化します。
+    ///
+    /// 責務: 1件のデモ用整数をUInt16範囲へ制限した未加工バイトへ変換します。
+    /// - Parameter value: 符号化する非負整数。
+    /// - Returns: 上位、下位の順に並ぶ2バイト。
+    private func twoBytes(_ value: Int) -> [UInt8] {
+        let encoded = UInt16(clamping: value)
+        return [UInt8(encoded >> 8), UInt8(encoded & 0xFF)]
     }
 }

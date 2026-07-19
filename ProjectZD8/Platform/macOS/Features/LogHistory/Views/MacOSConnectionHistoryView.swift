@@ -3,6 +3,9 @@ import SwiftUI
 
 /// macOS向けに進行中セッションと車両別アーカイブをコックピット調で描画します。
 struct MacOSConnectionHistoryView: View {
+    /// 接続履歴内の車両一覧とセッション詳細を結ぶ一時的な画面遷移経路です。
+    @State private var navigationPath = NavigationPath()
+
     /// LogHistoryが提供する現在の履歴状態です。
     let state: ConnectionHistoryState
     /// 履歴の型付き操作をApplicationへ通知します。
@@ -14,7 +17,7 @@ struct MacOSConnectionHistoryView: View {
     ///
     /// 責務: 接続履歴状態を進行中表示と車両別アーカイブへ分けて描画します。
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $navigationPath) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20 * metrics.scale) {
                     hero
@@ -174,19 +177,7 @@ struct MacOSConnectionHistoryView: View {
         let sessions = state.filteredSessions(for: id)
         return ScrollView {
             VStack(alignment: .leading, spacing: 18 * metrics.scale) {
-                HStack {
-                    VStack(alignment: .leading, spacing: 4 * metrics.scale) {
-                        Text(group?.vehicle?.name.nonEmpty ?? String(localized: "history.vehicle.unassigned"))
-                            .font(.system(size: 26 * metrics.scale, weight: .bold, design: .rounded))
-                        HStack(spacing: 3 * metrics.scale) {
-                            Text(group?.sessionCount ?? 0, format: .number)
-                            Text("history.vehicle.sessions")
-                        }
-                        .font(.system(size: 11 * metrics.scale)).foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                    if let count = group?.interruptedCount, count > 0 { warningBadge(count) }
-                }
+                vehicleDetailHeader(group)
                 filterPanel
                 if sessions.isEmpty { noFilterResults } else {
                     LazyVStack(spacing: 10 * metrics.scale) {
@@ -201,6 +192,112 @@ struct MacOSConnectionHistoryView: View {
             .padding(28 * metrics.scale)
         }
         .background(historyBackground)
+        .navigationBarBackButtonHidden(true)
+    }
+
+    /// 車両別履歴の文脈と戻る操作を一体化した詳細ヘッダーを描画します。
+    ///
+    /// 責務: 1件の車両グループを戻る操作、車両情報、履歴集計を含む詳細ヘッダーへ変換します。
+    /// - Parameter group: 表示する車両別履歴集計。見つからない場合は未関連付け表示を使用します。
+    /// - Returns: 車両別履歴画面の先頭に配置するコンテキストカード。
+    private func vehicleDetailHeader(_ group: ConnectionHistoryVehicleGroup?) -> some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 18 * metrics.scale) {
+                vehicleBackButton
+                vehicleDetailIdentity(group)
+                Spacer(minLength: 16 * metrics.scale)
+                vehicleDetailMetrics(group)
+            }
+
+            VStack(alignment: .leading, spacing: 14 * metrics.scale) {
+                HStack(spacing: 14 * metrics.scale) {
+                    vehicleBackButton
+                    vehicleDetailIdentity(group)
+                    Spacer(minLength: 0)
+                }
+                Divider().opacity(0.55)
+                vehicleDetailMetrics(group)
+            }
+        }
+        .padding(20 * metrics.scale)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 22 * metrics.scale, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 22 * metrics.scale, style: .continuous)
+                .stroke(Color.primary.opacity(0.08))
+        }
+    }
+
+    /// 車両別履歴ヘッダー内でアーカイブへ戻る操作です。
+    private var vehicleBackButton: some View {
+        Button {
+            returnToVehicleArchive()
+        } label: {
+            Image(systemName: "chevron.left")
+                .font(.system(size: 14 * metrics.scale, weight: .bold))
+                .frame(width: 44 * metrics.scale, height: 44 * metrics.scale)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(.primary)
+        .background(Color.primary.opacity(0.065), in: RoundedRectangle(cornerRadius: 14 * metrics.scale, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 14 * metrics.scale, style: .continuous)
+                .stroke(Color.primary.opacity(0.08))
+        }
+        .accessibilityLabel(Text("history.navigation.back"))
+        .accessibilityIdentifier("macos-history-vehicle-back")
+        .help(Text("history.navigation.back"))
+    }
+
+    /// 接続履歴内の画面遷移経路を車両別アーカイブまで戻します。
+    ///
+    /// 責務: 現在の接続履歴内ナビゲーション経路をルートへ戻します。
+    private func returnToVehicleArchive() {
+        navigationPath = NavigationPath()
+    }
+
+    /// 車両別履歴ヘッダーの車両識別表示を描画します。
+    ///
+    /// 責務: 1件の車両グループをシンボル、名称、表示識別子を含む識別表示へ変換します。
+    /// - Parameter group: 表示する車両別履歴集計。見つからない場合は未関連付け表示を使用します。
+    /// - Returns: 車両別履歴ヘッダー用の車両識別表示。
+    private func vehicleDetailIdentity(_ group: ConnectionHistoryVehicleGroup?) -> some View {
+        HStack(spacing: 14 * metrics.scale) {
+            Image(systemName: "car.side.fill")
+                .font(.system(size: 24 * metrics.scale, weight: .semibold))
+                .foregroundStyle(.tint)
+                .frame(width: 58 * metrics.scale, height: 58 * metrics.scale)
+                .background(Color.accentColor.opacity(0.13), in: RoundedRectangle(cornerRadius: 18 * metrics.scale, style: .continuous))
+
+            VStack(alignment: .leading, spacing: 4 * metrics.scale) {
+                Text("history.archive.title")
+                    .font(.system(size: 9.5 * metrics.scale, weight: .bold, design: .rounded))
+                    .tracking(1.1 * metrics.scale)
+                    .foregroundStyle(.tint)
+                Text(group?.vehicle?.name.nonEmpty ?? String(localized: "history.vehicle.unassigned"))
+                    .font(.system(size: 26 * metrics.scale, weight: .bold, design: .rounded))
+                    .lineLimit(1)
+                if let identifier = group?.vehicle?.displayIdentifier, !identifier.isEmpty {
+                    Text(identifier)
+                        .font(.system(size: 10 * metrics.scale, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+            }
+        }
+    }
+
+    /// 車両別履歴ヘッダーの集計表示を描画します。
+    ///
+    /// 責務: 1件の車両グループをセッション数、総時間、中断件数の集計表示へ変換します。
+    /// - Parameter group: 表示する車両別履歴集計。見つからない場合はゼロ値を使用します。
+    /// - Returns: 車両別履歴ヘッダー用の集計表示。
+    private func vehicleDetailMetrics(_ group: ConnectionHistoryVehicleGroup?) -> some View {
+        HStack(spacing: 18 * metrics.scale) {
+            metric("\(group?.sessionCount ?? 0)", key: "history.vehicle.sessions")
+            metric(durationText(group?.totalDuration ?? 0), key: "history.summary.duration")
+            if let count = group?.interruptedCount, count > 0 { warningBadge(count) }
+        }
     }
 
     /// 日付範囲、終了理由、並び順を同時指定できる操作パネルです。
@@ -379,21 +476,27 @@ struct MacOSConnectionHistoryView: View {
     /// 責務: 1件の終了理由条件をPicker用ローカライズキーへ変換します。
     /// - Parameter filter: 表示する終了理由条件。
     /// - Returns: 条件名のローカライズキー。
-    private func endReasonFilterKey(_ filter: ConnectionHistoryEndReasonFilter) -> LocalizedStringKey { LocalizedStringKey("history.reason.\(filter.rawValue)") }
+    private func endReasonFilterKey(_ filter: ConnectionHistoryEndReasonFilter) -> LocalizedStringKey {
+        LocalizedStringKey("history.reason." + filter.rawValue)
+    }
 
     /// 並び順の表示キーを返します。
     ///
     /// 責務: 1件の並び順をPicker用ローカライズキーへ変換します。
     /// - Parameter order: 表示する並び順。
     /// - Returns: 並び順名のローカライズキー。
-    private func sortOrderKey(_ order: ConnectionHistorySortOrder) -> LocalizedStringKey { LocalizedStringKey("history.sort.\(order.rawValue)") }
+    private func sortOrderKey(_ order: ConnectionHistorySortOrder) -> LocalizedStringKey {
+        LocalizedStringKey("history.sort." + order.rawValue)
+    }
 
     /// 終了理由の表示キーを返します。
     ///
     /// 責務: 1件の終了理由をセッション行用ローカライズキーへ変換します。
     /// - Parameter reason: 表示する終了理由。
     /// - Returns: 終了理由名のローカライズキー。
-    private func endReasonKey(_ reason: ConnectionSessionEndReason?) -> LocalizedStringKey { LocalizedStringKey("history.reason.\(reason?.rawValue ?? "all")") }
+    private func endReasonKey(_ reason: ConnectionSessionEndReason?) -> LocalizedStringKey {
+        LocalizedStringKey("history.reason." + (reason?.rawValue ?? "all"))
+    }
 }
 
 private extension String {
