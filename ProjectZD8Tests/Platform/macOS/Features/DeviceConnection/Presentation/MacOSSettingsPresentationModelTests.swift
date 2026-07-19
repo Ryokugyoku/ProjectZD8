@@ -151,6 +151,46 @@ final class MacOSSettingsPresentationModelTests: XCTestCase {
         XCTAssertEqual(model.state.defaultAdapterPreference?.adapterID, "saved")
     }
 
+    /// 再探索で保存済みデフォルトを検出できない場合は以前のプライマリー割当を破棄します。
+    ///
+    /// 責務: 最新探索の空結果が古い検出済み状態をHOME向け設定状態へ残さないことを確認します。
+    func testRefreshWithoutSavedDefaultClearsPreviouslyDetectedPrimary() async {
+        let savedAdapter = makeAdapter(id: "saved", name: "Saved Adapter")
+        var state = MacOSSettingsState()
+        state.defaultAdapterPreference = DefaultAdapterPreference(adapter: savedAdapter)
+        state.selectedAdapters[.primary] = savedAdapter
+        let model = makeModel(
+            state: state,
+            discoveryPort: SettingsAdapterDiscoveryPortFake(adapters: [])
+        )
+
+        model.send(.adapterRefreshRequested)
+        await waitForDiscovery(in: model)
+
+        XCTAssertNil(model.state.selectedAdapters[.primary])
+        XCTAssertEqual(model.state.defaultAdapterPreference?.adapterID, "saved")
+    }
+
+    /// 保存済みデフォルトと異なる接続方式の探索では既存プライマリー割当を維持します。
+    ///
+    /// 責務: Bluetooth候補の探索が保存済みUSBデフォルトの検出状態を誤って消さないことを確認します。
+    func testDifferentTransportDiscoveryPreservesDetectedPrimary() async {
+        let savedAdapter = makeAdapter(id: "saved", name: "Saved Adapter")
+        var state = MacOSSettingsState()
+        state.defaultAdapterPreference = DefaultAdapterPreference(adapter: savedAdapter)
+        state.selectedAdapters[.primary] = savedAdapter
+        state.adapterTransportMode = .bluetooth
+        let model = makeModel(
+            state: state,
+            discoveryPort: SettingsAdapterDiscoveryPortFake(adapters: [])
+        )
+
+        model.send(.adapterRefreshRequested)
+        await waitForDiscovery(in: model)
+
+        XCTAssertEqual(model.state.selectedAdapters[.primary], savedAdapter)
+    }
+
     /// HOMEからの設定促進操作が注目要求番号を更新することを検証します。
     ///
     /// 責務: HOME由来の設定促進操作を設定カードの表示更新番号へ変換できることを確認します。

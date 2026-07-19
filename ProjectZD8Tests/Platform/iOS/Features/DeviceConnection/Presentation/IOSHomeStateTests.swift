@@ -10,9 +10,7 @@ final class IOSHomeStateTests: XCTestCase {
     func testEmptySettingsRequireDefaultAdapterSetup() {
         let state = IOSHomeState(settingsState: IOSSettingsState())
 
-        XCTAssertFalse(state.hasDefaultAdapter)
-        XCTAssertNil(state.defaultAdapterName)
-        XCTAssertFalse(state.isDefaultAdapterDetected)
+        XCTAssertEqual(state.defaultAdapterAvailability, .notConfigured)
     }
 
     /// 保存済みデフォルトと検出済みプライマリーが一致する状態を検証します。
@@ -32,9 +30,9 @@ final class IOSHomeStateTests: XCTestCase {
 
         let state = IOSHomeState(settingsState: settingsState)
 
-        XCTAssertTrue(state.hasDefaultAdapter)
-        XCTAssertEqual(state.defaultAdapterName, "Saved Adapter")
-        XCTAssertTrue(state.isDefaultAdapterDetected)
+        XCTAssertTrue(state.defaultAdapterAvailability.hasDefaultAdapter)
+        XCTAssertEqual(state.defaultAdapterAvailability.displayName, "Saved Adapter")
+        XCTAssertTrue(state.defaultAdapterAvailability.isDetected)
     }
 
     /// Bluetoothデモを保存・検出したHOMEが接続終端を公開することを検証します。
@@ -48,9 +46,32 @@ final class IOSHomeStateTests: XCTestCase {
 
         let state = IOSHomeState(settingsState: settingsState)
 
-        XCTAssertEqual(state.connectionEndpoint, OBDConnectionEndpoint(adapter: adapter))
-        XCTAssertEqual(state.connectionEndpoint?.transport, .bluetoothLowEnergy)
-        XCTAssertEqual(state.connectionEndpoint?.systemIdentifier, adapter.systemIdentifier)
+        XCTAssertEqual(state.defaultAdapterAvailability.connectionEndpoint, OBDConnectionEndpoint(adapter: adapter))
+        XCTAssertEqual(state.defaultAdapterAvailability.connectionEndpoint?.transport, .bluetoothLowEnergy)
+        XCTAssertEqual(state.defaultAdapterAvailability.connectionEndpoint?.systemIdentifier, adapter.systemIdentifier)
+    }
+
+    /// 保存済み候補が現在未検出ならBluetooth接続終端を公開しません。
+    ///
+    /// 責務: 保存設定だけが残るiOS状態を再設定が必要な接続不能状態へ変換することを確認します。
+    func testSavedButUndetectedAdapterDoesNotExposeConnectionEndpoint() {
+        let adapter = DiscoveredAdapter(
+            id: "saved",
+            transportMode: .bluetooth,
+            displayName: "Saved Adapter",
+            systemIdentifier: "stale",
+            isConnected: false
+        )
+        var settingsState = IOSSettingsState()
+        settingsState.defaultAdapterPreference = DefaultAdapterPreference(adapter: adapter)
+
+        let state = IOSHomeState(settingsState: settingsState)
+
+        XCTAssertEqual(
+            state.defaultAdapterAvailability,
+            .notDetected(displayName: "Saved Adapter")
+        )
+        XCTAssertNil(state.defaultAdapterAvailability.connectionEndpoint)
     }
 
     /// PID取得中はHOMEが切断操作を公開することを検証します。

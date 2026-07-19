@@ -205,6 +205,26 @@ final class IOSSettingsPresentationModelTests: XCTestCase {
         XCTAssertEqual(model.state.defaultAdapterPreference?.adapterID, "saved")
     }
 
+    /// 再探索で保存済みデフォルトを検出できない場合は以前のプライマリー割当を破棄します。
+    ///
+    /// 責務: 最新Bluetooth探索の空結果が古い検出済み状態をHOME向け設定状態へ残さないことを確認します。
+    func testRefreshWithoutSavedDefaultClearsPreviouslyDetectedPrimary() async {
+        let savedAdapter = makeAdapter(id: "saved", name: "Saved Adapter")
+        var state = IOSSettingsState()
+        state.defaultAdapterPreference = DefaultAdapterPreference(adapter: savedAdapter)
+        state.selectedAdapters[.primary] = savedAdapter
+        let model = makeModel(
+            state: state,
+            port: ImmediateIOSAdapterDiscoveryPortFake(result: .success([]))
+        )
+
+        model.send(.bluetoothRefreshRequested)
+        await waitForDiscovery(in: model)
+
+        XCTAssertNil(model.state.selectedAdapters[.primary])
+        XCTAssertEqual(model.state.defaultAdapterPreference?.adapterID, "saved")
+    }
+
     /// HOMEからの設定促進操作が注目要求番号を更新することを検証します。
     ///
     /// 責務: iOS HOME由来の設定促進操作を設定カードの表示更新番号へ変換できることを確認します。

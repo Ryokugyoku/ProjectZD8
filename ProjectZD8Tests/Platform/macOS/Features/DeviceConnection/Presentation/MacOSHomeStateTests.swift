@@ -10,9 +10,7 @@ final class MacOSHomeStateTests: XCTestCase {
     func testEmptySettingsRequireDefaultAdapterSetup() {
         let state = MacOSHomeState(settingsState: MacOSSettingsState())
 
-        XCTAssertFalse(state.hasDefaultAdapter)
-        XCTAssertNil(state.defaultAdapterName)
-        XCTAssertFalse(state.isDefaultAdapterDetected)
+        XCTAssertEqual(state.defaultAdapterAvailability, .notConfigured)
     }
 
     /// 保存済みデフォルトと検出済みプライマリーが一致する状態を検証します。
@@ -32,9 +30,9 @@ final class MacOSHomeStateTests: XCTestCase {
 
         let state = MacOSHomeState(settingsState: settingsState)
 
-        XCTAssertTrue(state.hasDefaultAdapter)
-        XCTAssertEqual(state.defaultAdapterName, "Saved Adapter")
-        XCTAssertTrue(state.isDefaultAdapterDetected)
+        XCTAssertTrue(state.defaultAdapterAvailability.hasDefaultAdapter)
+        XCTAssertEqual(state.defaultAdapterAvailability.displayName, "Saved Adapter")
+        XCTAssertTrue(state.defaultAdapterAvailability.isDetected)
         XCTAssertEqual(state.connectionEndpoint?.systemIdentifier, "/dev/cu.saved")
     }
 
@@ -54,8 +52,31 @@ final class MacOSHomeStateTests: XCTestCase {
 
         let state = MacOSHomeState(settingsState: settingsState)
 
-        XCTAssertTrue(state.hasDefaultAdapter)
-        XCTAssertFalse(state.isDefaultAdapterDetected)
+        XCTAssertEqual(
+            state.defaultAdapterAvailability,
+            .notDetected(displayName: "Saved Adapter")
+        )
+        XCTAssertNil(state.connectionEndpoint)
+    }
+
+    /// 検出済みBluetooth候補はmacOSのシリアル接続終端として公開しません。
+    ///
+    /// 責務: macOS HOMEが検証済みUSB経路以外の接続方式を有効化しないことを確認します。
+    func testDetectedBluetoothAdapterDoesNotExposeSerialConnectionEndpoint() {
+        let adapter = DiscoveredAdapter(
+            id: "bluetooth",
+            transportMode: .bluetooth,
+            displayName: "Bluetooth Adapter",
+            systemIdentifier: "bluetooth",
+            isConnected: false
+        )
+        var settingsState = MacOSSettingsState()
+        settingsState.defaultAdapterPreference = DefaultAdapterPreference(adapter: adapter)
+        settingsState.selectedAdapters[.primary] = adapter
+
+        let state = MacOSHomeState(settingsState: settingsState)
+
+        XCTAssertTrue(state.defaultAdapterAvailability.isDetected)
         XCTAssertNil(state.connectionEndpoint)
     }
 

@@ -109,27 +109,34 @@ final class MacOSSettingsPresentationModel {
             case let .discovered(adapters):
                 state.discoveredAdapters = adapters
                 state.adapterDiscoveryStatus = .loaded
-                selectDetectedDefaultAdapter(from: adapters)
+                synchronizeDetectedDefaultAdapter(with: adapters, for: requestedMode)
             case .unavailable, .failed:
                 state.discoveredAdapters = []
                 state.adapterDiscoveryStatus = .failed
+                synchronizeDetectedDefaultAdapter(with: [], for: requestedMode)
             }
         }
     }
 
-    /// 検出結果に保存済みデフォルト候補が含まれる場合にプライマリーへ設定します。
+    /// 最新探索結果に合わせて保存済みデフォルト候補のプライマリー割当を同期します。
     ///
-    /// 責務: 最新探索結果から保存済みデフォルトと一致する候補を1件だけ自動選択します。
-    /// - Parameter adapters: 最新探索で検出した候補一覧。
-    private func selectDetectedDefaultAdapter(from adapters: [DiscoveredAdapter]) {
-        guard
-            let preference = state.defaultAdapterPreference,
-            let adapter = defaultAdapterPreference.detectedAdapter(
-                matching: preference,
-                in: adapters
-            )
-        else { return }
-        state.selectedAdapters[.primary] = adapter
+    /// 責務: 保存済みデフォルトと同じ接続方式の最新探索だけをプライマリー割当へ反映します。
+    /// - Parameters:
+    ///   - adapters: 最新探索で検出した候補一覧。
+    ///   - mode: 最新探索で要求した接続方式。
+    private func synchronizeDetectedDefaultAdapter(
+        with adapters: [DiscoveredAdapter],
+        for mode: AdapterTransportMode
+    ) {
+        guard let preference = state.defaultAdapterPreference else {
+            state.selectedAdapters[.primary] = nil
+            return
+        }
+        guard preference.transportMode == mode else { return }
+        state.selectedAdapters[.primary] = defaultAdapterPreference.detectedAdapter(
+            matching: preference,
+            in: adapters
+        )
     }
 
     /// 候補探索と関連モーダルを終了します。

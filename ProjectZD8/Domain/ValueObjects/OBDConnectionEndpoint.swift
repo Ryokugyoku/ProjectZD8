@@ -1,7 +1,7 @@
 import Foundation
 
 /// OBDアダプターへ接続するためのフレームワーク非依存な物理終端です。
-struct OBDConnectionEndpoint: Equatable, Sendable {
+nonisolated struct OBDConnectionEndpoint: Equatable, Sendable {
     /// OBDアダプターまでの物理通信方式です。
     enum Transport: String, Equatable, Sendable {
         /// Bluetooth Low EnergyのUARTサービスを使用します。

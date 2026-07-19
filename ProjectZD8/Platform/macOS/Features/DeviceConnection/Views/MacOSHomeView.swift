@@ -14,7 +14,7 @@ struct MacOSHomeView: View {
 
     /// 車載コックピットを意識した接続準備カードを提供します。
     ///
-    /// 責務: デフォルト設定の有無を主要操作と状態説明へ反映したmacOS HOMEを描画します。
+    /// 責務: デフォルトアダプターの接続可否を主要操作と状態説明へ反映したmacOS HOMEを描画します。
     var body: some View {
         GeometryReader { proxy in
             ScrollView {
@@ -107,7 +107,11 @@ struct MacOSHomeView: View {
                 Circle()
                     .stroke(Color.accentColor.opacity(0.28), lineWidth: 1)
 
-                Image(systemName: state.hasDefaultAdapter ? "cable.connector.horizontal" : "cable.connector.slash")
+                Image(
+                    systemName: state.defaultAdapterAvailability.isDetected
+                        ? "cable.connector.horizontal"
+                        : "cable.connector.slash"
+                )
                     .font(.system(size: 32 * metrics.scale, weight: .semibold))
                     .foregroundStyle(.tint)
             }
@@ -126,12 +130,12 @@ struct MacOSHomeView: View {
 
                 Label(adapterStatusText, systemImage: adapterStatusSymbol)
                     .font(.system(size: 12 * metrics.scale, weight: .semibold))
-                    .foregroundStyle(state.isDefaultAdapterDetected ? Color.green : Color.secondary)
+                    .foregroundStyle(state.defaultAdapterAvailability.isDetected ? Color.green : Color.secondary)
             }
         }
     }
 
-    /// デフォルト設定に応じた主要操作を描画します。
+    /// デフォルトアダプターの接続可否に応じた主要操作を描画します。
     private var primaryAction: some View {
         VStack(alignment: .leading, spacing: 9 * metrics.scale) {
             if state.isConnectionActive {
@@ -142,14 +146,16 @@ struct MacOSHomeView: View {
                 .controlSize(.large)
                 .accessibilityIdentifier("macos-home-disconnect")
                 .disabled(state.isDisconnecting)
-            } else if state.hasDefaultAdapter {
+            } else if state.defaultAdapterAvailability.isDetected {
                 Button("home.action.connect") {
-                    if let endpoint = state.connectionEndpoint { send(.vehicleConnectionRequested(endpoint)) }
+                    if let endpoint = state.connectionEndpoint {
+                        send(.vehicleConnectionRequested(endpoint))
+                    }
                 }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.large)
-                    .accessibilityIdentifier("macos-home-connect")
-                    .disabled(state.connectionEndpoint == nil)
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+                .accessibilityIdentifier("macos-home-connect")
+                .disabled(state.connectionEndpoint == nil)
             } else {
                 Button {
                     send(.adapterSetupRequested)
@@ -189,7 +195,7 @@ struct MacOSHomeView: View {
 
     /// デフォルト設定の有無に対応する主要名称です。
     private var adapterTitle: LocalizedStringKey {
-        if let defaultAdapterName = state.defaultAdapterName {
+        if let defaultAdapterName = state.defaultAdapterAvailability.displayName {
             LocalizedStringKey(defaultAdapterName)
         } else {
             "home.adapter.not_configured"
@@ -198,10 +204,10 @@ struct MacOSHomeView: View {
 
     /// デフォルト候補の現在の検出状態を表す説明です。
     private var adapterStatusText: LocalizedStringKey {
-        if state.isDefaultAdapterDetected {
+        if state.defaultAdapterAvailability.isDetected {
             "home.adapter.detected"
-        } else if state.hasDefaultAdapter {
-            "home.adapter.waiting"
+        } else if state.defaultAdapterAvailability.hasDefaultAdapter {
+            "home.adapter.not_detected"
         } else {
             "home.adapter.setup_required"
         }
@@ -209,10 +215,8 @@ struct MacOSHomeView: View {
 
     /// デフォルト候補の現在の検出状態を表すSF Symbol名です。
     private var adapterStatusSymbol: String {
-        if state.isDefaultAdapterDetected {
+        if state.defaultAdapterAvailability.isDetected {
             "checkmark.circle.fill"
-        } else if state.hasDefaultAdapter {
-            "antenna.radiowaves.left.and.right"
         } else {
             "exclamationmark.circle.fill"
         }

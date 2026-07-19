@@ -6,6 +6,9 @@ struct MacOSAppShellView: View {
     /// macOSシェルが現在表示している遷移先です。
     @State private var selectedDestination: MacOSSidebarDestination = .home
 
+    /// HOMEから開始した車両識別の遷移判断を待っているかを示します。
+    @State private var awaitsVehicleConnectionOutcome = false
+
     /// Connectionを除くアカウント同期対象設定を提供するモデルです。
     let accountSettingsModel: AccountSettingsModel
 
@@ -128,11 +131,14 @@ struct MacOSAppShellView: View {
         .accessibilityIdentifier("macos-app-shell")
         .frame(minWidth: 640, minHeight: 420)
         .environment(\.locale, Locale(identifier: accountSettingsModel.settings.language.localeIdentifier))
+        .onChange(of: vehicleManagementModel.state.phase) { _, phase in
+            handleVehicleManagementPhase(phase)
+        }
     }
 
     /// HOMEから受け取った1件の操作をmacOSナビゲーションへ反映します。
     ///
-    /// 責務: HOMEのアダプター設定要求を設定画面への遷移と注目要求へ変換します。
+    /// 責務: HOMEの1件の型付き操作を対応するAppShell状態更新またはApplication通知へ振り分けます。
     /// - Parameter action: HOMEから通知された型付き操作。
     private func handleHomeAction(_ action: MacOSHomeAction) {
         switch action {
@@ -140,10 +146,41 @@ struct MacOSAppShellView: View {
             selectedDestination = .settings
             settingsModel.send(.adapterAttentionRequested)
         case let .vehicleConnectionRequested(endpoint):
-            selectedDestination = .garage
+            awaitsVehicleConnectionOutcome = true
             startVehicleConnection.execute(endpoint: endpoint)
         case .vehicleDisconnectionRequested:
             liveTelemetryModel.send(.stopRequested)
+        }
+    }
+
+    /// 車両識別後のユーザー操作が必要な段階をmacOSナビゲーションへ反映します。
+    ///
+    /// 責務: 車両管理段階がGarage表示を必要とする場合だけ遷移先を更新します。
+    /// - Parameter phase: 車両識別を含む車両管理ワークフローの現在段階。
+    private func handleVehicleManagementPhase(_ phase: VehicleManagementState.Phase) {
+        guard awaitsVehicleConnectionOutcome else { return }
+        if phase == .readyToConnect {
+            awaitsVehicleConnectionOutcome = false
+            return
+        }
+        guard let destination = Self.destination(forVehicleManagementPhase: phase) else { return }
+        awaitsVehicleConnectionOutcome = false
+        selectedDestination = destination
+    }
+
+    /// 車両管理段階から自動表示が必要なmacOS遷移先を解決します。
+    ///
+    /// 責務: ユーザー操作を要する車両管理段階だけをGarage遷移へ変換します。
+    /// - Parameter phase: 車両識別を含む車両管理ワークフローの現在段階。
+    /// - Returns: 自動表示する遷移先。登録済み車両の接続を含め、遷移不要の場合は `nil`。
+    static func destination(
+        forVehicleManagementPhase phase: VehicleManagementState.Phase
+    ) -> MacOSSidebarDestination? {
+        switch phase {
+        case .confirmingIdentification, .registering, .failed:
+            .garage
+        case .idle, .loading, .identifying, .editing, .readyToConnect:
+            nil
         }
     }
 }

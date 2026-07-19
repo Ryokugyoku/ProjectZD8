@@ -101,30 +101,32 @@ final class IOSSettingsPresentationModel {
             case let .discovered(adapters):
                 state.discoveredAdapters = adapters
                 state.bluetoothDiscoveryStatus = .loaded
-                selectDetectedDefaultAdapter(from: adapters)
+                synchronizeDetectedDefaultAdapter(with: adapters)
             case let .unavailable(error):
                 state.discoveredAdapters = []
                 state.bluetoothDiscoveryStatus = status(for: error)
+                synchronizeDetectedDefaultAdapter(with: [])
             case .failed:
                 state.discoveredAdapters = []
                 state.bluetoothDiscoveryStatus = .failed
+                synchronizeDetectedDefaultAdapter(with: [])
             }
         }
     }
 
-    /// 検出結果に保存済みデフォルト候補が含まれる場合にプライマリーへ設定します。
+    /// 最新探索結果に合わせて保存済みデフォルト候補のプライマリー割当を同期します。
     ///
-    /// 責務: 最新Bluetooth探索結果から保存済みデフォルトと一致する候補を1件だけ自動選択します。
+    /// 責務: 最新Bluetooth探索で保存済みデフォルトと一致した候補だけをプライマリーへ保持します。
     /// - Parameter adapters: 最新Bluetooth探索で検出した候補一覧。
-    private func selectDetectedDefaultAdapter(from adapters: [DiscoveredAdapter]) {
-        guard
-            let preference = state.defaultAdapterPreference,
-            let adapter = defaultAdapterPreference.detectedAdapter(
-                matching: preference,
-                in: adapters
-            )
-        else { return }
-        state.selectedAdapters[.primary] = adapter
+    private func synchronizeDetectedDefaultAdapter(with adapters: [DiscoveredAdapter]) {
+        guard let preference = state.defaultAdapterPreference else {
+            state.selectedAdapters[.primary] = nil
+            return
+        }
+        state.selectedAdapters[.primary] = defaultAdapterPreference.detectedAdapter(
+            matching: preference,
+            in: adapters
+        )
     }
 
     /// Application探索エラーをiOS表示状態へ変換します。
