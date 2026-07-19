@@ -1,18 +1,38 @@
 #if os(macOS)
 import SwiftUI
 
-/// 選択されたmacOS遷移先のプレゼンテーション専用プレースホルダーを描画します。
+/// 選択されたmacOS遷移先に対応する画面を描画します。
 struct MacOSDestinationView: View {
-    /// このプレースホルダーが表す遷移先です。
+    /// この画面が表す遷移先です。
     let destination: MacOSSidebarDestination
 
     /// 現在のウインドウサイズに対応する表示寸法です。
     let metrics: MacOSAppShellMetrics
 
-    /// ウインドウに合わせて内容が拡縮する遷移先領域を提供します。
+    /// 設定画面へ渡す現在の表示設定です。
+    let settingsState: MacOSSettingsState
+
+    /// 設定画面の操作をAppShellへ通知するクロージャです。
+    let sendSettingsAction: (MacOSSettingsAction) -> Void
+
+    /// 選択された遷移先に対応するmacOS画面を提供します。
     ///
-    /// 責務: 機能ワークフローを実装せず、選択された遷移先の識別情報だけを描画します。
+    /// 責務: 現在の遷移先を専用画面または識別用プレースホルダーへ振り分けます。
+    @ViewBuilder
     var body: some View {
+        if destination == .settings {
+            MacOSSettingsView(
+                state: settingsState,
+                send: sendSettingsAction,
+                metrics: metrics
+            )
+        } else {
+            placeholder
+        }
+    }
+
+    /// 未実装の遷移先を識別できるプレースホルダーです。
+    private var placeholder: some View {
         VStack(spacing: 22 * metrics.scale) {
             Image(systemName: destination.systemImage)
                 .font(.system(size: metrics.contentSymbolSize, weight: .medium))
