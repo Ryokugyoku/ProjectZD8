@@ -141,7 +141,22 @@ Behavioral changes MUST include proportionate tests at the lowest layer that own
 
 Tests MUST mirror production feature paths and use descriptive behavior names. A local test proves only that tested local behavior; it does not prove visual quality, a real device, a production service, or hosted CI.
 
-## 9. Human review checklist
+## 9. OBD acquisition, persistence, and analysis boundaries
+
+Serial communication, OBD protocol handling, persistence, real-time presentation, and TensorFlow analysis MUST remain independently replaceable responsibilities.
+
+- Serial and OBD framework calls MUST be implemented in `Data/Devices` behind an Application port. A Platform View or presentation model MUST NOT open, configure, read, or write a serial or OBD connection.
+- A device callback MUST enter an Application use case before it can affect persistence or presentation state. A Data adapter MUST NOT fan one callback out directly to a database, a View, and an analysis engine.
+- Durable log reads and writes MUST cross a Domain repository contract. Platform code MUST NOT query GRDB, execute SQL, or depend on persistence records.
+- Real-time presentation MUST consume bounded presentation state produced through Application orchestration. Rendering MUST NOT become the owner of the acquisition session or the authoritative telemetry log.
+- Analysis MUST be invoked through an Application analysis port. Concrete TensorFlow model loading, input/output conversion, and framework lifecycle belong in `Data/MachineLearning/TensorFlow`.
+- Analysis work MUST NOT block serial acquisition or durable logging. Queueing, cancellation, backpressure, and stale-result rejection MUST be explicit when they affect correctness.
+- An unavailable model, incompatible model, low-confidence result, cancellation, or inference failure MUST remain distinguishable from a successful analysis result. Analysis failure MUST NOT be reported as logging success or fabricated numeric output.
+- Recorded source logs MUST remain usable independently of derived analysis results. Reanalysis or replacement of the analysis implementation MUST NOT require rewriting the original acquired data.
+
+The exact serial transport, OBD command set, database technology, TensorFlow runtime, model format, formulas, units, and supported vehicles MUST NOT be guessed from this folder scaffold. Each requires a separately reviewed implementation or requirement decision.
+
+## 10. Human review checklist
 
 The author and human reviewer should be able to answer **yes** to each applicable item:
 
@@ -154,6 +169,9 @@ The author and human reviewer should be able to answer **yes** to each applicabl
 - [ ] Can the screen layout be deleted and rebuilt without changing business logic or Data adapters?
 - [ ] Are iOS and macOS layout trees independent?
 - [ ] Are side effects behind explicit ports and injected implementations?
+- [ ] Does device input enter Application orchestration before persistence, presentation, or analysis effects occur?
+- [ ] Can acquisition and durable logging continue without TensorFlow analysis?
+- [ ] Are raw or source logs preserved independently from derived analysis results?
 - [ ] Are failures preserved rather than silently converted into success or empty state?
 - [ ] Do tests cover the changed responsibility and important failure paths?
 - [ ] Does the handoff distinguish verified results from unverified assumptions?
