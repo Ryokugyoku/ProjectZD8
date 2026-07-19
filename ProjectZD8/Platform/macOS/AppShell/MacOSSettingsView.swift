@@ -12,9 +12,6 @@ struct MacOSSettingsView: View {
     /// 現在のウインドウサイズに対応する表示寸法です。
     let metrics: MacOSAppShellMetrics
 
-    /// 選択導線の説明を表示しているアダプタースロットです。
-    @State private var presentedAdapterSlot: AdapterSlot?
-
     /// 設定画面のレスポンシブなスクロール領域を提供します。
     ///
     /// 責務: 表示設定と未接続機能の状態を操作可能なmacOS設定レイアウトとして描画します。
@@ -34,9 +31,21 @@ struct MacOSSettingsView: View {
             .scrollIndicators(.hidden)
             .background(settingsBackground)
         }
-        .sheet(item: $presentedAdapterSlot) { slot in
-            adapterSelectionNotice(for: slot)
-                .environment(\.locale, Locale(identifier: state.language.localeIdentifier))
+        .sheet(
+            item: Binding(
+                get: { state.presentedAdapterSlot },
+                set: { slot in
+                    if slot == nil { send(.adapterSelectionCancelled) }
+                }
+            )
+        ) { slot in
+            MacOSAdapterSelectionView(
+                slot: slot,
+                state: state,
+                send: send,
+                metrics: metrics
+            )
+            .environment(\.locale, Locale(identifier: state.language.localeIdentifier))
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("macos-settings-screen")
@@ -297,12 +306,12 @@ struct MacOSSettingsView: View {
         .accessibilityIdentifier("macos-settings-appearance-\(appearance.rawValue)")
     }
 
-    /// 1件のアダプタースロットの要件と未選択状態を描画します。
+    /// 1件のアダプタースロットの要件と現在の選択状態を描画します。
     ///
     /// 責務: 1件のアダプタースロットを役割と選択導線を持つ行として描画します。
     /// - Parameter slot: 行が表すアダプタースロット。
-    /// - Returns: 実接続を装わず選択導線を提供するアダプター行。
-    private func adapterRow(for slot: AdapterSlot) -> some View {
+    /// - Returns: 現在の選択状態と選択導線を提供するアダプター行。
+    private func adapterRow(for slot: AdapterConnectionRole) -> some View {
         HStack(spacing: 12 * metrics.scale) {
             ZStack {
                 Circle()
@@ -327,93 +336,39 @@ struct MacOSSettingsView: View {
                         .background(Color.primary.opacity(0.05), in: Capsule())
                 }
 
-                Text("settings.adapter.not_selected")
+                Text(adapterDescription(for: slot))
                     .font(.system(size: 10.5 * metrics.scale))
                     .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
             }
 
             Spacer(minLength: 4 * metrics.scale)
 
             Button("settings.adapter.select") {
-                presentedAdapterSlot = slot
+                send(.adapterSelectionRequested(slot))
             }
             .buttonStyle(.bordered)
             .controlSize(.small)
+            .accessibilityLabel(slot.title)
+            .accessibilityHint(Text("settings.adapter.select"))
+            .accessibilityIdentifier("macos-settings-adapter-\(slot.rawValue)-select")
         }
         .padding(11 * metrics.scale)
         .background(Color.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: 13 * metrics.scale, style: .continuous))
         .accessibilityIdentifier("macos-settings-adapter-\(slot.rawValue)")
     }
 
-    /// 未接続のアダプター検出境界を説明するシートを生成します。
+    /// アダプタースロットに対応する現在の設定内容を返します。
     ///
-    /// 責務: 1件のアダプタースロットについて検出機能が未実装である事実を表示します。
-    /// - Parameter slot: 説明対象のアダプタースロット。
-    /// - Returns: 実接続を装わない選択導線の説明シート。
-    private func adapterSelectionNotice(for slot: AdapterSlot) -> some View {
-        VStack(spacing: 18 * metrics.scale) {
-            Image(systemName: "cable.connector.slash")
-                .font(.system(size: 38 * metrics.scale, weight: .medium))
-                .foregroundStyle(.tint)
-
-            Text(slot.title)
-                .font(.system(size: 20 * metrics.scale, weight: .bold, design: .rounded))
-
-            Text("settings.adapter.unavailable.description")
-                .font(.system(size: 12 * metrics.scale))
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-
-            Button("settings.adapter.unavailable.close") {
-                presentedAdapterSlot = nil
-            }
-            .buttonStyle(.borderedProminent)
-            .keyboardShortcut(.defaultAction)
-        }
-        .padding(32 * metrics.scale)
-        .frame(width: 360 * metrics.scale)
-        .accessibilityIdentifier("macos-settings-adapter-unavailable")
-    }
-}
-
-/// macOS設定画面に表示するアダプターの役割です。
-private enum AdapterSlot: String, Identifiable {
-    /// 通常通信に必須のプライマリーアダプターを表します。
-    case primary
-
-    /// 受信専用スニッフィング向けの任意セカンダリーアダプターを表します。
-    case secondary
-
-    /// シート表示とアクセシビリティ参照に使う安定識別子です。
-    var id: String { rawValue }
-
-    /// アダプタースロットのローカライズ済み名称です。
-    var title: LocalizedStringKey {
-        switch self {
-        case .primary:
-            "settings.adapter.primary"
-        case .secondary:
-            "settings.adapter.secondary"
-        }
-    }
-
-    /// アダプタースロットの制約を示すローカライズ済み短文です。
-    var badge: LocalizedStringKey {
-        switch self {
-        case .primary:
-            "settings.adapter.required"
-        case .secondary:
-            "settings.adapter.receive_only"
-        }
-    }
-
-    /// アダプタースロットの役割を表すSF Symbol名です。
-    var systemImage: String {
-        switch self {
-        case .primary:
-            "bolt.horizontal.circle.fill"
-        case .secondary:
-            "wave.3.right.circle"
+    /// 責務: 1件のアダプタースロットを一覧表示用の設定説明へ変換します。
+    /// - Parameter slot: 表示対象のアダプタースロット。
+    /// - Returns: 選択済み名称または未選択を示すローカライズ値。
+    private func adapterDescription(for slot: AdapterConnectionRole) -> LocalizedStringKey {
+        if let adapter = state.selectedAdapters[slot] {
+            LocalizedStringKey(adapter.displayName)
+        } else {
+            "settings.adapter.not_selected"
         }
     }
 }

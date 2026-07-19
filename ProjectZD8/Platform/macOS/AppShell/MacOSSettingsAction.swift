@@ -6,5 +6,30 @@ enum MacOSSettingsAction: Equatable {
 
     /// 外観モードの選択変更を通知します。
     case appearanceSelected(MacOSSettingsAppearance)
+
+    /// 指定した接続役割のアダプター選択開始を通知します。
+    case adapterSelectionRequested(AdapterConnectionRole)
+
+    /// アダプター探索に使う接続方式の変更を通知します。
+    case adapterTransportModeSelected(AdapterTransportMode)
+
+    /// 現在の接続方式でアダプター候補の再探索を通知します。
+    case adapterRefreshRequested
+
+    /// 1件のアダプター候補について接続情報の確認を通知します。
+    case adapterCandidateSelected(DiscoveredAdapter)
+
+    /// 詳細表示中の候補をプライマリーアダプターとして確定します。
+    case inspectedAdapterConfirmed
+
+    /// 詳細表示中の候補を設定せず選択画面を閉じます。
+    case inspectedAdapterDeclined
+
+    /// アダプター接続情報の詳細表示だけを閉じます。
+    case adapterDetailsDismissed
+
+    /// プライマリーアダプター選択を変更せず終了します。
+    case adapterSelectionCancelled
+
 }
 #endif

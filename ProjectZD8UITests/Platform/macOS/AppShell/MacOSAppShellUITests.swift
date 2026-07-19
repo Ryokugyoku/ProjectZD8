@@ -45,7 +45,7 @@ final class MacOSAppShellUITests: XCTestCase {
         XCTAssertTrue(application.descendants(matching: .any)["macos-settings-screen"].waitForExistence(timeout: 2))
     }
 
-    /// 設定画面が要求された設定カテゴリと未実装状態を公開することを検証します。
+    /// 設定画面が要求された設定カテゴリとアダプター選択導線を公開することを検証します。
     ///
     /// 責務: macOS設定画面にアダプター設定と将来のストレージ設定が表示されることを確認します。
     @MainActor
@@ -61,6 +61,75 @@ final class MacOSAppShellUITests: XCTestCase {
         XCTAssertTrue(application.descendants(matching: .any)["macos-settings-adapter-primary"].exists)
         XCTAssertTrue(application.descendants(matching: .any)["macos-settings-adapter-secondary"].exists)
         XCTAssertTrue(application.descendants(matching: .any)["macos-settings-storage-coming-soon"].exists)
+    }
+
+    /// プライマリーアダプターの選択操作から接続方式別の候補画面へ進めることを検証します。
+    ///
+    /// 責務: macOS設定画面がUSBとBluetoothを選べるアダプター探索モーダルを表示することを確認します。
+    @MainActor
+    func testPrimaryAdapterSelectionShowsTransportModes() {
+        let application = XCUIApplication()
+        application.launch()
+
+        let settingsButton = application.buttons["macos-sidebar-settings"]
+        XCTAssertTrue(settingsButton.waitForExistence(timeout: 5))
+        settingsButton.click()
+
+        XCTAssertTrue(application.descendants(matching: .any)["macos-settings-screen"].waitForExistence(timeout: 2))
+        let primaryAdapterButton = application.buttons["プライマリーアダプター"]
+        XCTAssertTrue(primaryAdapterButton.waitForExistence(timeout: 2))
+        primaryAdapterButton.click()
+
+        XCTAssertTrue(application.descendants(matching: .any)["macos-primary-adapter-selection"].waitForExistence(timeout: 3))
+        XCTAssertTrue(application.radioButtons["USB"].exists)
+        XCTAssertTrue(application.radioButtons["Bluetooth"].exists)
+    }
+
+    /// セカンダリーアダプターでも共通の接続方式選択画面へ進めることを検証します。
+    ///
+    /// 責務: 受信専用セカンダリーがUSBとBluetoothを持つ共通候補モーダルを表示することを確認します。
+    @MainActor
+    func testSecondaryAdapterSelectionShowsSharedTransportModes() {
+        let application = XCUIApplication()
+        application.launch()
+
+        let settingsButton = application.buttons["macos-sidebar-settings"]
+        XCTAssertTrue(settingsButton.waitForExistence(timeout: 5))
+        settingsButton.click()
+
+        let secondaryAdapterButton = application.buttons["セカンダリーアダプター"]
+        XCTAssertTrue(secondaryAdapterButton.waitForExistence(timeout: 2))
+        secondaryAdapterButton.click()
+
+        XCTAssertTrue(application.descendants(matching: .any)["macos-secondary-adapter-selection"].waitForExistence(timeout: 3))
+        XCTAssertTrue(application.radioButtons["USB"].exists)
+        XCTAssertTrue(application.radioButtons["Bluetooth"].exists)
+    }
+
+    /// Bluetooth探索へ切り替えた直後も選択画面をキャンセルできることを検証します。
+    ///
+    /// 責務: Bluetoothシステム探索がmacOS設定モーダルの操作をブロックしないことを確認します。
+    @MainActor
+    func testBluetoothDiscoveryKeepsSelectionModalResponsive() {
+        let application = XCUIApplication()
+        application.launch()
+
+        let settingsButton = application.buttons["macos-sidebar-settings"]
+        XCTAssertTrue(settingsButton.waitForExistence(timeout: 5))
+        settingsButton.click()
+
+        let primaryAdapterButton = application.buttons["プライマリーアダプター"]
+        XCTAssertTrue(primaryAdapterButton.waitForExistence(timeout: 2))
+        primaryAdapterButton.click()
+
+        let bluetoothMode = application.radioButtons["Bluetooth"]
+        XCTAssertTrue(bluetoothMode.waitForExistence(timeout: 3))
+        bluetoothMode.click()
+
+        let cancelButton = application.buttons["キャンセル"]
+        XCTAssertTrue(cancelButton.waitForExistence(timeout: 1))
+        cancelButton.click()
+        XCTAssertFalse(application.descendants(matching: .any)["macos-primary-adapter-selection"].exists)
     }
 
     /// 言語と外観の選択が現在のAppShell表示へ反映されることを検証します。

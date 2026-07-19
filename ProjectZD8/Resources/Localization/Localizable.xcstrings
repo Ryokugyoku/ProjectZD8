@@ -1,18 +1,1902 @@
 {
   "sourceLanguage" : "ja",
   "strings" : {
-    "sidebar.brand.tagline" : {
+    "ios.navigation.home" : {
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "DRIVE INTELLIGENCE" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "INTELIGENCIA DE CONDUCCIÓN" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "DRIVE INTELLIGENCE" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Home"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Inicio"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ホーム"
+          }
+        }
       }
     },
-    "sidebar.footer.caption" : {
+    "ios.navigation.live_log" : {
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Modern driving workspace" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Espacio de conducción moderno" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "モダン・ドライビング・ワークスペース" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Live"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En vivo"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ライブ"
+          }
+        }
+      }
+    },
+    "ios.navigation.maintenance" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Service"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Servicio"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "整備"
+          }
+        }
+      }
+    },
+    "ios.navigation.settings" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Settings"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajustes"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "設定"
+          }
+        }
+      }
+    },
+    "ios.settings.adapter.connection_state.connected" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connected"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conectado"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "接続済み"
+          }
+        }
+      }
+    },
+    "ios.settings.adapter.connection_state.connecting" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connecting"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conectando"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "接続中"
+          }
+        }
+      }
+    },
+    "ios.settings.adapter.connection_state.disconnected" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Disconnected"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Desconectado"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未接続"
+          }
+        }
+      }
+    },
+    "ios.settings.adapter.connection_state.disconnecting" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Disconnecting"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Desconectando"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "切断中"
+          }
+        }
+      }
+    },
+    "ios.settings.adapter.details.advertisement_local_name" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Advertisement Local Name"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nombre local anunciado"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Advertisement Local Name"
+          }
+        }
+      }
+    },
+    "ios.settings.adapter.details.available" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Present"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Presente"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "あり"
+          }
+        }
+      }
+    },
+    "ios.settings.adapter.details.confirm_hint" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Selects this device as the primary adapter candidate without starting a vehicle connection."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Selecciona este dispositivo como candidato principal sin iniciar una conexión con el vehículo."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "車両接続を開始せず、この機器をプライマリーアダプター候補に設定します。"
+          }
+        }
+      }
+    },
+    "ios.settings.adapter.details.connection_state" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "State when discovered"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Estado al detectarse"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "検出時の接続状態"
+          }
+        }
+      }
+    },
+    "ios.settings.adapter.details.display_name" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Display name"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nombre mostrado"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "表示名称"
+          }
+        }
+      }
+    },
+    "ios.settings.adapter.details.manufacturer_data" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Manufacturer Data"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Datos del fabricante"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Manufacturer Data"
+          }
+        }
+      }
+    },
+    "ios.settings.adapter.details.not_available" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not present"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No presente"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "なし"
+          }
+        }
+      }
+    },
+    "ios.settings.adapter.details.peripheral_uuid" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Peripheral UUID"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "UUID del periférico"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Peripheral UUID"
+          }
+        }
+      }
+    },
+    "ios.settings.adapter.details.secondary_confirm_hint" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Selects this device as the receive-only secondary adapter candidate without starting a vehicle connection."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Selecciona este dispositivo como adaptador secundario candidato de solo recepción sin iniciar una conexión con el vehículo."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "車両接続を開始せず、この機器を受信専用セカンダリーアダプター候補に設定します。"
+          }
+        }
+      }
+    },
+    "ios.settings.adapter.details.secondary_notice" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This sets a receive-only secondary adapter candidate. It does not establish a vehicle connection."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esto configura un adaptador secundario candidato de solo recepción. No establece una conexión con el vehículo."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ここでは受信専用セカンダリーアダプター候補を設定します。車両への接続は開始しません。"
+          }
+        }
+      }
+    },
+    "ios.settings.adapter.selector.empty.description" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No Bluetooth Low Energy devices were found. Make sure the adapter is advertising, then scan again."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se encontraron dispositivos Bluetooth Low Energy. Comprueba que el adaptador esté anunciándose y vuelve a buscar."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bluetooth Low Energy機器が見つかりませんでした。アダプターがアドバタイズ中であることを確認して再探索してください。"
+          }
+        }
+      }
+    },
+    "ios.settings.adapter.selector.failed.description" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bluetooth discovery could not be completed. Try scanning again."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo completar la búsqueda Bluetooth. Vuelve a intentarlo."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bluetooth探索を完了できませんでした。再探索してください。"
+          }
+        }
+      }
+    },
+    "ios.settings.adapter.selector.inspect_hint" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Shows Bluetooth connection details before selection."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Muestra los detalles de conexión Bluetooth antes de seleccionar."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "設定前にBluetooth接続情報を表示します。"
+          }
+        }
+      }
+    },
+    "ios.settings.adapter.selector.searching" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Searching for nearby Bluetooth Low Energy devices…"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Buscando dispositivos Bluetooth Low Energy cercanos…"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "周辺のBluetooth Low Energy機器を探索中…"
+          }
+        }
+      }
+    },
+    "ios.settings.adapter.selector.title" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Select Bluetooth adapter"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Seleccionar adaptador Bluetooth"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bluetoothアダプターを選択"
+          }
+        }
+      }
+    },
+    "ios.settings.adapter.unavailable.powered_off.description" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Turn on Bluetooth in Settings, then scan again."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Activa Bluetooth en Ajustes y vuelve a buscar."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "設定でBluetoothをオンにしてから再探索してください。"
+          }
+        }
+      }
+    },
+    "ios.settings.adapter.unavailable.powered_off.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bluetooth is off"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bluetooth está desactivado"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bluetoothがオフです"
+          }
+        }
+      }
+    },
+    "ios.settings.adapter.unavailable.unauthorized.description" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Allow Bluetooth access for ProjectZD8 in Settings, then scan again."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Permite el acceso a Bluetooth para ProjectZD8 en Ajustes y vuelve a buscar."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "設定でProjectZD8のBluetooth利用を許可してから再探索してください。"
+          }
+        }
+      }
+    },
+    "ios.settings.adapter.unavailable.unauthorized.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bluetooth access is not allowed"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se permite el acceso a Bluetooth"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bluetoothが許可されていません"
+          }
+        }
+      }
+    },
+    "ios.settings.adapter.unavailable.unsupported.description" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bluetooth Low Energy discovery is not supported in this environment."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La búsqueda Bluetooth Low Energy no es compatible con este entorno."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この環境ではBluetooth Low Energy探索を利用できません。"
+          }
+        }
+      }
+    },
+    "ios.settings.adapter.unavailable.unsupported.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bluetooth is not supported"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bluetooth no es compatible"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bluetoothに対応していません"
+          }
+        }
+      }
+    },
+    "ios.shell.tagline" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MOBILE COCKPIT"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CABINA MÓVIL"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MOBILE COCKPIT"
+          }
+        }
+      }
+    },
+    "Project ZD8" : {
+
+    },
+    "settings.adapter.description" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose the connection roles used by your workspace."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elige los roles de conexión de tu espacio de trabajo."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ワークスペースで使用する接続役割を選択します。"
+          }
+        }
+      }
+    },
+    "settings.adapter.details.assignment_conflict" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This device is already assigned to the other adapter role. Select a different physical adapter."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este dispositivo ya está asignado al otro rol. Selecciona otro adaptador físico."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このデバイスは別の接続役割に設定済みです。異なる物理アダプターを選択してください。"
+          }
+        }
+      }
+    },
+    "settings.adapter.details.confirm" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use this adapter"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Usar este adaptador"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このアダプターを設定"
+          }
+        }
+      }
+    },
+    "settings.adapter.details.decline" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Do not set"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No configurar"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "設定しない"
+          }
+        }
+      }
+    },
+    "settings.adapter.details.identifier" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "System identifier"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Identificador del sistema"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "システム識別子"
+          }
+        }
+      }
+    },
+    "settings.adapter.details.manufacturer" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Manufacturer"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fabricante"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "メーカー"
+          }
+        }
+      }
+    },
+    "settings.adapter.details.notice" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Selecting a device saves it as the primary adapter candidate. It does not establish a vehicle connection."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Seleccionar un dispositivo lo guarda como candidato principal. No establece una conexión con el vehículo."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ここではプライマリーアダプター候補を設定します。車両への接続は開始しません。"
+          }
+        }
+      }
+    },
+    "settings.adapter.details.product" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Product"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Producto"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "製品名"
+          }
+        }
+      }
+    },
+    "settings.adapter.details.product_id" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Product ID"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ID de producto"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "製品ID"
+          }
+        }
+      }
+    },
+    "settings.adapter.details.serial" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Serial number"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Número de serie"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "シリアル番号"
+          }
+        }
+      }
+    },
+    "settings.adapter.details.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connection details"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Detalles de conexión"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "接続情報"
+          }
+        }
+      }
+    },
+    "settings.adapter.details.transport" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connection mode"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Modo de conexión"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "接続モード"
+          }
+        }
+      }
+    },
+    "settings.adapter.details.unknown" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not provided by the system"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No proporcionado por el sistema"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "システムから取得できません"
+          }
+        }
+      }
+    },
+    "settings.adapter.details.vendor_id" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vendor ID"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ID de fabricante"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ベンダーID"
+          }
+        }
+      }
+    },
+    "settings.adapter.eyebrow" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CONNECTION"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CONEXIÓN"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CONNECTION"
+          }
+        }
+      }
+    },
+    "settings.adapter.not_selected" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not selected"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sin seleccionar"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未選択"
+          }
+        }
+      }
+    },
+    "settings.adapter.primary" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Primary adapter"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Adaptador principal"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "プライマリーアダプター"
+          }
+        }
+      }
+    },
+    "settings.adapter.receive_only" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "RECEIVE ONLY"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SOLO RECEPCIÓN"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "受信専用"
+          }
+        }
+      }
+    },
+    "settings.adapter.required" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "REQUIRED"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OBLIGATORIO"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "必須"
+          }
+        }
+      }
+    },
+    "settings.adapter.secondary" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Secondary adapter"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Adaptador secundario"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "セカンダリーアダプター"
+          }
+        }
+      }
+    },
+    "settings.adapter.select" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Select"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elegir"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "選択"
+          }
+        }
+      }
+    },
+    "settings.adapter.selector.cancel" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cancel"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cancelar"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "キャンセル"
+          }
+        }
+      }
+    },
+    "settings.adapter.selector.description" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose USB or Bluetooth, then inspect a detected device before setting it."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elige USB o Bluetooth y revisa el dispositivo antes de configurarlo."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "USBまたはBluetoothを選び、検出したデバイスの接続情報を確認します。"
+          }
+        }
+      }
+    },
+    "settings.adapter.selector.empty.description" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connect or pair the adapter, then try scanning again."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conecta o empareja el adaptador y vuelve a buscar."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "アダプターを接続またはペアリングしてから再探索してください。"
+          }
+        }
+      }
+    },
+    "settings.adapter.selector.empty.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No devices found"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se encontraron dispositivos"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "デバイスが見つかりません"
+          }
+        }
+      }
+    },
+    "settings.adapter.selector.failed.description" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check the connection mode, Bluetooth state, and macOS permissions, then try again."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Comprueba el modo de conexión, Bluetooth y los permisos de macOS, e inténtalo de nuevo."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "接続方式、Bluetoothの状態、macOSの権限を確認して再探索してください。"
+          }
+        }
+      }
+    },
+    "settings.adapter.selector.failed.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Discovery unavailable"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Detección no disponible"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "探索を利用できません"
+          }
+        }
+      }
+    },
+    "settings.adapter.selector.mode" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connection mode"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Modo de conexión"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "接続モード"
+          }
+        }
+      }
+    },
+    "settings.adapter.selector.refresh" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scan again"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Buscar de nuevo"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "再探索"
+          }
+        }
+      }
+    },
+    "settings.adapter.selector.searching" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Looking for devices available to this Mac…"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Buscando dispositivos disponibles para este Mac…"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このMacで利用できるデバイスを探索中…"
+          }
+        }
+      }
+    },
+    "settings.adapter.selector.secondary.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Select secondary adapter"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Seleccionar adaptador secundario"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "セカンダリーアダプターを選択"
+          }
+        }
+      }
+    },
+    "settings.adapter.selector.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Select primary adapter"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Seleccionar adaptador principal"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "プライマリーアダプターを選択"
+          }
+        }
+      }
+    },
+    "settings.adapter.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Adapters"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Adaptadores"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "アダプター"
+          }
+        }
+      }
+    },
+    "settings.adapter.transport.bluetooth" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bluetooth"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bluetooth"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bluetooth"
+          }
+        }
+      }
+    },
+    "settings.adapter.transport.usb" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "USB"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "USB"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "USB"
+          }
+        }
+      }
+    },
+    "settings.adapter.unavailable.close" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Close"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cerrar"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "閉じる"
+          }
+        }
+      }
+    },
+    "settings.adapter.unavailable.description" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Adapter discovery is not connected yet. No device has been selected."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La detección de adaptadores aún no está conectada. No se ha seleccionado ningún dispositivo."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "アダプター検出機能はまだ接続されていません。デバイスは選択されていません。"
+          }
+        }
+      }
+    },
+    "settings.appearance.dark" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dark"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Oscuro"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ダーク"
+          }
+        }
+      }
+    },
+    "settings.appearance.description" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tune the cockpit for your environment."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Adapta el puesto de conducción a tu entorno."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "利用環境に合わせてコックピットの外観を整えます。"
+          }
+        }
+      }
+    },
+    "settings.appearance.eyebrow" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "APPEARANCE"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "APARIENCIA"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "APPEARANCE"
+          }
+        }
+      }
+    },
+    "settings.appearance.light" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Light"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claro"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ライト"
+          }
+        }
+      }
+    },
+    "settings.appearance.system" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "System"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sistema"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "システム"
+          }
+        }
+      }
+    },
+    "settings.appearance.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Appearance mode"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Modo de apariencia"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "外観モード"
+          }
+        }
+      }
+    },
+    "settings.language.description" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Switch the interface language immediately."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cambia el idioma de la interfaz al instante."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "インターフェースの言語をすぐに切り替えます。"
+          }
+        }
+      }
+    },
+    "settings.language.english" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "English"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Inglés"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "English"
+          }
+        }
+      }
+    },
+    "settings.language.eyebrow" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "LANGUAGE"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "IDIOMA"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "LANGUAGE"
+          }
+        }
+      }
+    },
+    "settings.language.japanese" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Japanese"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Japonés"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "日本語"
+          }
+        }
+      }
+    },
+    "settings.language.spanish" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Spanish"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Español"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Español"
+          }
+        }
+      }
+    },
+    "settings.language.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Language"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Idioma"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "言語"
+          }
+        }
+      }
+    },
+    "settings.more.caption" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "More settings will be added as Project ZD8 evolves."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se añadirán más ajustes a medida que evolucione Project ZD8."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Project ZD8の進化に合わせて設定項目を追加していきます。"
+          }
+        }
+      }
+    },
+    "settings.storage.coming_soon" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Planned for a future update"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Previsto para una futura actualización"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "今後のアップデートで実装予定"
+          }
+        }
+      }
+    },
+    "settings.storage.description" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Review log capacity and retention controls here in the future."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aquí podrás revisar la capacidad y retención de registros."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ログ容量や保持方法を今後ここで確認できるようにします。"
+          }
+        }
+      }
+    },
+    "settings.storage.eyebrow" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "STORAGE"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ALMACENAMIENTO"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "STORAGE"
+          }
+        }
+      }
+    },
+    "settings.storage.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Storage"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Almacenamiento"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ストレージ"
+          }
+        }
+      }
+    },
+    "settings.subtitle" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Shape Project ZD8 around the way you drive and work."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Adapta Project ZD8 a tu forma de conducir y trabajar."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "運転と作業のスタイルに合わせてProject ZD8を整えます。"
+          }
+        }
+      }
+    },
+    "settings.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Settings"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajustes"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "設定"
+          }
+        }
       }
     },
     "shell.destination.placeholder" : {
@@ -37,214 +1921,48 @@
         }
       }
     },
-    "settings.adapter.description" : {
+    "sidebar.brand.tagline" : {
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Choose the connection roles used by your workspace." } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Elige los roles de conexión de tu espacio de trabajo." } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "ワークスペースで使用する接続役割を選択します。" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "DRIVE INTELLIGENCE"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "INTELIGENCIA DE CONDUCCIÓN"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "DRIVE INTELLIGENCE"
+          }
+        }
       }
     },
-    "settings.adapter.eyebrow" : {
+    "sidebar.footer.caption" : {
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "CONNECTION" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "CONEXIÓN" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "CONNECTION" } }
-      }
-    },
-    "settings.adapter.not_selected" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Not selected" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Sin seleccionar" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "未選択" } }
-      }
-    },
-    "settings.adapter.primary" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Primary adapter" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Adaptador principal" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "プライマリーアダプター" } }
-      }
-    },
-    "settings.adapter.receive_only" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "RECEIVE ONLY" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "SOLO RECEPCIÓN" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "受信専用" } }
-      }
-    },
-    "settings.adapter.required" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "REQUIRED" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "OBLIGATORIO" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "必須" } }
-      }
-    },
-    "settings.adapter.secondary" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Secondary adapter" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Adaptador secundario" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "セカンダリーアダプター" } }
-      }
-    },
-    "settings.adapter.select" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Select" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Elegir" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "選択" } }
-      }
-    },
-    "settings.adapter.title" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Adapters" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Adaptadores" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "アダプター" } }
-      }
-    },
-    "settings.adapter.unavailable.close" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Close" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Cerrar" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "閉じる" } }
-      }
-    },
-    "settings.adapter.unavailable.description" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Adapter discovery is not connected yet. No device has been selected." } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "La detección de adaptadores aún no está conectada. No se ha seleccionado ningún dispositivo." } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "アダプター検出機能はまだ接続されていません。デバイスは選択されていません。" } }
-      }
-    },
-    "settings.appearance.dark" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Dark" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Oscuro" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "ダーク" } }
-      }
-    },
-    "settings.appearance.description" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Tune the cockpit for your environment." } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Adapta el puesto de conducción a tu entorno." } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "利用環境に合わせてコックピットの外観を整えます。" } }
-      }
-    },
-    "settings.appearance.eyebrow" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "APPEARANCE" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "APARIENCIA" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "APPEARANCE" } }
-      }
-    },
-    "settings.appearance.light" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Light" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Claro" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "ライト" } }
-      }
-    },
-    "settings.appearance.system" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "System" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Sistema" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "システム" } }
-      }
-    },
-    "settings.appearance.title" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Appearance mode" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Modo de apariencia" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "外観モード" } }
-      }
-    },
-    "settings.language.description" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Switch the interface language immediately." } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Cambia el idioma de la interfaz al instante." } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "インターフェースの言語をすぐに切り替えます。" } }
-      }
-    },
-    "settings.language.english" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "English" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Inglés" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "English" } }
-      }
-    },
-    "settings.language.eyebrow" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "LANGUAGE" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "IDIOMA" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "LANGUAGE" } }
-      }
-    },
-    "settings.language.japanese" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Japanese" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Japonés" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "日本語" } }
-      }
-    },
-    "settings.language.spanish" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Spanish" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Español" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "Español" } }
-      }
-    },
-    "settings.language.title" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Language" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Idioma" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "言語" } }
-      }
-    },
-    "settings.more.caption" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "More settings will be added as Project ZD8 evolves." } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Se añadirán más ajustes a medida que evolucione Project ZD8." } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "Project ZD8の進化に合わせて設定項目を追加していきます。" } }
-      }
-    },
-    "settings.storage.coming_soon" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Planned for a future update" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Previsto para una futura actualización" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "今後のアップデートで実装予定" } }
-      }
-    },
-    "settings.storage.description" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Review log capacity and retention controls here in the future." } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Aquí podrás revisar la capacidad y retención de registros." } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "ログ容量や保持方法を今後ここで確認できるようにします。" } }
-      }
-    },
-    "settings.storage.eyebrow" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "STORAGE" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "ALMACENAMIENTO" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "STORAGE" } }
-      }
-    },
-    "settings.storage.title" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Storage" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Almacenamiento" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "ストレージ" } }
-      }
-    },
-    "settings.subtitle" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Shape Project ZD8 around the way you drive and work." } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Adapta Project ZD8 a tu forma de conducir y trabajar." } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "運転と作業のスタイルに合わせてProject ZD8を整えます。" } }
-      }
-    },
-    "settings.title" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Settings" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Ajustes" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "設定" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Modern driving workspace"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Espacio de conducción moderno"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "モダン・ドライビング・ワークスペース"
+          }
+        }
       }
     },
     "sidebar.home" : {
@@ -271,9 +1989,24 @@
     },
     "sidebar.home.subtitle" : {
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Overview and highlights" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Resumen y destacados" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "概要とハイライト" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Overview and highlights"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Resumen y destacados"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "概要とハイライト"
+          }
+        }
       }
     },
     "sidebar.live_log" : {
@@ -300,9 +2033,24 @@
     },
     "sidebar.live_log.subtitle" : {
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Live vehicle signals" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Señales del vehículo en vivo" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "車両信号をライブ表示" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Live vehicle signals"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Señales del vehículo en vivo"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "車両信号をライブ表示"
+          }
+        }
       }
     },
     "sidebar.maintenance" : {
@@ -329,16 +2077,46 @@
     },
     "sidebar.maintenance.subtitle" : {
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Service insights" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Información de servicio" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "整備インサイト" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Service insights"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Información de servicio"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "整備インサイト"
+          }
+        }
       }
     },
     "sidebar.section.navigation" : {
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "NAVIGATION" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "NAVEGACIÓN" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "NAVIGATION" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "NAVIGATION"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "NAVEGACIÓN"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "NAVIGATION"
+          }
+        }
       }
     },
     "sidebar.settings" : {
@@ -365,9 +2143,24 @@
     },
     "sidebar.settings.subtitle" : {
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Personalize your workspace" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Personaliza tu espacio" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "ワークスペースを調整" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Personalize your workspace"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Personaliza tu espacio"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ワークスペースを調整"
+          }
+        }
       }
     }
   },

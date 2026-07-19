@@ -1,53 +1,65 @@
-#if os(macOS)
+#if os(iOS)
 import SwiftUI
 
-/// macOS設定画面へ渡す表示専用の選択状態です。
-struct MacOSSettingsState: Equatable {
+/// iOS設定画面へ渡す表示専用の選択状態です。
+struct IOSSettingsState: Equatable {
     /// 現在の表示言語です。
-    var language: MacOSSettingsLanguage = .japanese
+    var language: IOSSettingsLanguage = .japanese
 
     /// 現在の外観モードです。
-    var appearance: MacOSSettingsAppearance = .system
+    var appearance: IOSSettingsAppearance = .system
 
-    /// 接続役割ごとに現在選択されているアダプターです。
+    /// 接続役割ごとに現在選択されているBluetoothアダプター候補です。
     var selectedAdapters: [AdapterConnectionRole: DiscoveredAdapter] = [:]
 
-    /// アダプター候補一覧で選択中の接続方式です。
-    var adapterTransportMode: AdapterTransportMode = .usb
-
-    /// 選択中の接続方式で検出したアダプター候補です。
+    /// 最新のBluetooth探索で検出した候補です。
     var discoveredAdapters: [DiscoveredAdapter] = []
 
-    /// 現在のアダプター探索状態です。
-    var adapterDiscoveryStatus: MacOSAdapterDiscoveryStatus = .idle
+    /// 現在のBluetooth探索表示状態です。
+    var bluetoothDiscoveryStatus: IOSBluetoothDiscoveryStatus = .idle
 
-    /// 現在アダプター選択シートを表示している接続役割です。
+    /// Bluetoothアダプター選択画面で設定対象にしているスロットです。
     var presentedAdapterSlot: AdapterConnectionRole?
 
-    /// 接続情報の詳細を確認しているアダプター候補です。
+    /// 接続情報の詳細を確認しているBluetooth候補です。
     var inspectedAdapter: DiscoveredAdapter?
 
     /// 詳細表示中の候補が別の接続役割へ割り当て済みかどうかです。
     var hasAdapterAssignmentConflict = false
 }
 
-/// macOS設定画面に表示するアダプター探索状態です。
-enum MacOSAdapterDiscoveryStatus: Equatable {
-    /// 探索をまだ開始していません。
+/// iOS設定画面に表示するBluetooth探索状態です。
+enum IOSBluetoothDiscoveryStatus: Equatable {
+    /// Bluetooth探索をまだ開始していません。
     case idle
 
-    /// システムへアダプター候補を問い合わせています。
+    /// Bluetooth候補を非同期に探索しています。
     case searching
 
-    /// 最新の探索が完了しました。
+    /// 最新のBluetooth探索が完了しました。
     case loaded
 
-    /// システムのデバイス情報へアクセスできませんでした。
+    /// Bluetoothを利用できない理由が判明しました。
+    case unavailable(IOSBluetoothUnavailableReason)
+
+    /// Bluetooth状態以外の理由で探索を完了できませんでした。
     case failed
 }
 
-/// macOS設定画面で選択できる表示言語です。
-enum MacOSSettingsLanguage: String, CaseIterable, Identifiable {
+/// iOSでBluetooth探索を利用できない理由を表示用に表します。
+enum IOSBluetoothUnavailableReason: Equatable {
+    /// Bluetoothがシステム設定で無効です。
+    case poweredOff
+
+    /// Bluetooth利用が許可されていません。
+    case unauthorized
+
+    /// 実行環境がBluetooth Low Energy中央デバイス機能に対応していません。
+    case unsupported
+}
+
+/// iOS設定画面で選択できる表示言語です。
+enum IOSSettingsLanguage: String, CaseIterable, Identifiable {
     /// 日本語表示を選択します。
     case japanese
 
@@ -85,9 +97,9 @@ enum MacOSSettingsLanguage: String, CaseIterable, Identifiable {
     }
 }
 
-/// macOS設定画面で選択できる外観モードです。
-enum MacOSSettingsAppearance: String, CaseIterable, Identifiable {
-    /// macOSの外観設定へ追従します。
+/// iOS設定画面で選択できる外観モードです。
+enum IOSSettingsAppearance: String, CaseIterable, Identifiable {
+    /// iOSの外観設定へ追従します。
     case system
 
     /// 明るい外観を選択します。
