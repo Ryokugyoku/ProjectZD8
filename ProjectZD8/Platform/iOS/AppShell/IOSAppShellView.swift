@@ -27,6 +27,7 @@ struct IOSAppShellView: View {
             IOSDestinationView(
                 destination: selectedDestination,
                 settingsState: settingsModel.state,
+                sendHomeAction: handleHomeAction,
                 sendSettingsAction: settingsModel.send
             )
         }
@@ -39,5 +40,16 @@ struct IOSAppShellView: View {
         .accessibilityIdentifier("ios-app-shell")
     }
 
+    /// HOMEから受け取った1件の操作をiOSナビゲーションへ反映します。
+    ///
+    /// 責務: HOMEのアダプター設定要求を設定タブへの遷移と注目要求へ変換します。
+    /// - Parameter action: HOMEから通知された型付き操作。
+    private func handleHomeAction(_ action: IOSHomeAction) {
+        switch action {
+        case .adapterSetupRequested:
+            selectedDestination = .settings
+            settingsModel.send(.adapterAttentionRequested)
+        }
+    }
 }
 #endif

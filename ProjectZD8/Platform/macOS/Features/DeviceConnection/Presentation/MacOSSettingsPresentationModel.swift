@@ -13,18 +13,26 @@ final class MacOSSettingsPresentationModel {
     @ObservationIgnored
     private let latestDiscovery: LatestAdapterDiscoveryUseCase
 
+    /// デフォルト設定の保存、復元、検出照合を行うユースケースです。
+    @ObservationIgnored
+    private let defaultAdapterPreference: DefaultAdapterPreferenceUseCase
+
     /// 初期表示状態と探索ユースケースを注入してモデルを生成します。
     ///
-    /// 責務: macOS設定画面の表示状態を単一のアダプター探索ユースケースへ結び付けます。
+    /// 責務: macOS設定画面の表示状態をアダプター探索とデフォルト設定のユースケースへ結び付けます。
     /// - Parameters:
     ///   - state: 設定画面の初期表示状態。
     ///   - latestDiscovery: 最新要求だけを通知するアダプター探索ユースケース。
+    ///   - defaultAdapterPreference: デフォルト設定の保存、復元、検出照合を行うユースケース。
     init(
         state: MacOSSettingsState,
-        latestDiscovery: LatestAdapterDiscoveryUseCase
+        latestDiscovery: LatestAdapterDiscoveryUseCase,
+        defaultAdapterPreference: DefaultAdapterPreferenceUseCase
     ) {
         self.state = state
         self.latestDiscovery = latestDiscovery
+        self.defaultAdapterPreference = defaultAdapterPreference
+        restoreDefaultAdapter()
     }
 
     /// 設定画面から受け取った1件の操作を表示状態または探索へ反映します。
@@ -63,6 +71,9 @@ final class MacOSSettingsPresentationModel {
                 return
             }
             state.selectedAdapters[slot] = adapter
+            if slot == .primary {
+                state.defaultAdapterPreference = defaultAdapterPreference.save(adapter: adapter)
+            }
             closeAdapterSelection()
         case .inspectedAdapterDeclined:
             closeAdapterSelection()
@@ -70,7 +81,22 @@ final class MacOSSettingsPresentationModel {
             state.inspectedAdapter = nil
         case .adapterSelectionCancelled:
             closeAdapterSelection()
+        case .adapterAttentionRequested:
+            state.adapterAttentionSequence &+= 1
+        case let .adapterAttentionConsumed(sequence):
+            guard sequence == state.adapterAttentionSequence else { return }
+            state.consumedAdapterAttentionSequence = sequence
         }
+    }
+
+    /// 保存済みデフォルト設定を読み込み、対応する接続方式で候補探索を開始します。
+    ///
+    /// 責務: 起動時のデフォルト設定を表示状態と自動照合探索へ反映します。
+    private func restoreDefaultAdapter() {
+        guard let preference = defaultAdapterPreference.load() else { return }
+        state.defaultAdapterPreference = preference
+        state.adapterTransportMode = preference.transportMode
+        startDiscovery()
     }
 
     /// 現在選択されている接続方式で候補探索を開始します。
@@ -87,11 +113,27 @@ final class MacOSSettingsPresentationModel {
             case let .discovered(adapters):
                 state.discoveredAdapters = adapters
                 state.adapterDiscoveryStatus = .loaded
+                selectDetectedDefaultAdapter(from: adapters)
             case .unavailable, .failed:
                 state.discoveredAdapters = []
                 state.adapterDiscoveryStatus = .failed
             }
         }
+    }
+
+    /// 検出結果に保存済みデフォルト候補が含まれる場合にプライマリーへ設定します。
+    ///
+    /// 責務: 最新探索結果から保存済みデフォルトと一致する候補を1件だけ自動選択します。
+    /// - Parameter adapters: 最新探索で検出した候補一覧。
+    private func selectDetectedDefaultAdapter(from adapters: [DiscoveredAdapter]) {
+        guard
+            let preference = state.defaultAdapterPreference,
+            let adapter = defaultAdapterPreference.detectedAdapter(
+                matching: preference,
+                in: adapters
+            )
+        else { return }
+        state.selectedAdapters[.primary] = adapter
     }
 
     /// 候補探索と関連モーダルを終了します。

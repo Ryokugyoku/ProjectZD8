@@ -3,6 +3,18 @@ import SwiftUI
 
 /// iOS専用の設定画面レイアウトを描画します。
 struct IOSSettingsView: View {
+    /// アクセシビリティ設定で動きを抑える必要があるかどうかです。
+    @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
+
+    /// アダプター設定カードの振動アニメーション進行値です。
+    @State private var adapterAttentionProgress: CGFloat = 0
+
+    /// このViewが最後に処理した注目要求番号です。
+    @State private var handledAdapterAttentionSequence: UInt = 0
+
+    /// スクロール対象として使うアダプター設定カードの識別子です。
+    private static let adapterCardID = "ios-settings-adapter-card"
+
     /// 設定画面に表示する現在の選択状態です。
     let state: IOSSettingsState
 
@@ -13,20 +25,36 @@ struct IOSSettingsView: View {
     ///
     /// 責務: 表示設定と2種類のBluetoothアダプター選択導線をiOS設定レイアウトとして描画します。
     var body: some View {
-        ScrollView {
-            LazyVStack(alignment: .leading, spacing: 16) {
-                header
-                languageCard
-                appearanceCard
-                adapterCard
-                storageCard
-                additionNotice
+        ScrollViewReader { scrollProxy in
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 16) {
+                    header
+                    languageCard
+                    appearanceCard
+                    adapterCard
+                    storageCard
+                    additionNotice
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, 18)
+                .padding(.bottom, 28)
             }
-            .padding(.horizontal, 20)
-            .padding(.top, 18)
-            .padding(.bottom, 28)
+            .scrollIndicators(.hidden)
+            .onAppear {
+                presentAdapterAttentionIfNeeded(
+                    sequence: state.adapterAttentionSequence,
+                    isPending: state.hasPendingAdapterAttention,
+                    scrollProxy: scrollProxy
+                )
+            }
+            .onChange(of: state.adapterAttentionSequence) { _, sequence in
+                presentAdapterAttentionIfNeeded(
+                    sequence: sequence,
+                    isPending: state.hasPendingAdapterAttention,
+                    scrollProxy: scrollProxy
+                )
+            }
         }
-        .scrollIndicators(.hidden)
         .sheet(
             isPresented: Binding(
                 get: { state.presentedAdapterSlot != nil },
@@ -127,6 +155,40 @@ struct IOSSettingsView: View {
                 adapterRow(for: .primary)
                 adapterRow(for: .secondary)
             }
+        }
+        .id(Self.adapterCardID)
+        .accessibilityIdentifier(Self.adapterCardID)
+        .modifier(
+            AttentionShakeEffect(
+                progress: accessibilityReduceMotion ? 0 : adapterAttentionProgress,
+                amplitude: 8
+            )
+        )
+    }
+
+    /// HOMEの「アダプターを設定」ボタン由来で未消費の注目要求がある場合だけ設定カードへスクロールして振動させます。
+    ///
+    /// 責務: 「アダプターを設定」ボタンを押すたびに遷移直後の1回だけを強調し、通常の手動遷移では再表示されない消費済み状態へ変換します。
+    /// - Parameters:
+    ///   - sequence: 処理対象の注目要求番号。
+    ///   - isPending: 直前の「アダプターを設定」ボタン押下による未消費要求が残っているかどうか。
+    ///   - scrollProxy: アダプター設定カードを表示領域へ移動するスクロール操作境界。
+    private func presentAdapterAttentionIfNeeded(
+        sequence: UInt,
+        isPending: Bool,
+        scrollProxy: ScrollViewProxy
+    ) {
+        guard isPending,
+              sequence != handledAdapterAttentionSequence else { return }
+        handledAdapterAttentionSequence = sequence
+        send(.adapterAttentionConsumed(sequence))
+        withAnimation(.snappy(duration: 0.26)) {
+            scrollProxy.scrollTo(Self.adapterCardID, anchor: .center)
+        }
+        adapterAttentionProgress = 0
+        guard !accessibilityReduceMotion else { return }
+        withAnimation(.linear(duration: 0.56)) {
+            adapterAttentionProgress = 1
         }
     }
 

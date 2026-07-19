@@ -1,6 +1,97 @@
 {
   "sourceLanguage" : "ja",
   "strings" : {
+    "home.action.connect" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Connect" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Conectar" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "接続する" } }
+      }
+    },
+    "home.action.connect_unavailable" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Connection will be enabled in the next implementation phase." } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "La conexión se habilitará en la siguiente fase de implementación." } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "接続機能は次の実装範囲で有効になります。" } }
+      }
+    },
+    "home.action.setup_adapter" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Set Up Adapter" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Configurar adaptador" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "アダプターを設定" } }
+      }
+    },
+    "home.action.setup_hint" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Choose the adapter to use by default." } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Elige el adaptador predeterminado." } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "最初に使用するアダプターを選択してください。" } }
+      }
+    },
+    "home.adapter.detected" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Default adapter detected" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Adaptador predeterminado detectado" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "デフォルトアダプターを検出済み" } }
+      }
+    },
+    "home.adapter.eyebrow" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "DEFAULT ADAPTER" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "ADAPTADOR PREDETERMINADO" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "DEFAULT ADAPTER" } }
+      }
+    },
+    "home.adapter.not_configured" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "No adapter configured" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Ningún adaptador configurado" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "アダプターが未設定です" } }
+      }
+    },
+    "home.adapter.setup_required" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Setup required before connection" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Configuración necesaria antes de conectar" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "接続前に設定が必要です" } }
+      }
+    },
+    "home.adapter.waiting" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Waiting to detect the default adapter" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Esperando detectar el adaptador predeterminado" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "デフォルトアダプターを検出待ち" } }
+      }
+    },
+    "home.eyebrow" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "DRIVE CONSOLE" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "CONSOLA DE CONDUCCIÓN" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "DRIVE CONSOLE" } }
+      }
+    },
+    "home.future.caption" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Telemetry and analysis modules will be added here as capabilities grow." } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Los módulos de telemetría y análisis se añadirán aquí al ampliar las funciones." } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "今後、テレメトリーや分析モジュールをこのHOMEへ追加予定です。" } }
+      }
+    },
+    "home.subtitle" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Prepare your diagnostic adapter before starting a drive session." } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Prepara el adaptador de diagnóstico antes de iniciar una sesión." } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "走行セッションを始める前に、診断アダプターの準備を確認します。" } }
+      }
+    },
+    "home.title" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Ready for the next drive." } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Listo para el próximo trayecto." } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "次のドライブを、ここから。" } }
+      }
+    },
     "ios.navigation.home" : {
       "localizations" : {
         "en" : {
@@ -670,19 +761,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Choose the connection roles used by your workspace."
+            "value" : "The primary adapter is saved as your default for future launches."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Elige los roles de conexión de tu espacio de trabajo."
+            "value" : "El adaptador principal se guarda como predeterminado para futuros inicios."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ワークスペースで使用する接続役割を選択します。"
+            "value" : "選択したプライマリーアダプターは次回以降のデフォルトとして保存されます。"
           }
         }
       }

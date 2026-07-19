@@ -35,14 +35,21 @@ final class IOSSettingsPresentationModelTests: XCTestCase {
     /// 責務: 候補確定操作が選択状態だけを更新して選択画面を閉じることを確認します。
     func testConfirmingCandidateSelectsPrimaryAdapter() {
         let adapter = makeAdapter(id: "candidate", name: "Candidate")
+        let preferencePort = IOSDefaultAdapterPreferencePortFake()
         var state = IOSSettingsState()
         state.presentedAdapterSlot = .primary
         state.inspectedAdapter = adapter
-        let model = makeModel(state: state, port: ImmediateIOSAdapterDiscoveryPortFake(result: .success([])))
+        let model = makeModel(
+            state: state,
+            port: ImmediateIOSAdapterDiscoveryPortFake(result: .success([])),
+            preferencePort: preferencePort
+        )
 
         model.send(.inspectedAdapterConfirmed)
 
         XCTAssertEqual(model.state.selectedAdapters[.primary], adapter)
+        XCTAssertEqual(preferencePort.savedPreference, DefaultAdapterPreference(adapter: adapter))
+        XCTAssertEqual(model.state.defaultAdapterPreference, DefaultAdapterPreference(adapter: adapter))
         XCTAssertNil(model.state.presentedAdapterSlot)
         XCTAssertNil(model.state.inspectedAdapter)
     }
@@ -161,21 +168,126 @@ final class IOSSettingsPresentationModelTests: XCTestCase {
         XCTAssertEqual(model.state.bluetoothDiscoveryStatus, .loaded)
     }
 
+    /// 保存済みデフォルト候補が起動時Bluetooth探索で検出されるとプライマリーへ自動設定されることを検証します。
+    ///
+    /// 責務: iOSでのデフォルト設定復元と検出結果照合がユーザー再選択なしでプライマリー状態を作ることを確認します。
+    func testSavedDefaultIsSelectedWhenDetectedAtLaunch() async {
+        let adapter = makeAdapter(id: "saved", name: "Saved Adapter")
+        let model = makeModel(
+            port: ImmediateIOSAdapterDiscoveryPortFake(result: .success([adapter])),
+            preferencePort: IOSDefaultAdapterPreferencePortFake(
+                loadedPreference: DefaultAdapterPreference(adapter: adapter)
+            )
+        )
+
+        await waitForDiscovery(in: model)
+
+        XCTAssertEqual(model.state.defaultAdapterPreference, DefaultAdapterPreference(adapter: adapter))
+        XCTAssertEqual(model.state.selectedAdapters[.primary], adapter)
+    }
+
+    /// 保存済みデフォルトと異なるBluetooth候補を検出しても自動設定しないことを検証します。
+    ///
+    /// 責務: iOS起動時探索が一致しない候補をデフォルトアダプターとして扱わないことを確認します。
+    func testDifferentDetectedAdapterDoesNotReplaceSavedDefault() async {
+        let savedAdapter = makeAdapter(id: "saved", name: "Saved Adapter")
+        let otherAdapter = makeAdapter(id: "other", name: "Other Adapter")
+        let model = makeModel(
+            port: ImmediateIOSAdapterDiscoveryPortFake(result: .success([otherAdapter])),
+            preferencePort: IOSDefaultAdapterPreferencePortFake(
+                loadedPreference: DefaultAdapterPreference(adapter: savedAdapter)
+            )
+        )
+
+        await waitForDiscovery(in: model)
+
+        XCTAssertNil(model.state.selectedAdapters[.primary])
+        XCTAssertEqual(model.state.defaultAdapterPreference?.adapterID, "saved")
+    }
+
+    /// HOMEからの設定促進操作が注目要求番号を更新することを検証します。
+    ///
+    /// 責務: iOS HOME由来の設定促進操作を設定カードの表示更新番号へ変換できることを確認します。
+    func testAdapterAttentionRequestIncrementsSequence() {
+        let model = makeModel(
+            port: ImmediateIOSAdapterDiscoveryPortFake(result: .success([]))
+        )
+
+        model.send(.adapterAttentionRequested)
+
+        XCTAssertEqual(model.state.adapterAttentionSequence, 1)
+    }
+
+    /// 表示済みの強調要求を消費すると手動再遷移の対象から外れることを検証します。
+    ///
+    /// 責務: iOS HOME由来の1件の強調要求を表示済み番号として保持し、未消費状態を残さないことを確認します。
+    func testAdapterAttentionConsumptionPreventsManualReentryEmphasis() {
+        let model = makeModel(
+            port: ImmediateIOSAdapterDiscoveryPortFake(result: .success([]))
+        )
+        model.send(.adapterAttentionRequested)
+
+        model.send(.adapterAttentionConsumed(1))
+
+        XCTAssertEqual(model.state.adapterAttentionSequence, 1)
+        XCTAssertEqual(model.state.consumedAdapterAttentionSequence, 1)
+        XCTAssertFalse(model.state.hasPendingAdapterAttention)
+    }
+
+    /// 以前の強調を消費した後でも設定ボタンを再度押すと新しい強調要求になることを検証します。
+    ///
+    /// 責務: iOS HOMEの「アダプターを設定」を押すたびに異なる未消費要求が作られることを確認します。
+    func testAdapterAttentionRequestAfterConsumptionCreatesNewEmphasis() {
+        let model = makeModel(
+            port: ImmediateIOSAdapterDiscoveryPortFake(result: .success([]))
+        )
+        model.send(.adapterAttentionRequested)
+        model.send(.adapterAttentionConsumed(1))
+
+        model.send(.adapterAttentionRequested)
+
+        XCTAssertEqual(model.state.adapterAttentionSequence, 2)
+        XCTAssertEqual(model.state.consumedAdapterAttentionSequence, 1)
+        XCTAssertTrue(model.state.hasPendingAdapterAttention)
+    }
+
+    /// 古い強調要求の完了通知が最新要求を消費しないことを検証します。
+    ///
+    /// 責務: iOSの最新強調要求を過去画面から届いた完了通知から保護します。
+    func testStaleAdapterAttentionConsumptionDoesNotConsumeLatestRequest() {
+        let model = makeModel(
+            port: ImmediateIOSAdapterDiscoveryPortFake(result: .success([]))
+        )
+        model.send(.adapterAttentionRequested)
+        model.send(.adapterAttentionRequested)
+
+        model.send(.adapterAttentionConsumed(1))
+
+        XCTAssertEqual(model.state.adapterAttentionSequence, 2)
+        XCTAssertEqual(model.state.consumedAdapterAttentionSequence, 0)
+        XCTAssertTrue(model.state.hasPendingAdapterAttention)
+    }
+
     /// テスト対象モデルを指定したStateと探索ポートで生成します。
     ///
     /// 責務: 1件のiOS設定テスト用依存関係を構築します。
     /// - Parameters:
     ///   - state: モデルへ渡す初期表示状態。省略時は既定状態を使用します。
     ///   - port: 探索結果を制御するテスト用ポート。
+    ///   - preferencePort: デフォルト設定を保持するテスト用ポート。
     /// - Returns: 注入済みのiOS設定プレゼンテーションモデル。
     private func makeModel(
         state: IOSSettingsState? = nil,
-        port: any AdapterDiscoveryPort
+        port: any AdapterDiscoveryPort,
+        preferencePort: IOSDefaultAdapterPreferencePortFake = IOSDefaultAdapterPreferencePortFake()
     ) -> IOSSettingsPresentationModel {
         let discoverAdapters = DiscoverAdaptersUseCase(discoveryPort: port)
         return IOSSettingsPresentationModel(
             state: state ?? IOSSettingsState(),
-            latestDiscovery: LatestAdapterDiscoveryUseCase(discoverAdapters: discoverAdapters)
+            latestDiscovery: LatestAdapterDiscoveryUseCase(discoverAdapters: discoverAdapters),
+            defaultAdapterPreference: DefaultAdapterPreferenceUseCase(
+                preferencePort: preferencePort
+            )
         )
     }
 
@@ -220,6 +332,39 @@ final class IOSSettingsPresentationModelTests: XCTestCase {
             await Task.yield()
         }
         XCTAssertEqual(port.requestCount, expectedCount)
+    }
+}
+
+/// iOS設定テストでデフォルトアダプター設定を保持するFakeです。
+private final class IOSDefaultAdapterPreferencePortFake: DefaultAdapterPreferencePort {
+    /// 読込要求へ返すデフォルト設定です。
+    private let loadedPreference: DefaultAdapterPreference?
+
+    /// 最後に保存されたデフォルト設定です。
+    private(set) var savedPreference: DefaultAdapterPreference?
+
+    /// 読込結果を注入してFakeを生成します。
+    ///
+    /// 責務: iOSデフォルト設定テストへ返す読込結果を保持します。
+    /// - Parameter loadedPreference: 読込要求へ返すデフォルト設定。
+    init(loadedPreference: DefaultAdapterPreference? = nil) {
+        self.loadedPreference = loadedPreference
+    }
+
+    /// 注入済みのデフォルト設定を返します。
+    ///
+    /// 責務: 1件の読込要求へ固定したデフォルト設定で応答します。
+    /// - Returns: 初期化時に注入されたデフォルト設定。
+    func load() -> DefaultAdapterPreference? {
+        loadedPreference
+    }
+
+    /// 指定されたデフォルト設定をテスト観測用に保持します。
+    ///
+    /// 責務: 1件の保存要求を最後の保存設定として記録します。
+    /// - Parameter preference: 保存要求で受け取ったデフォルト設定。
+    func save(_ preference: DefaultAdapterPreference) {
+        savedPreference = preference
     }
 }
 

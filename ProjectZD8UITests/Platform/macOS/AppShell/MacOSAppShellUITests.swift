@@ -45,6 +45,38 @@ final class MacOSAppShellUITests: XCTestCase {
         XCTAssertTrue(application.descendants(matching: .any)["macos-settings-screen"].waitForExistence(timeout: 2))
     }
 
+    /// デフォルト未設定のHOME操作が押すたびに案内され、手動でも再遷移できることを検証します。
+    ///
+    /// 責務: macOS HOMEの設定ボタンによる2回の案内と通常の設定サイドバー遷移を同じ操作フローで確認します。
+    @MainActor
+    func testHomeSetupActionShowsAdapterSettings() {
+        let application = XCUIApplication()
+        application.launchArguments += ["-deviceConnection.defaultAdapter", ""]
+        application.launch()
+
+        let setupButton = application.buttons["macos-home-setup-adapter"]
+        XCTAssertTrue(setupButton.waitForExistence(timeout: 5))
+        setupButton.click()
+
+        XCTAssertTrue(application.descendants(matching: .any)["macos-settings-screen"].waitForExistence(timeout: 2))
+        XCTAssertTrue(application.descendants(matching: .any)["macos-settings-adapter-card"].exists)
+
+        application.buttons["macos-sidebar-home"].click()
+        XCTAssertTrue(application.descendants(matching: .any)["macos-home-screen"].waitForExistence(timeout: 2))
+        application.buttons["macos-sidebar-settings"].click()
+
+        XCTAssertTrue(application.descendants(matching: .any)["macos-settings-screen"].waitForExistence(timeout: 2))
+        XCTAssertTrue(application.descendants(matching: .any)["macos-settings-adapter-card"].exists)
+
+        application.buttons["macos-sidebar-home"].click()
+        let secondSetupButton = application.buttons["macos-home-setup-adapter"]
+        XCTAssertTrue(secondSetupButton.waitForExistence(timeout: 2))
+        secondSetupButton.click()
+
+        XCTAssertTrue(application.descendants(matching: .any)["macos-settings-screen"].waitForExistence(timeout: 2))
+        XCTAssertTrue(application.descendants(matching: .any)["macos-settings-adapter-card"].exists)
+    }
+
     /// 設定画面が要求された設定カテゴリとアダプター選択導線を公開することを検証します。
     ///
     /// 責務: macOS設定画面にアダプター設定と将来のストレージ設定が表示されることを確認します。

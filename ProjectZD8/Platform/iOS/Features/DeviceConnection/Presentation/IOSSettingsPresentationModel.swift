@@ -13,18 +13,26 @@ final class IOSSettingsPresentationModel {
     @ObservationIgnored
     private let latestDiscovery: LatestAdapterDiscoveryUseCase
 
+    /// デフォルト設定の保存、復元、検出照合を行うユースケースです。
+    @ObservationIgnored
+    private let defaultAdapterPreference: DefaultAdapterPreferenceUseCase
+
     /// 初期表示状態と探索ユースケースを注入してモデルを生成します。
     ///
-    /// 責務: iOS設定画面の表示状態を単一のBluetooth探索ユースケースへ結び付けます。
+    /// 責務: iOS設定画面の表示状態をBluetooth探索とデフォルト設定のユースケースへ結び付けます。
     /// - Parameters:
     ///   - state: 設定画面の初期表示状態。
     ///   - latestDiscovery: 最新要求だけを通知するBluetooth候補探索ユースケース。
+    ///   - defaultAdapterPreference: デフォルト設定の保存、復元、検出照合を行うユースケース。
     init(
         state: IOSSettingsState,
-        latestDiscovery: LatestAdapterDiscoveryUseCase
+        latestDiscovery: LatestAdapterDiscoveryUseCase,
+        defaultAdapterPreference: DefaultAdapterPreferenceUseCase
     ) {
         self.state = state
         self.latestDiscovery = latestDiscovery
+        self.defaultAdapterPreference = defaultAdapterPreference
+        restoreDefaultAdapter()
     }
 
     /// 設定画面から受け取った操作を表示状態またはBluetooth探索へ反映します。
@@ -57,6 +65,9 @@ final class IOSSettingsPresentationModel {
                 return
             }
             state.selectedAdapters[slot] = adapter
+            if slot == .primary {
+                state.defaultAdapterPreference = defaultAdapterPreference.save(adapter: adapter)
+            }
             closeAdapterSelection()
         case .inspectedAdapterDeclined:
             closeAdapterSelection()
@@ -64,7 +75,21 @@ final class IOSSettingsPresentationModel {
             state.inspectedAdapter = nil
         case .adapterSelectionCancelled:
             closeAdapterSelection()
+        case .adapterAttentionRequested:
+            state.adapterAttentionSequence &+= 1
+        case let .adapterAttentionConsumed(sequence):
+            guard sequence == state.adapterAttentionSequence else { return }
+            state.consumedAdapterAttentionSequence = sequence
         }
+    }
+
+    /// 保存済みデフォルト設定を読み込み、Bluetooth候補の自動探索を開始します。
+    ///
+    /// 責務: 起動時のデフォルト設定をiOS表示状態と自動照合探索へ反映します。
+    private func restoreDefaultAdapter() {
+        guard let preference = defaultAdapterPreference.load() else { return }
+        state.defaultAdapterPreference = preference
+        startBluetoothDiscovery()
     }
 
     /// 以前の探索を終了してBluetooth専用の最新探索を開始します。
@@ -80,6 +105,7 @@ final class IOSSettingsPresentationModel {
             case let .discovered(adapters):
                 state.discoveredAdapters = adapters
                 state.bluetoothDiscoveryStatus = .loaded
+                selectDetectedDefaultAdapter(from: adapters)
             case let .unavailable(error):
                 state.discoveredAdapters = []
                 state.bluetoothDiscoveryStatus = status(for: error)
@@ -88,6 +114,21 @@ final class IOSSettingsPresentationModel {
                 state.bluetoothDiscoveryStatus = .failed
             }
         }
+    }
+
+    /// 検出結果に保存済みデフォルト候補が含まれる場合にプライマリーへ設定します。
+    ///
+    /// 責務: 最新Bluetooth探索結果から保存済みデフォルトと一致する候補を1件だけ自動選択します。
+    /// - Parameter adapters: 最新Bluetooth探索で検出した候補一覧。
+    private func selectDetectedDefaultAdapter(from adapters: [DiscoveredAdapter]) {
+        guard
+            let preference = state.defaultAdapterPreference,
+            let adapter = defaultAdapterPreference.detectedAdapter(
+                matching: preference,
+                in: adapters
+            )
+        else { return }
+        state.selectedAdapters[.primary] = adapter
     }
 
     /// Application探索エラーをiOS表示状態へ変換します。

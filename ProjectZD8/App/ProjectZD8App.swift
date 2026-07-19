@@ -15,7 +15,7 @@ struct ProjectZD8App: App {
 
     /// プラットフォーム固有の依存関係を組み立ててアプリを生成します。
     ///
-    /// 責務: 現在のプラットフォームの実デバイス探索をApplicationユースケースと設定プレゼンテーションへ注入します。
+    /// 責務: 現在のプラットフォーム用Compositionから設定プレゼンテーションモデルを構築します。
     init() {
         #if os(iOS)
         _iOSSettingsModel = State(
@@ -24,14 +24,8 @@ struct ProjectZD8App: App {
         #endif
 
         #if os(macOS)
-        let discovery = MacOSSystemAdapterDiscovery()
-        let discoverAdapters = DiscoverAdaptersUseCase(discoveryPort: discovery)
-        let latestDiscovery = LatestAdapterDiscoveryUseCase(discoverAdapters: discoverAdapters)
         _macOSSettingsModel = State(
-            initialValue: MacOSSettingsPresentationModel(
-                state: MacOSSettingsState(),
-                latestDiscovery: latestDiscovery
-            )
+            initialValue: MacOSApplicationComposition.makeSettingsPresentationModel()
         )
         #endif
     }

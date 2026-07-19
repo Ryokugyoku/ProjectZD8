@@ -38,6 +38,7 @@ struct MacOSAppShellView: View {
                     destination: selectedDestination,
                     metrics: metrics,
                     settingsState: settingsModel.state,
+                    sendHomeAction: handleHomeAction,
                     sendSettingsAction: settingsModel.send
                 )
             }
@@ -48,6 +49,18 @@ struct MacOSAppShellView: View {
         .frame(minWidth: 640, minHeight: 420)
         .environment(\.locale, Locale(identifier: settingsModel.state.language.localeIdentifier))
         .preferredColorScheme(settingsModel.state.appearance.colorScheme)
+    }
+
+    /// HOMEから受け取った1件の操作をmacOSナビゲーションへ反映します。
+    ///
+    /// 責務: HOMEのアダプター設定要求を設定画面への遷移と注目要求へ変換します。
+    /// - Parameter action: HOMEから通知された型付き操作。
+    private func handleHomeAction(_ action: MacOSHomeAction) {
+        switch action {
+        case .adapterSetupRequested:
+            selectedDestination = .settings
+            settingsModel.send(.adapterAttentionRequested)
+        }
     }
 }
 #endif

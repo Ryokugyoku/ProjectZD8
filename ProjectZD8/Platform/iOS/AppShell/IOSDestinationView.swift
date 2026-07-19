@@ -9,6 +9,9 @@ struct IOSDestinationView: View {
     /// 設定画面へ渡す現在の表示設定です。
     let settingsState: IOSSettingsState
 
+    /// HOMEの操作をAppShellへ通知するクロージャです。
+    let sendHomeAction: (IOSHomeAction) -> Void
+
     /// 設定画面の操作をAppShellへ通知するクロージャです。
     let sendSettingsAction: (IOSSettingsAction) -> Void
 
@@ -17,7 +20,12 @@ struct IOSDestinationView: View {
     /// 責務: 現在の遷移先を設定画面または識別用プレースホルダーへ振り分けます。
     @ViewBuilder
     var body: some View {
-        if destination == .settings {
+        if destination == .home {
+            IOSHomeView(
+                state: IOSHomeState(settingsState: settingsState),
+                send: sendHomeAction
+            )
+        } else if destination == .settings {
             IOSSettingsView(
                 state: settingsState,
                 send: sendSettingsAction

@@ -34,6 +34,49 @@ final class IOSAppShellUITests: XCTestCase {
         XCTAssertTrue(application.buttons["ios-tab-settings"].exists)
     }
 
+    /// デフォルト未設定のHOME操作が押すたびに案内され、手動でも再遷移できることを検証します。
+    ///
+    /// 責務: iPhone HOMEの設定ボタンによる2回の案内と通常の設定タブ遷移を同じ操作フローで確認します。
+    @MainActor
+    func testHomeSetupAdapterShowsTargetSettingsCard() {
+        let application = XCUIApplication()
+        application.launchArguments += ["-deviceConnection.defaultAdapter", ""]
+        application.launch()
+
+        let setupButton = application.buttons["ios-home-setup-adapter"]
+        XCTAssertTrue(setupButton.waitForExistence(timeout: 5))
+
+        let homeScreenshot = XCTAttachment(screenshot: application.screenshot())
+        homeScreenshot.name = "iPhone-Home-Adapter-Setup"
+        homeScreenshot.lifetime = .keepAlways
+        add(homeScreenshot)
+
+        setupButton.tap()
+
+        XCTAssertTrue(application.descendants(matching: .any)["ios-settings-screen"].waitForExistence(timeout: 2))
+        XCTAssertTrue(application.descendants(matching: .any)["ios-settings-adapter-card"].waitForExistence(timeout: 2))
+
+        let screenshot = XCTAttachment(screenshot: application.screenshot())
+        screenshot.name = "iPhone-Settings-Adapter-Attention"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+
+        application.buttons["ios-tab-home"].tap()
+        XCTAssertTrue(application.descendants(matching: .any)["ios-home-screen"].waitForExistence(timeout: 2))
+        application.buttons["ios-tab-settings"].tap()
+
+        XCTAssertTrue(application.descendants(matching: .any)["ios-settings-screen"].waitForExistence(timeout: 2))
+        XCTAssertTrue(application.descendants(matching: .any)["ios-settings-adapter-card"].exists)
+
+        application.buttons["ios-tab-home"].tap()
+        let secondSetupButton = application.buttons["ios-home-setup-adapter"]
+        XCTAssertTrue(secondSetupButton.waitForExistence(timeout: 2))
+        secondSetupButton.tap()
+
+        XCTAssertTrue(application.descendants(matching: .any)["ios-settings-screen"].waitForExistence(timeout: 2))
+        XCTAssertTrue(application.descendants(matching: .any)["ios-settings-adapter-card"].exists)
+    }
+
     /// 下部ナビゲーションの設定操作でiOS設定画面へ切り替わることを検証します。
     ///
     /// 責務: 設定タブの選択に対応するiOS設定画面が描画されることを確認します。

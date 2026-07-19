@@ -27,5 +27,11 @@ enum IOSSettingsAction: Equatable {
 
     /// 選択対象のアダプター設定を変更せず終了します。
     case adapterSelectionCancelled
+
+    /// HOMEの「アダプターを設定」ボタンを押すたびに遷移先で1回だけ行う注目要求を通知します。
+    case adapterAttentionRequested
+
+    /// 指定した注目要求の強調表示が完了したことを通知します。
+    case adapterAttentionConsumed(UInt)
 }
 #endif
