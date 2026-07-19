@@ -45,13 +45,14 @@ struct ProjectZD8App: App {
             repository: connectionSessionRepository,
             historyDidChange: { connectionHistoryModel.send(.refreshRequested) }
         )
-        let vehicleManagementModel = IOSApplicationComposition.makeVehicleManagementModel {
-            connectionSessionLifecycleModel.send(.vehicleResolved($0))
-        }
         let liveTelemetryModel = IOSApplicationComposition.makeLiveTelemetryModel(
             sessionDidEnd: { connectionSessionLifecycleModel.send(.endRequested($0)) },
             odometerDidChange: { connectionSessionLifecycleModel.send(.odometerObserved(kilometers: $0)) }
         )
+        let vehicleManagementModel = IOSApplicationComposition.makeVehicleManagementModel { vehicle, endpoint in
+            connectionSessionLifecycleModel.send(.vehicleResolved(vehicle))
+            liveTelemetryModel.send(.startRequested(endpoint, vehicle.id))
+        }
         _authenticationModel = State(
             initialValue: IOSApplicationComposition.makeAuthenticationSessionModel()
         )
@@ -71,8 +72,7 @@ struct ProjectZD8App: App {
         _connectionHistoryModel = State(initialValue: connectionHistoryModel)
         startVehicleConnection = StartVehicleConnectionUseCase(
             startConnectionSession: { connectionSessionLifecycleModel.send(.startRequested) },
-            identifyVehicle: { vehicleManagementModel.send(.identifyRequested($0)) },
-            startLiveTelemetry: { liveTelemetryModel.send(.startRequested($0)) }
+            identifyVehicle: { vehicleManagementModel.send(.identifyRequested($0)) }
         )
         #endif
 
@@ -83,13 +83,14 @@ struct ProjectZD8App: App {
             repository: connectionSessionRepository,
             historyDidChange: { connectionHistoryModel.send(.refreshRequested) }
         )
-        let vehicleManagementModel = MacOSApplicationComposition.makeVehicleManagementModel {
-            connectionSessionLifecycleModel.send(.vehicleResolved($0))
-        }
         let liveTelemetryModel = MacOSApplicationComposition.makeLiveTelemetryModel(
             sessionDidEnd: { connectionSessionLifecycleModel.send(.endRequested($0)) },
             odometerDidChange: { connectionSessionLifecycleModel.send(.odometerObserved(kilometers: $0)) }
         )
+        let vehicleManagementModel = MacOSApplicationComposition.makeVehicleManagementModel { vehicle, endpoint in
+            connectionSessionLifecycleModel.send(.vehicleResolved(vehicle))
+            liveTelemetryModel.send(.startRequested(endpoint, vehicle.id))
+        }
         _authenticationModel = State(
             initialValue: MacOSApplicationComposition.makeAuthenticationSessionModel()
         )
@@ -109,8 +110,7 @@ struct ProjectZD8App: App {
         _connectionHistoryModel = State(initialValue: connectionHistoryModel)
         startVehicleConnection = StartVehicleConnectionUseCase(
             startConnectionSession: { connectionSessionLifecycleModel.send(.startRequested) },
-            identifyVehicle: { vehicleManagementModel.send(.identifyRequested($0)) },
-            startLiveTelemetry: { liveTelemetryModel.send(.startRequested($0)) }
+            identifyVehicle: { vehicleManagementModel.send(.identifyRequested($0)) }
         )
         #endif
     }

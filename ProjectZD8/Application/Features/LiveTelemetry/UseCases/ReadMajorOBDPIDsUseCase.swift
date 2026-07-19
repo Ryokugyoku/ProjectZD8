@@ -43,9 +43,25 @@ struct ReadMajorOBDPIDsUseCase {
         } catch {
             throw OBDPIDTelemetryError.definitionCatalogUnavailable
         }
-        guard !definitions.isEmpty else {
+        let decodable = definitions.filter(\.isDecodable)
+        guard !decodable.isEmpty else {
             throw OBDPIDTelemetryError.definitionCatalogUnavailable
         }
+        return decodable
+    }
+
+    /// 車両設定で収集有効な対応PIDに一致する数値化可能定義を読み込みます。
+    ///
+    /// 責務: 車両別収集選択を安全に数値化できるPID定義一覧へ変換します。
+    /// - Parameter capabilities: 車両で確認済みの対応PID設定。
+    /// - Returns: 収集有効かつ数式確認済みの定義一覧。
+    /// - Throws: PIDカタログ読込に失敗した場合または対象が空の場合のエラー。
+    func loadDefinitions(for capabilities: [VehiclePIDCapability]) throws -> [OBDPIDDefinition] {
+        let enabled = Set(capabilities.filter(\.isCollectionEnabled).map(\.id.request))
+        let definitions = try loadDefinitions().filter {
+            enabled.contains(OBDPIDRequest(service: $0.service, pid: $0.pid))
+        }
+        guard !definitions.isEmpty else { throw OBDPIDTelemetryError.definitionCatalogUnavailable }
         return definitions
     }
 
@@ -72,7 +88,11 @@ struct ReadMajorOBDPIDsUseCase {
                 nameKey: definition.nameKey,
                 value: try evaluator.evaluate(definition, bytes: bytes),
                 unit: definition.unit,
-                observedAt: observedAt
+                observedAt: observedAt,
+                summaryKey: definition.summaryKey,
+                highValueKey: definition.highValueKey,
+                lowValueKey: definition.lowValueKey,
+                correlationKey: definition.correlationKey
             )
         }
     }

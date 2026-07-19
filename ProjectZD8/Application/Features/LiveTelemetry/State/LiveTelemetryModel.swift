@@ -8,6 +8,8 @@ final class LiveTelemetryModel {
     var state: LiveTelemetryState
     /// 検証済み主要PIDを数値化するユースケースです。
     @ObservationIgnored private let readMajorPIDs: ReadMajorOBDPIDsUseCase
+    /// 車両別の対応PIDを再利用または初回探索するユースケースです。
+    @ObservationIgnored private let loadVehicleCapabilities: LoadVehiclePIDCapabilitiesUseCase?
     /// PID更新対象と間引き周期を決める方針です。
     @ObservationIgnored private let pollingPolicy: OBDPIDPollingPolicy
     /// PID取得セッションが終了した原因をLoggingへ通知する処理です。
@@ -25,18 +27,21 @@ final class LiveTelemetryModel {
     /// - Parameters:
     ///   - state: Platformへ公開する初期状態。
     ///   - readMajorPIDs: 主要PID読取と数値化を行うユースケース。
+    ///   - loadVehicleCapabilities: 車両別対応PIDの再利用または初回探索を行うユースケース。
     ///   - pollingPolicy: PIDごとの更新優先度と間引き周期を決める方針。
     ///   - sessionDidEnd: PID取得終了原因をLoggingへ通知する処理。
     ///   - odometerDidChange: Service 01 PID A6の累積走行距離をLoggingへ通知する処理。
     init(
         state: LiveTelemetryState,
         readMajorPIDs: ReadMajorOBDPIDsUseCase,
+        loadVehicleCapabilities: LoadVehiclePIDCapabilitiesUseCase? = nil,
         pollingPolicy: OBDPIDPollingPolicy,
         sessionDidEnd: @escaping @MainActor (ConnectionSessionEndReason) -> Void = { _ in },
         odometerDidChange: @escaping @MainActor (Double) -> Void = { _ in }
     ) {
         self.state = state
         self.readMajorPIDs = readMajorPIDs
+        self.loadVehicleCapabilities = loadVehicleCapabilities
         self.pollingPolicy = pollingPolicy
         self.sessionDidEnd = sessionDidEnd
         self.odometerDidChange = odometerDidChange
@@ -47,16 +52,19 @@ final class LiveTelemetryModel {
     /// 責務: 1件のPID読取ユースケースを標準的なリアルタイム取得モデルへ変換します。
     /// - Parameters:
     ///   - readMajorPIDs: PID読取と数値化を行うユースケース。
+    ///   - loadVehicleCapabilities: 車両別対応PIDの再利用または初回探索を行うユースケース。
     ///   - sessionDidEnd: PID取得終了原因をLoggingへ通知する処理。
     ///   - odometerDidChange: Service 01 PID A6の累積走行距離をLoggingへ通知する処理。
     convenience init(
         readMajorPIDs: ReadMajorOBDPIDsUseCase,
+        loadVehicleCapabilities: LoadVehiclePIDCapabilitiesUseCase? = nil,
         sessionDidEnd: @escaping @MainActor (ConnectionSessionEndReason) -> Void = { _ in },
         odometerDidChange: @escaping @MainActor (Double) -> Void = { _ in }
     ) {
         self.init(
             state: LiveTelemetryState(),
             readMajorPIDs: readMajorPIDs,
+            loadVehicleCapabilities: loadVehicleCapabilities,
             pollingPolicy: OBDPIDPollingPolicy(),
             sessionDidEnd: sessionDidEnd,
             odometerDidChange: odometerDidChange
@@ -69,10 +77,10 @@ final class LiveTelemetryModel {
     /// - Parameter action: Platformから通知された型付き操作。
     func send(_ action: LiveTelemetryAction) {
         switch action {
-        case let .startRequested(endpoint):
-            start(using: endpoint)
+        case let .startRequested(endpoint, vehicleID):
+            start(using: endpoint, vehicleID: vehicleID)
         case .retryRequested:
-            if let endpoint = state.endpoint { start(using: endpoint) }
+            if let endpoint = state.endpoint, let vehicleID = state.vehicleID { start(using: endpoint, vehicleID: vehicleID) }
         case .stopRequested:
             stop()
         }
@@ -81,20 +89,23 @@ final class LiveTelemetryModel {
     /// 指定OBD終端からPID継続取得を開始します。
     ///
     /// 責務: 以前の取得を無効化して最新接続の継続取得タスクを開始します。
-    /// - Parameter endpoint: OBDアダプターの物理終端。
-    private func start(using endpoint: OBDConnectionEndpoint) {
+    /// - Parameters:
+    ///   - endpoint: OBDアダプターの物理終端。
+    ///   - vehicleID: 対応PID設定を参照する車両ID。
+    private func start(using endpoint: OBDConnectionEndpoint, vehicleID: VehicleID) {
         let previousTask = pollingTask
         previousTask?.cancel()
         pollingGeneration &+= 1
         let generation = pollingGeneration
         state.endpoint = endpoint
+        state.vehicleID = vehicleID
         state.phase = .reading
         state.failureKey = nil
         state.samples = []
         state.supportedPIDCount = 0
         pollingTask = Task { [weak self] in
             _ = await previousTask?.value
-            await self?.poll(using: endpoint, generation: generation)
+            await self?.poll(using: endpoint, vehicleID: vehicleID, generation: generation)
         }
     }
 
@@ -124,10 +135,17 @@ final class LiveTelemetryModel {
     /// 責務: 1件の接続終端を応答済みPIDの継続的な最新値へ変換します。
     /// - Parameters:
     ///   - endpoint: OBDアダプターの物理終端。
+    ///   - vehicleID: 対応PID設定を参照する車両ID。
     ///   - generation: この取得開始時の世代。
-    private func poll(using endpoint: OBDConnectionEndpoint, generation: UInt) async {
+    private func poll(using endpoint: OBDConnectionEndpoint, vehicleID: VehicleID, generation: UInt) async {
         do {
-            let definitions = try readMajorPIDs.loadDefinitions()
+            let definitions: [OBDPIDDefinition]
+            if let loadVehicleCapabilities {
+                let capabilities = try await loadVehicleCapabilities.execute(vehicleID: vehicleID, endpoint: endpoint)
+                definitions = try readMajorPIDs.loadDefinitions(for: capabilities)
+            } else {
+                definitions = try readMajorPIDs.loadDefinitions()
+            }
             let initialSamples = try await readMajorPIDs.execute(definitions: definitions, using: endpoint)
             try Task.checkCancellation()
             guard pollingGeneration == generation, !initialSamples.isEmpty else {

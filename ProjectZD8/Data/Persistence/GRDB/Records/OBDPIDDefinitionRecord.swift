@@ -12,9 +12,9 @@ struct OBDPIDDefinitionRecord: Codable, FetchableRecord, PersistableRecord {
     /// 表示名の安定キーです。
     let nameKey: String
     /// 変換に必要な応答バイト数です。
-    let requiredByteCount: Int
+    let requiredByteCount: Int?
     /// 制限付き変換数式です。
-    let formula: String
+    let formula: String?
     /// 計算結果の単位です。
     let unit: String
     /// 許容最小値です。
@@ -25,6 +25,14 @@ struct OBDPIDDefinitionRecord: Codable, FetchableRecord, PersistableRecord {
     let sourceURI: String
     /// 定義の単調増加改訂番号です。
     let revision: Int
+    /// 項目概要のローカライズキーです。
+    let summaryKey: String
+    /// 高値時説明のローカライズキーです。
+    let highValueKey: String
+    /// 低値時説明のローカライズキーです。
+    let lowValueKey: String
+    /// 相関項目説明のローカライズキーです。
+    let correlationKey: String
 
     /// Domain定義から永続化レコードを生成します。
     ///
@@ -41,6 +49,10 @@ struct OBDPIDDefinitionRecord: Codable, FetchableRecord, PersistableRecord {
         maximumValue = definition.maximumValue
         sourceURI = definition.sourceURI
         revision = definition.revision
+        summaryKey = definition.summaryKey
+        highValueKey = definition.highValueKey
+        lowValueKey = definition.lowValueKey
+        correlationKey = definition.correlationKey
     }
 
     /// 永続化列値を直接受け取ってレコードを生成します。
@@ -57,7 +69,11 @@ struct OBDPIDDefinitionRecord: Codable, FetchableRecord, PersistableRecord {
     ///   - maximumValue: 許容最大値。
     ///   - sourceURI: 定義根拠URI。
     ///   - revision: 定義改訂番号。
-    init(service: Int, pid: Int, nameKey: String, requiredByteCount: Int, formula: String, unit: String, minimumValue: Double?, maximumValue: Double?, sourceURI: String, revision: Int) {
+    ///   - summaryKey: 項目概要のローカライズキー。
+    ///   - highValueKey: 高値時説明のローカライズキー。
+    ///   - lowValueKey: 低値時説明のローカライズキー。
+    ///   - correlationKey: 相関項目説明のローカライズキー。
+    init(service: Int, pid: Int, nameKey: String, requiredByteCount: Int?, formula: String?, unit: String, minimumValue: Double?, maximumValue: Double?, sourceURI: String, revision: Int, summaryKey: String = "obd.pid.help.unconfirmed.summary", highValueKey: String = "obd.pid.help.unconfirmed.high", lowValueKey: String = "obd.pid.help.unconfirmed.low", correlationKey: String = "obd.pid.help.unconfirmed.correlation") {
         self.service = service
         self.pid = pid
         self.nameKey = nameKey
@@ -68,6 +84,10 @@ struct OBDPIDDefinitionRecord: Codable, FetchableRecord, PersistableRecord {
         self.maximumValue = maximumValue
         self.sourceURI = sourceURI
         self.revision = revision
+        self.summaryKey = summaryKey
+        self.highValueKey = highValueKey
+        self.lowValueKey = lowValueKey
+        self.correlationKey = correlationKey
     }
 
     /// レコードをDomain定義へ変換します。
@@ -86,7 +106,11 @@ struct OBDPIDDefinitionRecord: Codable, FetchableRecord, PersistableRecord {
             minimumValue: minimumValue,
             maximumValue: maximumValue,
             sourceURI: sourceURI,
-            revision: revision
+            revision: revision,
+            summaryKey: summaryKey,
+            highValueKey: highValueKey,
+            lowValueKey: lowValueKey,
+            correlationKey: correlationKey
         )
     }
 }

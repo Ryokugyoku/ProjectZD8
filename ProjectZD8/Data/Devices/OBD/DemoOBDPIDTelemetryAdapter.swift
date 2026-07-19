@@ -46,7 +46,8 @@ final class DemoOBDPIDTelemetryAdapter: OBDPIDTelemetryPort {
     ///   - coolant: 現在の合成冷却水温。
     /// - Returns: 登録済み主要PIDでは正常域の応答バイト、未登録PIDでは `nil`。
     private func responseBytes(pid: UInt8, speed: UInt8, rpm: Int, coolant: Int) -> [UInt8]? {
-        switch pid {
+        if pid % 0x20 == 0 { return supportedPIDBitmap(base: pid) }
+        return switch pid {
         case 0x04: [UInt8(clamping: 55 + Int(speed))]
         case 0x05: [UInt8(clamping: coolant + 40)]
         case 0x06...0x09: [128]
@@ -63,6 +64,7 @@ final class DemoOBDPIDTelemetryAdapter: OBDPIDTelemetryPort {
         case 0x21: [0, 0]
         case 0x22: twoBytes(3_797)
         case 0x23: twoBytes(400)
+        case 0x24...0x2B: [0x80, 0x00, 0x00, 0x00]
         case 0x2C: [77]
         case 0x2D: [128]
         case 0x2E: [38]
@@ -71,6 +73,7 @@ final class DemoOBDPIDTelemetryAdapter: OBDPIDTelemetryPort {
         case 0x31: twoBytes(120)
         case 0x32: [0x80, 0x00]
         case 0x33: [100]
+        case 0x34...0x3B: [0x80, 0x00, 0x00, 0x00]
         case 0x3C...0x3F: twoBytes(4_900)
         case 0x42: twoBytes(14_200)
         case 0x43: twoBytes(64 + Int(speed) * 2)
@@ -79,9 +82,46 @@ final class DemoOBDPIDTelemetryAdapter: OBDPIDTelemetryPort {
         case 0x46: [65]
         case 0x49...0x4C: [UInt8(clamping: 35 + Int(speed))]
         case 0x4D: [0, 0]
-        case 0xA6: [0x00, 0x01, 0xE2, 0x40]
+        case 0x4E: [0, 0]
+        case 0x50: [20]
+        case 0x52: [128]
+        case 0x53: [0x27, 0x10]
+        case 0x54: [0x7F, 0xFF]
+        case 0x59: [0x01, 0x90]
+        case 0x5A, 0x5B: [128]
+        case 0x5C: [120]
+        case 0x5D: [0x6E, 0x00]
+        case 0x5E: [0x00, 0xC8]
+        case 0x61, 0x62: [125]
+        case 0x63: [0x01, 0x90]
+        case 0x7C: [0x11, 0x30]
+        case 0x8D: [128]
+        case 0x8E: [125]
+        case 0xA2: [0x01, 0x00]
+        case 0xA4: [0x00, 0x00, 0x03, 0xE8]
+        case 0xA5: [0x00, 0x80]
+        case 0xA6: fourBytes(123_456 + tick / 10)
         default: nil
         }
+    }
+
+    /// デモが数値化して返せるPIDをService 01対応ビットマップへ符号化します。
+    ///
+    /// 責務: 1件の0x20刻み範囲先頭を4バイトの対応PIDビットマップへ変換します。
+    /// - Parameter base: 00、20、40以降の範囲先頭PID。
+    /// - Returns: 範囲内の数値化可能PIDと後続範囲有無を示す4バイト。
+    private func supportedPIDBitmap(base: UInt8) -> [UInt8] {
+        let supported = Set(StandardOBDPIDSeed.definitions.filter(\.isDecodable).map(\.pid))
+        var bytes = [UInt8](repeating: 0, count: 4)
+        for offset in 1...32 {
+            let value = Int(base) + offset
+            let hasPID = value <= 0xFF && supported.contains(UInt8(value))
+            let hasLaterRange = offset == 32 && supported.contains { Int($0) > Int(base) + 32 }
+            guard hasPID || hasLaterRange else { continue }
+            let zeroBased = offset - 1
+            bytes[zeroBased / 8] |= 0x80 >> UInt8(zeroBased % 8)
+        }
+        return bytes
     }
 
     /// 非負整数を上位バイト優先の2バイトへ符号化します。
@@ -92,5 +132,20 @@ final class DemoOBDPIDTelemetryAdapter: OBDPIDTelemetryPort {
     private func twoBytes(_ value: Int) -> [UInt8] {
         let encoded = UInt16(clamping: value)
         return [UInt8(encoded >> 8), UInt8(encoded & 0xFF)]
+    }
+
+    /// 非負整数を上位バイト優先の4バイトへ符号化します。
+    ///
+    /// 責務: 1件のデモ用累積値をUInt32範囲へ制限した未加工バイトへ変換します。
+    /// - Parameter value: 符号化する非負整数。
+    /// - Returns: 上位から下位の順に並ぶ4バイト。
+    private func fourBytes(_ value: UInt64) -> [UInt8] {
+        let encoded = UInt32(clamping: value)
+        return [
+            UInt8(encoded >> 24),
+            UInt8((encoded >> 16) & 0xFF),
+            UInt8((encoded >> 8) & 0xFF),
+            UInt8(encoded & 0xFF)
+        ]
     }
 }

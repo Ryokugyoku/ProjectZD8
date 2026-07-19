@@ -15,13 +15,17 @@ enum IOSApplicationComposition {
         sessionDidEnd: @escaping @MainActor (ConnectionSessionEndReason) -> Void = { _ in },
         odometerDidChange: @escaping @MainActor (Double) -> Void = { _ in }
     ) -> LiveTelemetryModel {
-        LiveTelemetryModel(
+        let telemetry = DemoAwareOBDPIDTelemetryAdapter(
+            live: UnavailableOBDPIDTelemetryAdapter(),
+            demo: DemoOBDPIDTelemetryAdapter()
+        )
+        return LiveTelemetryModel(
             readMajorPIDs: ReadMajorOBDPIDsUseCase(
                 definitionRepository: makeOBDPIDDefinitionRepository(),
-                telemetry: DemoAwareOBDPIDTelemetryAdapter(
-                    live: UnavailableOBDPIDTelemetryAdapter(),
-                    demo: DemoOBDPIDTelemetryAdapter()
-                )
+                telemetry: telemetry
+            ),
+            loadVehicleCapabilities: LoadVehiclePIDCapabilitiesUseCase(
+                repository: makeVehiclePIDCapabilityRepository(), telemetry: telemetry
             ),
             sessionDidEnd: sessionDidEnd,
             odometerDidChange: odometerDidChange
@@ -32,7 +36,7 @@ enum IOSApplicationComposition {
     ///
     /// 責務: iOSのPID定義永続化を利用可能なGRDB実装または明示的利用不能境界へ変換します。
     /// - Returns: seed登録済みPID Repository。準備失敗時は利用不能Repository。
-    private static func makeOBDPIDDefinitionRepository() -> any OBDPIDDefinitionRepository {
+    static func makeOBDPIDDefinitionRepository() -> any OBDPIDDefinitionRepository {
         do {
             let repository = try GRDBOBDPIDDefinitionRepository.openApplicationRepository()
             try StandardOBDPIDSeed.install(into: repository)
@@ -42,13 +46,22 @@ enum IOSApplicationComposition {
         }
     }
 
+    /// 製品DBの車両別対応PID保存先を生成します。
+    ///
+    /// 責務: iOSの車両別対応PID永続化を利用可能または明示的利用不能境界へ変換します。
+    /// - Returns: 車両別対応PID Repository。
+    static func makeVehiclePIDCapabilityRepository() -> any VehiclePIDCapabilityRepository {
+        (try? GRDBVehiclePIDCapabilityRepository.openApplicationRepository())
+            ?? UnavailableVehiclePIDCapabilityRepository()
+    }
+
     /// CloudKit同期とデモBluetooth識別境界を注入した車両管理モデルを生成します。
     ///
     /// 責務: iOSの車両保存とデモ対応かつ実BLE未提供の識別境界をVehicleManagementへ結び付けます。
     /// - Returns: private database同期を使用する車両管理モデル。
     /// - Parameter connectionVehicleDidResolve: 接続対象車両をLoggingへ通知する処理。
     static func makeVehicleManagementModel(
-        connectionVehicleDidResolve: @escaping @MainActor (VehicleProfile) -> Void = { _ in }
+        connectionVehicleDidResolve: @escaping @MainActor (VehicleProfile, OBDConnectionEndpoint) -> Void = { _, _ in }
     ) -> VehicleManagementModel {
         VehicleManagementModel(
             state: VehicleManagementState(),
@@ -60,6 +73,8 @@ enum IOSApplicationComposition {
                 )
             ),
             photoImporter: VehiclePhotoFileImporter(),
+            pidCapabilityRepository: makeVehiclePIDCapabilityRepository(),
+            pidDefinitionRepository: makeOBDPIDDefinitionRepository(),
             connectionVehicleDidResolve: connectionVehicleDidResolve
         )
     }
@@ -135,7 +150,7 @@ enum IOSApplicationComposition {
     static func makeSettingsPresentationModel() -> IOSSettingsPresentationModel {
         let discovery = DemoIncludedAdapterDiscovery(
             wrapping: IOSCoreBluetoothAdapterDiscovery(),
-            demoCandidate: DemoOBDAdapter.bluetoothCandidate
+            demoCandidates: DemoOBDAdapter.bluetoothCandidates
         )
         let discoverAdapters = DiscoverAdaptersUseCase(discoveryPort: discovery)
         let latestDiscovery = LatestAdapterDiscoveryUseCase(discoverAdapters: discoverAdapters)

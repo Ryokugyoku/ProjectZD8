@@ -9,9 +9,9 @@ struct OBDPIDDefinition: Equatable, Sendable {
     /// 表示名へ解決できる安定キーです。
     let nameKey: String
     /// 数式が参照する応答データの必要バイト数です。
-    let requiredByteCount: Int
+    let requiredByteCount: Int?
     /// `A`から`H`までのバイト変数を使用する制限付き数式です。
-    let formula: String
+    let formula: String?
     /// 計算結果の単位です。
     let unit: String
     /// 規格上または定義上の最小値です。
@@ -22,6 +22,14 @@ struct OBDPIDDefinition: Equatable, Sendable {
     let sourceURI: String
     /// 同じService/PID定義を更新するときの単調増加改訂番号です。
     let revision: Int
+    /// 項目概要を表示するローカライズキーです。
+    let summaryKey: String
+    /// 高値時の確認観点を表示するローカライズキーです。
+    let highValueKey: String
+    /// 低値時の確認観点を表示するローカライズキーです。
+    let lowValueKey: String
+    /// 関連項目を表示するローカライズキーです。
+    let correlationKey: String
 
     /// 数式を含むPID定義を生成します。
     ///
@@ -37,17 +45,25 @@ struct OBDPIDDefinition: Equatable, Sendable {
     ///   - maximumValue: 許容最大値。
     ///   - sourceURI: 一次資料のURI文字列。
     ///   - revision: 定義の改訂番号。
+    ///   - summaryKey: 項目概要のローカライズキー。
+    ///   - highValueKey: 高値時説明のローカライズキー。
+    ///   - lowValueKey: 低値時説明のローカライズキー。
+    ///   - correlationKey: 相関項目説明のローカライズキー。
     init(
         service: UInt8,
         pid: UInt8,
         nameKey: String,
-        requiredByteCount: Int,
-        formula: String,
+        requiredByteCount: Int?,
+        formula: String?,
         unit: String,
         minimumValue: Double?,
         maximumValue: Double?,
         sourceURI: String,
-        revision: Int
+        revision: Int,
+        summaryKey: String = "obd.pid.help.unconfirmed.summary",
+        highValueKey: String = "obd.pid.help.unconfirmed.high",
+        lowValueKey: String = "obd.pid.help.unconfirmed.low",
+        correlationKey: String = "obd.pid.help.unconfirmed.correlation"
     ) {
         self.service = service
         self.pid = pid
@@ -59,5 +75,12 @@ struct OBDPIDDefinition: Equatable, Sendable {
         self.maximumValue = maximumValue
         self.sourceURI = sourceURI
         self.revision = revision
+        self.summaryKey = summaryKey
+        self.highValueKey = highValueKey
+        self.lowValueKey = lowValueKey
+        self.correlationKey = correlationKey
     }
+
+    /// 定義式で安全に数値化できるPIDかどうかです。
+    var isDecodable: Bool { requiredByteCount != nil && formula?.isEmpty == false }
 }

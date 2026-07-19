@@ -11,6 +11,8 @@ struct MacOSLiveTelemetryView: View {
     let metrics: MacOSAppShellMetrics
     /// 現在詳細表示しているPID分類です。
     @State private var selectedCategory: OBDPIDCategory = .engine
+    /// 詳細Popoverへ表示する現在のPIDです。
+    @State private var helpSample: OBDPIDSample?
 
     /// PID読取操作、分類選択、数値、失敗に対応するmacOS表示を提供します。
     ///
@@ -70,7 +72,30 @@ struct MacOSLiveTelemetryView: View {
                     ) {
                         ForEach(samples(in: selectedCategory)) { sample in
                             VStack(alignment: .leading, spacing: 10 * metrics.scale) {
-                                Text(LocalizedStringKey(sample.nameKey)).foregroundStyle(.secondary)
+                                HStack {
+                                    Text(LocalizedStringKey(sample.nameKey)).foregroundStyle(.secondary)
+                                    Spacer()
+                                    Button { helpSample = sample } label: {
+                                        Image(systemName: "questionmark.circle")
+                                    }
+                                    .buttonStyle(.plain)
+                                    .help(Text(LocalizedStringKey(sample.summaryKey)))
+                                    .accessibilityLabel("telemetry.help.open")
+                                    .popover(isPresented: Binding(
+                                        get: { helpSample?.id == sample.id },
+                                        set: { if !$0 { helpSample = nil } }
+                                    )) {
+                                        VStack(alignment: .leading, spacing: 12) {
+                                            Text(LocalizedStringKey(sample.nameKey)).font(.headline)
+                                            helpRow("telemetry.help.summary", valueKey: sample.summaryKey)
+                                            helpRow("telemetry.help.high", valueKey: sample.highValueKey)
+                                            helpRow("telemetry.help.low", valueKey: sample.lowValueKey)
+                                            helpRow("telemetry.help.correlation", valueKey: sample.correlationKey)
+                                        }
+                                        .padding(18)
+                                        .frame(width: 360)
+                                    }
+                                }
                                 Text(sample.value, format: .number.precision(.fractionLength(0...2)))
                                     .font(.system(size: 32 * metrics.scale, weight: .bold, design: .rounded).monospacedDigit())
                                 Text(sample.unit).foregroundStyle(.secondary)
@@ -140,6 +165,20 @@ struct MacOSLiveTelemetryView: View {
     /// - Returns: 小数2桁以内の数値と単位。
     private func formatted(_ sample: OBDPIDSample) -> String {
         "\(sample.value.formatted(.number.precision(.fractionLength(0...2)))) \(sample.unit)"
+    }
+
+    /// PIDヘルプの見出しと説明を1組表示します。
+    ///
+    /// 責務: 1件のヘルプ項目をmacOS Popover用の見出し付き本文へ変換します。
+    /// - Parameters:
+    ///   - titleKey: 見出しのローカライズキー。
+    ///   - valueKey: 本文のローカライズキー。
+    /// - Returns: 見出しと説明を縦に並べた表示。
+    private func helpRow(_ titleKey: String, valueKey: String) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(LocalizedStringKey(titleKey)).font(.caption.bold()).foregroundStyle(.secondary)
+            Text(LocalizedStringKey(valueKey))
+        }
     }
 }
 #endif

@@ -7,6 +7,8 @@ struct IOSLiveTelemetryView: View {
     let state: LiveTelemetryState
     /// PID読取操作の通知先です。
     let send: (LiveTelemetryAction) -> Void
+    /// ヘルプシートへ表示する現在のPIDです。
+    @State private var helpSample: OBDPIDSample?
 
     /// モバイル専用の分類別PID読取表示を提供します。
     ///
@@ -25,8 +27,16 @@ struct IOSLiveTelemetryView: View {
                     if !categorySamples.isEmpty {
                         NavigationLink {
                             List(categorySamples) { sample in
-                                LabeledContent(LocalizedStringKey(sample.nameKey)) {
-                                    Text(formatted(sample))
+                                HStack {
+                                    VStack(alignment: .leading) {
+                                        Text(LocalizedStringKey(sample.nameKey))
+                                        Text(formatted(sample)).font(.body.monospacedDigit())
+                                    }
+                                    Spacer()
+                                    Button { helpSample = sample } label: {
+                                        Image(systemName: "questionmark.circle")
+                                    }
+                                    .accessibilityLabel("telemetry.help.open")
                                 }
                             }
                             .navigationTitle(LocalizedStringKey(category.nameKey))
@@ -57,6 +67,18 @@ struct IOSLiveTelemetryView: View {
                 }
             }
             .navigationTitle("telemetry.title")
+        }
+        .sheet(item: $helpSample) { sample in
+            NavigationStack {
+                List {
+                    Section("telemetry.help.summary") { Text(LocalizedStringKey(sample.summaryKey)) }
+                    Section("telemetry.help.high") { Text(LocalizedStringKey(sample.highValueKey)) }
+                    Section("telemetry.help.low") { Text(LocalizedStringKey(sample.lowValueKey)) }
+                    Section("telemetry.help.correlation") { Text(LocalizedStringKey(sample.correlationKey)) }
+                }
+                .navigationTitle(LocalizedStringKey(sample.nameKey))
+                .toolbar { Button("common.close") { helpSample = nil } }
+            }
         }
         .accessibilityIdentifier("ios-live-telemetry")
     }

@@ -15,15 +15,19 @@ enum MacOSApplicationComposition {
         sessionDidEnd: @escaping @MainActor (ConnectionSessionEndReason) -> Void = { _ in },
         odometerDidChange: @escaping @MainActor (Double) -> Void = { _ in }
     ) -> LiveTelemetryModel {
-        LiveTelemetryModel(
+        let telemetry = DemoAwareOBDPIDTelemetryAdapter(
+            live: OBDLinkEXPIDTelemetryAdapter { endpoint in
+                MacOS115200BaudOBDSerialTransport(devicePath: endpoint.systemIdentifier)
+            },
+            demo: DemoOBDPIDTelemetryAdapter()
+        )
+        return LiveTelemetryModel(
             readMajorPIDs: ReadMajorOBDPIDsUseCase(
                 definitionRepository: makeOBDPIDDefinitionRepository(),
-                telemetry: DemoAwareOBDPIDTelemetryAdapter(
-                    live: OBDLinkEXPIDTelemetryAdapter { endpoint in
-                        MacOS115200BaudOBDSerialTransport(devicePath: endpoint.systemIdentifier)
-                    },
-                    demo: DemoOBDPIDTelemetryAdapter()
-                )
+                telemetry: telemetry
+            ),
+            loadVehicleCapabilities: LoadVehiclePIDCapabilitiesUseCase(
+                repository: makeVehiclePIDCapabilityRepository(), telemetry: telemetry
             ),
             sessionDidEnd: sessionDidEnd,
             odometerDidChange: odometerDidChange
@@ -34,7 +38,7 @@ enum MacOSApplicationComposition {
     ///
     /// 責務: macOSのPID定義永続化を利用可能なGRDB実装または明示的利用不能境界へ変換します。
     /// - Returns: seed登録済みPID Repository。準備失敗時は利用不能Repository。
-    private static func makeOBDPIDDefinitionRepository() -> any OBDPIDDefinitionRepository {
+    static func makeOBDPIDDefinitionRepository() -> any OBDPIDDefinitionRepository {
         do {
             let repository = try GRDBOBDPIDDefinitionRepository.openApplicationRepository()
             try StandardOBDPIDSeed.install(into: repository)
@@ -44,13 +48,22 @@ enum MacOSApplicationComposition {
         }
     }
 
+    /// 製品DBの車両別対応PID保存先を生成します。
+    ///
+    /// 責務: macOSの車両別対応PID永続化を利用可能または明示的利用不能境界へ変換します。
+    /// - Returns: 車両別対応PID Repository。
+    static func makeVehiclePIDCapabilityRepository() -> any VehiclePIDCapabilityRepository {
+        (try? GRDBVehiclePIDCapabilityRepository.openApplicationRepository())
+            ?? UnavailableVehiclePIDCapabilityRepository()
+    }
+
     /// CloudKit同期と選択済みシリアルアダプター通信を注入した車両管理モデルを生成します。
     ///
     /// 責務: macOSの車両保存、写真読込、シリアル識別をVehicleManagementへ結び付けます。
     /// - Returns: private database同期を使用する車両管理モデル。
     /// - Parameter connectionVehicleDidResolve: 接続対象車両をLoggingへ通知する処理。
     static func makeVehicleManagementModel(
-        connectionVehicleDidResolve: @escaping @MainActor (VehicleProfile) -> Void = { _ in }
+        connectionVehicleDidResolve: @escaping @MainActor (VehicleProfile, OBDConnectionEndpoint) -> Void = { _, _ in }
     ) -> VehicleManagementModel {
         VehicleManagementModel(
             state: VehicleManagementState(),
@@ -64,6 +77,8 @@ enum MacOSApplicationComposition {
                 )
             ),
             photoImporter: VehiclePhotoFileImporter(),
+            pidCapabilityRepository: makeVehiclePIDCapabilityRepository(),
+            pidDefinitionRepository: makeOBDPIDDefinitionRepository(),
             connectionVehicleDidResolve: connectionVehicleDidResolve
         )
     }
@@ -137,7 +152,7 @@ enum MacOSApplicationComposition {
     static func makeSettingsPresentationModel() -> MacOSSettingsPresentationModel {
         let discovery = DemoIncludedAdapterDiscovery(
             wrapping: MacOSSystemAdapterDiscovery(),
-            demoCandidate: DemoOBDAdapter.candidate
+            demoCandidates: DemoOBDAdapter.usbCandidates
         )
         let discoverAdapters = DiscoverAdaptersUseCase(discoveryPort: discovery)
         let latestDiscovery = LatestAdapterDiscoveryUseCase(discoverAdapters: discoverAdapters)

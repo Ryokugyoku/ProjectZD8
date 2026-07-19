@@ -78,6 +78,8 @@ struct IOSDestinationView: View {
                 state: connectionHistoryState,
                 send: sendConnectionHistoryAction
             )
+        } else if destination == .maintenance {
+            IOSGarageView(state: vehicleManagementState, send: sendVehicleManagementAction)
         } else if destination == .settings {
             IOSSettingsView(
                 state: settingsState,

@@ -4,18 +4,18 @@ import XCTest
 /// 実探索結果へ接続方式別にデモ候補が追加されることを検証します。
 @MainActor
 final class DemoIncludedAdapterDiscoveryTests: XCTestCase {
-    /// 空のUSB探索にもDEMO USBを1件返します。
+    /// 空のUSB探索にもDEMO USBを3件返します。
     ///
     /// 責務: USB探索結果が常にデモ候補を含むことを確認します。
     func testUSBDiscoveryAlwaysIncludesDemoCandidate() async throws {
         let discovery = DemoIncludedAdapterDiscovery(
             wrapping: EmptyAdapterDiscovery(),
-            demoCandidate: DemoOBDAdapter.candidate
+            demoCandidates: DemoOBDAdapter.usbCandidates
         )
 
         let adapters = try await discovery.discoverAdapters(for: .usb)
 
-        XCTAssertEqual(adapters, [DemoOBDAdapter.candidate])
+        XCTAssertEqual(adapters, DemoOBDAdapter.usbCandidates)
     }
 
     /// Bluetooth探索にはUSBデモ候補を混在させません。
@@ -24,7 +24,7 @@ final class DemoIncludedAdapterDiscoveryTests: XCTestCase {
     func testBluetoothDiscoveryDoesNotIncludeDemoUSB() async throws {
         let discovery = DemoIncludedAdapterDiscovery(
             wrapping: EmptyAdapterDiscovery(),
-            demoCandidate: DemoOBDAdapter.candidate
+            demoCandidates: DemoOBDAdapter.usbCandidates
         )
 
         let adapters = try await discovery.discoverAdapters(for: .bluetooth)
@@ -32,32 +32,32 @@ final class DemoIncludedAdapterDiscoveryTests: XCTestCase {
         XCTAssertTrue(adapters.isEmpty)
     }
 
-    /// Bluetoothデモ候補をBluetooth探索へ追加します。
+    /// Bluetoothデモ候補3件をBluetooth探索へ追加します。
     ///
     /// 責務: Bluetooth向け構成がiOS用デモ候補を返すことを確認します。
     func testBluetoothDiscoveryIncludesBluetoothDemoCandidate() async throws {
         let discovery = DemoIncludedAdapterDiscovery(
             wrapping: EmptyAdapterDiscovery(),
-            demoCandidate: DemoOBDAdapter.bluetoothCandidate
+            demoCandidates: DemoOBDAdapter.bluetoothCandidates
         )
 
         let adapters = try await discovery.discoverAdapters(for: .bluetooth)
 
-        XCTAssertEqual(adapters, [DemoOBDAdapter.bluetoothCandidate])
+        XCTAssertEqual(adapters, DemoOBDAdapter.bluetoothCandidates)
     }
 
-    /// 実Bluetooth探索が利用不能でもデモ候補は残します。
+    /// 実Bluetooth探索が利用不能でもデモ候補3件は残します。
     ///
     /// 責務: Bluetooth利用不可をデモ候補まで消す失敗へ変換しないことを確認します。
     func testBluetoothFailureStillReturnsBluetoothDemoCandidate() async throws {
         let discovery = DemoIncludedAdapterDiscovery(
             wrapping: FailingBluetoothAdapterDiscovery(),
-            demoCandidate: DemoOBDAdapter.bluetoothCandidate
+            demoCandidates: DemoOBDAdapter.bluetoothCandidates
         )
 
         let adapters = try await discovery.discoverAdapters(for: .bluetooth)
 
-        XCTAssertEqual(adapters, [DemoOBDAdapter.bluetoothCandidate])
+        XCTAssertEqual(adapters, DemoOBDAdapter.bluetoothCandidates)
     }
 }
 

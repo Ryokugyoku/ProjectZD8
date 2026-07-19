@@ -13,8 +13,12 @@ final class VehicleManagementModel {
     @ObservationIgnored private let identifyForConnection: IdentifyVehicleForConnectionUseCase
     /// ユーザーが選択した画像を読み込む境界です。
     @ObservationIgnored private let photoImporter: any VehiclePhotoImportPort
+    /// 車両別対応PID設定の永続化境界です。
+    @ObservationIgnored private let pidCapabilityRepository: (any VehiclePIDCapabilityRepository)?
+    /// PID名称を解決するカタログ境界です。
+    @ObservationIgnored private let pidDefinitionRepository: (any OBDPIDDefinitionRepository)?
     /// 接続対象車両の確定をLoggingへ通知する処理です。
-    @ObservationIgnored private let connectionVehicleDidResolve: @MainActor (VehicleProfile) -> Void
+    @ObservationIgnored private let connectionVehicleDidResolve: @MainActor (VehicleProfile, OBDConnectionEndpoint) -> Void
     /// 現在の車両を所有するAppleアカウント識別子です。
     @ObservationIgnored private var accountIdentifier: String?
 
@@ -26,18 +30,24 @@ final class VehicleManagementModel {
     ///   - repository: アカウントスコープ付き車両保存先。
     ///   - identifyForConnection: VINまたは非VIN識別子の取得と登録照合を行うユースケース。
     ///   - photoImporter: 選択画像をプロフィールデータへ変換する境界。
-    ///   - connectionVehicleDidResolve: 接続対象車両の確定をLoggingへ通知する処理。
+    ///   - pidCapabilityRepository: 車両別対応PID設定の保存先。
+    ///   - pidDefinitionRepository: PID名称を解決するカタログ境界。
+    ///   - connectionVehicleDidResolve: 接続対象車両と終端の確定をLoggingおよび監視開始へ通知する処理。
     init(
         state: VehicleManagementState,
         repository: any VehicleRepository,
         identifyForConnection: IdentifyVehicleForConnectionUseCase,
         photoImporter: any VehiclePhotoImportPort,
-        connectionVehicleDidResolve: @escaping @MainActor (VehicleProfile) -> Void = { _ in }
+        pidCapabilityRepository: (any VehiclePIDCapabilityRepository)? = nil,
+        pidDefinitionRepository: (any OBDPIDDefinitionRepository)? = nil,
+        connectionVehicleDidResolve: @escaping @MainActor (VehicleProfile, OBDConnectionEndpoint) -> Void = { _, _ in }
     ) {
         self.state = state
         self.repository = repository
         self.identifyForConnection = identifyForConnection
         self.photoImporter = photoImporter
+        self.pidCapabilityRepository = pidCapabilityRepository
+        self.pidDefinitionRepository = pidDefinitionRepository
         self.connectionVehicleDidResolve = connectionVehicleDidResolve
     }
 
@@ -59,6 +69,53 @@ final class VehicleManagementModel {
         case let .photoSelected(url): Task { await importPhoto(at: url) }
         case let .vehicleDeleted(id): Task { await delete(id) }
         case .refreshRequested: Task { await loadVehicles() }
+        case let .pidSettingsRequested(vehicleID): loadPIDSettings(for: vehicleID)
+        case let .pidCollectionChanged(request, isEnabled): updatePIDSelection(request, isEnabled: isEnabled)
+        case .pidSettingsClosed:
+            state.pidSettingsVehicleID = nil
+            state.pidSelectionItems = []
+        }
+    }
+
+    /// 指定車両の対応PIDと名称を収集設定状態へ読み込みます。
+    ///
+    /// 責務: 1件の車両IDをPIDテーブル名称付き収集選択一覧へ変換します。
+    /// - Parameter vehicleID: 設定対象のアプリ内車両ID。
+    private func loadPIDSettings(for vehicleID: VehicleID) {
+        guard let pidCapabilityRepository, let pidDefinitionRepository else {
+            state.failureKey = "garage.pid_settings.error"
+            return
+        }
+        do {
+            let definitions = try pidDefinitionRepository.definitions()
+            let names = Dictionary(uniqueKeysWithValues: definitions.map {
+                (OBDPIDRequest(service: $0.service, pid: $0.pid), $0.nameKey)
+            })
+            state.pidSelectionItems = try pidCapabilityRepository.capabilities(for: vehicleID).map {
+                VehiclePIDSelectionItem(id: $0.id.request, nameKey: names[$0.id.request], isEnabled: $0.isCollectionEnabled)
+            }
+            state.pidSettingsVehicleID = vehicleID
+            state.failureKey = nil
+        } catch {
+            state.failureKey = "garage.pid_settings.error"
+        }
+    }
+
+    /// 現在表示中の車両で1件のPID収集選択を更新します。
+    ///
+    /// 責務: 1件のPID選択操作を永続化して現在表示へ反映します。
+    /// - Parameters:
+    ///   - request: 更新するService/PID。
+    ///   - isEnabled: 新しい収集有効状態。
+    private func updatePIDSelection(_ request: OBDPIDRequest, isEnabled: Bool) {
+        guard let vehicleID = state.pidSettingsVehicleID, let pidCapabilityRepository else { return }
+        do {
+            try pidCapabilityRepository.setCollectionEnabled(isEnabled, for: request, vehicleID: vehicleID)
+            if let index = state.pidSelectionItems.firstIndex(where: { $0.id == request }) {
+                state.pidSelectionItems[index].isEnabled = isEnabled
+            }
+        } catch {
+            state.failureKey = "garage.pid_settings.error"
         }
     }
 
@@ -106,7 +163,7 @@ final class VehicleManagementModel {
             case let .registered(vehicle):
                 state.connectionVehicle = vehicle
                 state.phase = .readyToConnect
-                connectionVehicleDidResolve(vehicle)
+                connectionVehicleDidResolve(vehicle, endpoint)
             case let .requiresRegistration(snapshot):
                 state.pendingIdentification = snapshot
                 state.phase = .confirmingIdentification
@@ -251,7 +308,7 @@ final class VehicleManagementModel {
             state.pendingIdentification = nil
             if isConnectionRegistration {
                 state.connectionVehicle = saved
-                connectionVehicleDidResolve(saved)
+                if let endpoint = state.connectionEndpoint { connectionVehicleDidResolve(saved, endpoint) }
             }
             state.phase = .idle
             state.failureKey = nil

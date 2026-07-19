@@ -27,7 +27,7 @@ final class ReadMajorOBDPIDsUseCaseTests: XCTestCase {
         XCTAssertEqual(samples.map(\.value), [93, 0])
         XCTAssertEqual(samples.map(\.unit), ["°C", "rpm"])
         XCTAssertEqual(samples.map(\.observedAt), [Date(timeIntervalSince1970: 100), Date(timeIntervalSince1970: 100)])
-        XCTAssertEqual(receivedRequests, StandardOBDPIDSeed.definitions.map { .init(service: $0.service, pid: $0.pid) })
+        XCTAssertEqual(receivedRequests, StandardOBDPIDSeed.definitions.filter(\.isDecodable).map { .init(service: $0.service, pid: $0.pid) })
     }
 
     /// 応答しないPIDを対応済み一覧へ含めません。

@@ -11,13 +11,15 @@ struct OBDPIDFormulaEvaluator {
     /// - Returns: 定義式を適用した有限数値。
     /// - Throws: バイト不足、不正構文、未提供変数、ゼロ除算、非有限結果の場合は `OBDPIDFormulaError`。
     func evaluate(_ definition: OBDPIDDefinition, bytes: [UInt8]) throws -> Double {
-        guard bytes.count >= definition.requiredByteCount else {
+        guard let requiredByteCount = definition.requiredByteCount,
+              let formula = definition.formula else { throw OBDPIDFormulaError.invalidExpression }
+        guard bytes.count >= requiredByteCount else {
             throw OBDPIDFormulaError.insufficientBytes(
-                required: definition.requiredByteCount,
+                required: requiredByteCount,
                 actual: bytes.count
             )
         }
-        var parser = Parser(expression: definition.formula, bytes: bytes)
+        var parser = Parser(expression: formula, bytes: bytes)
         let value = try parser.parse()
         guard value.isFinite else { throw OBDPIDFormulaError.nonFiniteResult }
         return value

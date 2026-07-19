@@ -24,4 +24,10 @@ enum VehicleManagementAction {
     case vehicleDeleted(VehicleID)
     /// 同期先から車両一覧を再読込します。
     case refreshRequested
+    /// 指定車両の対応PID収集設定を開きます。
+    case pidSettingsRequested(VehicleID)
+    /// 1件のPID収集選択を変更します。
+    case pidCollectionChanged(OBDPIDRequest, Bool)
+    /// PID収集設定を閉じます。
+    case pidSettingsClosed
 }

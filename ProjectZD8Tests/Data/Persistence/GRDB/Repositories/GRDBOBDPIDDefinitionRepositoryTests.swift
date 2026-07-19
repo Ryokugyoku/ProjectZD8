@@ -5,7 +5,7 @@ import XCTest
 /// PID専用テーブルのMigration、改訂、制約、復元を検証します。
 @MainActor
 final class GRDBOBDPIDDefinitionRepositoryTests: XCTestCase {
-    /// 初期Migrationと主要51件の標準seedを取得可能にします。
+    /// 初期Migrationと掲載167件の標準seedを取得可能にします。
     ///
     /// 責務: 空DBへPIDテーブルと現在の確認済み定義が作成されることを確認します。
     func testMigratesAndInstallsVerifiedDefinitions() throws {
@@ -14,7 +14,7 @@ final class GRDBOBDPIDDefinitionRepositoryTests: XCTestCase {
         try StandardOBDPIDSeed.install(into: repository)
 
         XCTAssertEqual(try repository.definitions(), StandardOBDPIDSeed.definitions)
-        XCTAssertEqual(try repository.definitions().count, 51)
+        XCTAssertEqual(try repository.definitions().count, 167)
     }
 
     /// Service 01 PID A6を規格の4バイト走行距離定義として登録します。
@@ -25,13 +25,13 @@ final class GRDBOBDPIDDefinitionRepositoryTests: XCTestCase {
         try StandardOBDPIDSeed.install(into: repository)
 
         let definition = try XCTUnwrap(repository.definition(service: 0x01, pid: 0xA6))
-        XCTAssertEqual(definition.nameKey, "obd.pid.odometer")
+        XCTAssertEqual(definition.nameKey, "obd.pid.01.A6.name")
         XCTAssertEqual(definition.requiredByteCount, 4)
         XCTAssertEqual(definition.formula, "(A * 16777216 + B * 65536 + C * 256 + D) / 10")
         XCTAssertEqual(definition.unit, "km")
         XCTAssertEqual(definition.minimumValue, 0)
         XCTAssertEqual(definition.maximumValue, 429_496_729.5)
-        XCTAssertEqual(definition.sourceURI, "https://saemobilus.sae.org/standards/j1979da_202607-j1979-da-digital-annex-e-e-diagnostic-test-modes")
+        XCTAssertEqual(definition.sourceURI, "https://www.csselectronics.com/pages/obd2-pid-table-on-board-diagnostics-j1979")
     }
 
     /// 登録順に依存せずService/PID順の一覧を取得します。
@@ -82,8 +82,8 @@ final class GRDBOBDPIDDefinitionRepositoryTests: XCTestCase {
         let queue = try DatabaseQueue()
         _ = try GRDBOBDPIDDefinitionRepository(databaseQueue: queue)
         try queue.write { database in
-            XCTAssertThrowsError(try database.execute(sql: "INSERT INTO obd_pid_definitions VALUES (256, 1, 'x', 1, 'A', '', NULL, NULL, 's', 1)"))
-            XCTAssertThrowsError(try database.execute(sql: "INSERT INTO obd_pid_definitions VALUES (1, 1, 'x', 0, 'A', '', NULL, NULL, 's', 1)"))
+            XCTAssertThrowsError(try insertRaw(database, service: 256, byteCount: 1))
+            XCTAssertThrowsError(try insertRaw(database, service: 1, byteCount: 0))
         }
     }
 
@@ -109,8 +109,33 @@ final class GRDBOBDPIDDefinitionRepositoryTests: XCTestCase {
     /// - Throws: DB制約に違反した場合のGRDBエラー。
     private func insertDirect(_ database: Database, minimum: Double?, maximum: Double?, pid: Int) throws {
         try database.execute(
-            sql: "INSERT INTO obd_pid_definitions VALUES (1, ?, 'x', 1, 'A', '', ?, ?, 's', 1)",
+            sql: """
+                INSERT INTO obd_pid_definitions
+                    (service, pid, nameKey, requiredByteCount, formula, unit, minimumValue, maximumValue,
+                     sourceURI, revision, summaryKey, highValueKey, lowValueKey, correlationKey)
+                VALUES (1, ?, 'x', 1, 'A', '', ?, ?, 's', 1, 's', 'h', 'l', 'c')
+                """,
             arguments: [pid, minimum, maximum]
+        )
+    }
+
+    /// 識別子またはバイト数だけを変えた直接SQLレコードを挿入します。
+    ///
+    /// 責務: 1件の不正候補を現行14列スキーマのCHECK制約へ渡します。
+    /// - Parameters:
+    ///   - database: 書込み中のDB接続。
+    ///   - service: 検証するService値。
+    ///   - byteCount: 検証する必要バイト数。
+    /// - Throws: DB制約に違反した場合のGRDBエラー。
+    private func insertRaw(_ database: Database, service: Int, byteCount: Int) throws {
+        try database.execute(
+            sql: """
+                INSERT INTO obd_pid_definitions
+                    (service, pid, nameKey, requiredByteCount, formula, unit, minimumValue, maximumValue,
+                     sourceURI, revision, summaryKey, highValueKey, lowValueKey, correlationKey)
+                VALUES (?, 1, 'x', ?, 'A', '', NULL, NULL, 's', 1, 's', 'h', 'l', 'c')
+                """,
+            arguments: [service, byteCount]
         )
     }
 }

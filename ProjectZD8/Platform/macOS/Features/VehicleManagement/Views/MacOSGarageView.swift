@@ -26,6 +26,12 @@ struct MacOSGarageView: View {
         }
         .background(Color(nsColor: .windowBackgroundColor))
         .accessibilityIdentifier("macos-garage-screen")
+        .sheet(isPresented: Binding(
+            get: { state.pidSettingsVehicleID != nil },
+            set: { if !$0 { send(.pidSettingsClosed) } }
+        )) {
+            MacOSVehiclePIDSettingsView(items: state.pidSelectionItems, send: send)
+        }
     }
 
     /// 登録車両カードと同期操作を表示するカタログです。
@@ -144,6 +150,7 @@ struct MacOSGarageView: View {
             HStack {
                 Button("garage.edit") { send(.editRequested(vehicle.id)) }
                     .buttonStyle(.borderedProminent)
+                Button("garage.pid_settings.open") { send(.pidSettingsRequested(vehicle.id)) }
                 Button(role: .destructive) { send(.vehicleDeleted(vehicle.id)) } label: {
                     Image(systemName: "trash")
                 }

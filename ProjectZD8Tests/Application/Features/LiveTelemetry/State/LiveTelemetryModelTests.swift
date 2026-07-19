@@ -16,7 +16,7 @@ final class LiveTelemetryModelTests: XCTestCase {
             )
         )
 
-        model.send(.startRequested(endpoint))
+        model.send(.startRequested(endpoint, vehicleID))
         for _ in 0..<100 {
             if await telemetry.readCount >= 2 { break }
             try? await Task.sleep(for: .milliseconds(10))
@@ -44,7 +44,7 @@ final class LiveTelemetryModelTests: XCTestCase {
             )
         )
 
-        model.send(.startRequested(endpoint))
+        model.send(.startRequested(endpoint, vehicleID))
         for _ in 0..<100 where model.state.phase != .failed {
             await Task.yield()
         }
@@ -66,7 +66,7 @@ final class LiveTelemetryModelTests: XCTestCase {
             ),
             sessionDidEnd: { endReasons.append($0) }
         )
-        model.send(.startRequested(endpoint))
+        model.send(.startRequested(endpoint, vehicleID))
         for _ in 0..<100 where model.state.phase == .reading {
             try? await Task.sleep(for: .milliseconds(10))
         }
@@ -97,7 +97,7 @@ final class LiveTelemetryModelTests: XCTestCase {
             sessionDidEnd: { endReasons.append($0) }
         )
 
-        model.send(.startRequested(endpoint))
+        model.send(.startRequested(endpoint, vehicleID))
         for _ in 0..<150 where model.state.failureKey == nil {
             try? await Task.sleep(for: .milliseconds(10))
         }
@@ -122,7 +122,7 @@ final class LiveTelemetryModelTests: XCTestCase {
             odometerDidChange: { observedKilometers.append($0) }
         )
 
-        model.send(.startRequested(endpoint))
+        model.send(.startRequested(endpoint, vehicleID))
         for _ in 0..<100 where observedKilometers.isEmpty {
             try? await Task.sleep(for: .milliseconds(10))
         }
@@ -134,6 +134,11 @@ final class LiveTelemetryModelTests: XCTestCase {
     /// テスト用OBD接続終端です。
     private var endpoint: OBDConnectionEndpoint {
         .init(transport: .serial, systemIdentifier: "/dev/cu.test", displayName: "Test adapter")
+    }
+
+    /// テスト用のアプリ内車両IDです。
+    private var vehicleID: VehicleID {
+        VehicleID(rawValue: UUID(uuidString: "10000000-0000-0000-0000-000000000001")!)
     }
 }
 

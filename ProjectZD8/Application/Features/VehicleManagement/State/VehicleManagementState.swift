@@ -38,4 +38,18 @@ struct VehicleManagementState: Equatable {
     var identificationFailureStage: VehicleIdentificationError.Stage?
     /// CloudKitまたはキャッシュから最後に読込を完了したかを示します。
     var hasLoadedVehicles = false
+    /// PID収集設定を表示している車両IDです。
+    var pidSettingsVehicleID: VehicleID?
+    /// PID収集設定へ表示する対応PID一覧です。
+    var pidSelectionItems: [VehiclePIDSelectionItem] = []
+}
+
+/// 車両設定画面へ表示する1件の対応PID収集選択です。
+struct VehiclePIDSelectionItem: Equatable, Identifiable {
+    /// Service/PID識別子です。
+    let id: OBDPIDRequest
+    /// PIDテーブルに定義がある場合の名称キーです。
+    let nameKey: String?
+    /// 継続収集の有効状態です。
+    var isEnabled: Bool
 }
