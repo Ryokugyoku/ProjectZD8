@@ -9,6 +9,12 @@ ProjectZD8 is a SwiftUI and SwiftData application for Apple platforms.
 
 Open `ProjectZD8.xcodeproj` in Xcode to build and run the app.
 
+## Development rules
+
+Codex and human contributors must follow [AGENTS.md](AGENTS.md),
+[the coding standards](Documentation/CODING_STANDARDS.md), and
+[the folder placement rules](Documentation/PLACEMENT_RULES.md).
+
 ## License
 
 Copyright 2026 Ryokugyoku.
