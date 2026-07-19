@@ -2,6 +2,8 @@
 import SwiftUI
 
 /// macOS専用の設定画面レイアウトを描画します。
+///
+/// 設定項目を追加する際は、アカウント同期対象に含めるか、Connection固有の同期除外対象にするかを併せて検討する必要があります。
 struct MacOSSettingsView: View {
     /// アクセシビリティ設定で動きを抑える必要があるかどうかです。
     @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
@@ -15,18 +17,33 @@ struct MacOSSettingsView: View {
     /// スクロール対象として使うアダプター設定カードの識別子です。
     private static let adapterCardID = "macos-settings-adapter-card"
 
-    /// 設定画面に表示する現在の選択状態です。
+    /// 設定画面に表示する現在のConnection選択状態です。
     let state: MacOSSettingsState
 
-    /// 設定画面の選択操作をAppShellへ通知するクロージャです。
+    /// 設定画面に表示するアカウント同期対象の言語と外観です。
+    let accountSettings: AccountSettings
+
+    /// 設定画面のConnection操作をAppShellへ通知するクロージャです。
     let send: (MacOSSettingsAction) -> Void
+
+    /// 言語と外観の選択操作をアカウント設定モデルへ通知するクロージャです。
+    let sendAccountSettingsAction: (AccountSettingsAction) -> Void
+
+    /// Authenticationが管理するアカウント削除の現在段階です。
+    let accountDeletionPhase: AccountDeletionPhase
+
+    /// Authenticationが保持する直近のアカウント削除失敗です。
+    let accountDeletionFailure: AccountDeletionFailure?
+
+    /// アカウント削除の型付き操作をAuthenticationへ通知します。
+    let sendAuthenticationAction: (AuthenticationAction) -> Void
 
     /// 現在のウインドウサイズに対応する表示寸法です。
     let metrics: MacOSAppShellMetrics
 
     /// 設定画面のレスポンシブなスクロール領域を提供します。
     ///
-    /// 責務: 表示設定と未接続機能の状態を操作可能なmacOS設定レイアウトとして描画します。
+    /// 責務: アカウント同期対象設定とConnection固有設定を区別したmacOS設定レイアウトとして描画します。
     var body: some View {
         GeometryReader { proxy in
             ScrollViewReader { scrollProxy in
@@ -34,6 +51,7 @@ struct MacOSSettingsView: View {
                     VStack(alignment: .leading, spacing: 24 * metrics.scale) {
                         header
                         settingsLayout(isWide: proxy.size.width >= 760)
+                        accountDeletionCard
                         additionNotice
                     }
                     .padding(.horizontal, 32 * metrics.scale)
@@ -73,7 +91,14 @@ struct MacOSSettingsView: View {
                 send: send,
                 metrics: metrics
             )
-            .environment(\.locale, Locale(identifier: state.language.localeIdentifier))
+            .environment(\.locale, Locale(identifier: accountSettings.language.localeIdentifier))
+        }
+        .overlay {
+            MacOSAccountDeletionFlowView(
+                phase: accountDeletionPhase,
+                failure: accountDeletionFailure,
+                send: sendAuthenticationAction
+            )
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("macos-settings-screen")
@@ -162,11 +187,11 @@ struct MacOSSettingsView: View {
             Picker(
                 "settings.language.title",
                 selection: Binding(
-                    get: { state.language },
-                    set: { send(.languageSelected($0)) }
+                    get: { accountSettings.language },
+                    set: { sendAccountSettingsAction(.languageSelected($0)) }
                 )
             ) {
-                ForEach(MacOSSettingsLanguage.allCases) { language in
+                ForEach(SettingsLanguage.allCases) { language in
                     Text(language.title).tag(language)
                 }
             }
@@ -185,7 +210,7 @@ struct MacOSSettingsView: View {
             systemImage: "circle.lefthalf.filled"
         ) {
             HStack(spacing: 8 * metrics.scale) {
-                ForEach(MacOSSettingsAppearance.allCases) { appearance in
+                ForEach(SettingsAppearance.allCases) { appearance in
                     appearanceButton(for: appearance)
                 }
             }
@@ -264,6 +289,40 @@ struct MacOSSettingsView: View {
         .accessibilityIdentifier("macos-settings-storage-coming-soon")
     }
 
+    /// 通常設定から視覚的に分離したアカウント削除カードです。
+    private var accountDeletionCard: some View {
+        HStack(alignment: .center, spacing: 15 * metrics.scale) {
+            Image(systemName: "exclamationmark.shield.fill")
+                .font(.system(size: 18 * metrics.scale, weight: .semibold))
+                .foregroundStyle(.red)
+                .frame(width: 40 * metrics.scale, height: 40 * metrics.scale)
+                .background(.red.opacity(0.09), in: RoundedRectangle(cornerRadius: 11 * metrics.scale))
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 4 * metrics.scale) {
+                Text("account.delete.card.title")
+                    .font(.system(size: 16 * metrics.scale, weight: .bold, design: .rounded))
+                Text("account.delete.card.description")
+                    .font(.system(size: 11.5 * metrics.scale))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 10 * metrics.scale)
+            Button("account.delete.start", role: .destructive) {
+                sendAuthenticationAction(.accountDeletionRequested)
+            }
+                .buttonStyle(.bordered)
+                .controlSize(.large)
+                .accessibilityIdentifier("macos-account-delete-start")
+        }
+        .padding(18 * metrics.scale)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.red.opacity(0.045), in: RoundedRectangle(cornerRadius: 20 * metrics.scale, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 20 * metrics.scale, style: .continuous)
+                .stroke(.red.opacity(0.2), lineWidth: 1)
+        }
+    }
+
     /// 今後の設定項目追加を予告する補足表示です。
     private var additionNotice: some View {
         Label {
@@ -336,11 +395,11 @@ struct MacOSSettingsView: View {
     /// 責務: 1件の外観モードを選択状態が分かる操作として描画します。
     /// - Parameter appearance: ボタンが表す外観モード。
     /// - Returns: 選択状態を複数の視覚手掛かりで示すボタン。
-    private func appearanceButton(for appearance: MacOSSettingsAppearance) -> some View {
-        let isSelected = state.appearance == appearance
+    private func appearanceButton(for appearance: SettingsAppearance) -> some View {
+        let isSelected = accountSettings.appearance == appearance
 
         return Button {
-            send(.appearanceSelected(appearance))
+            sendAccountSettingsAction(.appearanceSelected(appearance))
         } label: {
             VStack(spacing: 7 * metrics.scale) {
                 Image(systemName: appearance.systemImage)

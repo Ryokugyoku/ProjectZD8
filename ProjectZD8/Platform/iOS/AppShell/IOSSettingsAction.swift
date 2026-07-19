@@ -1,12 +1,6 @@
 #if os(iOS)
-/// iOS設定画面からAppShellへ通知する表示およびアダプター選択操作です。
+/// iOS設定画面からAppShellへ通知するConnection操作です。
 enum IOSSettingsAction: Equatable {
-    /// 表示言語の選択変更を通知します。
-    case languageSelected(IOSSettingsLanguage)
-
-    /// 外観モードの選択変更を通知します。
-    case appearanceSelected(IOSSettingsAppearance)
-
     /// 指定スロットへ割り当てるBluetoothアダプターの選択開始を通知します。
     case adapterSelectionRequested(AdapterConnectionRole)
 

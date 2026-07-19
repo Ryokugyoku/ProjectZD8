@@ -8,7 +8,7 @@ final class MacOSAppShellUITests: XCTestCase {
     /// 責務: プロセスエントリーポイントからmacOS AppShellへ到達できることを確認します。
     @MainActor
     func testLaunchShowsMacOSAppShell() {
-        let application = XCUIApplication()
+        let application = XCUIApplication.authenticatedProjectZD8()
 
         application.launch()
 
@@ -20,7 +20,7 @@ final class MacOSAppShellUITests: XCTestCase {
     /// 責務: macOS AppShellが4件のナビゲーション操作を表示することを確認します。
     @MainActor
     func testSidebarShowsEveryRequestedDestination() {
-        let application = XCUIApplication()
+        let application = XCUIApplication.authenticatedProjectZD8()
         application.launch()
 
         XCTAssertTrue(application.buttons["macos-sidebar-home"].waitForExistence(timeout: 5))
@@ -34,7 +34,7 @@ final class MacOSAppShellUITests: XCTestCase {
     /// 責務: 1件のサイドバー選択に対応するmacOS遷移先が描画されることを確認します。
     @MainActor
     func testSidebarSelectionShowsMatchingDestination() {
-        let application = XCUIApplication()
+        let application = XCUIApplication.authenticatedProjectZD8()
         application.launch()
 
         let settingsButton = application.buttons["macos-sidebar-settings"]
@@ -50,7 +50,7 @@ final class MacOSAppShellUITests: XCTestCase {
     /// 責務: macOS HOMEの設定ボタンによる2回の案内と通常の設定サイドバー遷移を同じ操作フローで確認します。
     @MainActor
     func testHomeSetupActionShowsAdapterSettings() {
-        let application = XCUIApplication()
+        let application = XCUIApplication.authenticatedProjectZD8()
         application.launchArguments += ["-deviceConnection.defaultAdapter", ""]
         application.launch()
 
@@ -82,7 +82,7 @@ final class MacOSAppShellUITests: XCTestCase {
     /// 責務: macOS設定画面にアダプター設定と将来のストレージ設定が表示されることを確認します。
     @MainActor
     func testSettingsShowsRequestedConfigurationCategories() {
-        let application = XCUIApplication()
+        let application = XCUIApplication.authenticatedProjectZD8()
         application.launch()
 
         let settingsButton = application.buttons["macos-sidebar-settings"]
@@ -100,7 +100,7 @@ final class MacOSAppShellUITests: XCTestCase {
     /// 責務: macOS設定画面がUSBとBluetoothを選べるアダプター探索モーダルを表示することを確認します。
     @MainActor
     func testPrimaryAdapterSelectionShowsTransportModes() {
-        let application = XCUIApplication()
+        let application = XCUIApplication.authenticatedProjectZD8()
         application.launch()
 
         let settingsButton = application.buttons["macos-sidebar-settings"]
@@ -122,7 +122,7 @@ final class MacOSAppShellUITests: XCTestCase {
     /// 責務: 受信専用セカンダリーがUSBとBluetoothを持つ共通候補モーダルを表示することを確認します。
     @MainActor
     func testSecondaryAdapterSelectionShowsSharedTransportModes() {
-        let application = XCUIApplication()
+        let application = XCUIApplication.authenticatedProjectZD8()
         application.launch()
 
         let settingsButton = application.buttons["macos-sidebar-settings"]
@@ -143,7 +143,7 @@ final class MacOSAppShellUITests: XCTestCase {
     /// 責務: Bluetoothシステム探索がmacOS設定モーダルの操作をブロックしないことを確認します。
     @MainActor
     func testBluetoothDiscoveryKeepsSelectionModalResponsive() {
-        let application = XCUIApplication()
+        let application = XCUIApplication.authenticatedProjectZD8()
         application.launch()
 
         let settingsButton = application.buttons["macos-sidebar-settings"]
@@ -164,12 +164,13 @@ final class MacOSAppShellUITests: XCTestCase {
         XCTAssertFalse(application.descendants(matching: .any)["macos-primary-adapter-selection"].exists)
     }
 
-    /// 言語と外観の選択が現在のAppShell表示へ反映されることを検証します。
+    /// 言語と外観の選択が現在のAppShell表示へ反映されシステム追従へ戻ることを検証します。
     ///
-    /// 責務: macOS設定画面の表示設定操作が現在のAppShell表示状態を更新することを確認します。
+    /// 責務: macOS設定画面の言語変更と明示ライトからダークなシステム外観への復帰操作を確認します。
     @MainActor
     func testSettingsAppliesLanguageAndAppearanceToCurrentAppShell() {
-        let application = XCUIApplication()
+        let application = XCUIApplication.authenticatedProjectZD8()
+        application.launchEnvironment["AppleInterfaceStyle"] = "Dark"
         application.launch()
 
         let settingsButton = application.buttons["macos-sidebar-settings"]
@@ -181,10 +182,60 @@ final class MacOSAppShellUITests: XCTestCase {
         englishOption.click()
         XCTAssertEqual(application.buttons["macos-sidebar-home"].label, "Home")
 
-        let darkAppearance = application.buttons["macos-settings-appearance-dark"]
-        XCTAssertTrue(darkAppearance.exists)
-        darkAppearance.click()
-        XCTAssertTrue(darkAppearance.isSelected)
+        let lightAppearance = application.buttons["macos-settings-appearance-light"]
+        XCTAssertTrue(lightAppearance.exists)
+        lightAppearance.click()
+        XCTAssertTrue(lightAppearance.isSelected)
+
+        let systemAppearance = application.buttons["macos-settings-appearance-system"]
+        systemAppearance.click()
+        XCTAssertTrue(systemAppearance.isSelected)
+    }
+
+    /// アカウント削除が2段階確認後にログイン画面へ戻ることを検証します。
+    ///
+    /// 責務: macOS設定画面の警告、削除事項、最終削除、ログアウト遷移を一続きで確認します。
+    @MainActor
+    func testAccountDeletionShowsWarningAndItemsThenReturnsToLogin() {
+        let application = XCUIApplication.authenticatedProjectZD8()
+        application.launch()
+
+        let settingsButton = application.buttons["macos-sidebar-settings"]
+        XCTAssertTrue(settingsButton.waitForExistence(timeout: 5))
+        settingsButton.click()
+
+        let deleteStart = application.buttons["macos-account-delete-start"]
+        if !deleteStart.waitForExistence(timeout: 1) {
+            application.descendants(matching: .any)["macos-settings-screen"].swipeUp()
+        }
+        XCTAssertTrue(deleteStart.waitForExistence(timeout: 2))
+        deleteStart.click()
+
+        let nextButton = ["次へ", "Next", "Siguiente"]
+            .map { application.sheets.buttons[$0] }
+            .first { $0.waitForExistence(timeout: 1) }
+        XCTAssertNotNil(nextButton)
+        nextButton?.click()
+
+        XCTAssertTrue(application.descendants(matching: .any)["macos-account-delete-review"].waitForExistence(timeout: 2))
+        let confirmButton = application.buttons["macos-account-delete-confirm"]
+        XCTAssertTrue(confirmButton.waitForExistence(timeout: 2))
+        confirmButton.click()
+
+        XCTAssertTrue(application.descendants(matching: .any)["macos-login-screen"].waitForExistence(timeout: 5))
+    }
+}
+
+/// macOS AppShell UIテスト用の認証済み起動構成を生成します。
+private extension XCUIApplication {
+    /// 認証済みDebug起動引数を持つProject ZD8アプリを生成します。
+    ///
+    /// 責務: AppShell UIテストを実Apple認証から分離します。
+    /// - Returns: 認証済みDebug起動を要求するUIテストアプリ。
+    static func authenticatedProjectZD8() -> XCUIApplication {
+        let application = XCUIApplication()
+        application.launchArguments.append("--ui-test-authenticated")
+        return application
     }
 }
 #endif

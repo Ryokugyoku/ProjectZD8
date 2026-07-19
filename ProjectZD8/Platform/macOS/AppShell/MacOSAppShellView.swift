@@ -6,21 +6,66 @@ struct MacOSAppShellView: View {
     /// macOSシェルが現在表示している遷移先です。
     @State private var selectedDestination: MacOSSidebarDestination = .home
 
-    /// 表示設定とアダプター選択状態を画面操作へ変換するモデルです。
+    /// Connectionを除くアカウント同期対象設定を提供するモデルです。
+    let accountSettingsModel: AccountSettingsModel
+
+    /// アダプター選択状態を画面操作へ変換するモデルです。
     let settingsModel: MacOSSettingsPresentationModel
 
-    /// 設定プレゼンテーションモデルを注入してmacOSルート画面を生成します。
+    /// Authenticationが管理するアカウント削除の現在段階です。
+    let accountDeletionPhase: AccountDeletionPhase
+
+    /// Authenticationが保持する直近のアカウント削除失敗です。
+    let accountDeletionFailure: AccountDeletionFailure?
+
+    /// アカウント削除の型付き操作をAuthenticationへ通知します。
+    let sendAuthenticationAction: (AuthenticationAction) -> Void
+
+    /// アカウント設定モデルとConnection設定モデルを注入してmacOSルート画面を生成します。
     ///
-    /// 責務: macOS AppShellを単一の設定プレゼンテーションモデルへ結び付けます。
-    /// - Parameter settingsModel: 表示設定とアダプター選択状態を提供するモデル。
-    init(settingsModel: MacOSSettingsPresentationModel) {
+    /// 責務: macOS AppShellを同期対象とConnection固有の独立した設定モデルへ結び付けます。
+    /// - Parameters:
+    ///   - accountSettingsModel: 言語と外観を提供するアカウント設定モデル。
+    ///   - settingsModel: アダプター選択状態を提供するモデル。
+    ///   - accountDeletionPhase: アカウント削除の現在段階。
+    ///   - accountDeletionFailure: 直近のアカウント削除失敗。
+    ///   - sendAuthenticationAction: アカウント削除操作の通知先。
+    init(
+        accountSettingsModel: AccountSettingsModel,
+        settingsModel: MacOSSettingsPresentationModel,
+        accountDeletionPhase: AccountDeletionPhase,
+        accountDeletionFailure: AccountDeletionFailure?,
+        sendAuthenticationAction: @escaping (AuthenticationAction) -> Void
+    ) {
+        self.accountSettingsModel = accountSettingsModel
         self.settingsModel = settingsModel
+        self.accountDeletionPhase = accountDeletionPhase
+        self.accountDeletionFailure = accountDeletionFailure
+        self.sendAuthenticationAction = sendAuthenticationAction
     }
 
     /// アプリケーション状態やインフラ状態を所有しないレスポンシブなmacOSシェルを提供します。
     ///
     /// 責務: 現在のウインドウ寸法と選択中の遷移先を使ってmacOS AppShellを描画します。
     var body: some View {
+        appearanceAppliedContent
+    }
+
+    /// 選択した外観がシステム追従へ戻せる状態でmacOSシェルへ適用された表示です。
+    @ViewBuilder
+    private var appearanceAppliedContent: some View {
+        switch accountSettingsModel.settings.appearance {
+        case .system:
+            content
+        case .light:
+            content.preferredColorScheme(.light)
+        case .dark:
+            content.preferredColorScheme(.dark)
+        }
+    }
+
+    /// 言語と外観を適用する前のmacOSシェル本体です。
+    private var content: some View {
         GeometryReader { proxy in
             let metrics = MacOSAppShellMetrics.resolve(for: proxy.size)
 
@@ -38,8 +83,13 @@ struct MacOSAppShellView: View {
                     destination: selectedDestination,
                     metrics: metrics,
                     settingsState: settingsModel.state,
+                    accountSettings: accountSettingsModel.settings,
                     sendHomeAction: handleHomeAction,
-                    sendSettingsAction: settingsModel.send
+                    sendSettingsAction: settingsModel.send,
+                    sendAccountSettingsAction: accountSettingsModel.send,
+                    accountDeletionPhase: accountDeletionPhase,
+                    accountDeletionFailure: accountDeletionFailure,
+                    sendAuthenticationAction: sendAuthenticationAction
                 )
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -47,8 +97,7 @@ struct MacOSAppShellView: View {
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("macos-app-shell")
         .frame(minWidth: 640, minHeight: 420)
-        .environment(\.locale, Locale(identifier: settingsModel.state.language.localeIdentifier))
-        .preferredColorScheme(settingsModel.state.appearance.colorScheme)
+        .environment(\.locale, Locale(identifier: accountSettingsModel.settings.language.localeIdentifier))
     }
 
     /// HOMEから受け取った1件の操作をmacOSナビゲーションへ反映します。

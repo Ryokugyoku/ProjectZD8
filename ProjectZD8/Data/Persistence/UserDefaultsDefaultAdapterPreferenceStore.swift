@@ -76,4 +76,11 @@ final class UserDefaultsDefaultAdapterPreferenceStore: DefaultAdapterPreferenceP
             forKey: key
         )
     }
+
+    /// 保存済みのデフォルトアダプター設定を削除します。
+    ///
+    /// 責務: 端末固有のデフォルトアダプター設定キーを存在しない状態へします。
+    func remove() {
+        defaults.removeObject(forKey: key)
+    }
 }

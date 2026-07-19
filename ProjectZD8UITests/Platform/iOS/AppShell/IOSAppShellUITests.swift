@@ -8,7 +8,7 @@ final class IOSAppShellUITests: XCTestCase {
     /// 責務: プロセスエントリーポイントからiOS AppShellへ到達できることを確認します。
     @MainActor
     func testLaunchShowsIOSAppShell() {
-        let application = XCUIApplication()
+        let application = XCUIApplication.authenticatedProjectZD8()
 
         application.launch()
 
@@ -25,7 +25,7 @@ final class IOSAppShellUITests: XCTestCase {
     /// 責務: iOS AppShellが4件のタブ操作を表示することを確認します。
     @MainActor
     func testTabBarShowsEveryRequestedDestination() {
-        let application = XCUIApplication()
+        let application = XCUIApplication.authenticatedProjectZD8()
         application.launch()
 
         XCTAssertTrue(application.buttons["ios-tab-home"].waitForExistence(timeout: 5))
@@ -39,7 +39,7 @@ final class IOSAppShellUITests: XCTestCase {
     /// 責務: iPhone HOMEの設定ボタンによる2回の案内と通常の設定タブ遷移を同じ操作フローで確認します。
     @MainActor
     func testHomeSetupAdapterShowsTargetSettingsCard() {
-        let application = XCUIApplication()
+        let application = XCUIApplication.authenticatedProjectZD8()
         application.launchArguments += ["-deviceConnection.defaultAdapter", ""]
         application.launch()
 
@@ -82,7 +82,7 @@ final class IOSAppShellUITests: XCTestCase {
     /// 責務: 設定タブの選択に対応するiOS設定画面が描画されることを確認します。
     @MainActor
     func testSettingsTabShowsSettingsScreen() {
-        let application = XCUIApplication()
+        let application = XCUIApplication.authenticatedProjectZD8()
         application.launch()
 
         let settingsButton = application.buttons["ios-tab-settings"]
@@ -99,23 +99,32 @@ final class IOSAppShellUITests: XCTestCase {
         add(screenshot)
     }
 
-    /// iOS設定画面の外観選択が現在の表示状態へ反映されることを検証します。
+    /// iOS設定画面の外観選択が明示指定からシステム追従へ戻ることを検証します。
     ///
-    /// 責務: 1件の外観設定操作が選択済みのアクセシビリティ状態になることを確認します。
+    /// 責務: ダークなシステム外観でライトを選んだ後にシステム追従を再選択できることを確認します。
     @MainActor
     func testSettingsAppliesAppearanceToCurrentAppShell() {
-        let application = XCUIApplication()
+        let application = XCUIApplication.authenticatedProjectZD8()
+        application.launchArguments += ["-AppleInterfaceStyle", "Dark"]
         application.launch()
 
         let settingsButton = application.buttons["ios-tab-settings"]
         XCTAssertTrue(settingsButton.waitForExistence(timeout: 5))
         settingsButton.tap()
 
-        let darkAppearance = application.buttons["ios-settings-appearance-dark"]
-        XCTAssertTrue(darkAppearance.waitForExistence(timeout: 2))
-        darkAppearance.tap()
+        let lightAppearance = application.buttons["ios-settings-appearance-light"]
+        XCTAssertTrue(lightAppearance.waitForExistence(timeout: 2))
+        lightAppearance.tap()
+        XCTAssertTrue(lightAppearance.isSelected)
 
-        XCTAssertTrue(darkAppearance.isSelected)
+        let systemAppearance = application.buttons["ios-settings-appearance-system"]
+        systemAppearance.tap()
+        XCTAssertTrue(systemAppearance.isSelected)
+
+        let screenshot = XCTAttachment(screenshot: application.screenshot())
+        screenshot.name = "iPhone-Settings-System-Dark-After-Light"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
     }
 
     /// iOS設定画面が長い翻訳と明るい外観でも操作可能なことを検証します。
@@ -123,7 +132,7 @@ final class IOSAppShellUITests: XCTestCase {
     /// 責務: スペイン語と明るい外観を選択した設定画面が表示を継続することを確認します。
     @MainActor
     func testSettingsSupportsSpanishInLightAppearance() {
-        let application = XCUIApplication()
+        let application = XCUIApplication.authenticatedProjectZD8()
         application.launch()
 
         let settingsButton = application.buttons["ios-tab-settings"]
@@ -145,12 +154,45 @@ final class IOSAppShellUITests: XCTestCase {
         add(screenshot)
     }
 
+    /// アカウント削除が2段階確認後にログイン画面へ戻ることを検証します。
+    ///
+    /// 責務: iOS設定画面の警告、削除事項、最終削除、ログアウト遷移を一続きで確認します。
+    @MainActor
+    func testAccountDeletionShowsWarningAndItemsThenReturnsToLogin() {
+        let application = XCUIApplication.authenticatedProjectZD8()
+        application.launch()
+
+        let settingsButton = application.buttons["ios-tab-settings"]
+        XCTAssertTrue(settingsButton.waitForExistence(timeout: 5))
+        settingsButton.tap()
+
+        let deleteStart = application.buttons["ios-account-delete-start"]
+        for _ in 0..<4 where !deleteStart.exists {
+            application.descendants(matching: .any)["ios-settings-screen"].swipeUp()
+        }
+        XCTAssertTrue(deleteStart.waitForExistence(timeout: 2))
+        deleteStart.tap()
+
+        let nextButton = ["次へ", "Next", "Siguiente"]
+            .map { application.buttons[$0] }
+            .first { $0.waitForExistence(timeout: 1) }
+        XCTAssertNotNil(nextButton)
+        nextButton?.tap()
+
+        XCTAssertTrue(application.descendants(matching: .any)["ios-account-delete-review"].waitForExistence(timeout: 2))
+        let confirmButton = application.buttons["ios-account-delete-confirm"]
+        XCTAssertTrue(confirmButton.waitForExistence(timeout: 2))
+        confirmButton.tap()
+
+        XCTAssertTrue(application.descendants(matching: .any)["ios-login-screen"].waitForExistence(timeout: 5))
+    }
+
     /// 両アダプター行から共通のBluetooth専用選択画面へ進めることを検証します。
     ///
     /// 責務: iPhone設定画面の両スロットがUSB切替なしでキャンセル可能なBLE選択導線を共有することを確認します。
     @MainActor
     func testAdapterRowsShowSharedCancelableBluetoothOnlySelection() {
-        let application = XCUIApplication()
+        let application = XCUIApplication.authenticatedProjectZD8()
         addUIInterruptionMonitor(withDescription: "Bluetooth Permission") { alert in
             let permissionButtons = ["許可", "Allow", "Permitir"]
             for title in permissionButtons where alert.buttons[title].exists {
@@ -190,6 +232,19 @@ final class IOSAppShellUITests: XCTestCase {
         XCTAssertTrue(secondaryCancelButton.waitForExistence(timeout: 2))
         secondaryCancelButton.tap()
         XCTAssertFalse(application.descendants(matching: .any)["ios-adapter-selection-secondary"].waitForExistence(timeout: 1))
+    }
+}
+
+/// iOS AppShell UIテスト用の認証済み起動構成を生成します。
+private extension XCUIApplication {
+    /// 認証済みDebug起動引数を持つProject ZD8アプリを生成します。
+    ///
+    /// 責務: AppShell UIテストを実Apple認証から分離します。
+    /// - Returns: 認証済みDebug起動を要求するUIテストアプリ。
+    static func authenticatedProjectZD8() -> XCUIApplication {
+        let application = XCUIApplication()
+        application.launchArguments.append("--ui-test-authenticated")
+        return application
     }
 }
 #endif

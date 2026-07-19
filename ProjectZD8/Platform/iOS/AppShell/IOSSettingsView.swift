@@ -2,6 +2,8 @@
 import SwiftUI
 
 /// iOS専用の設定画面レイアウトを描画します。
+///
+/// 設定項目を追加する際は、アカウント同期対象に含めるか、Connection固有の同期除外対象にするかを併せて検討する必要があります。
 struct IOSSettingsView: View {
     /// アクセシビリティ設定で動きを抑える必要があるかどうかです。
     @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
@@ -15,15 +17,30 @@ struct IOSSettingsView: View {
     /// スクロール対象として使うアダプター設定カードの識別子です。
     private static let adapterCardID = "ios-settings-adapter-card"
 
-    /// 設定画面に表示する現在の選択状態です。
+    /// 設定画面に表示する現在のConnection選択状態です。
     let state: IOSSettingsState
 
-    /// 設定画面の選択操作をAppShellへ通知するクロージャです。
+    /// 設定画面に表示するアカウント同期対象の言語と外観です。
+    let accountSettings: AccountSettings
+
+    /// 設定画面のConnection操作をAppShellへ通知するクロージャです。
     let send: (IOSSettingsAction) -> Void
+
+    /// 言語と外観の選択操作をアカウント設定モデルへ通知するクロージャです。
+    let sendAccountSettingsAction: (AccountSettingsAction) -> Void
+
+    /// Authenticationが管理するアカウント削除の現在段階です。
+    let accountDeletionPhase: AccountDeletionPhase
+
+    /// Authenticationが保持する直近のアカウント削除失敗です。
+    let accountDeletionFailure: AccountDeletionFailure?
+
+    /// アカウント削除の型付き操作をAuthenticationへ通知します。
+    let sendAuthenticationAction: (AuthenticationAction) -> Void
 
     /// iPhoneの縦方向操作に合わせた設定スクロール領域を提供します。
     ///
-    /// 責務: 表示設定と2種類のBluetoothアダプター選択導線をiOS設定レイアウトとして描画します。
+    /// 責務: アカウント同期対象設定とConnection固有設定を区別したiOS設定レイアウトとして描画します。
     var body: some View {
         ScrollViewReader { scrollProxy in
             ScrollView {
@@ -33,6 +50,7 @@ struct IOSSettingsView: View {
                     appearanceCard
                     adapterCard
                     storageCard
+                    accountDeletionCard
                     additionNotice
                 }
                 .padding(.horizontal, 20)
@@ -65,8 +83,15 @@ struct IOSSettingsView: View {
         ) {
             if let slot = state.presentedAdapterSlot {
                 IOSAdapterSelectionView(slot: slot, state: state, send: send)
-                    .environment(\.locale, Locale(identifier: state.language.localeIdentifier))
+                    .environment(\.locale, Locale(identifier: accountSettings.language.localeIdentifier))
             }
+        }
+        .overlay {
+            IOSAccountDeletionFlowView(
+                phase: accountDeletionPhase,
+                failure: accountDeletionFailure,
+                send: sendAuthenticationAction
+            )
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("ios-settings-screen")
@@ -113,11 +138,11 @@ struct IOSSettingsView: View {
             Picker(
                 "settings.language.title",
                 selection: Binding(
-                    get: { state.language },
-                    set: { send(.languageSelected($0)) }
+                    get: { accountSettings.language },
+                    set: { sendAccountSettingsAction(.languageSelected($0)) }
                 )
             ) {
-                ForEach(IOSSettingsLanguage.allCases) { language in
+                ForEach(SettingsLanguage.allCases) { language in
                     Text(language.title).tag(language)
                 }
             }
@@ -136,7 +161,7 @@ struct IOSSettingsView: View {
             systemImage: "circle.lefthalf.filled"
         ) {
             HStack(spacing: 8) {
-                ForEach(IOSSettingsAppearance.allCases) { appearance in
+                ForEach(SettingsAppearance.allCases) { appearance in
                     appearanceButton(for: appearance)
                 }
             }
@@ -210,6 +235,32 @@ struct IOSSettingsView: View {
         .accessibilityIdentifier("ios-settings-storage-coming-soon")
     }
 
+    /// 通常設定から視覚的に分離したアカウント削除カードです。
+    private var accountDeletionCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Label("account.delete.card.title", systemImage: "exclamationmark.shield.fill")
+                .font(.system(.headline, design: .rounded, weight: .bold))
+                .foregroundStyle(.red)
+            Text("account.delete.card.description")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            Button("account.delete.start", role: .destructive) {
+                sendAuthenticationAction(.accountDeletionRequested)
+            }
+                .buttonStyle(.bordered)
+                .frame(minHeight: 44)
+                .accessibilityIdentifier("ios-account-delete-start")
+        }
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.red.opacity(0.055), in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .stroke(.red.opacity(0.22), lineWidth: 1)
+        }
+    }
+
     /// 今後の設定項目追加を予告する補足表示です。
     private var additionNotice: some View {
         Label("settings.more.caption", systemImage: "plus.circle.dashed")
@@ -279,11 +330,11 @@ struct IOSSettingsView: View {
     /// 責務: 1件の外観モードを選択状態が分かる操作として描画します。
     /// - Parameter appearance: ボタンが表す外観モード。
     /// - Returns: 選択状態を複数の視覚手掛かりで示すボタン。
-    private func appearanceButton(for appearance: IOSSettingsAppearance) -> some View {
-        let isSelected = state.appearance == appearance
+    private func appearanceButton(for appearance: SettingsAppearance) -> some View {
+        let isSelected = accountSettings.appearance == appearance
 
         return Button {
-            send(.appearanceSelected(appearance))
+            sendAccountSettingsAction(.appearanceSelected(appearance))
         } label: {
             VStack(spacing: 7) {
                 Image(systemName: appearance.systemImage)

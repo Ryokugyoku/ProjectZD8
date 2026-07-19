@@ -41,10 +41,6 @@ final class MacOSSettingsPresentationModel {
     /// - Parameter action: 設定画面から通知された型付き操作。
     func send(_ action: MacOSSettingsAction) {
         switch action {
-        case let .languageSelected(language):
-            state.language = language
-        case let .appearanceSelected(appearance):
-            state.appearance = appearance
         case let .adapterSelectionRequested(slot):
             state.presentedAdapterSlot = slot
             startDiscovery()

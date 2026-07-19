@@ -3,6 +3,12 @@ import SwiftUI
 /// ProjectZD8のプロセスエントリーポイントとプラットフォーム別ルート画面を構築します。
 @main
 struct ProjectZD8App: App {
+    /// ルート画面の表示可否を決定する認証セッションモデルです。
+    @State private var authenticationModel: AuthenticationSessionModel
+
+    /// Connectionを除く設定をアカウント単位で保持するモデルです。
+    @State private var accountSettingsModel: AccountSettingsModel
+
     #if os(iOS)
     /// iOS設定画面へ注入するプレゼンテーションモデルです。
     @State private var iOSSettingsModel: IOSSettingsPresentationModel
@@ -15,15 +21,27 @@ struct ProjectZD8App: App {
 
     /// プラットフォーム固有の依存関係を組み立ててアプリを生成します。
     ///
-    /// 責務: 現在のプラットフォーム用Compositionから設定プレゼンテーションモデルを構築します。
+    /// 責務: 現在のプラットフォーム用Compositionから認証、同期設定、Connection設定の各モデルを構築します。
     init() {
         #if os(iOS)
+        _authenticationModel = State(
+            initialValue: IOSApplicationComposition.makeAuthenticationSessionModel()
+        )
+        _accountSettingsModel = State(
+            initialValue: IOSApplicationComposition.makeAccountSettingsModel()
+        )
         _iOSSettingsModel = State(
             initialValue: IOSApplicationComposition.makeSettingsPresentationModel()
         )
         #endif
 
         #if os(macOS)
+        _authenticationModel = State(
+            initialValue: MacOSApplicationComposition.makeAuthenticationSessionModel()
+        )
+        _accountSettingsModel = State(
+            initialValue: MacOSApplicationComposition.makeAccountSettingsModel()
+        )
         _macOSSettingsModel = State(
             initialValue: MacOSApplicationComposition.makeSettingsPresentationModel()
         )
@@ -35,11 +53,71 @@ struct ProjectZD8App: App {
     /// 責務: 現在のAppleプラットフォームを独立したAppShellへ結び付けます。
     var body: some Scene {
         WindowGroup {
+            Group {
 #if os(iOS)
-            IOSAppShellView(settingsModel: iOSSettingsModel)
+                if authenticationModel.state.phase == .signedIn {
+                    IOSAppShellView(
+                        accountSettingsModel: accountSettingsModel,
+                        settingsModel: iOSSettingsModel,
+                        accountDeletionPhase: authenticationModel.state.accountDeletionPhase,
+                        accountDeletionFailure: authenticationModel.state.accountDeletionFailure,
+                        sendAuthenticationAction: authenticationModel.send
+                    )
+                    .transition(.opacity)
+                    .onAppear(perform: activateAuthenticatedSettingsScope)
+                } else {
+                    IOSLoginView(
+                        state: authenticationModel.state,
+                        send: authenticationModel.send
+                    )
+                    .transition(.opacity)
+                }
 #elseif os(macOS)
-            MacOSAppShellView(settingsModel: macOSSettingsModel)
+                if authenticationModel.state.phase == .signedIn {
+                    MacOSAppShellView(
+                        accountSettingsModel: accountSettingsModel,
+                        settingsModel: macOSSettingsModel,
+                        accountDeletionPhase: authenticationModel.state.accountDeletionPhase,
+                        accountDeletionFailure: authenticationModel.state.accountDeletionFailure,
+                        sendAuthenticationAction: authenticationModel.send
+                    )
+                    .transition(.opacity)
+                    .onAppear(perform: activateAuthenticatedSettingsScope)
+                } else {
+                    MacOSLoginView(
+                        state: authenticationModel.state,
+                        send: authenticationModel.send
+                    )
+                    .transition(.opacity)
+                }
 #endif
+            }
+            .onChange(of: authenticationModel.state.phase) { _, phase in
+                handleAuthenticationPhaseChange(phase)
+            }
         }
+    }
+
+    /// 認証済みAppleユーザーをConnection以外の設定保存スコープへ反映します。
+    ///
+    /// 責務: 現在の認証セッション識別子をSettings機能へ1回通知します。
+    private func activateAuthenticatedSettingsScope() {
+        accountSettingsModel.send(
+            .accountIdentifierChanged(authenticationModel.state.session?.userIdentifier)
+        )
+    }
+
+    /// ログアウト状態へ変わったときに設定スコープと端末内表示状態を初期化します。
+    ///
+    /// 責務: 認証段階の変化をアカウント設定監視解除とプラットフォーム設定状態の再生成へ反映します。
+    /// - Parameter phase: Authenticationが確定した新しい認証段階。
+    private func handleAuthenticationPhaseChange(_ phase: AuthenticationPhase) {
+        guard phase == .signedOut else { return }
+        accountSettingsModel.send(.accountIdentifierChanged(nil))
+        #if os(iOS)
+        iOSSettingsModel = IOSApplicationComposition.makeSettingsPresentationModel()
+        #elseif os(macOS)
+        macOSSettingsModel = MacOSApplicationComposition.makeSettingsPresentationModel()
+        #endif
     }
 }

@@ -63,6 +63,8 @@ ProjectZD8 uses the following approved product feature set. New production work 
 - `Logging` owns capture-session start, sample recording, and capture-session termination workflows.
 - `LogHistory` owns queries and presentation state for previously recorded logs.
 - `Analysis` owns orchestration of analysis over recorded logs and retrieval of analysis results.
+- `Authentication` owns Apple-account sign-in, credential-state restoration, and the application access gate.
+- `Settings` owns account-scoped persistence and cross-device synchronization for user preferences other than device Connection settings.
 
 The approved physical scaffold is:
 
@@ -76,12 +78,15 @@ ProjectZD8/
 │   ├── Repositories/
 │   └── Errors/
 ├── Application/Features/
+│   ├── Authentication/{Actions,State,UseCases,Ports}/
+│   ├── Settings/{Actions,State,UseCases,Ports}/
 │   ├── DeviceConnection/{Actions,State,UseCases,Ports}/
 │   ├── LiveTelemetry/{Actions,State,UseCases,Ports}/
 │   ├── Logging/{Actions,State,UseCases}/
 │   ├── LogHistory/{Actions,State,UseCases}/
 │   └── Analysis/{Actions,State,UseCases,Ports}/
 ├── Data/
+│   ├── Authentication/
 │   ├── Devices/{Serial,OBD}/
 │   ├── Persistence/GRDB/{Database,Records,Repositories}/
 │   ├── MachineLearning/TensorFlow/
@@ -89,10 +94,10 @@ ProjectZD8/
 ├── Platform/
 │   ├── iOS/
 │   │   ├── AppShell/
-│   │   └── Features/{DeviceConnection,LiveTelemetry,LogHistory,Analysis}/{Views,Presentation}/
+│   │   └── Features/{Authentication,Settings,DeviceConnection,LiveTelemetry,LogHistory,Analysis}/{Views,Presentation}/
 │   └── macOS/
 │       ├── AppShell/
-│       └── Features/{DeviceConnection,LiveTelemetry,LogHistory,Analysis}/{Views,Presentation}/
+│       └── Features/{Authentication,Settings,DeviceConnection,LiveTelemetry,LogHistory,Analysis}/{Views,Presentation}/
 ├── Shared/
 │   ├── Foundation/
 │   └── DesignSystem/{Colors,Typography,Components}/
@@ -193,7 +198,7 @@ Group Application and Platform code by product feature before technical subtype.
 
 A Feature is a stable product capability with one durable user or system outcome. A screen, button, framework, transport, database table, temporary workflow step, or implementation technique MUST NOT become a Feature merely to obtain a folder.
 
-The approved Feature names remain `DeviceConnection`, `LiveTelemetry`, `Logging`, `LogHistory`, and `Analysis`. Adding, renaming, merging, or splitting a Feature changes product ownership and MUST pass the new-folder approval gate before files or directories are changed.
+The approved Feature names remain `Authentication`, `Settings`, `DeviceConnection`, `LiveTelemetry`, `Logging`, `LogHistory`, and `Analysis`. `Settings` excludes device Connection settings, which remain owned by `DeviceConnection`. Adding, renaming, merging, or splitting a Feature changes product ownership and MUST pass the new-folder approval gate before files or directories are changed.
 
 ### Feature dependency rules
 

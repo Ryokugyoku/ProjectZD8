@@ -41,10 +41,6 @@ final class IOSSettingsPresentationModel {
     /// - Parameter action: 設定画面から通知された型付き操作。
     func send(_ action: IOSSettingsAction) {
         switch action {
-        case let .languageSelected(language):
-            state.language = language
-        case let .appearanceSelected(appearance):
-            state.appearance = appearance
         case let .adapterSelectionRequested(slot):
             state.presentedAdapterSlot = slot
             startBluetoothDiscovery()

@@ -9,11 +9,26 @@ struct IOSDestinationView: View {
     /// 設定画面へ渡す現在の表示設定です。
     let settingsState: IOSSettingsState
 
+    /// 設定画面へ渡す現在のアカウント同期対象設定です。
+    let accountSettings: AccountSettings
+
     /// HOMEの操作をAppShellへ通知するクロージャです。
     let sendHomeAction: (IOSHomeAction) -> Void
 
     /// 設定画面の操作をAppShellへ通知するクロージャです。
     let sendSettingsAction: (IOSSettingsAction) -> Void
+
+    /// アカウント同期対象の設定操作を通知するクロージャです。
+    let sendAccountSettingsAction: (AccountSettingsAction) -> Void
+
+    /// Authenticationが管理するアカウント削除の現在段階です。
+    let accountDeletionPhase: AccountDeletionPhase
+
+    /// Authenticationが保持する直近のアカウント削除失敗です。
+    let accountDeletionFailure: AccountDeletionFailure?
+
+    /// アカウント削除の型付き操作をAuthenticationへ通知します。
+    let sendAuthenticationAction: (AuthenticationAction) -> Void
 
     /// 選択された遷移先に対応するiOS画面を提供します。
     ///
@@ -28,7 +43,12 @@ struct IOSDestinationView: View {
         } else if destination == .settings {
             IOSSettingsView(
                 state: settingsState,
-                send: sendSettingsAction
+                accountSettings: accountSettings,
+                send: sendSettingsAction,
+                sendAccountSettingsAction: sendAccountSettingsAction,
+                accountDeletionPhase: accountDeletionPhase,
+                accountDeletionFailure: accountDeletionFailure,
+                sendAuthenticationAction: sendAuthenticationAction
             )
         } else {
             placeholder

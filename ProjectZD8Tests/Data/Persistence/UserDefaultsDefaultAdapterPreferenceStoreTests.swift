@@ -36,4 +36,26 @@ final class UserDefaultsDefaultAdapterPreferenceStoreTests: XCTestCase {
 
         XCTAssertNil(store.load())
     }
+
+    /// アカウント削除時に保存済みデフォルトアダプターを除去できることを検証します。
+    ///
+    /// 責務: 端末固有設定の削除後にデフォルトアダプターが復元されないことを確認します。
+    func testRemoveDeletesSavedDefaultAdapterPreference() throws {
+        let suiteName = "UserDefaultsDefaultAdapterPreferenceStoreTests.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let store = UserDefaultsDefaultAdapterPreferenceStore(defaults: defaults)
+        store.save(
+            DefaultAdapterPreference(
+                adapterID: "bluetooth:adapter",
+                transportMode: .bluetooth,
+                displayName: "ZD8 Adapter",
+                systemIdentifier: "adapter-id"
+            )
+        )
+
+        store.remove()
+
+        XCTAssertNil(store.load())
+    }
 }
