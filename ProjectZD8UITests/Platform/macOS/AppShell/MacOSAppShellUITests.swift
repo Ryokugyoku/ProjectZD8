@@ -124,13 +124,39 @@ final class MacOSAppShellUITests: XCTestCase {
         settingsButton.click()
 
         XCTAssertTrue(application.descendants(matching: .any)["macos-settings-screen"].waitForExistence(timeout: 2))
-        let primaryAdapterButton = application.buttons["プライマリーアダプター"]
+        let primaryAdapterButton = application.buttons["macos-settings-adapter-primary"]
         XCTAssertTrue(primaryAdapterButton.waitForExistence(timeout: 2))
         primaryAdapterButton.click()
 
         XCTAssertTrue(application.descendants(matching: .any)["macos-primary-adapter-selection"].waitForExistence(timeout: 3))
         XCTAssertTrue(application.radioButtons["USB"].exists)
         XCTAssertTrue(application.radioButtons["Bluetooth"].exists)
+    }
+
+    /// USB候補一覧にDEMO USBが常に表示され選択できます。
+    ///
+    /// 責務: macOSのUSB設定導線が物理接続なしでもデモ候補の詳細確認と確定まで進めることを確認します。
+    @MainActor
+    func testUSBSelectionAlwaysShowsConfigurableDemoAdapter() {
+        let application = XCUIApplication.authenticatedProjectZD8()
+        application.launchArguments += ["-deviceConnection.defaultAdapter", ""]
+        application.launch()
+
+        let settingsButton = application.buttons["macos-sidebar-settings"]
+        XCTAssertTrue(settingsButton.waitForExistence(timeout: 5))
+        settingsButton.click()
+        let primaryAdapterButton = application.buttons["macos-settings-adapter-primary"]
+        XCTAssertTrue(primaryAdapterButton.waitForExistence(timeout: 2))
+        primaryAdapterButton.click()
+
+        let demoCandidate = application.buttons["macos-adapter-candidate-usb:projectzd8-demo"]
+        XCTAssertTrue(demoCandidate.waitForExistence(timeout: 3))
+        demoCandidate.click()
+        XCTAssertTrue(application.descendants(matching: .any)["macos-adapter-connection-details"].waitForExistence(timeout: 2))
+        let confirmButton = application.buttons["macos-adapter-details-confirm"]
+        XCTAssertTrue(confirmButton.exists)
+        confirmButton.click()
+        XCTAssertFalse(application.descendants(matching: .any)["macos-primary-adapter-selection"].waitForExistence(timeout: 1))
     }
 
     /// セカンダリーアダプターでも共通の接続方式選択画面へ進めることを検証します。

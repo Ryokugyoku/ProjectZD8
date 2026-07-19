@@ -25,6 +25,18 @@ enum StandardOBDPIDSeed {
             maximumValue: 16_383.75,
             sourceURI: "https://www.elmelectronics.com/wp-content/uploads/2016/07/ELM327DSH.pdf#page=29",
             revision: 1
+        ),
+        OBDPIDDefinition(
+            service: 0x01,
+            pid: 0x0D,
+            nameKey: "obd.pid.vehicle_speed",
+            requiredByteCount: 1,
+            formula: "A",
+            unit: "km/h",
+            minimumValue: 0,
+            maximumValue: 255,
+            sourceURI: "https://www.sae.org/publications/technical-papers/content/J1979_202505/",
+            revision: 1
         )
     ]
 

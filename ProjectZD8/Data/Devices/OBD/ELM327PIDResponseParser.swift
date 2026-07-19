@@ -1,7 +1,7 @@
 import Foundation
 
 /// ELM/STNの単一Service 01応答からPIDデータバイトを抽出します。
-struct ELM327PIDResponseParser {
+nonisolated struct ELM327PIDResponseParser {
     /// 指定Service/PIDの正応答からデータバイトを取り出します。
     ///
     /// 責務: 1件のELM応答を要求と一致する正応答ペイロードへ変換します。

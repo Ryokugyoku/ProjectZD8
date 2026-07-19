@@ -1,7 +1,9 @@
-/// 主要PID読取画面からApplicationへ通知する操作です。
+/// リアルタイムPID取得をApplicationへ通知する操作です。
 enum LiveTelemetryAction: Equatable {
-    /// 指定OBD終端から主要PIDの1回読取りを要求します。
-    case readRequested(OBDConnectionEndpoint)
-    /// 直近の接続終端で再読取を要求します。
+    /// 指定OBD終端から継続取得の開始を要求します。
+    case startRequested(OBDConnectionEndpoint)
+    /// 直近の接続終端で継続取得の再開を要求します。
     case retryRequested
+    /// 現在の継続取得を終了します。
+    case stopRequested
 }

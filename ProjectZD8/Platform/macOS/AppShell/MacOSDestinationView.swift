@@ -59,7 +59,6 @@ struct MacOSDestinationView: View {
         } else if destination == .liveLog {
             MacOSLiveTelemetryView(
                 state: liveTelemetryState,
-                endpoint: settingsState.defaultAdapterPreference?.obdConnectionEndpoint,
                 send: sendLiveTelemetryAction,
                 metrics: metrics
             )

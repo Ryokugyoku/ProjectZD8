@@ -15,6 +15,9 @@ struct ProjectZD8App: App {
     /// 主要PIDの1回読取り状態を保持するモデルです。
     @State private var liveTelemetryModel: LiveTelemetryModel
 
+    /// HOME接続要求を車両識別とPID継続取得へ展開するユースケースです。
+    private let startVehicleConnection: StartVehicleConnectionUseCase
+
     #if os(iOS)
     /// iOS設定画面へ注入するプレゼンテーションモデルです。
     @State private var iOSSettingsModel: IOSSettingsPresentationModel
@@ -27,9 +30,11 @@ struct ProjectZD8App: App {
 
     /// プラットフォーム固有の依存関係を組み立ててアプリを生成します。
     ///
-    /// 責務: 現在のプラットフォーム用Compositionから認証、同期設定、Connection設定、車両管理の各モデルを構築します。
+    /// 責務: 現在のプラットフォーム用Compositionからアプリケーションルート依存関係を構築します。
     init() {
         #if os(iOS)
+        let vehicleManagementModel = IOSApplicationComposition.makeVehicleManagementModel()
+        let liveTelemetryModel = IOSApplicationComposition.makeLiveTelemetryModel()
         _authenticationModel = State(
             initialValue: IOSApplicationComposition.makeAuthenticationSessionModel()
         )
@@ -40,14 +45,20 @@ struct ProjectZD8App: App {
             initialValue: IOSApplicationComposition.makeSettingsPresentationModel()
         )
         _vehicleManagementModel = State(
-            initialValue: IOSApplicationComposition.makeVehicleManagementModel()
+            initialValue: vehicleManagementModel
         )
         _liveTelemetryModel = State(
-            initialValue: IOSApplicationComposition.makeLiveTelemetryModel()
+            initialValue: liveTelemetryModel
+        )
+        startVehicleConnection = StartVehicleConnectionUseCase(
+            identifyVehicle: { vehicleManagementModel.send(.identifyRequested($0)) },
+            startLiveTelemetry: { liveTelemetryModel.send(.startRequested($0)) }
         )
         #endif
 
         #if os(macOS)
+        let vehicleManagementModel = MacOSApplicationComposition.makeVehicleManagementModel()
+        let liveTelemetryModel = MacOSApplicationComposition.makeLiveTelemetryModel()
         _authenticationModel = State(
             initialValue: MacOSApplicationComposition.makeAuthenticationSessionModel()
         )
@@ -58,10 +69,14 @@ struct ProjectZD8App: App {
             initialValue: MacOSApplicationComposition.makeSettingsPresentationModel()
         )
         _vehicleManagementModel = State(
-            initialValue: MacOSApplicationComposition.makeVehicleManagementModel()
+            initialValue: vehicleManagementModel
         )
         _liveTelemetryModel = State(
-            initialValue: MacOSApplicationComposition.makeLiveTelemetryModel()
+            initialValue: liveTelemetryModel
+        )
+        startVehicleConnection = StartVehicleConnectionUseCase(
+            identifyVehicle: { vehicleManagementModel.send(.identifyRequested($0)) },
+            startLiveTelemetry: { liveTelemetryModel.send(.startRequested($0)) }
         )
         #endif
     }
@@ -79,6 +94,7 @@ struct ProjectZD8App: App {
                         settingsModel: iOSSettingsModel,
                         vehicleManagementModel: vehicleManagementModel,
                         liveTelemetryModel: liveTelemetryModel,
+                        startVehicleConnection: startVehicleConnection,
                         accountDeletionPhase: authenticationModel.state.accountDeletionPhase,
                         accountDeletionFailure: authenticationModel.state.accountDeletionFailure,
                         sendAuthenticationAction: authenticationModel.send
@@ -99,6 +115,7 @@ struct ProjectZD8App: App {
                         settingsModel: macOSSettingsModel,
                         vehicleManagementModel: vehicleManagementModel,
                         liveTelemetryModel: liveTelemetryModel,
+                        startVehicleConnection: startVehicleConnection,
                         accountDeletionPhase: authenticationModel.state.accountDeletionPhase,
                         accountDeletionFailure: authenticationModel.state.accountDeletionFailure,
                         sendAuthenticationAction: authenticationModel.send
@@ -140,6 +157,7 @@ struct ProjectZD8App: App {
         guard phase == .signedOut else { return }
         accountSettingsModel.send(.accountIdentifierChanged(nil))
         vehicleManagementModel.send(.accountIdentifierChanged(nil))
+        liveTelemetryModel.send(.stopRequested)
         #if os(iOS)
         iOSSettingsModel = IOSApplicationComposition.makeSettingsPresentationModel()
         #elseif os(macOS)

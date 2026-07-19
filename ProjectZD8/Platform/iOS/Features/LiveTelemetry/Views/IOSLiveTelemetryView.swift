@@ -5,8 +5,6 @@ import SwiftUI
 struct IOSLiveTelemetryView: View {
     /// Applicationが公開するPID読取状態です。
     let state: LiveTelemetryState
-    /// 現在設定されているOBD終端です。
-    let endpoint: OBDConnectionEndpoint?
     /// PID読取操作の通知先です。
     let send: (LiveTelemetryAction) -> Void
 
@@ -23,13 +21,18 @@ struct IOSLiveTelemetryView: View {
                 }
                 ForEach(state.samples) { sample in
                     LabeledContent(LocalizedStringKey(sample.nameKey)) {
-                        Text(sample.value, format: .number.precision(.fractionLength(0...2))) + Text(" \(sample.unit)")
+                        Text("\(sample.value, format: .number.precision(.fractionLength(0...2))) \(sample.unit)")
                     }
                 }
-                Button(state.samples.isEmpty ? "telemetry.read" : "telemetry.refresh") {
-                    if let endpoint { send(.readRequested(endpoint)) }
+                if state.phase == .loaded {
+                    Label("telemetry.status.streaming", systemImage: "waveform.path.ecg")
+                        .foregroundStyle(.green)
+                } else if state.phase == .failed {
+                    Button("telemetry.retry") { send(.retryRequested) }
+                } else if state.phase == .idle {
+                    Text("telemetry.status.waiting_for_connection")
+                        .foregroundStyle(.secondary)
                 }
-                .disabled(endpoint == nil || state.phase == .reading)
             }
             .navigationTitle("telemetry.title")
         }

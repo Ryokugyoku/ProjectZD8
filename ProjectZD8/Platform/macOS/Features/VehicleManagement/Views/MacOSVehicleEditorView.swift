@@ -47,6 +47,7 @@ struct MacOSVehicleEditorView: View {
                         .buttonStyle(.borderedProminent)
                         .disabled(draft.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                         .keyboardShortcut(.defaultAction)
+                        .accessibilityIdentifier("macos-garage-save")
                 }
             }
             .padding(34 * metrics.scale)

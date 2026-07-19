@@ -1,5 +1,7 @@
 /// 主要PID読取を完了できなかった理由です。
 enum OBDPIDTelemetryError: Error, Equatable {
+    /// PID定義DBが利用不能または空です。
+    case definitionCatalogUnavailable
     /// 実車読取実装が現在のプラットフォームにありません。
     case unavailable
     /// 要求PIDが固定許可リストにありません。

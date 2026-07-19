@@ -5,29 +5,49 @@ import UIKit
 /// iOSアプリケーションで使用する実装依存関係を組み立てます。
 @MainActor
 enum IOSApplicationComposition {
-    /// iOSで未提供の実PID読取を明示的利用不能境界へ結び付けます。
+    /// PID定義DBとiOSデモBluetooth読取境界を結び付けます。
     ///
-    /// 責務: iOSのLiveTelemetryが未検証のBLE成功を表示しない構成を生成します。
-    /// - Returns: 読取要求時に明示的利用不能を返すモデル。
+    /// 責務: iOSのPID定義永続化をデモ対応かつ実BLE未提供のLiveTelemetry構成へ注入します。
+    /// - Returns: デモBluetoothで継続取得でき、実BLEでは明示的利用不能を返すモデル。
     static func makeLiveTelemetryModel() -> LiveTelemetryModel {
         LiveTelemetryModel(
             readMajorPIDs: ReadMajorOBDPIDsUseCase(
-                definitions: StandardOBDPIDSeed.definitions,
-                telemetry: UnavailableOBDPIDTelemetryAdapter()
+                definitionRepository: makeOBDPIDDefinitionRepository(),
+                telemetry: DemoAwareOBDPIDTelemetryAdapter(
+                    live: UnavailableOBDPIDTelemetryAdapter(),
+                    demo: DemoOBDPIDTelemetryAdapter()
+                )
             )
         )
     }
 
-    /// CloudKit同期とEX非対応境界を注入した車両管理モデルを生成します。
+    /// 製品PID DBを開き、確認済みseedを非破壊登録します。
     ///
-    /// 責務: iOSの車両保存、写真読込、USB専用EXの非対応境界をVehicleManagementへ結び付けます。
+    /// 責務: iOSのPID定義永続化を利用可能なGRDB実装または明示的利用不能境界へ変換します。
+    /// - Returns: seed登録済みPID Repository。準備失敗時は利用不能Repository。
+    private static func makeOBDPIDDefinitionRepository() -> any OBDPIDDefinitionRepository {
+        do {
+            let repository = try GRDBOBDPIDDefinitionRepository.openApplicationRepository()
+            try StandardOBDPIDSeed.install(into: repository)
+            return repository
+        } catch {
+            return UnavailableOBDPIDDefinitionRepository()
+        }
+    }
+
+    /// CloudKit同期とデモBluetooth識別境界を注入した車両管理モデルを生成します。
+    ///
+    /// 責務: iOSの車両保存とデモ対応かつ実BLE未提供の識別境界をVehicleManagementへ結び付けます。
     /// - Returns: private database同期を使用する車両管理モデル。
     static func makeVehicleManagementModel() -> VehicleManagementModel {
         VehicleManagementModel(
             state: VehicleManagementState(),
             repository: CloudKitVehicleRepository(),
             identifyForConnection: IdentifyVehicleForConnectionUseCase(
-                identification: UnavailableVehicleIdentificationAdapter(error: .transportUnsupported)
+                identification: DemoAwareVehicleIdentificationAdapter(
+                    live: UnavailableVehicleIdentificationAdapter(error: .transportUnsupported),
+                    demo: DemoVehicleIdentificationAdapter()
+                )
             ),
             photoImporter: VehiclePhotoFileImporter()
         )
@@ -93,7 +113,10 @@ enum IOSApplicationComposition {
     /// 責務: iOSの探索・保存実装をDeviceConnectionユースケースと設定表示境界へ結び付けます。
     /// - Returns: 実際のBLE探索とデフォルト設定保存を使用するiOS設定プレゼンテーションモデル。
     static func makeSettingsPresentationModel() -> IOSSettingsPresentationModel {
-        let discovery = IOSCoreBluetoothAdapterDiscovery()
+        let discovery = DemoIncludedAdapterDiscovery(
+            wrapping: IOSCoreBluetoothAdapterDiscovery(),
+            demoCandidate: DemoOBDAdapter.bluetoothCandidate
+        )
         let discoverAdapters = DiscoverAdaptersUseCase(discoveryPort: discovery)
         let latestDiscovery = LatestAdapterDiscoveryUseCase(discoverAdapters: discoverAdapters)
         let preferenceStore = UserDefaultsDefaultAdapterPreferenceStore()

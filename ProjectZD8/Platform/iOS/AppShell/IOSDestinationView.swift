@@ -62,7 +62,6 @@ struct IOSDestinationView: View {
         } else if destination == .liveLog {
             IOSLiveTelemetryView(
                 state: liveTelemetryState,
-                endpoint: settingsState.defaultAdapterPreference?.obdConnectionEndpoint,
                 send: sendLiveTelemetryAction
             )
         } else if destination == .settings {

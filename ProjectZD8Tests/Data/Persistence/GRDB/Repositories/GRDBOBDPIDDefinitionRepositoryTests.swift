@@ -3,10 +3,11 @@ import XCTest
 @testable import ProjectZD8
 
 /// PID専用テーブルのMigration、改訂、制約、復元を検証します。
+@MainActor
 final class GRDBOBDPIDDefinitionRepositoryTests: XCTestCase {
     /// 初期Migrationと標準seedを取得可能にします。
     ///
-    /// 責務: 空DBへPIDテーブルと確認済み2定義が作成されることを確認します。
+    /// 責務: 空DBへPIDテーブルと現在の確認済み定義が作成されることを確認します。
     func testMigratesAndInstallsVerifiedDefinitions() throws {
         let queue = try DatabaseQueue()
         let repository = try GRDBOBDPIDDefinitionRepository(databaseQueue: queue)
@@ -14,6 +15,19 @@ final class GRDBOBDPIDDefinitionRepositoryTests: XCTestCase {
 
         XCTAssertEqual(try repository.definition(service: 1, pid: 5), StandardOBDPIDSeed.definitions[0])
         XCTAssertEqual(try repository.definition(service: 1, pid: 12), StandardOBDPIDSeed.definitions[1])
+        XCTAssertEqual(try repository.definition(service: 1, pid: 13), StandardOBDPIDSeed.definitions[2])
+    }
+
+    /// 登録順に依存せずService/PID順の一覧を取得します。
+    ///
+    /// 責務: GRDB一覧読込が全PID定義を安定した識別子順で復元することを確認します。
+    func testDefinitionsReturnsAllRecordsInServiceAndPIDOrder() throws {
+        let repository = try GRDBOBDPIDDefinitionRepository(databaseQueue: DatabaseQueue())
+        for definition in StandardOBDPIDSeed.definitions.reversed() {
+            try repository.upsert(definition)
+        }
+
+        XCTAssertEqual(try repository.definitions(), StandardOBDPIDSeed.definitions)
     }
 
     /// 新しい改訂だけが既存定義を更新できます。

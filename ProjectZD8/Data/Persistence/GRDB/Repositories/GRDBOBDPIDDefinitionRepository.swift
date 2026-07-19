@@ -35,6 +35,25 @@ final class GRDBOBDPIDDefinitionRepository: OBDPIDDefinitionRepository {
         return try GRDBOBDPIDDefinitionRepository(databaseQueue: queue)
     }
 
+    /// 登録済みの現在PID定義を識別子順で取得します。
+    ///
+    /// 責務: PIDテーブルの全レコードをService/PIDの昇順でDomain定義へ復元します。
+    /// - Returns: 登録済みPID定義の一覧。
+    /// - Throws: SQLite読込または不正な列値の場合のエラー。
+    func definitions() throws -> [OBDPIDDefinition] {
+        try databaseQueue.read { database in
+            let records = try OBDPIDDefinitionRecord
+                .order(Column("service"), Column("pid"))
+                .fetchAll(database)
+            return try records.map { record in
+                guard let definition = record.makeDomainDefinition() else {
+                    throw DatabaseError(message: "PID definition contains an out-of-range identifier")
+                }
+                return definition
+            }
+        }
+    }
+
     /// 定義の改訂番号が新しい場合だけ登録または更新します。
     ///
     /// 責務: 1件のPID定義を既存改訂を後退させずSQLiteへ保存します。

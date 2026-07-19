@@ -36,5 +36,21 @@ final class IOSHomeStateTests: XCTestCase {
         XCTAssertEqual(state.defaultAdapterName, "Saved Adapter")
         XCTAssertTrue(state.isDefaultAdapterDetected)
     }
+
+    /// Bluetoothデモを保存・検出したHOMEが接続終端を公開することを検証します。
+    ///
+    /// 責務: iOS HOMEの接続ボタンが選択済みBluetoothデモを通常の接続終端へ変換できることを確認します。
+    func testSelectedBluetoothDemoExposesConnectionEndpoint() {
+        let adapter = DemoOBDAdapter.bluetoothCandidate
+        var settingsState = IOSSettingsState()
+        settingsState.defaultAdapterPreference = DefaultAdapterPreference(adapter: adapter)
+        settingsState.selectedAdapters[.primary] = adapter
+
+        let state = IOSHomeState(settingsState: settingsState)
+
+        XCTAssertEqual(state.connectionEndpoint, OBDConnectionEndpoint(adapter: adapter))
+        XCTAssertEqual(state.connectionEndpoint?.transport, .bluetoothLowEnergy)
+        XCTAssertEqual(state.connectionEndpoint?.systemIdentifier, adapter.systemIdentifier)
+    }
 }
 #endif

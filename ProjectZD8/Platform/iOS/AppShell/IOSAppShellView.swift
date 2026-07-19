@@ -18,6 +18,9 @@ struct IOSAppShellView: View {
     /// 主要PIDの読取状態を提供するモデルです。
     let liveTelemetryModel: LiveTelemetryModel
 
+    /// HOME接続要求をApplicationワークフローへ通知するユースケースです。
+    let startVehicleConnection: StartVehicleConnectionUseCase
+
     /// Authenticationが管理するアカウント削除の現在段階です。
     let accountDeletionPhase: AccountDeletionPhase
 
@@ -35,6 +38,7 @@ struct IOSAppShellView: View {
     ///   - settingsModel: Bluetooth候補選択状態を提供するモデル。
     ///   - vehicleManagementModel: 登録車両とVIN確認状態を提供するモデル。
     ///   - liveTelemetryModel: 主要PID読取状態を提供するモデル。
+    ///   - startVehicleConnection: HOME接続要求を車両識別とPID取得へ展開するユースケース。
     ///   - accountDeletionPhase: アカウント削除の現在段階。
     ///   - accountDeletionFailure: 直近のアカウント削除失敗。
     ///   - sendAuthenticationAction: アカウント削除操作の通知先。
@@ -43,6 +47,7 @@ struct IOSAppShellView: View {
         settingsModel: IOSSettingsPresentationModel,
         vehicleManagementModel: VehicleManagementModel,
         liveTelemetryModel: LiveTelemetryModel,
+        startVehicleConnection: StartVehicleConnectionUseCase,
         accountDeletionPhase: AccountDeletionPhase,
         accountDeletionFailure: AccountDeletionFailure?,
         sendAuthenticationAction: @escaping (AuthenticationAction) -> Void
@@ -51,6 +56,7 @@ struct IOSAppShellView: View {
         self.settingsModel = settingsModel
         self.vehicleManagementModel = vehicleManagementModel
         self.liveTelemetryModel = liveTelemetryModel
+        self.startVehicleConnection = startVehicleConnection
         self.accountDeletionPhase = accountDeletionPhase
         self.accountDeletionFailure = accountDeletionFailure
         self.sendAuthenticationAction = sendAuthenticationAction
@@ -115,7 +121,7 @@ struct IOSAppShellView: View {
             selectedDestination = .settings
             settingsModel.send(.adapterAttentionRequested)
         case let .vehicleConnectionRequested(endpoint):
-            vehicleManagementModel.send(.identifyRequested(endpoint))
+            startVehicleConnection.execute(endpoint: endpoint)
         }
     }
 }

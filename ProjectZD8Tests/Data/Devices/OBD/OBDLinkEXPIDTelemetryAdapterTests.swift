@@ -20,6 +20,7 @@ final class OBDLinkEXPIDTelemetryAdapterTests: XCTestCase {
         ]
 
         let values = try await adapter.read(requests, using: endpoint)
+        await adapter.endSession()
         let commands = await transport.commands
         let didClose = await transport.didClose
 
@@ -29,16 +30,16 @@ final class OBDLinkEXPIDTelemetryAdapterTests: XCTestCase {
         XCTAssertTrue(didClose)
     }
 
-    /// 非対応PIDをTransport生成前に拒否します。
+    /// Service 01以外をTransport生成前に拒否します。
     ///
-    /// 責務: 固定許可リスト外のService/PIDが物理送信されないことを確認します。
-    func testRejectsUnknownPIDBeforeOpeningTransport() async {
+    /// 責務: 現在値取得以外のService/PIDが物理送信されないことを確認します。
+    func testRejectsUnsupportedServiceBeforeOpeningTransport() async {
         let transport = PIDTransportFake(responses: [])
         let adapter = OBDLinkEXPIDTelemetryAdapter(makeTransport: { _ in transport })
 
         do {
-            _ = try await adapter.read([.init(service: 0x01, pid: 0xFF)], using: endpoint)
-            XCTFail("非対応PIDは成功してはいけません")
+            _ = try await adapter.read([.init(service: 0x02, pid: 0x0C)], using: endpoint)
+            XCTFail("非対応Serviceは成功してはいけません")
         } catch {
             let didOpen = await transport.didOpen
             XCTAssertEqual(error as? OBDPIDTelemetryError, .unsupportedPID)

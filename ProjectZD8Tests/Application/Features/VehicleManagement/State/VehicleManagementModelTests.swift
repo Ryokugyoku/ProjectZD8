@@ -5,6 +5,33 @@ import XCTest
 /// 車両管理モデルが識別失敗を原因別の表示状態へ変換することを検証します。
 @MainActor
 final class VehicleManagementModelTests: XCTestCase {
+    /// デモ車両も通常登録操作を経てRepositoryへ保存します。
+    ///
+    /// 責務: デモ識別結果が保存省略されず通常の車両プロフィールとして登録されることを確認します。
+    func testDemoVehicleUsesNormalRegistrationPersistence() async throws {
+        let repository = VehicleRepositoryFake()
+        let model = VehicleManagementModel(
+            state: VehicleManagementState(),
+            repository: repository,
+            identifyForConnection: IdentifyVehicleForConnectionUseCase(
+                identification: DemoVehicleIdentificationAdapter()
+            ),
+            photoImporter: VehiclePhotoImportPortFake()
+        )
+        model.send(.accountIdentifierChanged("test-account"))
+        try await waitUntil { model.state.hasLoadedVehicles }
+
+        model.send(.identifyRequested(OBDConnectionEndpoint(adapter: DemoOBDAdapter.candidate)))
+        try await waitUntil { model.state.phase == .confirmingIdentification }
+        model.send(.identificationConfirmed)
+        let draft = try XCTUnwrap(model.state.editingVehicle)
+        model.send(.vehicleSaved(draft))
+        try await waitUntil { model.state.phase == .idle && model.state.vehicles.count == 1 }
+
+        XCTAssertEqual(repository.savedVehicles.map(\.vin), ["TESTZD8CXR0000001"])
+        XCTAssertEqual(model.state.vehicles.map(\.vin), ["TESTZD8CXR0000001"])
+    }
+
     /// 識別境界の型付きエラーを診断可能な表示キーへ分離します。
     ///
     /// 責務: 実車識別の主要失敗段階が同じ汎用文言へ潰れないことを確認します。
@@ -27,6 +54,21 @@ final class VehicleManagementModelTests: XCTestCase {
 
             XCTAssertEqual(model.state.failureKey, expectedKey)
         }
+    }
+
+    /// 通信境界が返した失敗段階と原因を別々の表示状態として保持します。
+    ///
+    /// 責務: `0902` 要求の期限切れが段階コードと期限切れ文言を失わず状態へ反映されることを確認します。
+    func testStagedIdentificationErrorPreservesStageAndCause() async throws {
+        let model = makeModel(error: .stageFailed(.vehicleIdentificationRequest, .responseTimedOut))
+        model.send(.accountIdentifierChanged("test-account"))
+        try await waitUntil { model.state.hasLoadedVehicles }
+
+        model.send(.identifyRequested(endpoint))
+        try await waitUntil { model.state.phase == .failed }
+
+        XCTAssertEqual(model.state.identificationFailureStage, .vehicleIdentificationRequest)
+        XCTAssertEqual(model.state.failureKey, "garage.error.timeout")
     }
 
     /// 指定識別エラーを返す車両管理モデルを生成します。
@@ -70,6 +112,9 @@ private enum VehicleManagementModelTestError: Error {
 /// 車両管理テストへ空の保存状態を提供します。
 @MainActor
 private final class VehicleRepositoryFake: VehicleRepository {
+    /// 保存要求として受け取った車両です。
+    private(set) var savedVehicles: [VehicleProfile] = []
+
     /// 空の登録車両一覧を返します。
     ///
     /// 責務: 指定アカウントのテスト用車両一覧を空として返します。
@@ -83,7 +128,9 @@ private final class VehicleRepositoryFake: VehicleRepository {
     /// - Parameters:
     ///   - vehicle: 保存対象として受け取る車両。
     ///   - accountIdentifier: テスト用アカウント識別子。
-    func saveVehicle(_ vehicle: VehicleProfile, for accountIdentifier: String) async throws {}
+    func saveVehicle(_ vehicle: VehicleProfile, for accountIdentifier: String) async throws {
+        savedVehicles.append(vehicle)
+    }
 
     /// テストでは車両を削除しません。
     ///

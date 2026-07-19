@@ -233,6 +233,51 @@ final class IOSAppShellUITests: XCTestCase {
         secondaryCancelButton.tap()
         XCTAssertFalse(application.descendants(matching: .any)["ios-adapter-selection-secondary"].waitForExistence(timeout: 1))
     }
+
+    /// Bluetoothデモを選択してHOME接続から合成車両識別へ進めることを検証します。
+    ///
+    /// 責務: iPhoneの設定、デモ選択、保存、HOME接続、VIN確認までの利用者導線を一続きで確認します。
+    @MainActor
+    func testBluetoothDemoConnectsFromHomeWithoutPhysicalCommunication() {
+        let application = XCUIApplication.authenticatedProjectZD8()
+        application.launchArguments += ["-deviceConnection.defaultAdapter", ""]
+        addUIInterruptionMonitor(withDescription: "Bluetooth Permission") { alert in
+            let permissionButtons = ["許可", "Allow", "Permitir"]
+            for title in permissionButtons where alert.buttons[title].exists {
+                alert.buttons[title].tap()
+                return true
+            }
+            return false
+        }
+        application.launch()
+
+        application.buttons["ios-tab-settings"].tap()
+        let primaryAdapter = application.buttons.matching(
+            identifier: "ios-settings-adapter-card"
+        ).firstMatch
+        XCTAssertTrue(primaryAdapter.waitForExistence(timeout: 5))
+        primaryAdapter.tap()
+        application.tap()
+
+        let demoCandidate = application.buttons["ios-adapter-candidate-bluetooth-low-energy:projectzd8-demo"]
+        XCTAssertTrue(demoCandidate.waitForExistence(timeout: 6))
+        demoCandidate.tap()
+
+        let confirmButton = application.buttons["ios-adapter-confirm"]
+        XCTAssertTrue(confirmButton.waitForExistence(timeout: 2))
+        confirmButton.tap()
+
+        let homeTab = application.buttons["ios-tab-home"]
+        XCTAssertTrue(homeTab.waitForExistence(timeout: 2))
+        homeTab.tap()
+
+        let connectButton = application.buttons["ios-home-connect"]
+        XCTAssertTrue(connectButton.waitForExistence(timeout: 3))
+        connectButton.tap()
+
+        XCTAssertTrue(application.descendants(matching: .any)["ios-vehicle-registration"].waitForExistence(timeout: 5))
+        XCTAssertTrue(application.staticTexts["TESTZD8CXR0000001"].exists)
+    }
 }
 
 /// iOS AppShell UIテスト用の認証済み起動構成を生成します。

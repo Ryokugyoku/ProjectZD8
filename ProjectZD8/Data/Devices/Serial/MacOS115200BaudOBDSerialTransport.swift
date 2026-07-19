@@ -3,11 +3,11 @@ import Darwin
 import Foundation
 import OSLog
 
-/// OBDLink EXのFTDI仮想COMポートを115200 bpsで扱います。
-actor MacOSOBDLinkEXSerialTransport: OBDCommandTransport {
+/// 選択済みOBD仮想COMポートを115200 bpsで扱います。
+actor MacOS115200BaudOBDSerialTransport: OBDCommandTransport {
     /// 個人識別値や応答本文を含めず通信境界の失敗段階だけを記録します。
-    private static let logger = Logger(subsystem: "Ryokugyoku.ProjectZD8", category: "OBDSerialTransport")
-    /// EXが公開するBSDシリアルデバイスパスです。
+    nonisolated private static let logger = Logger(subsystem: "Ryokugyoku.ProjectZD8", category: "OBDSerialTransport")
+    /// 選択されたBSDシリアルデバイスパスです。
     private let devicePath: String
     /// 現在開いているファイル記述子です。
     private var fileDescriptor: Int32 = -1
@@ -25,9 +25,9 @@ actor MacOSOBDLinkEXSerialTransport: OBDCommandTransport {
         self.responseTimeout = responseTimeout
     }
 
-    /// EXのシリアル終端を115200 bps、8N1、Raw modeで開きます。
+    /// 選択されたシリアル終端を115200 bps、8N1、Raw modeで開きます。
     ///
-    /// 責務: 1件の検証済みBSDシリアルパスをEX既定速度の非同期読書き状態へ遷移させます。
+    /// 責務: 1件の検証済みBSDシリアルパスを115200 bpsの非同期読書き状態へ遷移させます。
     /// - Throws: パス不正、open、termios設定に失敗した場合は `VehicleIdentificationError.connectionFailed`。
     func open() async throws {
         guard fileDescriptor < 0,

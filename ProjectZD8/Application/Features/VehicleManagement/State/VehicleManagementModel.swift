@@ -95,6 +95,7 @@ final class VehicleManagementModel {
         state.connectionEndpoint = endpoint
         state.phase = .identifying
         state.failureKey = nil
+        state.identificationFailureStage = nil
         do {
             switch try await identifyForConnection.execute(endpoint: endpoint, vehicles: state.vehicles) {
             case let .registered(vehicle):
@@ -104,6 +105,8 @@ final class VehicleManagementModel {
                 state.pendingIdentification = snapshot
                 state.phase = .confirmingIdentification
             }
+        } catch VehicleIdentificationError.stageFailed(let stage, let cause) {
+            applyIdentificationFailure(stage: stage, cause: cause)
         } catch VehicleIdentificationError.vinUnavailable {
             state.phase = .failed
             state.failureKey = "garage.error.vin_unavailable"
@@ -125,6 +128,32 @@ final class VehicleManagementModel {
         } catch {
             state.phase = .failed
             state.failureKey = "garage.error.obd_unavailable"
+        }
+    }
+
+    /// 型付き識別失敗をmacOSとiOSが描画できる段階と原因文言へ反映します。
+    ///
+    /// 責務: 1件の車両識別失敗を失敗状態、段階、原因ローカライズキーへ変換します。
+    /// - Parameters:
+    ///   - stage: 完了できなかった車両識別段階。
+    ///   - cause: その段階で観測した単一原因。
+    private func applyIdentificationFailure(
+        stage: VehicleIdentificationError.Stage,
+        cause: VehicleIdentificationError.Cause
+    ) {
+        state.phase = .failed
+        state.identificationFailureStage = stage
+        switch cause {
+        case .unavailable, .transportUnsupported:
+            state.failureKey = "garage.error.obd_unavailable"
+        case .connectionFailed:
+            state.failureKey = "garage.error.connection"
+        case .responseTimedOut:
+            state.failureKey = "garage.error.timeout"
+        case .commandRejected:
+            state.failureKey = "garage.error.command_rejected"
+        case .malformedResponse:
+            state.failureKey = "garage.error.malformed_response"
         }
     }
 

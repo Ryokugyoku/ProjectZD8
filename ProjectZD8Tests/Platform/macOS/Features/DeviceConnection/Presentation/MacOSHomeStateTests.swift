@@ -35,6 +35,28 @@ final class MacOSHomeStateTests: XCTestCase {
         XCTAssertTrue(state.hasDefaultAdapter)
         XCTAssertEqual(state.defaultAdapterName, "Saved Adapter")
         XCTAssertTrue(state.isDefaultAdapterDetected)
+        XCTAssertEqual(state.connectionEndpoint?.systemIdentifier, "/dev/cu.saved")
+    }
+
+    /// 保存済み候補が現在未検出なら古いシリアル終端を使用しません。
+    ///
+    /// 責務: 保存設定だけが残る状態を接続不能なHOME状態へ変換することを確認します。
+    func testSavedButUndetectedAdapterDoesNotExposeConnectionEndpoint() {
+        let adapter = DiscoveredAdapter(
+            id: "saved",
+            transportMode: .usb,
+            displayName: "Saved Adapter",
+            systemIdentifier: "/dev/cu.stale",
+            isConnected: false
+        )
+        var settingsState = MacOSSettingsState()
+        settingsState.defaultAdapterPreference = DefaultAdapterPreference(adapter: adapter)
+
+        let state = MacOSHomeState(settingsState: settingsState)
+
+        XCTAssertTrue(state.hasDefaultAdapter)
+        XCTAssertFalse(state.isDefaultAdapterDetected)
+        XCTAssertNil(state.connectionEndpoint)
     }
 }
 #endif

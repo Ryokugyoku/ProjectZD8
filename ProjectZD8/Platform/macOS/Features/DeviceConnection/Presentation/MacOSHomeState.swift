@@ -19,10 +19,18 @@ struct MacOSHomeState: Equatable {
     init(settingsState: MacOSSettingsState) {
         hasDefaultAdapter = settingsState.defaultAdapterPreference != nil
         defaultAdapterName = settingsState.defaultAdapterPreference?.displayName
-        isDefaultAdapterDetected = settingsState.selectedAdapters[.primary].map {
-            settingsState.defaultAdapterPreference?.matches($0) == true
-        } ?? false
-        connectionEndpoint = settingsState.defaultAdapterPreference?.obdConnectionEndpoint
+        let detectedAdapter = settingsState.selectedAdapters[.primary].flatMap { adapter in
+            settingsState.defaultAdapterPreference?.matches(adapter) == true ? adapter : nil
+        }
+        isDefaultAdapterDetected = detectedAdapter != nil
+        connectionEndpoint = detectedAdapter.flatMap { adapter in
+            guard adapter.transportMode == .usb else { return nil }
+            return OBDConnectionEndpoint(
+                transport: .serial,
+                systemIdentifier: adapter.systemIdentifier,
+                displayName: adapter.displayName
+            )
+        }
     }
 }
 #endif

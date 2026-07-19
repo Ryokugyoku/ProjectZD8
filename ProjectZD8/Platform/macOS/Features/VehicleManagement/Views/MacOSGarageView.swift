@@ -78,7 +78,17 @@ struct MacOSGarageView: View {
             Label("garage.status.loading", systemImage: "icloud.and.arrow.down")
                 .foregroundStyle(.secondary)
         } else if let failureKey = state.failureKey {
-            Label(LocalizedStringKey(failureKey), systemImage: "exclamationmark.triangle.fill")
+            VStack(alignment: .leading, spacing: 5 * metrics.scale) {
+                Label(LocalizedStringKey(failureKey), systemImage: "exclamationmark.triangle.fill")
+                if let stage = state.identificationFailureStage {
+                    HStack(spacing: 4 * metrics.scale) {
+                        Text("garage.identification.failure_stage")
+                        Text(stage.diagnosticCode)
+                    }
+                        .font(.caption.monospaced())
+                        .foregroundStyle(.secondary)
+                }
+            }
                 .foregroundStyle(.orange)
                 .padding(14 * metrics.scale)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -202,11 +212,30 @@ struct MacOSGarageView: View {
                     Button("garage.identification.confirm") { send(.identificationConfirmed) }
                         .buttonStyle(.borderedProminent)
                         .keyboardShortcut(.defaultAction)
+                        .accessibilityIdentifier("macos-garage-identification-confirm")
                 }
             }
             .padding(36 * metrics.scale)
             .frame(maxWidth: 900 * metrics.scale, alignment: .leading)
             .frame(maxWidth: .infinity, alignment: .top)
+        }
+    }
+}
+
+/// macOS Garageで車両識別失敗段階を表示文言へ変換します。
+private extension VehicleIdentificationError.Stage {
+    /// 実機確認で報告できる現在段階の安定診断コードです。
+    var diagnosticCode: String {
+        switch self {
+        case .endpointValidation: "ENDPOINT"
+        case .transportCreation: "TRANSPORT-CREATE"
+        case .transportOpen: "TRANSPORT-OPEN"
+        case .adapterReset: "ATZ"
+        case .adapterConfiguration: "AT-CONFIG"
+        case .adapterIdentity: "ATI"
+        case .vehicleIdentificationRequest: "0902-REQUEST"
+        case .vehicleIdentificationParsing: "0902-PARSE"
+        case .protocolDescription: "ATDP"
         }
     }
 }

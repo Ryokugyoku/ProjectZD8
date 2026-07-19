@@ -34,6 +34,8 @@ struct VehicleManagementState: Equatable {
     var connectionEndpoint: OBDConnectionEndpoint?
     /// 直近の失敗をユーザーへ説明するローカライズキーです。
     var failureKey: String?
+    /// 直近のOBD識別失敗で完了できなかった型付き段階です。
+    var identificationFailureStage: VehicleIdentificationError.Stage?
     /// CloudKitまたはキャッシュから最後に読込を完了したかを示します。
     var hasLoadedVehicles = false
 }

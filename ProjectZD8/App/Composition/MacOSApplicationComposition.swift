@@ -5,50 +5,56 @@ import AuthenticationServices
 /// macOSアプリケーションで使用する実装依存関係を組み立てます。
 @MainActor
 enum MacOSApplicationComposition {
-    /// 検証済み2種の主要PIDとEXシリアル読取を結び付けます。
+    /// PID定義DBとEXシリアル読取を結び付けます。
     ///
-    /// 責務: macOSの主要PID定義とOBDLink EX読取実装をLiveTelemetry状態へ注入します。
-    /// - Returns: 冷却水温とエンジン回転数を読み取れるモデル。
+    /// 責務: macOSのPID定義永続化とOBDLink EX読取実装をLiveTelemetry状態へ注入します。
+    /// - Returns: DB登録済みPIDを読み取れるモデル。
     static func makeLiveTelemetryModel() -> LiveTelemetryModel {
         LiveTelemetryModel(
             readMajorPIDs: ReadMajorOBDPIDsUseCase(
-                definitions: StandardOBDPIDSeed.definitions,
-                telemetry: OBDLinkEXPIDTelemetryAdapter { endpoint in
-                    MacOSOBDLinkEXSerialTransport(devicePath: endpoint.systemIdentifier)
-                }
+                definitionRepository: makeOBDPIDDefinitionRepository(),
+                telemetry: DemoAwareOBDPIDTelemetryAdapter(
+                    live: OBDLinkEXPIDTelemetryAdapter { endpoint in
+                        MacOS115200BaudOBDSerialTransport(devicePath: endpoint.systemIdentifier)
+                    },
+                    demo: DemoOBDPIDTelemetryAdapter()
+                )
             )
         )
     }
 
-    /// CloudKit同期、PID DB、OBDLink EX通信を注入した車両管理モデルを生成します。
+    /// 製品PID DBを開き、確認済みseedを非破壊登録します。
     ///
-    /// 責務: macOSの車両保存、写真読込、PID DB、EXシリアル識別をVehicleManagementへ結び付けます。
+    /// 責務: macOSのPID定義永続化を利用可能なGRDB実装または明示的利用不能境界へ変換します。
+    /// - Returns: seed登録済みPID Repository。準備失敗時は利用不能Repository。
+    private static func makeOBDPIDDefinitionRepository() -> any OBDPIDDefinitionRepository {
+        do {
+            let repository = try GRDBOBDPIDDefinitionRepository.openApplicationRepository()
+            try StandardOBDPIDSeed.install(into: repository)
+            return repository
+        } catch {
+            return UnavailableOBDPIDDefinitionRepository()
+        }
+    }
+
+    /// CloudKit同期と選択済みシリアルアダプター通信を注入した車両管理モデルを生成します。
+    ///
+    /// 責務: macOSの車両保存、写真読込、シリアル識別をVehicleManagementへ結び付けます。
     /// - Returns: private database同期を使用する車両管理モデル。
     static func makeVehicleManagementModel() -> VehicleManagementModel {
         VehicleManagementModel(
             state: VehicleManagementState(),
             repository: CloudKitVehicleRepository(),
             identifyForConnection: IdentifyVehicleForConnectionUseCase(
-                identification: makeVehicleIdentificationAdapter()
+                identification: DemoAwareVehicleIdentificationAdapter(
+                    live: SerialELMVehicleIdentificationAdapter { endpoint in
+                        MacOS115200BaudOBDSerialTransport(devicePath: endpoint.systemIdentifier)
+                    },
+                    demo: DemoVehicleIdentificationAdapter()
+                )
             ),
             photoImporter: VehiclePhotoFileImporter()
         )
-    }
-
-    /// PID専用DBを準備してOBDLink EX識別Adapterを生成します。
-    ///
-    /// 責務: PIDスキーマ準備結果をmacOS EX製品通信または明示的利用不能へ変換します。
-    /// - Returns: PID DBが利用可能なEX識別Adapter。準備失敗時は型付き利用不能境界。
-    private static func makeVehicleIdentificationAdapter() -> any VehicleIdentificationPort {
-        do {
-            let repository = try GRDBOBDPIDDefinitionRepository.openApplicationRepository()
-            try StandardOBDPIDSeed.install(into: repository)
-            return OBDLinkEXVehicleIdentificationAdapter { endpoint in
-                MacOSOBDLinkEXSerialTransport(devicePath: endpoint.systemIdentifier)
-            }
-        } catch {
-            return UnavailableVehicleIdentificationAdapter(error: .pidCatalogUnavailable)
-        }
     }
 
     /// iCloud同期とローカル保持を注入したアカウント設定モデルを生成します。
@@ -109,7 +115,10 @@ enum MacOSApplicationComposition {
     /// 責務: macOSの探索・保存実装をDeviceConnectionユースケースと設定表示境界へ結び付けます。
     /// - Returns: 実際のシステム探索とデフォルト設定保存を使用するmacOS設定プレゼンテーションモデル。
     static func makeSettingsPresentationModel() -> MacOSSettingsPresentationModel {
-        let discovery = MacOSSystemAdapterDiscovery()
+        let discovery = DemoIncludedAdapterDiscovery(
+            wrapping: MacOSSystemAdapterDiscovery(),
+            demoCandidate: DemoOBDAdapter.candidate
+        )
         let discoverAdapters = DiscoverAdaptersUseCase(discoveryPort: discovery)
         let latestDiscovery = LatestAdapterDiscoveryUseCase(discoverAdapters: discoverAdapters)
         let preferenceStore = UserDefaultsDefaultAdapterPreferenceStore()

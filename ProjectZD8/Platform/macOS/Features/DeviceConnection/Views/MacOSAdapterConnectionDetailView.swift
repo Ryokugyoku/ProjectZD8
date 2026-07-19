@@ -76,6 +76,7 @@ struct MacOSAdapterConnectionDetailView: View {
                     send(.inspectedAdapterDeclined)
                 }
                 .keyboardShortcut(.cancelAction)
+                .accessibilityIdentifier("macos-adapter-details-decline")
 
                 Spacer(minLength: 0)
 
@@ -84,6 +85,7 @@ struct MacOSAdapterConnectionDetailView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .keyboardShortcut(.defaultAction)
+                .accessibilityIdentifier("macos-adapter-details-confirm")
             }
         }
         .padding(26 * metrics.scale)

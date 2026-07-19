@@ -1,12 +1,10 @@
 #if os(macOS)
 import SwiftUI
 
-/// macOSで検証済み主要PIDの1回読取結果を描画します。
+/// macOSで継続取得中PIDの現在値を描画します。
 struct MacOSLiveTelemetryView: View {
     /// Applicationが公開するPID読取状態です。
     let state: LiveTelemetryState
-    /// 現在設定されているOBD終端です。
-    let endpoint: OBDConnectionEndpoint?
     /// PID読取操作の通知先です。
     let send: (LiveTelemetryAction) -> Void
     /// 現在のウインドウ寸法に対応する表示寸法です。
@@ -51,11 +49,16 @@ struct MacOSLiveTelemetryView: View {
                     }
                 }
 
-                Button(state.samples.isEmpty ? "telemetry.read" : "telemetry.refresh") {
-                    if let endpoint { send(.readRequested(endpoint)) }
+                if state.phase == .loaded {
+                    Label("telemetry.status.streaming", systemImage: "waveform.path.ecg")
+                        .foregroundStyle(.green)
+                } else if state.phase == .failed {
+                    Button("telemetry.retry") { send(.retryRequested) }
+                        .buttonStyle(.borderedProminent)
+                } else if state.phase == .idle {
+                    Text("telemetry.status.waiting_for_connection")
+                        .foregroundStyle(.secondary)
                 }
-                .buttonStyle(.borderedProminent)
-                .disabled(endpoint == nil || state.phase == .reading)
             }
             .padding(32 * metrics.scale)
             .frame(maxWidth: 1_180 * metrics.scale)

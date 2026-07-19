@@ -9,4 +9,17 @@ protocol OBDPIDTelemetryPort: Sendable {
     /// - Returns: 要求ごとの未加工データバイト。
     /// - Throws: 非対応PID、接続、拒否応答、または形式不正の場合のエラー。
     func read(_ requests: [OBDPIDRequest], using endpoint: OBDConnectionEndpoint) async throws -> [OBDPIDRequest: [UInt8]]
+
+    /// 現在の継続取得セッションを終了します。
+    ///
+    /// 責務: PID取得境界が保持する接続資源を再利用不能な終了状態へ遷移させます。
+    func endSession() async
+}
+
+/// セッション資源を保持しないPID取得境界へ既定終了動作を提供します。
+extension OBDPIDTelemetryPort {
+    /// 保持資源がない取得境界では終了要求を変更なしで完了します。
+    ///
+    /// 責務: ステートレスなPID取得実装へ副作用のない終了動作を提供します。
+    func endSession() async {}
 }

@@ -1424,19 +1424,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "The OBDLink EX serial connection could not be opened."
+            "value" : "The selected OBD serial connection could not be opened."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "No se pudo abrir la conexión serie de OBDLink EX."
+            "value" : "No se pudo abrir la conexión serie OBD seleccionada."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "OBDLink EXのシリアル接続を開けませんでした。"
+            "value" : "選択したOBDアダプターのシリアル接続を開けませんでした。"
           }
         }
       }
@@ -1463,28 +1463,6 @@
         }
       }
     },
-    "garage.error.obd_unavailable" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Vehicle identification is not available until the verified OBD runtime is connected."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "La identificación no está disponible hasta conectar el entorno OBD verificado."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "検証済みOBD実装が接続されるまで車両識別は利用できません。"
-          }
-        }
-      }
-    },
     "garage.error.malformed_response" : {
       "localizations" : {
         "en" : {
@@ -1507,46 +1485,24 @@
         }
       }
     },
-    "garage.error.pid_catalog" : {
+    "garage.error.obd_unavailable" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "The verified PID catalog could not be prepared."
+            "value" : "Vehicle identification is not available until the verified OBD runtime is connected."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "No se pudo preparar el catálogo de PID verificado."
+            "value" : "La identificación no está disponible hasta conectar el entorno OBD verificado."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "検証済みPIDカタログを準備できませんでした。"
-          }
-        }
-      }
-    },
-    "garage.error.timeout" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "The OBD adapter response timed out."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Se agotó el tiempo de espera de la respuesta del adaptador OBD."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "OBDアダプターの応答が時間内に完了しませんでした。"
+            "value" : "検証済みOBD実装が接続されるまで車両識別は利用できません。"
           }
         }
       }
@@ -1569,6 +1525,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "選択した写真を読み込めませんでした。"
+          }
+        }
+      }
+    },
+    "garage.error.pid_catalog" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The verified PID catalog could not be prepared."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo preparar el catálogo de PID verificado."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "検証済みPIDカタログを準備できませんでした。"
           }
         }
       }
@@ -1613,6 +1591,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "車両を同期できませんでした。iCloudを確認してください。"
+          }
+        }
+      }
+    },
+    "garage.error.timeout" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The OBD adapter response timed out."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se agotó el tiempo de espera de la respuesta del adaptador OBD."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OBDアダプターの応答が時間内に完了しませんでした。"
           }
         }
       }
@@ -1837,6 +1837,28 @@
         }
       }
     },
+    "garage.field.obd_identifier" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OBD-reported identifier"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Identificador informado por OBD"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OBD由来識別子"
+          }
+        }
+      }
+    },
     "garage.field.powertrain" : {
       "localizations" : {
         "en" : {
@@ -1987,6 +2009,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "OBD IDENTIFICATION"
+          }
+        }
+      }
+    },
+    "garage.identification.failure_stage" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Failure stage:"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Etapa del fallo:"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "失敗段階:"
           }
         }
       }
@@ -3494,6 +3538,72 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "MOBILE COCKPIT"
+          }
+        }
+      }
+    },
+    "obd.pid.engine_coolant_temperature" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Engine coolant temperature"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Temperatura del refrigerante"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "エンジン冷却水温"
+          }
+        }
+      }
+    },
+    "obd.pid.engine_speed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Engine speed"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Régimen del motor"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "エンジン回転数"
+          }
+        }
+      }
+    },
+    "obd.pid.vehicle_speed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vehicle speed"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Velocidad del vehículo"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "車速"
           }
         }
       }
@@ -5046,81 +5156,270 @@
         }
       }
     },
-    "garage.field.obd_identifier" : {
+    "telemetry.error.pid_catalog_unavailable" : {
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "OBD-reported identifier" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Identificador informado por OBD" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "OBD由来識別子" } }
-      }
-    },
-    "obd.pid.engine_coolant_temperature" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Engine coolant temperature" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Temperatura del refrigerante" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "エンジン冷却水温" } }
-      }
-    },
-    "obd.pid.engine_speed" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Engine speed" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Régimen del motor" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "エンジン回転数" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The PID definition database is unavailable. No sensor request was sent."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La base de datos de definiciones PID no está disponible. No se envió ninguna solicitud de sensores."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PID定義データベースを利用できません。センサー要求は送信していません。"
+          }
+        }
       }
     },
     "telemetry.error.read_failed" : {
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Major PIDs could not be read. Check the adapter and vehicle state." } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "No se pudieron leer los PID principales. Comprueba el adaptador y el vehículo." } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "主要PIDを取得できません。アダプターと車両状態を確認してください。" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Major PIDs could not be read. Check the adapter and vehicle state."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudieron leer los PID principales. Comprueba el adaptador y el vehículo."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "主要PIDを取得できません。アダプターと車両状態を確認してください。"
+          }
+        }
       }
     },
     "telemetry.error.unavailable" : {
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Verified PID reading is not available on this platform." } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "La lectura de PID verificada no está disponible en esta plataforma." } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "このプラットフォームでは検証済みPID読取を利用できません。" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Verified PID reading is not available on this platform."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La lectura de PID verificada no está disponible en esta plataforma."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このプラットフォームでは検証済みPID読取を利用できません。"
+          }
+        }
       }
     },
     "telemetry.eyebrow" : {
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "OBD LIVE CHECK" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "COMPROBACIÓN OBD" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "OBD LIVE CHECK" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OBD LIVE CHECK"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "COMPROBACIÓN OBD"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OBD LIVE CHECK"
+          }
+        }
       }
     },
     "telemetry.read" : {
+      "extractionState" : "stale",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Read major PIDs" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Leer PID principales" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "主要PIDを取得" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Read major PIDs"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Leer PID principales"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "主要PIDを取得"
+          }
+        }
       }
     },
     "telemetry.refresh" : {
+      "extractionState" : "stale",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Read again" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Leer de nuevo" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "再取得" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Read again"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Leer de nuevo"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "再取得"
+          }
+        }
+      }
+    },
+    "telemetry.retry" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Retry live acquisition"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reintentar adquisición en vivo"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "リアルタイム取得を再試行"
+          }
+        }
       }
     },
     "telemetry.status.reading" : {
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Reading major PIDs…" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Leyendo PID principales…" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "主要PIDを取得中…" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Checking supported PIDs…"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Comprobando PID compatibles…"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "対応PIDを確認中…"
+          }
+        }
+      }
+    },
+    "telemetry.status.streaming" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Live acquisition continues in the background"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La adquisición continúa en segundo plano"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "画面外でもリアルタイム取得を継続中"
+          }
+        }
+      }
+    },
+    "telemetry.status.waiting_for_connection" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Press Connect on Home to start acquisition."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pulsa Conectar en Inicio para comenzar."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ホームの接続ボタンから取得を開始してください。"
+          }
+        }
       }
     },
     "telemetry.subtitle" : {
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Reads only the two PIDs currently backed by bundled source definitions." } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Lee solo los dos PID respaldados actualmente por definiciones verificadas." } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "現在一次資料付きで定義済みの2 PIDだけを読み取ります。" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Shows the latest value for every registered PID that responds."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Muestra el valor actual de cada PID registrado que responde."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "登録済みPIDを全件確認し、応答した項目の現在値を表示します。"
+          }
+        }
       }
     },
     "telemetry.title" : {
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Major PID readings" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Lecturas PID principales" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "主要PID読取" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Live PID values"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Valores PID en vivo"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "リアルタイムPID値"
+          }
+        }
       }
     },
     "ZD8" : {

@@ -1,5 +1,5 @@
 /// OBDのServiceとPIDを組にした読取要求識別子です。
-struct OBDPIDRequest: Equatable, Hashable, Sendable {
+nonisolated struct OBDPIDRequest: Equatable, Hashable, Sendable {
     /// OBD Service番号です。
     let service: UInt8
     /// Service内PID番号です。

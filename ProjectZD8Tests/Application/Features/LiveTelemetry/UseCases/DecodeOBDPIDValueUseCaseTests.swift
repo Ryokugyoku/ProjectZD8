@@ -58,6 +58,12 @@ private final class OBDPIDDefinitionRepositoryFake: OBDPIDDefinitionRepository {
         self.storedDefinition = storedDefinition
     }
 
+    /// このテストでは使用しないPID定義一覧を返します。
+    ///
+    /// 責務: 単一定義読取テストで一覧要求へ空配列を返します。
+    /// - Returns: 常に空のPID定義一覧。
+    func definitions() throws -> [OBDPIDDefinition] { [] }
+
     /// 保存処理をテスト対象外として受け入れます。
     ///
     /// 責務: 読取専用UseCaseテストで不要な保存呼出しを明示的に無視します。
