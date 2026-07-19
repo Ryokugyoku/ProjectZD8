@@ -26,6 +26,12 @@ enum ConnectionSessionDatabaseMigrator {
                 columns: ["accountIdentifier", "startedAt"]
             )
         }
+        migrator.registerMigration("v3_add_connection_session_odometer_bounds") { database in
+            try database.alter(table: ConnectionSessionRecord.databaseTableName) { table in
+                table.add(column: "startingOdometerKilometers", .double)
+                table.add(column: "endingOdometerKilometers", .double)
+            }
+        }
         return migrator
     }
 }

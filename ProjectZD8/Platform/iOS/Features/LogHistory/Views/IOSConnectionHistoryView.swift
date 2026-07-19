@@ -132,9 +132,9 @@ struct IOSConnectionHistoryView: View {
 
     /// 1台分の終了済み履歴集計を遷移可能なカードとして描画します。
     ///
-    /// 責務: 1件の車両別履歴集計を件数と警告状態を持つカードへ変換します。
+    /// 責務: 1件の車両別履歴集計を件数、総時間、総走行距離と警告状態を持つカードへ変換します。
     /// - Parameter group: 表示する車両別履歴集計。
-    /// - Returns: 車両情報、セッション件数、総時間、中断警告を含むカード。
+    /// - Returns: 車両情報、セッション件数、総時間、総走行距離、中断警告を含むカード。
     private func vehicleGroupCard(_ group: ConnectionHistoryVehicleGroup) -> some View {
         HStack(spacing: 14) {
             Image(systemName: group.interruptedCount > 0 ? "car.side.fill" : "car.side")
@@ -150,7 +150,18 @@ struct IOSConnectionHistoryView: View {
                     Text("history.vehicle.sessions")
                 }
                 .font(.caption.weight(.semibold)).foregroundStyle(.secondary)
-                Text(durationText(group.totalDuration)).font(.caption.monospacedDigit()).foregroundStyle(.tertiary)
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 10) {
+                        Label(durationText(group.totalDuration), systemImage: "clock")
+                        Label(distanceText(group.totalDistanceKilometers), systemImage: "road.lanes")
+                    }
+                    VStack(alignment: .leading, spacing: 3) {
+                        Label(durationText(group.totalDuration), systemImage: "clock")
+                        Label(distanceText(group.totalDistanceKilometers), systemImage: "road.lanes")
+                    }
+                }
+                .font(.caption2.monospacedDigit().weight(.semibold))
+                .foregroundStyle(.tertiary)
             }
             Spacer(minLength: 4)
             if group.interruptedCount > 0 {
@@ -197,11 +208,25 @@ struct IOSConnectionHistoryView: View {
     /// - Returns: 車両別の総件数と中断件数を含む概要。
     @ViewBuilder private func vehicleListHeader(_ group: ConnectionHistoryVehicleGroup?) -> some View {
         if let group {
-            HStack {
-                summaryPill(value: "\(group.sessionCount)", titleKey: "history.summary.total", color: .primary)
-                if group.interruptedCount > 0 { warningBadge(group.interruptedCount) }
-                Spacer()
+            ViewThatFits(in: .horizontal) {
+                HStack {
+                    summaryPill(value: "\(group.sessionCount)", titleKey: "history.summary.total", color: .primary)
+                    summaryPill(value: durationText(group.totalDuration), titleKey: "history.summary.duration", color: .cyan)
+                    summaryPill(value: distanceText(group.totalDistanceKilometers), titleKey: "history.summary.distance", color: .mint)
+                    if group.interruptedCount > 0 { warningBadge(group.interruptedCount) }
+                }
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        summaryPill(value: "\(group.sessionCount)", titleKey: "history.summary.total", color: .primary)
+                        if group.interruptedCount > 0 { warningBadge(group.interruptedCount) }
+                    }
+                    HStack {
+                        summaryPill(value: durationText(group.totalDuration), titleKey: "history.summary.duration", color: .cyan)
+                        summaryPill(value: distanceText(group.totalDistanceKilometers), titleKey: "history.summary.distance", color: .mint)
+                    }
+                }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
@@ -261,7 +286,7 @@ struct IOSConnectionHistoryView: View {
 
     /// 1件の終了済みセッションを詳細遷移行として描画します。
     ///
-    /// 責務: 1件の終了済みセッションを日時、時間、終了理由を持つ一覧行へ変換します。
+    /// 責務: 1件の終了済みセッションを日時、時間、走行距離、終了理由を持つ一覧行へ変換します。
     /// - Parameter session: 表示する終了済みセッション。
     /// - Returns: 詳細画面へ遷移可能なセッション行。
     private func sessionRow(_ session: ConnectionSession) -> some View {
@@ -274,7 +299,12 @@ struct IOSConnectionHistoryView: View {
                 Text(endReasonKey(session.endReason)).font(.caption.weight(.semibold)).foregroundStyle(session.status == .completed ? Color.secondary : Color.orange)
             }
             Spacer()
-            Text(durationText(sessionDuration(session))).font(.caption.monospacedDigit().weight(.semibold)).foregroundStyle(.secondary)
+            VStack(alignment: .trailing, spacing: 4) {
+                Label(durationText(sessionDuration(session)), systemImage: "clock")
+                Label(distanceText(session.recordedDistanceKilometers), systemImage: "road.lanes")
+            }
+            .font(.caption2.monospacedDigit().weight(.semibold))
+            .foregroundStyle(.secondary)
             Image(systemName: "chevron.right").font(.caption2.weight(.bold)).foregroundStyle(.tertiary)
         }
         .padding(15)
@@ -366,14 +396,28 @@ struct IOSConnectionHistoryView: View {
     /// - Returns: 秒単位の非負記録時間。
     private func sessionDuration(_ session: ConnectionSession) -> TimeInterval { max(0, session.endedAt?.timeIntervalSince(session.startedAt) ?? 0) }
 
-    /// 秒数をコンパクトな時分秒表記へ変換します。
+    /// 秒数を単位名が明確な時分表記へ変換します。
     ///
     /// 責務: 1件の秒数を履歴画面用の固定幅時間文字列へ変換します。
     /// - Parameter interval: 表示する秒数。
-    /// - Returns: 時間を含む場合は時分、含まない場合は分秒の文字列。
+    /// - Returns: 現在ロケールで時間と分を明記した文字列。
     private func durationText(_ interval: TimeInterval) -> String {
-        let seconds = max(0, Int(interval)); let hours = seconds / 3_600; let minutes = (seconds % 3_600) / 60
-        return hours > 0 ? String(format: "%dh %02dm", hours, minutes) : String(format: "%dm", minutes)
+        let formatter = DateComponentsFormatter()
+        formatter.allowedUnits = interval >= 3_600 ? [.hour, .minute] : [.minute]
+        formatter.unitsStyle = .short
+        formatter.zeroFormattingBehavior = .pad
+        return formatter.string(from: max(0, interval)) ?? String(localized: "history.duration.zero")
+    }
+
+    /// セッション差分をメートルまたはキロメートルの明確な距離表記へ変換します。
+    ///
+    /// 責務: 1件の任意走行距離を距離単位付き表示または非対応表示へ変換します。
+    /// - Parameter kilometers: A6累積値の差分。確定できない場合は `nil`。
+    /// - Returns: 1 km未満はm、1 km以上はkm、未確定時は走行距離非対応の文字列。
+    private func distanceText(_ kilometers: Double?) -> String {
+        guard let kilometers else { return String(localized: "history.distance.unsupported") }
+        if kilometers < 1 { return String.localizedStringWithFormat("%.0f m", kilometers * 1_000) }
+        return String.localizedStringWithFormat("%.1f km", kilometers)
     }
 
     /// セッションIDを短縮表示へ変換します。

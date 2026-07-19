@@ -1,6 +1,6 @@
 /// 一次資料で数式まで確認できた標準PID定義を提供します。
 enum StandardOBDPIDSeed {
-    /// SAE J1979DAで定義されるService 01からリアルタイム表示に適した主要50項目を選んだ定義です。
+    /// SAE J1979DAで定義されるService 01からリアルタイム表示に適した主要51項目を選んだ定義です。
     static let definitions: [OBDPIDDefinition] = [
         definition(0x04, "calculated_engine_load", 1, "A * 100 / 255", "%", 0, 100),
         definition(0x05, "engine_coolant_temperature", 1, "A - 40", "°C", -40, 215),
@@ -51,7 +51,8 @@ enum StandardOBDPIDSeed {
         definition(0x4A, "accelerator_pedal_position_e", 1, "A * 100 / 255", "%", 0, 100),
         definition(0x4B, "accelerator_pedal_position_f", 1, "A * 100 / 255", "%", 0, 100),
         definition(0x4C, "commanded_throttle_actuator", 1, "A * 100 / 255", "%", 0, 100),
-        definition(0x4D, "time_run_with_mil_on", 2, "A * 256 + B", "min", 0, 65_535)
+        definition(0x4D, "time_run_with_mil_on", 2, "A * 256 + B", "min", 0, 65_535),
+        definition(0xA6, "odometer", 4, "(A * 16777216 + B * 65536 + C * 256 + D) / 10", "km", 0, 429_496_729.5)
     ]
 
     /// 現行Service 01定義の一次資料URIです。

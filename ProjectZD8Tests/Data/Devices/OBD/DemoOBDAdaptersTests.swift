@@ -32,17 +32,17 @@ final class DemoOBDAdaptersTests: XCTestCase {
         XCTAssertNotEqual(first[engineSpeed], second[engineSpeed])
     }
 
-    /// 登録済み主要50PIDすべてへ数値化可能な正常域応答を返します。
+    /// 登録済み主要PIDすべてへ数値化可能な正常域応答を返します。
     ///
     /// 責務: デモPID境界が主要カタログ全件を欠落なく正常域の値へ変換できることを確認します。
-    func testTelemetryReturnsAllFiftyCatalogValuesWithinDeclaredRanges() async throws {
+    func testTelemetryReturnsAllCatalogValuesWithinDeclaredRanges() async throws {
         let definitions = StandardOBDPIDSeed.definitions
         let requests = definitions.map { OBDPIDRequest(service: $0.service, pid: $0.pid) }
         let readings = try await DemoOBDPIDTelemetryAdapter().read(requests, using: endpoint)
         let evaluator = OBDPIDFormulaEvaluator()
 
-        XCTAssertEqual(definitions.count, 50)
-        XCTAssertEqual(readings.count, 50)
+        XCTAssertEqual(definitions.count, 51)
+        XCTAssertEqual(readings.count, 51)
         XCTAssertEqual(
             Set(requests.map(OBDPIDCategory.category(for:))),
             Set(OBDPIDCategory.allCases)

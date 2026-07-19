@@ -2710,28 +2710,6 @@
         }
       }
     },
-    "history.navigation.back" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Back to vehicle archive"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Volver al archivo de vehículos"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "車両別アーカイブに戻る"
-          }
-        }
-      }
-    },
     "history.detail.development.badge" : {
       "localizations" : {
         "en" : {
@@ -3127,6 +3105,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "接続中"
+          }
+        }
+      }
+    },
+    "history.navigation.back" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Back to vehicle archive"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Volver al archivo de vehículos"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "車両別アーカイブに戻る"
           }
         }
       }
@@ -3572,6 +3572,50 @@
         }
       }
     },
+    "history.distance.unsupported" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Distance unsupported"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Distancia no compatible"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "走行距離非対応"
+          }
+        }
+      }
+    },
+    "history.duration.zero" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "0 min"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "0 min"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "0分"
+          }
+        }
+      }
+    },
     "history.subtitle" : {
       "localizations" : {
         "en" : {
@@ -3635,6 +3679,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "総走行時間"
+          }
+        }
+      }
+    },
+    "history.summary.distance" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Driving distance"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Distancia recorrida"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "総走行距離"
           }
         }
       }
@@ -4763,371 +4829,514 @@
         }
       }
     },
-    "telemetry.category.engine" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Engine" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Motor" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "エンジン" } }
-      }
-    },
-    "telemetry.category.temperature" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Temperatures" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Temperaturas" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "温度" } }
-      }
-    },
-    "telemetry.category.fuelAndAir" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Fuel and air" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Combustible y aire" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "燃料・吸排気" } }
-      }
-    },
-    "telemetry.category.driving" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Driving input" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Entrada de conducción" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "走行・操作" } }
-      }
-    },
-    "telemetry.category.diagnostics" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Operation and diagnostics" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Funcionamiento y diagnóstico" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "稼働・診断" } }
-      }
-    },
-    "obd.pid.calculated_engine_load" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Calculated engine load" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Carga calculada del motor" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "計算エンジン負荷" } }
-      }
-    },
-    "obd.pid.short_term_fuel_trim_bank_1" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Short-term fuel trim bank 1" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Ajuste de combustible corto banco 1" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "短期燃料補正 バンク1" } }
-      }
-    },
-    "obd.pid.long_term_fuel_trim_bank_1" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Long-term fuel trim bank 1" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Ajuste de combustible largo banco 1" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "長期燃料補正 バンク1" } }
-      }
-    },
-    "obd.pid.short_term_fuel_trim_bank_2" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Short-term fuel trim bank 2" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Ajuste de combustible corto banco 2" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "短期燃料補正 バンク2" } }
-      }
-    },
-    "obd.pid.long_term_fuel_trim_bank_2" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Long-term fuel trim bank 2" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Ajuste de combustible largo banco 2" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "長期燃料補正 バンク2" } }
-      }
-    },
-    "obd.pid.fuel_pressure" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Fuel pressure" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Presión de combustible" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "燃料圧力" } }
-      }
-    },
-    "obd.pid.intake_manifold_pressure" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Intake manifold pressure" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Presión del colector de admisión" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "吸気マニホールド圧力" } }
-      }
-    },
-    "obd.pid.timing_advance" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Timing advance" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Avance de encendido" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "点火時期進角" } }
-      }
-    },
-    "obd.pid.intake_air_temperature" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Intake air temperature" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Temperatura del aire de admisión" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "吸気温度" } }
-      }
-    },
-    "obd.pid.mass_air_flow_rate" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Mass air flow rate" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Caudal de masa de aire" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "吸入空気流量" } }
-      }
-    },
-    "obd.pid.absolute_throttle_position" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Absolute throttle position" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Posición absoluta del acelerador" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "絶対スロットル位置" } }
-      }
-    },
-    "obd.pid.oxygen_sensor_b1s1_voltage" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Oxygen sensor B1S1 voltage" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Voltaje del sensor de oxígeno B1S1" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "O2センサー B1S1 電圧" } }
-      }
-    },
-    "obd.pid.oxygen_sensor_b1s2_voltage" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Oxygen sensor B1S2 voltage" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Voltaje del sensor de oxígeno B1S2" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "O2センサー B1S2 電圧" } }
-      }
-    },
-    "obd.pid.oxygen_sensor_b1s3_voltage" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Oxygen sensor B1S3 voltage" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Voltaje del sensor de oxígeno B1S3" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "O2センサー B1S3 電圧" } }
-      }
-    },
-    "obd.pid.oxygen_sensor_b1s4_voltage" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Oxygen sensor B1S4 voltage" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Voltaje del sensor de oxígeno B1S4" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "O2センサー B1S4 電圧" } }
-      }
-    },
-    "obd.pid.oxygen_sensor_b2s1_voltage" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Oxygen sensor B2S1 voltage" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Voltaje del sensor de oxígeno B2S1" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "O2センサー B2S1 電圧" } }
-      }
-    },
-    "obd.pid.oxygen_sensor_b2s2_voltage" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Oxygen sensor B2S2 voltage" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Voltaje del sensor de oxígeno B2S2" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "O2センサー B2S2 電圧" } }
-      }
-    },
-    "obd.pid.oxygen_sensor_b2s3_voltage" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Oxygen sensor B2S3 voltage" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Voltaje del sensor de oxígeno B2S3" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "O2センサー B2S3 電圧" } }
-      }
-    },
-    "obd.pid.oxygen_sensor_b2s4_voltage" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Oxygen sensor B2S4 voltage" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Voltaje del sensor de oxígeno B2S4" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "O2センサー B2S4 電圧" } }
-      }
-    },
-    "obd.pid.run_time_since_engine_start" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Run time since engine start" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Tiempo desde el arranque del motor" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "エンジン始動後時間" } }
-      }
-    },
-    "obd.pid.distance_with_mil_on" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Distance with MIL on" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Distancia con MIL encendida" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "MIL点灯中の走行距離" } }
-      }
-    },
-    "obd.pid.fuel_rail_pressure_relative" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Fuel rail pressure relative to manifold" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Presión del riel relativa al colector" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "マニホールド相対燃料レール圧" } }
-      }
-    },
-    "obd.pid.fuel_rail_gauge_pressure" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Fuel rail gauge pressure" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Presión manométrica del riel" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "燃料レールゲージ圧" } }
-      }
-    },
-    "obd.pid.commanded_egr" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Commanded EGR" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "EGR comandada" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "指示EGR" } }
-      }
-    },
-    "obd.pid.egr_error" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "EGR error" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Error de EGR" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "EGR誤差" } }
-      }
-    },
-    "obd.pid.commanded_evaporative_purge" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Commanded evaporative purge" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Purga evaporativa comandada" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "指示蒸発ガスパージ" } }
-      }
-    },
-    "obd.pid.fuel_tank_level" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Fuel tank level" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Nivel del depósito de combustible" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "燃料残量" } }
-      }
-    },
-    "obd.pid.warmups_since_codes_cleared" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Warm-ups since codes cleared" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Calentamientos desde el borrado de códigos" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "コード消去後暖機回数" } }
-      }
-    },
-    "obd.pid.distance_since_codes_cleared" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Distance since codes cleared" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Distancia desde el borrado de códigos" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "コード消去後走行距離" } }
-      }
-    },
-    "obd.pid.evap_system_vapor_pressure" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "EVAP system vapor pressure" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Presión de vapor del sistema EVAP" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "蒸発ガス系圧力" } }
-      }
-    },
     "obd.pid.absolute_barometric_pressure" : {
+      "extractionState" : "stale",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Absolute barometric pressure" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Presión barométrica absoluta" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "絶対大気圧" } }
-      }
-    },
-    "obd.pid.catalyst_temperature_b1s1" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Catalyst temperature B1S1" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Temperatura del catalizador B1S1" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "触媒温度 B1S1" } }
-      }
-    },
-    "obd.pid.catalyst_temperature_b2s1" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Catalyst temperature B2S1" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Temperatura del catalizador B2S1" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "触媒温度 B2S1" } }
-      }
-    },
-    "obd.pid.catalyst_temperature_b1s2" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Catalyst temperature B1S2" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Temperatura del catalizador B1S2" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "触媒温度 B1S2" } }
-      }
-    },
-    "obd.pid.catalyst_temperature_b2s2" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Catalyst temperature B2S2" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Temperatura del catalizador B2S2" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "触媒温度 B2S2" } }
-      }
-    },
-    "obd.pid.control_module_voltage" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Control module voltage" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Voltaje del módulo de control" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "制御モジュール電圧" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Absolute barometric pressure"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Presión barométrica absoluta"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "絶対大気圧"
+          }
+        }
       }
     },
     "obd.pid.absolute_load_value" : {
+      "extractionState" : "stale",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Absolute load value" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Valor de carga absoluta" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "絶対負荷値" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Absolute load value"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Valor de carga absoluta"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "絶対負荷値"
+          }
+        }
       }
     },
-    "obd.pid.commanded_equivalence_ratio" : {
+    "obd.pid.absolute_throttle_position" : {
+      "extractionState" : "stale",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Commanded equivalence ratio" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Relación de equivalencia comandada" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "指示当量比" } }
-      }
-    },
-    "obd.pid.relative_throttle_position" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Relative throttle position" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Posición relativa del acelerador" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "相対スロットル位置" } }
-      }
-    },
-    "obd.pid.ambient_air_temperature" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Ambient air temperature" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Temperatura del aire ambiente" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "外気温" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Absolute throttle position"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Posición absoluta del acelerador"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "絶対スロットル位置"
+          }
+        }
       }
     },
     "obd.pid.absolute_throttle_position_b" : {
+      "extractionState" : "stale",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Absolute throttle position B" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Posición absoluta del acelerador B" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "絶対スロットル位置B" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Absolute throttle position B"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Posición absoluta del acelerador B"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "絶対スロットル位置B"
+          }
+        }
       }
     },
     "obd.pid.absolute_throttle_position_c" : {
+      "extractionState" : "stale",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Absolute throttle position C" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Posición absoluta del acelerador C" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "絶対スロットル位置C" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Absolute throttle position C"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Posición absoluta del acelerador C"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "絶対スロットル位置C"
+          }
+        }
       }
     },
     "obd.pid.accelerator_pedal_position_d" : {
+      "extractionState" : "stale",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Accelerator pedal position D" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Posición del pedal del acelerador D" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "アクセルペダル位置D" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Accelerator pedal position D"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Posición del pedal del acelerador D"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "アクセルペダル位置D"
+          }
+        }
       }
     },
     "obd.pid.accelerator_pedal_position_e" : {
+      "extractionState" : "stale",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Accelerator pedal position E" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Posición del pedal del acelerador E" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "アクセルペダル位置E" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Accelerator pedal position E"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Posición del pedal del acelerador E"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "アクセルペダル位置E"
+          }
+        }
       }
     },
     "obd.pid.accelerator_pedal_position_f" : {
+      "extractionState" : "stale",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Accelerator pedal position F" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Posición del pedal del acelerador F" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "アクセルペダル位置F" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Accelerator pedal position F"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Posición del pedal del acelerador F"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "アクセルペダル位置F"
+          }
+        }
+      }
+    },
+    "obd.pid.ambient_air_temperature" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ambient air temperature"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Temperatura del aire ambiente"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "外気温"
+          }
+        }
+      }
+    },
+    "obd.pid.calculated_engine_load" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Calculated engine load"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Carga calculada del motor"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "計算エンジン負荷"
+          }
+        }
+      }
+    },
+    "obd.pid.catalyst_temperature_b1s1" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Catalyst temperature B1S1"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Temperatura del catalizador B1S1"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "触媒温度 B1S1"
+          }
+        }
+      }
+    },
+    "obd.pid.catalyst_temperature_b1s2" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Catalyst temperature B1S2"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Temperatura del catalizador B1S2"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "触媒温度 B1S2"
+          }
+        }
+      }
+    },
+    "obd.pid.catalyst_temperature_b2s1" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Catalyst temperature B2S1"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Temperatura del catalizador B2S1"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "触媒温度 B2S1"
+          }
+        }
+      }
+    },
+    "obd.pid.catalyst_temperature_b2s2" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Catalyst temperature B2S2"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Temperatura del catalizador B2S2"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "触媒温度 B2S2"
+          }
+        }
+      }
+    },
+    "obd.pid.commanded_egr" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Commanded EGR"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "EGR comandada"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "指示EGR"
+          }
+        }
+      }
+    },
+    "obd.pid.commanded_equivalence_ratio" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Commanded equivalence ratio"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Relación de equivalencia comandada"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "指示当量比"
+          }
+        }
+      }
+    },
+    "obd.pid.commanded_evaporative_purge" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Commanded evaporative purge"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Purga evaporativa comandada"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "指示蒸発ガスパージ"
+          }
+        }
       }
     },
     "obd.pid.commanded_throttle_actuator" : {
+      "extractionState" : "stale",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Commanded throttle actuator" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Actuador del acelerador comandado" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "指示スロットルアクチュエータ" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Commanded throttle actuator"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Actuador del acelerador comandado"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "指示スロットルアクチュエータ"
+          }
+        }
       }
     },
-    "obd.pid.time_run_with_mil_on" : {
+    "obd.pid.control_module_voltage" : {
+      "extractionState" : "stale",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Time run with MIL on" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Tiempo de funcionamiento con MIL encendida" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "MIL点灯中の稼働時間" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Control module voltage"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voltaje del módulo de control"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "制御モジュール電圧"
+          }
+        }
+      }
+    },
+    "obd.pid.distance_since_codes_cleared" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Distance since codes cleared"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Distancia desde el borrado de códigos"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "コード消去後走行距離"
+          }
+        }
+      }
+    },
+    "obd.pid.distance_with_mil_on" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Distance with MIL on"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Distancia con MIL encendida"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MIL点灯中の走行距離"
+          }
+        }
+      }
+    },
+    "obd.pid.egr_error" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "EGR error"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Error de EGR"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "EGR誤差"
+          }
+        }
       }
     },
     "obd.pid.engine_coolant_temperature" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -5150,6 +5359,7 @@
       }
     },
     "obd.pid.engine_speed" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -5171,7 +5381,560 @@
         }
       }
     },
+    "obd.pid.evap_system_vapor_pressure" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "EVAP system vapor pressure"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Presión de vapor del sistema EVAP"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "蒸発ガス系圧力"
+          }
+        }
+      }
+    },
+    "obd.pid.fuel_pressure" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fuel pressure"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Presión de combustible"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "燃料圧力"
+          }
+        }
+      }
+    },
+    "obd.pid.fuel_rail_gauge_pressure" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fuel rail gauge pressure"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Presión manométrica del riel"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "燃料レールゲージ圧"
+          }
+        }
+      }
+    },
+    "obd.pid.fuel_rail_pressure_relative" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fuel rail pressure relative to manifold"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Presión del riel relativa al colector"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "マニホールド相対燃料レール圧"
+          }
+        }
+      }
+    },
+    "obd.pid.fuel_tank_level" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fuel tank level"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nivel del depósito de combustible"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "燃料残量"
+          }
+        }
+      }
+    },
+    "obd.pid.intake_air_temperature" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Intake air temperature"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Temperatura del aire de admisión"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "吸気温度"
+          }
+        }
+      }
+    },
+    "obd.pid.intake_manifold_pressure" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Intake manifold pressure"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Presión del colector de admisión"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "吸気マニホールド圧力"
+          }
+        }
+      }
+    },
+    "obd.pid.long_term_fuel_trim_bank_1" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Long-term fuel trim bank 1"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajuste de combustible largo banco 1"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "長期燃料補正 バンク1"
+          }
+        }
+      }
+    },
+    "obd.pid.long_term_fuel_trim_bank_2" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Long-term fuel trim bank 2"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajuste de combustible largo banco 2"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "長期燃料補正 バンク2"
+          }
+        }
+      }
+    },
+    "obd.pid.mass_air_flow_rate" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mass air flow rate"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Caudal de masa de aire"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "吸入空気流量"
+          }
+        }
+      }
+    },
+    "obd.pid.oxygen_sensor_b1s1_voltage" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Oxygen sensor B1S1 voltage"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voltaje del sensor de oxígeno B1S1"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O2センサー B1S1 電圧"
+          }
+        }
+      }
+    },
+    "obd.pid.oxygen_sensor_b1s2_voltage" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Oxygen sensor B1S2 voltage"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voltaje del sensor de oxígeno B1S2"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O2センサー B1S2 電圧"
+          }
+        }
+      }
+    },
+    "obd.pid.oxygen_sensor_b1s3_voltage" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Oxygen sensor B1S3 voltage"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voltaje del sensor de oxígeno B1S3"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O2センサー B1S3 電圧"
+          }
+        }
+      }
+    },
+    "obd.pid.oxygen_sensor_b1s4_voltage" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Oxygen sensor B1S4 voltage"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voltaje del sensor de oxígeno B1S4"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O2センサー B1S4 電圧"
+          }
+        }
+      }
+    },
+    "obd.pid.oxygen_sensor_b2s1_voltage" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Oxygen sensor B2S1 voltage"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voltaje del sensor de oxígeno B2S1"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O2センサー B2S1 電圧"
+          }
+        }
+      }
+    },
+    "obd.pid.oxygen_sensor_b2s2_voltage" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Oxygen sensor B2S2 voltage"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voltaje del sensor de oxígeno B2S2"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O2センサー B2S2 電圧"
+          }
+        }
+      }
+    },
+    "obd.pid.oxygen_sensor_b2s3_voltage" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Oxygen sensor B2S3 voltage"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voltaje del sensor de oxígeno B2S3"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O2センサー B2S3 電圧"
+          }
+        }
+      }
+    },
+    "obd.pid.oxygen_sensor_b2s4_voltage" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Oxygen sensor B2S4 voltage"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voltaje del sensor de oxígeno B2S4"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O2センサー B2S4 電圧"
+          }
+        }
+      }
+    },
+    "obd.pid.relative_throttle_position" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Relative throttle position"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Posición relativa del acelerador"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "相対スロットル位置"
+          }
+        }
+      }
+    },
+    "obd.pid.run_time_since_engine_start" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Run time since engine start"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tiempo desde el arranque del motor"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "エンジン始動後時間"
+          }
+        }
+      }
+    },
+    "obd.pid.short_term_fuel_trim_bank_1" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Short-term fuel trim bank 1"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajuste de combustible corto banco 1"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "短期燃料補正 バンク1"
+          }
+        }
+      }
+    },
+    "obd.pid.short_term_fuel_trim_bank_2" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Short-term fuel trim bank 2"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajuste de combustible corto banco 2"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "短期燃料補正 バンク2"
+          }
+        }
+      }
+    },
+    "obd.pid.time_run_with_mil_on" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Time run with MIL on"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tiempo de funcionamiento con MIL encendida"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MIL点灯中の稼働時間"
+          }
+        }
+      }
+    },
+    "obd.pid.timing_advance" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Timing advance"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Avance de encendido"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "点火時期進角"
+          }
+        }
+      }
+    },
     "obd.pid.vehicle_speed" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -5189,6 +5952,52 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "車速"
+          }
+        }
+      }
+    },
+    "obd.pid.warmups_since_codes_cleared" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Warm-ups since codes cleared"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Calentamientos desde el borrado de códigos"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "コード消去後暖機回数"
+          }
+        }
+      }
+    },
+    "obd.pid.odometer" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Odometer"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Odómetro"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "総走行距離"
           }
         }
       }
@@ -6781,6 +7590,121 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ワークスペースを調整"
+          }
+        }
+      }
+    },
+    "telemetry.category.diagnostics" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Operation and diagnostics"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Funcionamiento y diagnóstico"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "稼働・診断"
+          }
+        }
+      }
+    },
+    "telemetry.category.driving" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Driving input"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Entrada de conducción"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "走行・操作"
+          }
+        }
+      }
+    },
+    "telemetry.category.engine" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Engine"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Motor"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "エンジン"
+          }
+        }
+      }
+    },
+    "telemetry.category.fuelAndAir" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fuel and air"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Combustible y aire"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "燃料・吸排気"
+          }
+        }
+      }
+    },
+    "telemetry.category.temperature" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Temperatures"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Temperaturas"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "温度"
           }
         }
       }

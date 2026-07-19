@@ -79,6 +79,7 @@ final class DemoOBDPIDTelemetryAdapter: OBDPIDTelemetryPort {
         case 0x46: [65]
         case 0x49...0x4C: [UInt8(clamping: 35 + Int(speed))]
         case 0x4D: [0, 0]
+        case 0xA6: [0x00, 0x01, 0xE2, 0x40]
         default: nil
         }
     }

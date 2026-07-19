@@ -109,9 +109,95 @@ final class LiveTelemetryModelTests: XCTestCase {
         XCTAssertEqual(endReasons, [.vehicleNoResponse])
     }
 
+    /// A6観測を累積走行距離通知としてLogging境界へ渡します。
+    ///
+    /// 責務: 数値化済みService 01 PID A6が走行距離コールバックへ通知されることを確認します。
+    func testOdometerSampleNotifiesLoggingBoundary() async {
+        var observedKilometers: [Double] = []
+        let model = LiveTelemetryModel(
+            readMajorPIDs: ReadMajorOBDPIDsUseCase(
+                definitionRepository: FixedOdometerDefinitionRepository(),
+                telemetry: FixedOdometerTelemetryFake()
+            ),
+            odometerDidChange: { observedKilometers.append($0) }
+        )
+
+        model.send(.startRequested(endpoint))
+        for _ in 0..<100 where observedKilometers.isEmpty {
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+
+        XCTAssertEqual(observedKilometers.first, 12_345.6)
+        model.send(.stopRequested)
+    }
+
     /// テスト用OBD接続終端です。
     private var endpoint: OBDConnectionEndpoint {
         .init(transport: .serial, systemIdentifier: "/dev/cu.test", displayName: "Test adapter")
+    }
+}
+
+/// A6定義だけを返すテスト用PID Repositoryです。
+private struct FixedOdometerDefinitionRepository: OBDPIDDefinitionRepository {
+    /// A6通知テスト用の空状態を生成します。
+    ///
+    /// 責務: 固定累積走行距離定義を提供するテスト境界を構築します。
+    init() {}
+
+    /// 累積走行距離定義を1件返します。
+    ///
+    /// 責務: Service 01 PID A6の固定定義一覧を返します。
+    /// - Returns: 4バイトの累積走行距離定義1件。
+    func definitions() throws -> [OBDPIDDefinition] {
+        [OBDPIDDefinition(
+            service: 0x01,
+            pid: 0xA6,
+            nameKey: "obd.pid.odometer",
+            requiredByteCount: 4,
+            formula: "(A * 16777216 + B * 65536 + C * 256 + D) / 10",
+            unit: "km",
+            minimumValue: 0,
+            maximumValue: nil,
+            sourceURI: "test://odometer",
+            revision: 1
+        )]
+    }
+
+    /// テスト対象外の保存要求を受け付けます。
+    ///
+    /// 責務: 未使用のPID定義保存を変更なしで完了します。
+    /// - Parameter definition: テストでは使用しない定義。
+    func upsert(_ definition: OBDPIDDefinition) throws {}
+
+    /// テスト対象外の単一定義読込へ未登録を返します。
+    ///
+    /// 責務: 未使用の単一PID照会を未登録結果へ変換します。
+    /// - Parameters:
+    ///   - service: テストでは使用しないService番号。
+    ///   - pid: テストでは使用しないPID番号。
+    /// - Returns: 常に `nil`。
+    func definition(service: UInt8, pid: UInt8) throws -> OBDPIDDefinition? { nil }
+}
+
+/// 固定の累積走行距離応答を返すテスト用PID境界です。
+private actor FixedOdometerTelemetryFake: OBDPIDTelemetryPort {
+    /// A6通知テスト用の空状態を生成します。
+    ///
+    /// 責務: 固定累積走行距離応答を提供するテスト境界を構築します。
+    init() {}
+
+    /// 要求PIDへ12,345.6 km相当の固定バイトを返します。
+    ///
+    /// 責務: 1回のA6読取要求を固定累積走行距離応答へ変換します。
+    /// - Parameters:
+    ///   - requests: 応答するPID要求。
+    ///   - endpoint: テストでは使用しない接続終端。
+    /// - Returns: A6へ12,345.6 km相当の4バイトを割り当てた辞書。
+    func read(
+        _ requests: [OBDPIDRequest],
+        using endpoint: OBDConnectionEndpoint
+    ) async throws -> [OBDPIDRequest: [UInt8]] {
+        Dictionary(uniqueKeysWithValues: requests.map { ($0, [0x00, 0x01, 0xE2, 0x40]) })
     }
 }
 

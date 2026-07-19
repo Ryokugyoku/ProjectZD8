@@ -5,7 +5,7 @@ import XCTest
 /// PID専用テーブルのMigration、改訂、制約、復元を検証します。
 @MainActor
 final class GRDBOBDPIDDefinitionRepositoryTests: XCTestCase {
-    /// 初期Migrationと主要50件の標準seedを取得可能にします。
+    /// 初期Migrationと主要51件の標準seedを取得可能にします。
     ///
     /// 責務: 空DBへPIDテーブルと現在の確認済み定義が作成されることを確認します。
     func testMigratesAndInstallsVerifiedDefinitions() throws {
@@ -14,7 +14,24 @@ final class GRDBOBDPIDDefinitionRepositoryTests: XCTestCase {
         try StandardOBDPIDSeed.install(into: repository)
 
         XCTAssertEqual(try repository.definitions(), StandardOBDPIDSeed.definitions)
-        XCTAssertEqual(try repository.definitions().count, 50)
+        XCTAssertEqual(try repository.definitions().count, 51)
+    }
+
+    /// Service 01 PID A6を規格の4バイト走行距離定義として登録します。
+    ///
+    /// 責務: 走行距離PIDの識別子、変換式、単位、範囲、出典を永続化後に確認します。
+    func testInstallsStandardOdometerDefinition() throws {
+        let repository = try GRDBOBDPIDDefinitionRepository(databaseQueue: DatabaseQueue())
+        try StandardOBDPIDSeed.install(into: repository)
+
+        let definition = try XCTUnwrap(repository.definition(service: 0x01, pid: 0xA6))
+        XCTAssertEqual(definition.nameKey, "obd.pid.odometer")
+        XCTAssertEqual(definition.requiredByteCount, 4)
+        XCTAssertEqual(definition.formula, "(A * 16777216 + B * 65536 + C * 256 + D) / 10")
+        XCTAssertEqual(definition.unit, "km")
+        XCTAssertEqual(definition.minimumValue, 0)
+        XCTAssertEqual(definition.maximumValue, 429_496_729.5)
+        XCTAssertEqual(definition.sourceURI, "https://saemobilus.sae.org/standards/j1979da_202607-j1979-da-digital-annex-e-e-diagnostic-test-modes")
     }
 
     /// 登録順に依存せずService/PID順の一覧を取得します。

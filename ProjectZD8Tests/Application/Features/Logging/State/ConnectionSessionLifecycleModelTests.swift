@@ -30,6 +30,8 @@ final class ConnectionSessionLifecycleModelTests: XCTestCase {
         model.send(.accountIdentifierChanged("account"))
         model.send(.startRequested)
         model.send(.vehicleResolved(vehicle))
+        model.send(.odometerObserved(kilometers: 12_345.6))
+        model.send(.odometerObserved(kilometers: 12_346.8))
         model.send(.endRequested(.vehicleNoResponse))
 
         let saved = try XCTUnwrap(repository.storage[sessionID.rawValue])
@@ -38,9 +40,30 @@ final class ConnectionSessionLifecycleModelTests: XCTestCase {
         XCTAssertEqual(saved.startedAt, startedAt)
         XCTAssertEqual(saved.endedAt, endedAt)
         XCTAssertEqual(saved.endReason, .vehicleNoResponse)
+        XCTAssertEqual(saved.startingOdometerKilometers, 12_345.6)
+        XCTAssertEqual(saved.endingOdometerKilometers, 12_346.8)
+        XCTAssertEqual(try XCTUnwrap(saved.recordedDistanceKilometers), 1.2, accuracy: 0.000_1)
         XCTAssertEqual(saved.status, .interrupted)
         XCTAssertNil(model.activeSession)
-        XCTAssertEqual(historyChangeCount, 3)
+        XCTAssertEqual(historyChangeCount, 5)
+    }
+
+    /// 無効な累積走行距離をセッションへ保存しません。
+    ///
+    /// 責務: 非有限値と負値が走行距離差分へ混入しないことを確認します。
+    func testInvalidOdometerObservationsRemainUnsupported() throws {
+        let repository = RecordingConnectionSessionRepository()
+        let model = ConnectionSessionLifecycleModel(repository: repository)
+
+        model.send(.accountIdentifierChanged("account"))
+        model.send(.startRequested)
+        model.send(.odometerObserved(kilometers: -.infinity))
+        model.send(.odometerObserved(kilometers: -1))
+
+        let session = try XCTUnwrap(model.activeSession)
+        XCTAssertNil(session.startingOdometerKilometers)
+        XCTAssertNil(session.endingOdometerKilometers)
+        XCTAssertNil(session.recordedDistanceKilometers)
     }
 
     /// アプリ再開時に残った未終了セッションを接続中のまま復元しません。

@@ -48,9 +48,10 @@ struct ProjectZD8App: App {
         let vehicleManagementModel = IOSApplicationComposition.makeVehicleManagementModel {
             connectionSessionLifecycleModel.send(.vehicleResolved($0))
         }
-        let liveTelemetryModel = IOSApplicationComposition.makeLiveTelemetryModel {
-            connectionSessionLifecycleModel.send(.endRequested($0))
-        }
+        let liveTelemetryModel = IOSApplicationComposition.makeLiveTelemetryModel(
+            sessionDidEnd: { connectionSessionLifecycleModel.send(.endRequested($0)) },
+            odometerDidChange: { connectionSessionLifecycleModel.send(.odometerObserved(kilometers: $0)) }
+        )
         _authenticationModel = State(
             initialValue: IOSApplicationComposition.makeAuthenticationSessionModel()
         )
@@ -85,9 +86,10 @@ struct ProjectZD8App: App {
         let vehicleManagementModel = MacOSApplicationComposition.makeVehicleManagementModel {
             connectionSessionLifecycleModel.send(.vehicleResolved($0))
         }
-        let liveTelemetryModel = MacOSApplicationComposition.makeLiveTelemetryModel {
-            connectionSessionLifecycleModel.send(.endRequested($0))
-        }
+        let liveTelemetryModel = MacOSApplicationComposition.makeLiveTelemetryModel(
+            sessionDidEnd: { connectionSessionLifecycleModel.send(.endRequested($0)) },
+            odometerDidChange: { connectionSessionLifecycleModel.send(.odometerObserved(kilometers: $0)) }
+        )
         _authenticationModel = State(
             initialValue: MacOSApplicationComposition.makeAuthenticationSessionModel()
         )

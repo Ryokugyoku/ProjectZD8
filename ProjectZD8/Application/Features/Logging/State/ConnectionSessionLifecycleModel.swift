@@ -47,6 +47,7 @@ final class ConnectionSessionLifecycleModel {
         case let .accountIdentifierChanged(identifier): activateAccount(identifier)
         case .startRequested: startSession()
         case let .vehicleResolved(vehicle): bindVehicle(vehicle)
+        case let .odometerObserved(kilometers): recordOdometer(kilometers)
         case let .endRequested(reason): endSession(reason: reason)
         }
     }
@@ -100,6 +101,26 @@ final class ConnectionSessionLifecycleModel {
     private func bindVehicle(_ vehicle: VehicleProfile) {
         guard var session = activeSession else { return }
         session.vehicle = ConnectionSessionVehicle(profile: vehicle)
+        do {
+            try repository.save(session)
+            activeSession = session
+            historyDidChange()
+        } catch {
+            return
+        }
+    }
+
+    /// 累積走行距離の先頭値と最新値を現在セッションへ保存します。
+    ///
+    /// 責務: 1件の有効な累積走行距離観測をセッション差分算出用の境界値へ反映します。
+    /// - Parameter kilometers: Service 01 PID A6から取得したキロメートル単位の累積走行距離。
+    private func recordOdometer(_ kilometers: Double) {
+        guard kilometers.isFinite, kilometers >= 0, var session = activeSession else { return }
+        if session.startingOdometerKilometers == nil {
+            session.startingOdometerKilometers = kilometers
+        }
+        guard session.endingOdometerKilometers != kilometers else { return }
+        session.endingOdometerKilometers = kilometers
         do {
             try repository.save(session)
             activeSession = session

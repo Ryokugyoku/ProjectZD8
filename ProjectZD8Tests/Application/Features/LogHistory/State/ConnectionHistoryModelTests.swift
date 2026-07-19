@@ -28,8 +28,13 @@ final class ConnectionHistoryModelTests: XCTestCase {
         let vehicleID = VehicleID(rawValue: UUID(uuidString: "10000000-0000-0000-0000-000000000001")!)
         let vehicle = ConnectionSessionVehicle(id: vehicleID, name: "BRZ", displayIdentifier: "ZD8")
         let completed = makeClosedSession(startedAt: 100, duration: 600, reason: .userDisconnected, vehicle: vehicle)
-        let interrupted = makeClosedSession(startedAt: 200, duration: 120, reason: .vehicleNoResponse, vehicle: vehicle)
-        let state = ConnectionHistoryState(phase: .loaded, sessions: [interrupted, completed])
+        var completedWithDistance = completed
+        completedWithDistance.startingOdometerKilometers = 1_000
+        completedWithDistance.endingOdometerKilometers = 1_001.2
+        var interrupted = makeClosedSession(startedAt: 200, duration: 120, reason: .vehicleNoResponse, vehicle: vehicle)
+        interrupted.startingOdometerKilometers = 1_001.2
+        interrupted.endingOdometerKilometers = 1_001.5
+        let state = ConnectionHistoryState(phase: .loaded, sessions: [interrupted, completedWithDistance])
 
         let group = try? XCTUnwrap(state.vehicleGroups.first)
 
@@ -37,7 +42,22 @@ final class ConnectionHistoryModelTests: XCTestCase {
         XCTAssertEqual(group?.sessionCount, 2)
         XCTAssertEqual(group?.interruptedCount, 1)
         XCTAssertEqual(group?.totalDuration, 720)
+        XCTAssertEqual(group?.totalDistanceKilometers ?? -.infinity, 1.5, accuracy: 0.000_1)
         XCTAssertEqual(state.interruptedCount, 1)
+    }
+
+    /// 走行距離を確定できないセッションを含む車両集計を非対応として保持します。
+    ///
+    /// 責務: 部分的なA6対応履歴を不完全な総走行距離として合算しないことを確認します。
+    func testVehicleDistanceIsUnsupportedWhenAnySessionLacksOdometerBounds() {
+        let vehicle = ConnectionSessionVehicle(id: VehicleID(), name: "BRZ", displayIdentifier: "ZD8")
+        var supported = makeClosedSession(startedAt: 100, duration: 60, reason: .userDisconnected, vehicle: vehicle)
+        supported.startingOdometerKilometers = 500
+        supported.endingOdometerKilometers = 500.4
+        let unsupported = makeClosedSession(startedAt: 200, duration: 60, reason: .userDisconnected, vehicle: vehicle)
+        let state = ConnectionHistoryState(phase: .loaded, sessions: [unsupported, supported])
+
+        XCTAssertNil(state.vehicleGroups.first?.totalDistanceKilometers)
     }
 
     /// 日付範囲と終了理由を同時適用して該当セッションだけを残すことを検証します。

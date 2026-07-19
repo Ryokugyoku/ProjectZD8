@@ -73,6 +73,12 @@ struct ConnectionHistoryVehicleGroup: Identifiable, Equatable, Sendable {
     var interruptedCount: Int { sessions.filter { $0.status == .interrupted }.count }
     /// グループ内の記録済み総走行時間です。
     var totalDuration: TimeInterval { sessions.reduce(0) { $0 + $1.recordedDuration } }
+    /// 全セッションで差分を確定できた場合の記録済み総走行距離です。
+    var totalDistanceKilometers: Double? {
+        let distances = sessions.compactMap(\.recordedDistanceKilometers)
+        guard distances.count == sessions.count else { return nil }
+        return distances.reduce(0, +)
+    }
     /// グループ内で最後に接続を開始した日時です。
     var latestStartedAt: Date? { sessions.first?.startedAt }
 }

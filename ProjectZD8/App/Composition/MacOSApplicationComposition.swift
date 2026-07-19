@@ -10,8 +10,10 @@ enum MacOSApplicationComposition {
     /// 責務: macOSのPID定義永続化とOBDLink EX読取実装をLiveTelemetry状態へ注入します。
     /// - Returns: DB登録済みPIDを読み取れるモデル。
     /// - Parameter sessionDidEnd: PID取得終了原因をLoggingへ通知する処理。
+    /// - Parameter odometerDidChange: 累積走行距離をLoggingへ通知する処理。
     static func makeLiveTelemetryModel(
-        sessionDidEnd: @escaping @MainActor (ConnectionSessionEndReason) -> Void = { _ in }
+        sessionDidEnd: @escaping @MainActor (ConnectionSessionEndReason) -> Void = { _ in },
+        odometerDidChange: @escaping @MainActor (Double) -> Void = { _ in }
     ) -> LiveTelemetryModel {
         LiveTelemetryModel(
             readMajorPIDs: ReadMajorOBDPIDsUseCase(
@@ -23,7 +25,8 @@ enum MacOSApplicationComposition {
                     demo: DemoOBDPIDTelemetryAdapter()
                 )
             ),
-            sessionDidEnd: sessionDidEnd
+            sessionDidEnd: sessionDidEnd,
+            odometerDidChange: odometerDidChange
         )
     }
 

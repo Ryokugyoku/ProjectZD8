@@ -12,6 +12,8 @@ final class LiveTelemetryModel {
     @ObservationIgnored private let pollingPolicy: OBDPIDPollingPolicy
     /// PID取得セッションが終了した原因をLoggingへ通知する処理です。
     @ObservationIgnored private let sessionDidEnd: @MainActor (ConnectionSessionEndReason) -> Void
+    /// 取得できた累積走行距離をLoggingへ通知する処理です。
+    @ObservationIgnored private let odometerDidChange: @MainActor (Double) -> Void
     /// 現在画面の表示有無から独立して動く取得タスクです。
     @ObservationIgnored private var pollingTask: Task<Void, Never>?
     /// 古い取得完了を新しい接続状態へ反映しないための世代です。
@@ -25,16 +27,19 @@ final class LiveTelemetryModel {
     ///   - readMajorPIDs: 主要PID読取と数値化を行うユースケース。
     ///   - pollingPolicy: PIDごとの更新優先度と間引き周期を決める方針。
     ///   - sessionDidEnd: PID取得終了原因をLoggingへ通知する処理。
+    ///   - odometerDidChange: Service 01 PID A6の累積走行距離をLoggingへ通知する処理。
     init(
         state: LiveTelemetryState,
         readMajorPIDs: ReadMajorOBDPIDsUseCase,
         pollingPolicy: OBDPIDPollingPolicy,
-        sessionDidEnd: @escaping @MainActor (ConnectionSessionEndReason) -> Void = { _ in }
+        sessionDidEnd: @escaping @MainActor (ConnectionSessionEndReason) -> Void = { _ in },
+        odometerDidChange: @escaping @MainActor (Double) -> Void = { _ in }
     ) {
         self.state = state
         self.readMajorPIDs = readMajorPIDs
         self.pollingPolicy = pollingPolicy
         self.sessionDidEnd = sessionDidEnd
+        self.odometerDidChange = odometerDidChange
     }
 
     /// 空の表示状態と既定更新方針を使って生成します。
@@ -43,15 +48,18 @@ final class LiveTelemetryModel {
     /// - Parameters:
     ///   - readMajorPIDs: PID読取と数値化を行うユースケース。
     ///   - sessionDidEnd: PID取得終了原因をLoggingへ通知する処理。
+    ///   - odometerDidChange: Service 01 PID A6の累積走行距離をLoggingへ通知する処理。
     convenience init(
         readMajorPIDs: ReadMajorOBDPIDsUseCase,
-        sessionDidEnd: @escaping @MainActor (ConnectionSessionEndReason) -> Void = { _ in }
+        sessionDidEnd: @escaping @MainActor (ConnectionSessionEndReason) -> Void = { _ in },
+        odometerDidChange: @escaping @MainActor (Double) -> Void = { _ in }
     ) {
         self.init(
             state: LiveTelemetryState(),
             readMajorPIDs: readMajorPIDs,
             pollingPolicy: OBDPIDPollingPolicy(),
-            sessionDidEnd: sessionDidEnd
+            sessionDidEnd: sessionDidEnd,
+            odometerDidChange: odometerDidChange
         )
     }
 
@@ -132,6 +140,7 @@ final class LiveTelemetryModel {
                 supportedRequests.contains(OBDPIDRequest(service: $0.service, pid: $0.pid))
             }
             state.samples = ordered(initialSamples, definitions: supportedDefinitions)
+            notifyOdometer(from: initialSamples)
             state.supportedPIDCount = supportedDefinitions.count
             state.phase = .loaded
             var tick: UInt = 1
@@ -197,6 +206,17 @@ final class LiveTelemetryModel {
         var latest = Dictionary(uniqueKeysWithValues: state.samples.map { ($0.request, $0) })
         for sample in samples { latest[sample.request] = sample }
         state.samples = ordered(Array(latest.values), definitions: definitions)
+        notifyOdometer(from: samples)
+    }
+
+    /// PID観測一覧に含まれる累積走行距離をLoggingへ通知します。
+    ///
+    /// 責務: 1回分のPID観測からService 01 PID A6だけを累積走行距離通知へ変換します。
+    /// - Parameter samples: 今回取得できた数値化済みPID観測。
+    private func notifyOdometer(from samples: [OBDPIDSample]) {
+        let request = OBDPIDRequest(service: 0x01, pid: 0xA6)
+        guard let odometer = samples.first(where: { $0.request == request })?.value else { return }
+        odometerDidChange(odometer)
     }
 
     /// 観測値を優先度付き定義順へ並べます。

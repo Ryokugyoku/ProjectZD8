@@ -29,12 +29,15 @@ final class GRDBConnectionSessionRepositoryTests: XCTestCase {
         )
         session.endedAt = Date(timeIntervalSince1970: 200)
         session.endReason = .userDisconnected
+        session.startingOdometerKilometers = 98_765.4
+        session.endingOdometerKilometers = 98_767.9
 
         try repository.save(session)
         let loaded = try XCTUnwrap(repository.sessions(for: "account").first)
 
         XCTAssertEqual(loaded, session)
         XCTAssertEqual(loaded.status, .completed)
+        XCTAssertEqual(try XCTUnwrap(loaded.recordedDistanceKilometers), 2.5, accuracy: 0.000_1)
         XCTAssertTrue(try repository.sessions(for: "different-account").isEmpty)
     }
 }

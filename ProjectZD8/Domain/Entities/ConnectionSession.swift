@@ -24,11 +24,25 @@ struct ConnectionSession: Identifiable, Equatable, Codable, Sendable {
     var endReason: ConnectionSessionEndReason?
     /// 接続時点の登録車両表示情報です。
     var vehicle: ConnectionSessionVehicle?
+    /// セッション内で最初に取得できた累積走行距離です。
+    var startingOdometerKilometers: Double?
+    /// セッション内で最後に取得できた累積走行距離です。
+    var endingOdometerKilometers: Double?
 
     /// 終了情報から履歴表示用の現在状態を返します。
     var status: Status {
         guard let endReason else { return .connected }
         return endReason == .userDisconnected ? .completed : .interrupted
+    }
+
+    /// セッション中の累積走行距離差分です。
+    var recordedDistanceKilometers: Double? {
+        guard let startingOdometerKilometers, let endingOdometerKilometers,
+              startingOdometerKilometers.isFinite, endingOdometerKilometers.isFinite,
+              startingOdometerKilometers >= 0, endingOdometerKilometers >= startingOdometerKilometers else {
+            return nil
+        }
+        return endingOdometerKilometers - startingOdometerKilometers
     }
 
     /// セッションの所有者と開始時刻を固定して生成します。
@@ -51,5 +65,7 @@ struct ConnectionSession: Identifiable, Equatable, Codable, Sendable {
         endedAt = nil
         endReason = nil
         self.vehicle = vehicle
+        startingOdometerKilometers = nil
+        endingOdometerKilometers = nil
     }
 }

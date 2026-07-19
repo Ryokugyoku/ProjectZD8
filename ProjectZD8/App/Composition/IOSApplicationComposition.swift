@@ -10,8 +10,10 @@ enum IOSApplicationComposition {
     /// 責務: iOSのPID定義永続化をデモ対応かつ実BLE未提供のLiveTelemetry構成へ注入します。
     /// - Returns: デモBluetoothで継続取得でき、実BLEでは明示的利用不能を返すモデル。
     /// - Parameter sessionDidEnd: PID取得終了原因をLoggingへ通知する処理。
+    /// - Parameter odometerDidChange: 累積走行距離をLoggingへ通知する処理。
     static func makeLiveTelemetryModel(
-        sessionDidEnd: @escaping @MainActor (ConnectionSessionEndReason) -> Void = { _ in }
+        sessionDidEnd: @escaping @MainActor (ConnectionSessionEndReason) -> Void = { _ in },
+        odometerDidChange: @escaping @MainActor (Double) -> Void = { _ in }
     ) -> LiveTelemetryModel {
         LiveTelemetryModel(
             readMajorPIDs: ReadMajorOBDPIDsUseCase(
@@ -21,7 +23,8 @@ enum IOSApplicationComposition {
                     demo: DemoOBDPIDTelemetryAdapter()
                 )
             ),
-            sessionDidEnd: sessionDidEnd
+            sessionDidEnd: sessionDidEnd,
+            odometerDidChange: odometerDidChange
         )
     }
 

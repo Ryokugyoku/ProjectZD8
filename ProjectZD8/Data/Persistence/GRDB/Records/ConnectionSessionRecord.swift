@@ -22,6 +22,10 @@ struct ConnectionSessionRecord: Codable, FetchableRecord, PersistableRecord {
     let vehicleName: String?
     /// 接続時点の車両代表識別値です。
     let vehicleDisplayIdentifier: String?
+    /// セッション内で最初に取得した累積走行距離です。
+    let startingOdometerKilometers: Double?
+    /// セッション内で最後に取得した累積走行距離です。
+    let endingOdometerKilometers: Double?
 
     /// DomainセッションをGRDB保存値へ変換します。
     ///
@@ -36,6 +40,8 @@ struct ConnectionSessionRecord: Codable, FetchableRecord, PersistableRecord {
         vehicleID = session.vehicle?.id.rawValue.uuidString.lowercased()
         vehicleName = session.vehicle?.name
         vehicleDisplayIdentifier = session.vehicle?.displayIdentifier
+        startingOdometerKilometers = session.startingOdometerKilometers
+        endingOdometerKilometers = session.endingOdometerKilometers
     }
 
     /// 永続化済み列からDomainセッションを復元します。
@@ -70,6 +76,8 @@ struct ConnectionSessionRecord: Codable, FetchableRecord, PersistableRecord {
         )
         session.endedAt = endedAt
         session.endReason = reason
+        session.startingOdometerKilometers = startingOdometerKilometers
+        session.endingOdometerKilometers = endingOdometerKilometers
         return session
     }
 }
