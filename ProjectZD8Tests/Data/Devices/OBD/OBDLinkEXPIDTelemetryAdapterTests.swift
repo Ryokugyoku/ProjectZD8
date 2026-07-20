@@ -30,6 +30,48 @@ final class OBDLinkEXPIDTelemetryAdapterTests: XCTestCase {
         XCTAssertTrue(didClose)
     }
 
+    /// OBDLinkへ回転数と車速の周期送信を登録して受信します。
+    ///
+    /// 責務: Beta取得が2件の固定STPPMAと有限STMだけを送ることを確認します。
+    func testReadsBRZBetaPIDsUsingPeriodicMessaging() async throws {
+        let transport = PIDTransportFake(responses: [
+            "ELM327 v1.4b\r>", "OK\r>", "OK\r>", "OK\r>", "OK\r>", "OK\r>",
+            "OK\r>", "1\r>", "2\r>", "41 0C 1F 40\r41 0D 32\r>", "OK\r>"
+        ])
+        let adapter = OBDLinkEXPIDTelemetryAdapter(makeTransport: { _ in transport })
+
+        let values = try await adapter.readPeriodic(BRZBetaPIDPolicy.requests, using: endpoint)
+        await adapter.endSession()
+        let commands = await transport.commands
+
+        XCTAssertEqual(values[OBDPIDRequest(service: 0x01, pid: 0x0C)]?.prefix(2), [0x1F, 0x40])
+        XCTAssertEqual(values[OBDPIDRequest(service: 0x01, pid: 0x0D)]?.first, 0x32)
+        XCTAssertEqual(
+            commands,
+            [
+                "ATZ\r", "ATE0\r", "ATL0\r", "ATS1\r", "ATH0\r", "ATSP0\r",
+                "STPPMC\r", "STPPMA 100,7DF,010C\r", "STPPMA 100,7DF,010D\r", "STM 2\r", "STPPMC\r"
+            ]
+        )
+    }
+
+    /// Beta以外の要求集合をシリアル接続前に拒否します。
+    ///
+    /// 責務: 未許可PIDがSTN周期メッセージへ変換されないことを確認します。
+    func testRejectsNonBetaPeriodicRequestsBeforeOpeningTransport() async {
+        let transport = PIDTransportFake(responses: [])
+        let adapter = OBDLinkEXPIDTelemetryAdapter(makeTransport: { _ in transport })
+
+        do {
+            _ = try await adapter.readPeriodic([.init(service: 0x01, pid: 0x05)], using: endpoint)
+            XCTFail("対象外PIDの周期送信は成功してはいけません")
+        } catch {
+            let didOpen = await transport.didOpen
+            XCTAssertEqual(error as? OBDPIDTelemetryError, .periodicMessagingUnavailable)
+            XCTAssertFalse(didOpen)
+        }
+    }
+
     /// Service 01以外をTransport生成前に拒否します。
     ///
     /// 責務: 現在値取得以外のService/PIDが物理送信されないことを確認します。

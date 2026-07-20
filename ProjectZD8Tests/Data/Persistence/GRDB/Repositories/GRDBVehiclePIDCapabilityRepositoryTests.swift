@@ -32,6 +32,26 @@ final class GRDBVehiclePIDCapabilityRepositoryTests: XCTestCase {
         XCTAssertThrowsError(try repository.insertInitial([capability(pid: 0x0D)], for: vehicleID))
     }
 
+    /// アカウント削除対象の車両別PID設定だけを一括削除します。
+    ///
+    /// 責務: 登録車両ID群の収集設定を削除し、別車両の設定を保持することを確認します。
+    func testDeleteCapabilitiesRemovesOnlyRequestedVehicles() throws {
+        let repository = try GRDBVehiclePIDCapabilityRepository(databaseQueue: DatabaseQueue())
+        try repository.insertInitial([capability(pid: 0x0C)], for: vehicleID)
+        let retained = VehiclePIDCapability(
+            vehicleID: otherVehicleID,
+            request: OBDPIDRequest(service: 0x01, pid: 0x0D),
+            isCollectionEnabled: true,
+            discoveredAt: Date(timeIntervalSince1970: 100)
+        )
+        try repository.insertInitial([retained], for: otherVehicleID)
+
+        try repository.deleteCapabilities(for: [vehicleID])
+
+        XCTAssertTrue(try repository.capabilities(for: vehicleID).isEmpty)
+        XCTAssertEqual(try repository.capabilities(for: otherVehicleID), [retained])
+    }
+
     /// 指定PIDの固定対応設定を生成します。
     ///
     /// 責務: 1件のテスト用PIDを全件収集有効の車両設定へ変換します。

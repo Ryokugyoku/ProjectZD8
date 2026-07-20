@@ -4,6 +4,9 @@
     "" : {
 
     },
+    "—" : {
+
+    },
     "%lld" : {
 
     },
@@ -161,6 +164,28 @@
         }
       }
     },
+    "account.delete.item.driving_data" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All connection sessions and undecoded OBD raw logs stored on your devices and in CloudKit"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Todas las sesiones de conexión y los registros OBD sin decodificar guardados en tus dispositivos y en CloudKit"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "各端末およびCloudKitに保存されたすべての接続セッションと未デコードOBD Rawログ"
+          }
+        }
+      }
+    },
     "account.delete.item.shared_settings" : {
       "localizations" : {
         "en" : {
@@ -179,6 +204,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "端末内およびiCloud共有設定に保存した言語と外観"
+          }
+        }
+      }
+    },
+    "account.delete.item.vehicles" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Registered vehicle profiles, photos, and offline vehicle cache"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Perfiles de vehículos registrados, fotos y caché de vehículos sin conexión"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "登録車両プロフィール、写真、およびオフライン車両キャッシュ"
           }
         }
       }
@@ -320,19 +367,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Deleting your account permanently removes app settings and saved sign-in information. This action cannot be undone."
+            "value" : "Deleting your account permanently removes all acquired driving data from your devices and CloudKit, along with app settings and saved sign-in information. This action cannot be undone."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Al eliminar tu cuenta se borrarán permanentemente la configuración de la app y la información de inicio de sesión guardada. Esta acción no se puede deshacer."
+            "value" : "Al eliminar tu cuenta se borrarán permanentemente todos los datos de conducción adquiridos de tus dispositivos y CloudKit, además de la configuración de la app y la información de inicio de sesión. Esta acción no se puede deshacer."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "アカウントを削除すると、アプリ設定と保存済みログイン情報が完全に削除されます。この操作は取り消せません。"
+            "value" : "アカウントを削除すると、各端末とCloudKitに保存されたすべての取得済み運転データ、アプリ設定、ログイン情報が完全に削除されます。この操作は取り消せません。"
           }
         }
       }
@@ -2865,6 +2912,7 @@
       }
     },
     "history.detail.development.badge" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2887,6 +2935,7 @@
       }
     },
     "history.detail.development.body" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2909,6 +2958,7 @@
       }
     },
     "history.detail.development.title" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2931,7 +2981,6 @@
       }
     },
     "history.detail.title" : {
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -3060,6 +3109,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "終了"
+          }
+        }
+      }
+    },
+    "history.error.local_removal" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The raw log could not be removed from this iPhone."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo eliminar el registro sin procesar de este iPhone."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このiPhoneからRawログを削除できませんでした。"
           }
         }
       }
@@ -3325,6 +3396,622 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "車両別アーカイブに戻る"
+          }
+        }
+      }
+    },
+    "history.raw.badge" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "RAW SESSION"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SESIÓN RAW"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "RAW SESSION"
+          }
+        }
+      }
+    },
+    "history.raw.bytes" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Payload"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Carga"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "データ容量"
+          }
+        }
+      }
+    },
+    "history.raw.cloud.failed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Retry needed"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reintento necesario"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "再試行が必要"
+          }
+        }
+      }
+    },
+    "history.raw.cloud.not_uploaded" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not uploaded"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sin subir"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未アップロード"
+          }
+        }
+      }
+    },
+    "history.raw.cloud.pending" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Waiting"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En espera"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "同期待ち"
+          }
+        }
+      }
+    },
+    "history.raw.cloud.uploaded" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Uploaded"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Subido"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保存済み"
+          }
+        }
+      }
+    },
+    "history.raw.local.available" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "On this iPhone"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En este iPhone"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このiPhoneに保存"
+          }
+        }
+      }
+    },
+    "history.raw.local.empty" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No data"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sin datos"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "データなし"
+          }
+        }
+      }
+    },
+    "history.raw.local.removed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Removed"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eliminado"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "端末から除去済み"
+          }
+        }
+      }
+    },
+    "history.raw.mac.pending" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not confirmed"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sin confirmar"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "取込未確認"
+          }
+        }
+      }
+    },
+    "history.raw.mac.receipt" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac import receipt"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recibo de importación del Mac"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac取込受領証"
+          }
+        }
+      }
+    },
+    "history.raw.mac.receipt_missing" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No durable Mac import has been confirmed."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se confirmó una importación persistente en el Mac."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Macへの永続取込はまだ確認できません。"
+          }
+        }
+      }
+    },
+    "history.raw.mac.verified" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Verified"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Verificado"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "取込検証済み"
+          }
+        }
+      }
+    },
+    "history.raw.precision" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Timing"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tiempo"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "応答時間"
+          }
+        }
+      }
+    },
+    "history.raw.records" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Raw records"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Registros raw"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Raw件数"
+          }
+        }
+      }
+    },
+    "history.raw.remove.button" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remove raw log from this iPhone"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eliminar el registro raw de este iPhone"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このiPhoneからRawログを取り除く"
+          }
+        }
+      }
+    },
+    "history.raw.remove.cancel" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cancel"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cancelar"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "キャンセル"
+          }
+        }
+      }
+    },
+    "history.raw.remove.completed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Raw log is no longer stored on this iPhone"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El registro raw ya no está guardado en este iPhone"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このiPhoneにはRawログを保持していません"
+          }
+        }
+      }
+    },
+    "history.raw.remove.confirm" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remove from iPhone"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eliminar del iPhone"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iPhoneから取り除く"
+          }
+        }
+      }
+    },
+    "history.raw.remove.safe.message" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac import is verified. Remove %lld raw records (%@) from this iPhone? Session history remains."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La importación en el Mac está verificada. ¿Eliminar %lld registros raw (%@) de este iPhone? El historial de la sesión se conserva."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Macへの取込を確認済みです。このiPhoneからRawログ%lld件（%@）を取り除きますか？セッション履歴は残ります。"
+          }
+        }
+      }
+    },
+    "history.raw.remove.safe.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remove local raw log?"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Eliminar el registro raw local?"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "端末内Rawログを取り除きますか？"
+          }
+        }
+      }
+    },
+    "history.raw.remove.warning.message" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac import has not been confirmed. Removing %lld raw records (%@) may permanently lose training data."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se confirmó la importación en el Mac. Eliminar %lld registros raw (%@) puede perder permanentemente datos de entrenamiento."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Macへの取込完了を確認できません。Rawログ%lld件（%@）を取り除くと、学習用データを失う可能性があります。"
+          }
+        }
+      }
+    },
+    "history.raw.remove.warning.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not imported by Mac"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No importado por el Mac"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Macへの取込が未確認です"
+          }
+        }
+      }
+    },
+    "history.raw.storage.cloud" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Private CloudKit"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CloudKit privado"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Private CloudKit"
+          }
+        }
+      }
+    },
+    "history.raw.storage.iphone" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iPhone local store"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Almacenamiento local del iPhone"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iPhoneローカル"
+          }
+        }
+      }
+    },
+    "history.raw.storage.mac" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac archive"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Archivo del Mac"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Macアーカイブ"
+          }
+        }
+      }
+    },
+    "history.raw.storage.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Storage journey"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ruta de almacenamiento"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保管フロー"
+          }
+        }
+      }
+    },
+    "history.raw.subtitle" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Original OBD response bytes are preserved before decoding."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se conservan los bytes originales de respuesta OBD antes de decodificarlos."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "デコード前のOBD応答バイトを、そのまま学習元として保持します。"
           }
         }
       }
@@ -3903,6 +4590,336 @@
         }
       }
     },
+    "history.training.badge" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "TRAINING ARCHIVE"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ARCHIVO DE ENTRENAMIENTO"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "TRAINING ARCHIVE"
+          }
+        }
+      }
+    },
+    "history.training.integrity.pending" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pending"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pendiente"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未確認"
+          }
+        }
+      }
+    },
+    "history.training.integrity.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Integrity"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Integridad"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "整合性"
+          }
+        }
+      }
+    },
+    "history.training.integrity.verified" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Verified"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Verificada"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "検証済み"
+          }
+        }
+      }
+    },
+    "history.training.lineage.body" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Decoded values and future features remain derived data. Original bytes stay unchanged."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Los valores decodificados y las funciones futuras son datos derivados. Los bytes originales no cambian."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "デコード値と将来の特徴量は派生データです。元のRawバイトは変更しません。"
+          }
+        }
+      }
+    },
+    "history.training.lineage.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Immutable source lineage"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Linaje de origen inmutable"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "不変のソース来歴"
+          }
+        }
+      }
+    },
+    "history.training.pending" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Needs attention"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Requiere atención"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "準備未完了"
+          }
+        }
+      }
+    },
+    "history.training.pending.body" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A vehicle link, local raw payload, and matching import receipt are required before training use."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se requiere vehículo, carga raw local y recibo de importación coincidente antes del entrenamiento."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "車両関連付け、Mac内Rawログ、一致する取込受領証が揃うと学習対象にできます。"
+          }
+        }
+      }
+    },
+    "history.training.raw.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Raw records"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Registros raw"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未デコードRaw"
+          }
+        }
+      }
+    },
+    "history.training.ready" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Training ready"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Listo para entrenamiento"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "学習準備完了"
+          }
+        }
+      }
+    },
+    "history.training.ready.body" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This session is durably stored and can be selected by vehicle for future dataset generation."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esta sesión está guardada de forma persistente y puede seleccionarse por vehículo para futuros conjuntos de datos."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このセッションはMacへ永続保存済みです。車両単位で将来の学習データ生成対象にできます。"
+          }
+        }
+      }
+    },
+    "history.training.scope" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "EXTRACTION KEY"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CLAVE DE EXTRACCIÓN"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "抽出キー"
+          }
+        }
+      }
+    },
+    "history.training.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vehicle-scoped learning data"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Datos de aprendizaje por vehículo"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "車両単位の学習データ"
+          }
+        }
+      }
+    },
+    "history.training.vehicle.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vehicle scope"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ámbito del vehículo"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "車両スコープ"
+          }
+        }
+      }
+    },
+    "history.training.vehicle.unassigned" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "UNASSIGNED"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SIN ASIGNAR"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未割当て"
+          }
+        }
+      }
+    },
     "history.vehicle.pending" : {
       "localizations" : {
         "en" : {
@@ -4208,6 +5225,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "接続前に設定が必要です"
+          }
+        }
+      }
+    },
+    "home.connection.brz_beta" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "BRZ stream connection (Beta)"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conexión de flujo BRZ (Beta)"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "BRZストリーム接続（Beta）"
           }
         }
       }
@@ -12138,6 +13177,94 @@
         }
       }
     },
+    "telemetry.brz_beta.warning.accept" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Accept Risk and Start Beta"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aceptar el riesgo e iniciar Beta"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "リスクを承知してBetaを開始"
+          }
+        }
+      }
+    },
+    "telemetry.brz_beta.warning.message" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This experimental mode makes OBDLink send engine-speed and vehicle-speed requests every 100 ms. It has not been verified on a real BRZ and may increase diagnostic traffic, disrupt communication, or adversely affect the vehicle. Stop immediately if the vehicle or adapter behaves unexpectedly. Do you want to proceed at your own risk?"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este modo experimental hace que OBDLink envíe solicitudes de régimen y velocidad cada 100 ms. No se ha verificado en un BRZ real y puede aumentar el tráfico de diagnóstico, interrumpir la comunicación o afectar negativamente al vehículo. Deténgalo inmediatamente si el vehículo o el adaptador se comportan de forma inesperada. ¿Desea continuar bajo su responsabilidad?"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この実験的モードでは、OBDLinkがエンジン回転数と車速を100ミリ秒ごとに要求します。実車のBRZでは未検証であり、診断通信量の増加、通信障害、車両への悪影響が生じる可能性があります。車両やアダプターに異常が見られた場合は直ちに停止してください。リスクを承知のうえで実行しますか？"
+          }
+        }
+      }
+    },
+    "telemetry.brz_beta.warning.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Experimental BRZ Stream (Beta)"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Flujo experimental BRZ (Beta)"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "実験的なBRZストリーム（Beta）"
+          }
+        }
+      }
+    },
+    "telemetry.brz_beta.warning.use_standard" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use Standard Mode"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Usar modo estándar"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "通常モードを使用"
+          }
+        }
+      }
+    },
     "telemetry.category.diagnostics" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -12563,6 +13690,28 @@
         }
       }
     },
+    "telemetry.status.brz_beta_periodic" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "BRZ periodic connection (Beta): engine speed and vehicle speed"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conexión periódica BRZ (Beta): régimen del motor y velocidad"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "BRZ周期接続（Beta）：エンジン回転数・車速"
+          }
+        }
+      }
+    },
     "telemetry.status.reading" : {
       "localizations" : {
         "en" : {
@@ -12694,6 +13843,9 @@
           }
         }
       }
+    },
+    "VEHICLE / SESSION / SEQUENCE" : {
+
     },
     "ZD8" : {
 

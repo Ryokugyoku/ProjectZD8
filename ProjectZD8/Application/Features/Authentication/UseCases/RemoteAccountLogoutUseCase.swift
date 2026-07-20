@@ -27,7 +27,7 @@ struct RemoteAccountLogoutUseCase {
     /// - Parameter userIdentifier: Appleがこのアプリへ割り当てたユーザー識別子。
     /// - Throws: ログイン識別子を安全な保存領域から削除できない場合は `AuthenticationSessionStoreError`。
     func execute(userIdentifier: String) throws {
-        dataEraser.eraseAllData(for: userIdentifier)
+        try dataEraser.eraseAllData(for: userIdentifier)
         try sessionStore.removeUserIdentifier()
     }
 }

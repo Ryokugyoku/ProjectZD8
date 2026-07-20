@@ -8,8 +8,16 @@ final class ConnectionHistoryModel {
     var state: ConnectionHistoryState
     /// セッションの永続化照会境界です。
     @ObservationIgnored private let repository: any ConnectionSessionRepository
+    /// セッション単位のCloudKit同期ユースケースです。
+    @ObservationIgnored private let synchronizeSessions: SynchronizeConnectionSessionsUseCase?
+    /// iPhoneローカルRawログ除去ユースケースです。
+    @ObservationIgnored private let removeIPhoneRawLog: RemoveIPhoneSessionRawLogUseCase?
     /// 現在のAppleアカウント識別子です。
     @ObservationIgnored private var accountIdentifier: String?
+    /// 古いアカウント同期完了を現在状態へ反映しないための世代です。
+    @ObservationIgnored private var syncGeneration: UInt = 0
+    /// 現在進行中のCloudKit同期タスクです。
+    @ObservationIgnored private var syncTask: Task<Void, Never>?
 
     /// 初期状態とセッション照会先を固定して生成します。
     ///
@@ -17,20 +25,38 @@ final class ConnectionHistoryModel {
     /// - Parameters:
     ///   - state: Platformへ公開する初期状態。
     ///   - repository: アカウント単位のセッション取得先。
+    ///   - synchronizeSessions: セッション単位のCloudKit同期ユースケース。
+    ///   - removeIPhoneRawLog: iPhoneローカルRawログ除去ユースケース。
     init(
         state: ConnectionHistoryState,
-        repository: any ConnectionSessionRepository
+        repository: any ConnectionSessionRepository,
+        synchronizeSessions: SynchronizeConnectionSessionsUseCase? = nil,
+        removeIPhoneRawLog: RemoveIPhoneSessionRawLogUseCase? = nil
     ) {
         self.state = state
         self.repository = repository
+        self.synchronizeSessions = synchronizeSessions
+        self.removeIPhoneRawLog = removeIPhoneRawLog
     }
 
     /// 空の履歴状態と指定セッション照会先を使って生成します。
     ///
     /// 責務: 1件のセッション照会境界を標準的な接続履歴モデルへ変換します。
-    /// - Parameter repository: アカウント単位のセッション取得先。
-    convenience init(repository: any ConnectionSessionRepository) {
-        self.init(state: ConnectionHistoryState(), repository: repository)
+    /// - Parameters:
+    ///   - repository: アカウント単位のセッション取得先。
+    ///   - synchronizeSessions: セッション単位のCloudKit同期ユースケース。
+    ///   - removeIPhoneRawLog: iPhoneローカルRawログ除去ユースケース。
+    convenience init(
+        repository: any ConnectionSessionRepository,
+        synchronizeSessions: SynchronizeConnectionSessionsUseCase? = nil,
+        removeIPhoneRawLog: RemoveIPhoneSessionRawLogUseCase? = nil
+    ) {
+        self.init(
+            state: ConnectionHistoryState(),
+            repository: repository,
+            synchronizeSessions: synchronizeSessions,
+            removeIPhoneRawLog: removeIPhoneRawLog
+        )
     }
 
     /// 型付き操作を履歴照会へ変換します。
@@ -40,12 +66,15 @@ final class ConnectionHistoryModel {
     func send(_ action: ConnectionHistoryAction) {
         switch action {
         case let .accountIdentifierChanged(identifier): activateAccount(identifier)
-        case .refreshRequested: loadSessions()
+        case .refreshRequested: refreshSessions()
         case let .filterStartDateChanged(date): state.filterStartDate = date
         case let .filterEndDateChanged(date): state.filterEndDate = date
         case let .endReasonFilterChanged(filter): state.endReasonFilter = filter
         case let .sortOrderChanged(order): state.sortOrder = order
         case .filtersReset: resetFilters()
+        case let .localRawRemovalRequested(sessionID): prepareRawRemoval(sessionID: sessionID)
+        case .localRawRemovalConfirmed: confirmRawRemoval()
+        case .localRawRemovalCancelled: state.rawRemovalPrompt = nil
         }
     }
 
@@ -65,9 +94,70 @@ final class ConnectionHistoryModel {
     private func activateAccount(_ identifier: String?) {
         guard identifier != accountIdentifier else { return }
         accountIdentifier = identifier
+        syncTask?.cancel()
+        syncTask = nil
+        syncGeneration &+= 1
         state = ConnectionHistoryState()
         guard identifier?.isEmpty == false else { return }
+        refreshSessions()
+    }
+
+    /// ローカル履歴を即時反映してからCloudKit同期を開始します。
+    ///
+    /// 責務: 現在アカウントの更新要求をローカル表示と最新世代の端末間同期へ変換します。
+    private func refreshSessions() {
         loadSessions()
+        guard let accountIdentifier, let synchronizeSessions else { return }
+        syncTask?.cancel()
+        syncGeneration &+= 1
+        let generation = syncGeneration
+        state.syncPhase = .syncing
+        syncTask = Task { [weak self] in
+            do {
+                try await synchronizeSessions.execute(accountIdentifier: accountIdentifier)
+                guard let self, self.syncGeneration == generation, self.accountIdentifier == accountIdentifier else { return }
+                self.loadSessions()
+                self.state.syncPhase = .synchronized
+            } catch is CancellationError {
+                return
+            } catch {
+                guard let self, self.syncGeneration == generation, self.accountIdentifier == accountIdentifier else { return }
+                self.state.syncPhase = .failed
+            }
+        }
+    }
+
+    /// 指定セッションのローカルRawログ除去確認を準備します。
+    ///
+    /// 責務: 1件のセッションIDをMac取込証跡付きのiPhone除去確認状態へ変換します。
+    /// - Parameter sessionID: 除去候補の接続セッションID。
+    private func prepareRawRemoval(sessionID: ConnectionSessionID) {
+        guard let removeIPhoneRawLog,
+              let session = state.sessions.first(where: { $0.id == sessionID }) else { return }
+        let decision = removeIPhoneRawLog.decision(for: session)
+        guard decision != .unavailable else { return }
+        state.rawRemovalPrompt = ConnectionSessionRawRemovalPrompt(
+            sessionID: sessionID,
+            decision: decision,
+            recordCount: session.rawLogSummary.recordCount,
+            byteCount: session.rawLogSummary.byteCount
+        )
+    }
+
+    /// ユーザー確認済みのRawログをiPhoneから除去します。
+    ///
+    /// 責務: 現在の除去確認状態をローカルRawログ削除と履歴再読込へ変換します。
+    private func confirmRawRemoval() {
+        guard let prompt = state.rawRemovalPrompt,
+              let session = state.sessions.first(where: { $0.id == prompt.sessionID }),
+              let removeIPhoneRawLog else { return }
+        do {
+            try removeIPhoneRawLog.execute(session: session)
+            state.rawRemovalPrompt = nil
+            loadSessions()
+        } catch {
+            state.failureKey = "history.error.local_removal"
+        }
     }
 
     /// 現在アカウントの接続履歴を保存先から読み込みます。

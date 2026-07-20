@@ -4,7 +4,7 @@ import Foundation
 
 /// CloudKit private databaseと端末内キャッシュで車両カタログを保持します。
 @MainActor
-final class CloudKitVehicleRepository: VehicleRepository {
+final class CloudKitVehicleRepository: VehicleRepository, AccountVehicleDataErasurePort {
     /// 車両カタログを保存するCloudKitレコード種別です。
     private static let recordType = "VehicleCatalog"
     /// カタログAssetを保持するCloudKitフィールド名です。
@@ -85,6 +85,36 @@ final class CloudKitVehicleRepository: VehicleRepository {
         var vehicles = try await loadVehicles(for: accountIdentifier)
         vehicles.removeAll { $0.id == id }
         try await persist(vehicles, for: accountIdentifier)
+    }
+
+    /// 指定アカウントのCloudKit車両カタログを削除します。
+    ///
+    /// 責務: 1件のアカウントに属する車両プロフィールと写真をCloudKitから削除します。
+    /// - Parameter accountIdentifier: 削除対象のAppleアカウント識別子。
+    /// - Throws: CloudKitレコード削除に失敗した場合のエラー。
+    func deleteAllVehicleData(for accountIdentifier: String) async throws {
+        do {
+            _ = try await privateDatabase.deleteRecord(withID: recordID(for: accountIdentifier))
+        } catch let error as CKError where error.code == .unknownItem {
+            // 既に削除済みなら目的状態を満たします。
+        }
+    }
+
+    /// 指定アカウントの端末キャッシュから登録車両IDを復元します。
+    ///
+    /// 責務: 1件のオフライン車両カタログを車両別PID設定削除に使用するID群へ変換します。
+    /// - Parameter accountIdentifier: 照会対象のAppleアカウント識別子。
+    /// - Returns: キャッシュから復元できた登録車両ID群。
+    func localVehicleIDs(for accountIdentifier: String) -> [VehicleID] {
+        cachedVehicles(for: accountIdentifier).map(\.id)
+    }
+
+    /// 指定アカウントの端末内車両カタログキャッシュを削除します。
+    ///
+    /// 責務: 1件のアカウントに属するオフライン車両プロフィールと写真を現在端末から除去します。
+    /// - Parameter accountIdentifier: 削除対象のAppleアカウント識別子。
+    func removeLocalVehicleCache(for accountIdentifier: String) {
+        defaults.removeObject(forKey: cacheKey(for: accountIdentifier))
     }
 
     /// 車両カタログ全体をAssetとしてCloudKitへ保存します。

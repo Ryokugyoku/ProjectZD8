@@ -16,4 +16,10 @@ enum ConnectionHistoryAction: Equatable {
     case sortOrderChanged(ConnectionHistorySortOrder)
     /// セッション一覧の絞り込み条件を初期化します。
     case filtersReset
+    /// 指定セッションをこのiPhoneから取り除く前の確認を要求します。
+    case localRawRemovalRequested(ConnectionSessionID)
+    /// 表示中の確認内容を承知してローカルRawログ除去を確定します。
+    case localRawRemovalConfirmed
+    /// ローカルRawログ除去の確認を取り消します。
+    case localRawRemovalCancelled
 }

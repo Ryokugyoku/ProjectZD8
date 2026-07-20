@@ -108,7 +108,12 @@ struct MacOSLiveTelemetryView: View {
                 }
 
                 if state.phase == .loaded {
-                    Label("telemetry.status.streaming", systemImage: "waveform.path.ecg")
+                    Label(
+                        state.acquisitionMode == .brzBetaPeriodic
+                            ? "telemetry.status.brz_beta_periodic"
+                            : "telemetry.status.streaming",
+                        systemImage: "waveform.path.ecg"
+                    )
                         .foregroundStyle(.green)
                 } else if state.phase == .failed {
                     Button("telemetry.retry") { send(.retryRequested) }
@@ -123,11 +128,32 @@ struct MacOSLiveTelemetryView: View {
             .frame(maxWidth: .infinity, alignment: .topLeading)
         }
         .accessibilityIdentifier("macos-live-telemetry")
+        .alert(
+            "telemetry.brz_beta.warning.title",
+            isPresented: betaConsentIsPresented
+        ) {
+            Button("telemetry.brz_beta.warning.use_standard", role: .cancel) {
+                send(.brzBetaDeclined)
+            }
+            Button("telemetry.brz_beta.warning.accept", role: .destructive) {
+                send(.brzBetaAccepted)
+            }
+        } message: {
+            Text("telemetry.brz_beta.warning.message")
+        }
         .onChange(of: availableCategories) { _, categories in
             if !categories.contains(selectedCategory), let first = categories.first {
                 selectedCategory = first
             }
         }
+    }
+
+    /// BRZ Betaの危険性確認を表示するBindingです。
+    private var betaConsentIsPresented: Binding<Bool> {
+        Binding(
+            get: { state.phase == .awaitingBRZBetaConsent },
+            set: { _ in }
+        )
     }
 
     /// 応答済みサンプルを持つ分類を表示順で返します。

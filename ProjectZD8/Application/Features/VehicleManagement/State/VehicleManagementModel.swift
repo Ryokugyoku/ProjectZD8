@@ -17,8 +17,12 @@ final class VehicleManagementModel {
     @ObservationIgnored private let pidCapabilityRepository: (any VehiclePIDCapabilityRepository)?
     /// PID名称を解決するカタログ境界です。
     @ObservationIgnored private let pidDefinitionRepository: (any OBDPIDDefinitionRepository)?
-    /// 接続対象車両の確定をLoggingへ通知する処理です。
-    @ObservationIgnored private let connectionVehicleDidResolve: @MainActor (VehicleProfile, OBDConnectionEndpoint) -> Void
+    /// 接続対象車両、終端、編集前のOBD識別観測をLoggingと監視開始へ通知する処理です。
+    @ObservationIgnored private let connectionVehicleDidResolve: @MainActor (
+        VehicleProfile,
+        OBDConnectionEndpoint,
+        VehicleIdentificationSnapshot
+    ) -> Void
     /// 現在の車両を所有するAppleアカウント識別子です。
     @ObservationIgnored private var accountIdentifier: String?
 
@@ -32,7 +36,7 @@ final class VehicleManagementModel {
     ///   - photoImporter: 選択画像をプロフィールデータへ変換する境界。
     ///   - pidCapabilityRepository: 車両別対応PID設定の保存先。
     ///   - pidDefinitionRepository: PID名称を解決するカタログ境界。
-    ///   - connectionVehicleDidResolve: 接続対象車両と終端の確定をLoggingおよび監視開始へ通知する処理。
+    ///   - connectionVehicleDidResolve: 接続対象車両、終端、編集前のOBD識別観測を通知する処理。
     init(
         state: VehicleManagementState,
         repository: any VehicleRepository,
@@ -40,7 +44,11 @@ final class VehicleManagementModel {
         photoImporter: any VehiclePhotoImportPort,
         pidCapabilityRepository: (any VehiclePIDCapabilityRepository)? = nil,
         pidDefinitionRepository: (any OBDPIDDefinitionRepository)? = nil,
-        connectionVehicleDidResolve: @escaping @MainActor (VehicleProfile, OBDConnectionEndpoint) -> Void = { _, _ in }
+        connectionVehicleDidResolve: @escaping @MainActor (
+            VehicleProfile,
+            OBDConnectionEndpoint,
+            VehicleIdentificationSnapshot
+        ) -> Void = { _, _, _ in }
     ) {
         self.state = state
         self.repository = repository
@@ -160,10 +168,10 @@ final class VehicleManagementModel {
         state.identificationFailureStage = nil
         do {
             switch try await identifyForConnection.execute(endpoint: endpoint, vehicles: state.vehicles) {
-            case let .registered(vehicle):
+            case let .registered(vehicle, snapshot):
                 state.connectionVehicle = vehicle
                 state.phase = .readyToConnect
-                connectionVehicleDidResolve(vehicle, endpoint)
+                connectionVehicleDidResolve(vehicle, endpoint, snapshot)
             case let .requiresRegistration(snapshot):
                 state.pendingIdentification = snapshot
                 state.phase = .confirmingIdentification
@@ -287,7 +295,7 @@ final class VehicleManagementModel {
     /// - Parameter vehicle: 保存する編集済みプロフィール。
     private func save(_ vehicle: VehicleProfile) async {
         guard let accountIdentifier else { return }
-        let isConnectionRegistration = state.phase == .registering && state.pendingIdentification != nil
+        let connectionIdentification = state.phase == .registering ? state.pendingIdentification : nil
         var saved = vehicle
         saved.updatedAt = Date()
         if saved.isDefault {
@@ -306,9 +314,11 @@ final class VehicleManagementModel {
             state.vehicles.sort { $0.updatedAt > $1.updatedAt }
             state.editingVehicle = nil
             state.pendingIdentification = nil
-            if isConnectionRegistration {
+            if let connectionIdentification {
                 state.connectionVehicle = saved
-                if let endpoint = state.connectionEndpoint { connectionVehicleDidResolve(saved, endpoint) }
+                if let endpoint = state.connectionEndpoint {
+                    connectionVehicleDidResolve(saved, endpoint, connectionIdentification)
+                }
             }
             state.phase = .idle
             state.failureKey = nil

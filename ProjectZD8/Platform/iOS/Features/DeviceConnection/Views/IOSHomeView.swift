@@ -30,6 +30,24 @@ struct IOSHomeView: View {
         .scrollIndicators(.hidden)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("ios-home-screen")
+        .alert(
+            "telemetry.brz_beta.warning.title",
+            isPresented: betaConsentIsPresented
+        ) {
+            Button("telemetry.brz_beta.warning.use_standard", role: .cancel) {
+                send(.brzBetaDeclined)
+            }
+            Button("telemetry.brz_beta.warning.accept", role: .destructive) {
+                send(.brzBetaAccepted)
+            }
+        } message: {
+            Text("telemetry.brz_beta.warning.message")
+        }
+    }
+
+    /// BRZ Betaの危険性確認を表示するBindingです。
+    private var betaConsentIsPresented: Binding<Bool> {
+        Binding(get: { state.requiresBRZBetaConsent }, set: { _ in })
     }
 
     /// 画面幅と文字サイズに応じた左右余白です。
@@ -162,6 +180,11 @@ struct IOSHomeView: View {
     private var primaryAction: some View {
         VStack(alignment: .leading, spacing: 9) {
             if state.isConnectionActive {
+                if state.isBRZBetaActive {
+                    Label("home.connection.brz_beta", systemImage: "bolt.horizontal.circle.fill")
+                        .font(.footnote.weight(.bold))
+                        .foregroundStyle(.orange)
+                }
                 Button("home.action.disconnect", role: .destructive) {
                     send(.vehicleDisconnectionRequested)
                 }

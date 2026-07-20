@@ -28,6 +28,8 @@ struct ConnectionSession: Identifiable, Equatable, Codable, Sendable {
     var startingOdometerKilometers: Double?
     /// セッション内で最後に取得できた累積走行距離です。
     var endingOdometerKilometers: Double?
+    /// 未デコードRawログの件数と端末間保管状態です。
+    var rawLogSummary: ConnectionSessionRawLogSummary
 
     /// 終了情報から履歴表示用の現在状態を返します。
     var status: Status {
@@ -67,5 +69,6 @@ struct ConnectionSession: Identifiable, Equatable, Codable, Sendable {
         self.vehicle = vehicle
         startingOdometerKilometers = nil
         endingOdometerKilometers = nil
+        rawLogSummary = .empty
     }
 }

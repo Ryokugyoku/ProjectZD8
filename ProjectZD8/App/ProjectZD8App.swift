@@ -40,21 +40,40 @@ struct ProjectZD8App: App {
     init() {
         #if os(iOS)
         let connectionSessionRepository = IOSApplicationComposition.makeConnectionSessionRepository()
-        let connectionHistoryModel = ConnectionHistoryModel(repository: connectionSessionRepository)
+        let connectionHistoryModel = ConnectionHistoryModel(
+            repository: connectionSessionRepository,
+            synchronizeSessions: IOSApplicationComposition.makeConnectionSessionSynchronization(
+                storage: connectionSessionRepository
+            ),
+            removeIPhoneRawLog: RemoveIPhoneSessionRawLogUseCase(
+                repository: connectionSessionRepository
+            )
+        )
         let connectionSessionLifecycleModel = ConnectionSessionLifecycleModel(
             repository: connectionSessionRepository,
+            rawLogRepository: connectionSessionRepository,
             historyDidChange: { connectionHistoryModel.send(.refreshRequested) }
         )
         let liveTelemetryModel = IOSApplicationComposition.makeLiveTelemetryModel(
             sessionDidEnd: { connectionSessionLifecycleModel.send(.endRequested($0)) },
-            odometerDidChange: { connectionSessionLifecycleModel.send(.odometerObserved(kilometers: $0)) }
+            odometerDidChange: { connectionSessionLifecycleModel.send(.odometerObserved(kilometers: $0)) },
+            rawResponseDidReceive: { observation in
+                try await MainActor.run {
+                    try connectionSessionLifecycleModel.recordRawResponse(observation)
+                }
+            }
         )
-        let vehicleManagementModel = IOSApplicationComposition.makeVehicleManagementModel { vehicle, endpoint in
+        let vehicleManagementModel = IOSApplicationComposition.makeVehicleManagementModel { vehicle, endpoint, identification in
             connectionSessionLifecycleModel.send(.vehicleResolved(vehicle))
-            liveTelemetryModel.send(.startRequested(endpoint, vehicle.id))
+            let mode: LiveTelemetryAcquisitionMode = CurrentGenerationBRZVINPolicy().matches(identification.vin)
+                ? .brzBetaPeriodic
+                : .standardPolling
+            liveTelemetryModel.send(.startRequested(endpoint, vehicle.id, mode))
         }
         _authenticationModel = State(
-            initialValue: IOSApplicationComposition.makeAuthenticationSessionModel()
+            initialValue: IOSApplicationComposition.makeAuthenticationSessionModel(
+                connectionSessionStorage: connectionSessionRepository
+            )
         )
         _accountSettingsModel = State(
             initialValue: IOSApplicationComposition.makeAccountSettingsModel()
@@ -78,21 +97,37 @@ struct ProjectZD8App: App {
 
         #if os(macOS)
         let connectionSessionRepository = MacOSApplicationComposition.makeConnectionSessionRepository()
-        let connectionHistoryModel = ConnectionHistoryModel(repository: connectionSessionRepository)
+        let connectionHistoryModel = ConnectionHistoryModel(
+            repository: connectionSessionRepository,
+            synchronizeSessions: MacOSApplicationComposition.makeConnectionSessionSynchronization(
+                storage: connectionSessionRepository
+            )
+        )
         let connectionSessionLifecycleModel = ConnectionSessionLifecycleModel(
             repository: connectionSessionRepository,
+            rawLogRepository: connectionSessionRepository,
             historyDidChange: { connectionHistoryModel.send(.refreshRequested) }
         )
         let liveTelemetryModel = MacOSApplicationComposition.makeLiveTelemetryModel(
             sessionDidEnd: { connectionSessionLifecycleModel.send(.endRequested($0)) },
-            odometerDidChange: { connectionSessionLifecycleModel.send(.odometerObserved(kilometers: $0)) }
+            odometerDidChange: { connectionSessionLifecycleModel.send(.odometerObserved(kilometers: $0)) },
+            rawResponseDidReceive: { observation in
+                try await MainActor.run {
+                    try connectionSessionLifecycleModel.recordRawResponse(observation)
+                }
+            }
         )
-        let vehicleManagementModel = MacOSApplicationComposition.makeVehicleManagementModel { vehicle, endpoint in
+        let vehicleManagementModel = MacOSApplicationComposition.makeVehicleManagementModel { vehicle, endpoint, identification in
             connectionSessionLifecycleModel.send(.vehicleResolved(vehicle))
-            liveTelemetryModel.send(.startRequested(endpoint, vehicle.id))
+            let mode: LiveTelemetryAcquisitionMode = CurrentGenerationBRZVINPolicy().matches(identification.vin)
+                ? .brzBetaPeriodic
+                : .standardPolling
+            liveTelemetryModel.send(.startRequested(endpoint, vehicle.id, mode))
         }
         _authenticationModel = State(
-            initialValue: MacOSApplicationComposition.makeAuthenticationSessionModel()
+            initialValue: MacOSApplicationComposition.makeAuthenticationSessionModel(
+                connectionSessionStorage: connectionSessionRepository
+            )
         )
         _accountSettingsModel = State(
             initialValue: MacOSApplicationComposition.makeAccountSettingsModel()
@@ -197,12 +232,11 @@ struct ProjectZD8App: App {
     /// - Parameter phase: Authenticationが確定した新しい認証段階。
     private func handleAuthenticationPhaseChange(_ phase: AuthenticationPhase) {
         guard phase == .signedOut else { return }
-        connectionSessionLifecycleModel.send(.endRequested(.accountSignedOut))
+        liveTelemetryModel.send(.stopRequested)
         connectionSessionLifecycleModel.send(.accountIdentifierChanged(nil))
         connectionHistoryModel.send(.accountIdentifierChanged(nil))
         accountSettingsModel.send(.accountIdentifierChanged(nil))
         vehicleManagementModel.send(.accountIdentifierChanged(nil))
-        liveTelemetryModel.send(.stopRequested)
         #if os(iOS)
         iOSSettingsModel = IOSApplicationComposition.makeSettingsPresentationModel()
         #elseif os(macOS)

@@ -2,7 +2,7 @@ import Foundation
 import GRDB
 
 /// 車両別対応PIDと収集選択をGRDBへ保存します。
-final class GRDBVehiclePIDCapabilityRepository: VehiclePIDCapabilityRepository, @unchecked Sendable {
+final class GRDBVehiclePIDCapabilityRepository: VehiclePIDCapabilityRepository, AccountVehiclePIDCapabilityErasureRepository, @unchecked Sendable {
     /// SQLiteの直列化された読書き境界です。
     private let databaseQueue: DatabaseQueue
 
@@ -91,6 +91,21 @@ final class GRDBVehiclePIDCapabilityRepository: VehiclePIDCapabilityRepository, 
                 arguments: [isEnabled, vehicleID.rawValue.uuidString.lowercased(), Int(request.service), Int(request.pid)]
             )
             guard database.changesCount == 1 else { throw DatabaseError(message: "Vehicle PID capability was not found") }
+        }
+    }
+
+    /// 指定車両群のPID対応情報と収集選択を削除します。
+    ///
+    /// 責務: 登録車両ID群を車両別PID設定の原子的な一括削除へ変換します。
+    /// - Parameter vehicleIDs: 削除対象アカウントに登録されていた車両ID群。
+    /// - Throws: SQLite削除を完了できない場合のGRDBエラー。
+    func deleteCapabilities(for vehicleIDs: [VehicleID]) throws {
+        guard !vehicleIDs.isEmpty else { return }
+        let identifiers = vehicleIDs.map { $0.rawValue.uuidString.lowercased() }
+        try databaseQueue.write { database in
+            try VehiclePIDCapabilityRecord
+                .filter(identifiers.contains(Column("vehicleID")))
+                .deleteAll(database)
         }
     }
 }

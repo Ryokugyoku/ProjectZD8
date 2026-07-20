@@ -95,5 +95,37 @@ final class MacOSHomeStateTests: XCTestCase {
         XCTAssertTrue(state.isConnectionActive)
         XCTAssertTrue(state.isDisconnecting)
     }
+
+    /// BRZ Beta取得中をHOME表示状態へ公開します。
+    ///
+    /// 責務: 周期取得方式がmacOS HOMEのBeta表示フラグへ変換されることを確認します。
+    func testBRZPeriodicModePresentsBetaConnection() {
+        var telemetryState = LiveTelemetryState()
+        telemetryState.phase = .loaded
+        telemetryState.acquisitionMode = .brzBetaPeriodic
+
+        let state = MacOSHomeState(
+            settingsState: MacOSSettingsState(),
+            liveTelemetryState: telemetryState
+        )
+
+        XCTAssertTrue(state.isBRZBetaActive)
+    }
+
+    /// BRZ Betaの明示同意待ちをHOMEへ公開します。
+    ///
+    /// 責務: Applicationの判断待ち段階がmacOS HOMEの警告表示条件へ変換されることを確認します。
+    func testBRZConsentPhasePresentsRiskDecision() {
+        var telemetryState = LiveTelemetryState()
+        telemetryState.phase = .awaitingBRZBetaConsent
+
+        let state = MacOSHomeState(
+            settingsState: MacOSSettingsState(),
+            liveTelemetryState: telemetryState
+        )
+
+        XCTAssertTrue(state.requiresBRZBetaConsent)
+        XCTAssertFalse(state.isBRZBetaActive)
+    }
 }
 #endif

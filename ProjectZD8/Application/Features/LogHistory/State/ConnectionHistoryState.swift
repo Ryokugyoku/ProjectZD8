@@ -1,5 +1,49 @@
 import Foundation
 
+/// 接続履歴の端末間同期表示段階です。
+enum ConnectionHistorySyncPhase: Equatable, Sendable {
+    /// 同期要求前または変更なしです。
+    case idle
+    /// CloudKitへ送受信しています。
+    case syncing
+    /// 直近のCloudKit同期を完了しました。
+    case synchronized
+    /// 直近のCloudKit同期が失敗し再試行を待っています。
+    case failed
+}
+
+/// iPhoneローカルRawログ除去前に表示する確認内容です。
+struct ConnectionSessionRawRemovalPrompt: Equatable, Sendable {
+    /// 除去候補の接続セッションIDです。
+    let sessionID: ConnectionSessionID
+    /// Mac取込証跡に基づく除去判断です。
+    let decision: ConnectionSessionLocalRemovalDecision
+    /// 除去対象のRaw応答件数です。
+    let recordCount: Int64
+    /// 除去対象のRaw Payload合計バイト数です。
+    let byteCount: Int64
+
+    /// セッションと安全判断を確認表示値として生成します。
+    ///
+    /// 責務: 1件のローカル除去候補を警告に必要な件数と容量へまとめます。
+    /// - Parameters:
+    ///   - sessionID: 除去候補の接続セッションID。
+    ///   - decision: Mac取込証跡に基づく除去判断。
+    ///   - recordCount: 除去対象のRaw応答件数。
+    ///   - byteCount: 除去対象のRaw Payload合計バイト数。
+    init(
+        sessionID: ConnectionSessionID,
+        decision: ConnectionSessionLocalRemovalDecision,
+        recordCount: Int64,
+        byteCount: Int64
+    ) {
+        self.sessionID = sessionID
+        self.decision = decision
+        self.recordCount = recordCount
+        self.byteCount = byteCount
+    }
+}
+
 /// 終了済みセッション一覧へ適用する終了理由条件です。
 enum ConnectionHistoryEndReasonFilter: String, CaseIterable, Equatable, Sendable {
     /// すべての終了理由を表示します。
@@ -111,6 +155,10 @@ struct ConnectionHistoryState: Equatable {
     var endReasonFilter: ConnectionHistoryEndReasonFilter = .all
     /// 選択中の並び順です。
     var sortOrder: ConnectionHistorySortOrder = .newest
+    /// CloudKitセッション同期の現在段階です。
+    var syncPhase: ConnectionHistorySyncPhase = .idle
+    /// iPhoneローカルRawログ除去前の確認内容です。
+    var rawRemovalPrompt: ConnectionSessionRawRemovalPrompt?
 
     /// 現在接続中のセッションです。
     var activeSessions: [ConnectionSession] { sessions.filter { $0.status == .connected } }

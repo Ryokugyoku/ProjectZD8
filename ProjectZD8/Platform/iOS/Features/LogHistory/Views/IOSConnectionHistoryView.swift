@@ -35,12 +35,49 @@ struct IOSConnectionHistoryView: View {
             }
             .navigationDestination(for: ConnectionSessionID.self) { id in
                 if let session = state.sessions.first(where: { $0.id == id }) {
-                    IOSDrivingLogDevelopmentView(session: session)
+                    IOSConnectionSessionDetailView(session: session, send: send)
                 }
             }
             .refreshable { send(.refreshRequested) }
             .accessibilityIdentifier("ios-connection-history")
         }
+        .alert(
+            removalAlertTitle,
+            isPresented: Binding(
+                get: { state.rawRemovalPrompt != nil },
+                set: { if !$0 { send(.localRawRemovalCancelled) } }
+            ),
+            presenting: state.rawRemovalPrompt
+        ) { _ in
+            Button("history.raw.remove.cancel", role: .cancel) {
+                send(.localRawRemovalCancelled)
+            }
+            Button("history.raw.remove.confirm", role: .destructive) {
+                send(.localRawRemovalConfirmed)
+            }
+        } message: { prompt in
+            Text(removalAlertMessage(prompt))
+        }
+    }
+
+    /// 現在の除去判断に対応する警告タイトルです。
+    private var removalAlertTitle: LocalizedStringKey {
+        state.rawRemovalPrompt?.decision == .safe
+            ? "history.raw.remove.safe.title"
+            : "history.raw.remove.warning.title"
+    }
+
+    /// Rawログ除去確認の件数と容量を含む警告本文を返します。
+    ///
+    /// 責務: 1件のローカル除去確認状態をMac取込有無に対応した警告文へ変換します。
+    /// - Parameter prompt: Applicationが準備したローカル除去確認内容。
+    /// - Returns: Raw件数と容量を含むユーザー向け警告本文。
+    private func removalAlertMessage(_ prompt: ConnectionSessionRawRemovalPrompt) -> String {
+        let format = String(localized: prompt.decision == .safe
+            ? "history.raw.remove.safe.message"
+            : "history.raw.remove.warning.message")
+        let bytes = ByteCountFormatter.string(fromByteCount: max(0, prompt.byteCount), countStyle: .file)
+        return String(format: format, locale: .autoupdatingCurrent, prompt.recordCount, bytes)
     }
 
     /// 履歴総数と記録済み総走行時間を示す画面上部カードです。

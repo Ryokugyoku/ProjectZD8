@@ -76,6 +76,8 @@ struct IOSAccountDeletionFlowView: View {
                     }
 
                     VStack(spacing: 12) {
+                        deletionItem(symbol: "car.fill", key: "account.delete.item.driving_data")
+                        deletionItem(symbol: "car.2.fill", key: "account.delete.item.vehicles")
                         deletionItem(symbol: "icloud.slash", key: "account.delete.item.shared_settings")
                         deletionItem(symbol: "cable.connector.slash", key: "account.delete.item.adapter")
                         deletionItem(symbol: "key.slash", key: "account.delete.item.credential")

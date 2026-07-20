@@ -5,7 +5,7 @@ struct IdentifyVehicleForConnectionUseCase {
     /// 車両識別子の照合結果としてApplicationへ返す分岐です。
     enum Outcome: Equatable {
         /// 同種の識別子が一致した登録済み車両です。
-        case registered(VehicleProfile)
+        case registered(VehicleProfile, VehicleIdentificationSnapshot)
         /// 未登録の車両識別子を含む確認対象観測です。
         case requiresRegistration(VehicleIdentificationSnapshot)
     }
@@ -42,7 +42,7 @@ struct IdentifyVehicleForConnectionUseCase {
             guard let obdIdentifier, let registeredIdentifier = vehicle.obdIdentifier else { return false }
             return registeredIdentifier.caseInsensitiveCompare(obdIdentifier) == .orderedSame
         }) {
-            return .registered(registered)
+            return .registered(registered, snapshot)
         }
         return .requiresRegistration(snapshot)
     }

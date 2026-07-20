@@ -10,13 +10,14 @@ final class IdentifyVehicleForConnectionUseCaseTests: XCTestCase {
     /// 責務: 1件の既存VIN観測が新規登録を作らず登録済み結果になることを確認します。
     func testExecuteReturnsRegisteredVehicleForExistingVIN() async throws {
         let vehicle = VehicleProfile(vin: "JF1ZD8A10NG000001", name: "ZD8")
+        let snapshot = makeSnapshot(vin: "jf1zd8a10ng000001")
         let useCase = IdentifyVehicleForConnectionUseCase(
-            identification: VehicleIdentificationPortFake(snapshot: makeSnapshot(vin: "jf1zd8a10ng000001"))
+            identification: VehicleIdentificationPortFake(snapshot: snapshot)
         )
 
         let outcome = try await useCase.execute(endpoint: makeEndpoint(), vehicles: [vehicle])
 
-        XCTAssertEqual(outcome, .registered(vehicle))
+        XCTAssertEqual(outcome, .registered(vehicle, snapshot))
     }
 
     /// 未登録VINで全観測値を保持した登録確認へ進むことを検証します。
@@ -45,7 +46,7 @@ final class IdentifyVehicleForConnectionUseCaseTests: XCTestCase {
 
         let outcome = try await useCase.execute(endpoint: makeEndpoint(), vehicles: [vehicle])
 
-        XCTAssertEqual(outcome, .registered(vehicle))
+        XCTAssertEqual(outcome, .registered(vehicle, snapshot))
     }
 
     /// 車両識別子未取得を登録可能な空文字へ変換しないことを検証します。

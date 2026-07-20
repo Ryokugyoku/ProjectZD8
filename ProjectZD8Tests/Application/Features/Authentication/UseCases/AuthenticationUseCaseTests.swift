@@ -103,18 +103,22 @@ final class AuthenticationUseCaseTests: XCTestCase {
     /// アカウント削除が他端末失効をローカル消去より先に発行することを検証します。
     ///
     /// 責務: 削除処理の副作用順序が失効発行、データ消去、資格情報削除であることを確認します。
-    func testDeleteAccountPublishesRevocationBeforeLocalErasure() throws {
+    func testDeleteAccountPublishesRevocationBeforeLocalErasure() async throws {
         let recorder = AuthenticationDeletionOrderRecorder()
         let useCase = DeleteAccountUseCase(
             sessionRevocation: AuthenticationDeletionRevocationPortFake(recorder: recorder),
+            sessionTransfers: AuthenticationDeletionTransferRepositoryFake(recorder: recorder),
+            vehicleDataEraser: AuthenticationDeletionVehicleDataEraserFake(recorder: recorder),
             dataEraser: AuthenticationDeletionDataEraserFake(recorder: recorder),
             sessionStore: AuthenticationDeletionSessionStoreFake(recorder: recorder)
         )
 
-        try useCase.execute(userIdentifier: "delete-user")
+        try await useCase.execute(userIdentifier: "delete-user")
 
         XCTAssertEqual(recorder.events, [
             "publish:delete-user",
+            "delete-cloud-driving-data:delete-user",
+            "delete-vehicle-data:delete-user",
             "erase:delete-user",
             "remove-session"
         ])
@@ -267,9 +271,102 @@ private final class AuthenticationDeletionDataEraserFake: AccountDataErasurePort
     ///
     /// 責務: 1件のデータ消去を順序検証可能なイベントへ変換します。
     /// - Parameter userIdentifier: 消去対象のユーザー識別子。
-    func eraseAllData(for userIdentifier: String) {
+    func eraseAllData(for userIdentifier: String) throws {
         recorder.events.append("erase:\(userIdentifier)")
     }
+}
+
+/// アカウント削除テストでCloudKit運転データ削除を記録します。
+@MainActor
+private final class AuthenticationDeletionTransferRepositoryFake: ConnectionSessionTransferRepository {
+    /// 副作用順序の共有記録先です。
+    private let recorder: AuthenticationDeletionOrderRecorder
+
+    /// 共有記録先を注入します。
+    ///
+    /// 責務: CloudKit運転データ削除Fakeを1件の副作用順序記録先へ結び付けます。
+    /// - Parameter recorder: 副作用名を発生順に保持する記録先。
+    init(recorder: AuthenticationDeletionOrderRecorder) { self.recorder = recorder }
+
+    /// このテストでは転送送信を使用しません。
+    ///
+    /// 責務: テスト対象外の送信要求を固定Digestで満たします。
+    /// - Parameters:
+    ///   - package: 使用しない転送Payload。
+    ///   - accountIdentifier: 使用しないアカウント識別子。
+    /// - Returns: 固定Digest。
+    func upload(_ package: ConnectionSessionTransferPackage, for accountIdentifier: String) async throws -> String { "digest" }
+
+    /// このテストでは転送を返しません。
+    ///
+    /// 責務: テスト対象外の転送取得要求へ空配列を返します。
+    /// - Parameter accountIdentifier: 使用しないアカウント識別子。
+    /// - Returns: 空配列。
+    func downloadTransfers(for accountIdentifier: String) async throws -> [VerifiedConnectionSessionTransfer] { [] }
+
+    /// このテストでは受領証公開を使用しません。
+    ///
+    /// 責務: テスト対象外の受領証公開要求を副作用なしで満たします。
+    /// - Parameters:
+    ///   - receipt: 使用しないMac受領証。
+    ///   - sessionID: 使用しないセッションID。
+    ///   - accountIdentifier: 使用しないアカウント識別子。
+    func publishMacReceipt(
+        _ receipt: ConnectionSessionMacImportReceipt,
+        sessionID: ConnectionSessionID,
+        for accountIdentifier: String
+    ) async throws {}
+
+    /// このテストでは受領証を返しません。
+    ///
+    /// 責務: テスト対象外の受領証取得要求へ空配列を返します。
+    /// - Parameter accountIdentifier: 使用しないアカウント識別子。
+    /// - Returns: 空配列。
+    func downloadMacReceipts(
+        for accountIdentifier: String
+    ) async throws -> [(ConnectionSessionID, ConnectionSessionMacImportReceipt)] { [] }
+
+    /// CloudKit運転データ削除を共有履歴へ追加します。
+    ///
+    /// 責務: 1件のCloudKit全削除を順序検証可能なイベントへ変換します。
+    /// - Parameter accountIdentifier: 削除対象アカウント識別子。
+    func deleteAll(for accountIdentifier: String) async throws {
+        recorder.events.append("delete-cloud-driving-data:\(accountIdentifier)")
+    }
+}
+
+/// アカウント削除テストで車両カタログ削除を記録します。
+@MainActor
+private final class AuthenticationDeletionVehicleDataEraserFake: AccountVehicleDataErasurePort {
+    /// 副作用順序の共有記録先です。
+    private let recorder: AuthenticationDeletionOrderRecorder
+
+    /// 共有記録先を注入します。
+    ///
+    /// 責務: 車両カタログ削除Fakeを1件の副作用順序記録先へ結び付けます。
+    /// - Parameter recorder: 副作用名を発生順に保持する記録先。
+    init(recorder: AuthenticationDeletionOrderRecorder) { self.recorder = recorder }
+
+    /// 全保存先の車両カタログ削除を共有履歴へ追加します。
+    ///
+    /// 責務: 1件の車両データ全削除を順序検証可能なイベントへ変換します。
+    /// - Parameter accountIdentifier: 削除対象アカウント識別子。
+    func deleteAllVehicleData(for accountIdentifier: String) async throws {
+        recorder.events.append("delete-vehicle-data:\(accountIdentifier)")
+    }
+
+    /// このテストでは端末キャッシュに車両を保持しません。
+    ///
+    /// 責務: テスト対象外のローカル車両ID照会へ空配列を返します。
+    /// - Parameter accountIdentifier: 使用しないアカウント識別子。
+    /// - Returns: 空配列。
+    func localVehicleIDs(for accountIdentifier: String) -> [VehicleID] { [] }
+
+    /// このテストでは端末キャッシュ単独削除を使用しません。
+    ///
+    /// 責務: テスト対象外の車両キャッシュ削除要求を副作用なしで満たします。
+    /// - Parameter accountIdentifier: 使用しないアカウント識別子。
+    func removeLocalVehicleCache(for accountIdentifier: String) {}
 }
 
 /// アカウント削除テストで資格情報削除を記録します。

@@ -33,6 +33,24 @@ struct DemoAwareOBDPIDTelemetryAdapter: OBDPIDTelemetryPort {
         return try await live.read(requests, using: endpoint)
     }
 
+    /// 実終端だけを周期送信対応境界へ振り分けます。
+    ///
+    /// 責務: 1件の周期取得要求をデモ非対応または実OBD周期取得へ振り分けます。
+    /// - Parameters:
+    ///   - requests: 周期送信するService/PID要求。
+    ///   - endpoint: OBDアダプターの接続終端。
+    /// - Returns: 実通信境界が返した未加工応答バイト。
+    /// - Throws: デモ終端では周期送信非対応、実終端では注入先のエラー。
+    func readPeriodic(
+        _ requests: [OBDPIDRequest],
+        using endpoint: OBDConnectionEndpoint
+    ) async throws -> [OBDPIDRequest: [UInt8]] {
+        guard !DemoOBDAdapter.matches(endpoint) else {
+            throw OBDPIDTelemetryError.periodicMessagingUnavailable
+        }
+        return try await live.readPeriodic(requests, using: endpoint)
+    }
+
     /// デモと実通信の両PID取得セッションを終了します。
     ///
     /// 責務: 保持する2件のPID取得境界へ終了要求を伝播します。

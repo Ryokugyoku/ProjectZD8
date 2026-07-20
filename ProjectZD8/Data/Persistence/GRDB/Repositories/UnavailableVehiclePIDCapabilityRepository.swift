@@ -1,5 +1,5 @@
 /// PID設定DBを準備できない場合に明示的失敗を返します。
-struct UnavailableVehiclePIDCapabilityRepository: VehiclePIDCapabilityRepository {
+struct UnavailableVehiclePIDCapabilityRepository: VehiclePIDCapabilityRepository, AccountVehiclePIDCapabilityErasureRepository {
     /// 利用不能境界を生成します。
     ///
     /// 責務: 永続化不能状態を表すRepositoryを構築します。
@@ -31,6 +31,13 @@ struct UnavailableVehiclePIDCapabilityRepository: VehiclePIDCapabilityRepository
     ///   - vehicleID: 使用しない車両ID。
     /// - Throws: 常に `UnavailableError`。
     func setCollectionEnabled(_ isEnabled: Bool, for request: OBDPIDRequest, vehicleID: VehicleID) throws { throw UnavailableError() }
+
+    /// 車両別PID設定削除を利用不能として失敗させます。
+    ///
+    /// 責務: 車両ID群の設定削除要求を明示的な永続化利用不能へ変換します。
+    /// - Parameter vehicleIDs: 削除できない車両ID群。
+    /// - Throws: 常に `UnavailableError`。
+    func deleteCapabilities(for vehicleIDs: [VehicleID]) throws { throw UnavailableError() }
 
     /// 永続化境界が利用不能であることを示します。
     private struct UnavailableError: Error {}

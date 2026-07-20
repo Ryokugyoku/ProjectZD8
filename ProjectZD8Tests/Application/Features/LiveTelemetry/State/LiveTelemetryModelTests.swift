@@ -16,7 +16,7 @@ final class LiveTelemetryModelTests: XCTestCase {
             )
         )
 
-        model.send(.startRequested(endpoint, vehicleID))
+        model.send(.startRequested(endpoint, vehicleID, .standardPolling))
         for _ in 0..<100 {
             if await telemetry.readCount >= 2 { break }
             try? await Task.sleep(for: .milliseconds(10))
@@ -33,6 +33,66 @@ final class LiveTelemetryModelTests: XCTestCase {
         XCTAssertEqual(model.state.phase, .idle)
     }
 
+    /// ユーザー同意後にBRZ Beta要求を2件の周期取得へ切り替えます。
+    ///
+    /// 責務: 同意前に周期要求を送らず、同意後だけBeta表示状態へ遷移することを確認します。
+    func testBRZBetaRequiresConsentBeforeUsingPeriodicEngineAndVehicleSpeed() async {
+        let telemetry = PeriodicPIDTelemetryFake()
+        let model = LiveTelemetryModel(
+            readMajorPIDs: ReadMajorOBDPIDsUseCase(
+                definitionRepository: BRZBetaPIDDefinitionRepository(),
+                telemetry: telemetry
+            )
+        )
+
+        model.send(.startRequested(endpoint, vehicleID, .brzBetaPeriodic))
+        for _ in 0..<100 where model.state.phase != .awaitingBRZBetaConsent {
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+
+        XCTAssertEqual(model.state.phase, .awaitingBRZBetaConsent)
+        let countBeforeConsent = await telemetry.periodicReadCount
+        XCTAssertEqual(countBeforeConsent, 0)
+
+        model.send(.brzBetaAccepted)
+        for _ in 0..<100 where model.state.acquisitionMode != .brzBetaPeriodic || model.state.phase != .loaded {
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+
+        XCTAssertEqual(model.state.acquisitionMode, .brzBetaPeriodic)
+        XCTAssertEqual(model.state.samples.map(\.request), BRZBetaPIDPolicy.requests)
+        let periodicReadCount = await telemetry.periodicReadCount
+        XCTAssertGreaterThanOrEqual(periodicReadCount, 1)
+        model.send(.stopRequested)
+    }
+
+    /// BRZ Betaを拒否した場合は標準取得へ進みます。
+    ///
+    /// 責務: ユーザーの通常モード選択が周期要求なしの標準ポーリングへ変換されることを確認します。
+    func testBRZBetaDeclineUsesStandardPollingWithoutPeriodicRequest() async {
+        let telemetry = PeriodicPIDTelemetryFake()
+        let model = LiveTelemetryModel(
+            readMajorPIDs: ReadMajorOBDPIDsUseCase(
+                definitionRepository: BRZBetaPIDDefinitionRepository(),
+                telemetry: telemetry
+            )
+        )
+
+        model.send(.startRequested(endpoint, vehicleID, .brzBetaPeriodic))
+        for _ in 0..<100 where model.state.phase != .awaitingBRZBetaConsent {
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+        model.send(.brzBetaDeclined)
+        for _ in 0..<100 where model.state.phase != .loaded {
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+
+        XCTAssertEqual(model.state.acquisitionMode, .standardPolling)
+        let periodicReadCount = await telemetry.periodicReadCount
+        XCTAssertEqual(periodicReadCount, 0)
+        model.send(.stopRequested)
+    }
+
     /// PID定義DB失敗を通信失敗とは異なる表示キーへ反映します。
     ///
     /// 責務: カタログ利用不能エラーが専用の失敗表示状態になることを確認します。
@@ -44,7 +104,7 @@ final class LiveTelemetryModelTests: XCTestCase {
             )
         )
 
-        model.send(.startRequested(endpoint, vehicleID))
+        model.send(.startRequested(endpoint, vehicleID, .standardPolling))
         for _ in 0..<100 where model.state.phase != .failed {
             await Task.yield()
         }
@@ -66,7 +126,7 @@ final class LiveTelemetryModelTests: XCTestCase {
             ),
             sessionDidEnd: { endReasons.append($0) }
         )
-        model.send(.startRequested(endpoint, vehicleID))
+        model.send(.startRequested(endpoint, vehicleID, .standardPolling))
         for _ in 0..<100 where model.state.phase == .reading {
             try? await Task.sleep(for: .milliseconds(10))
         }
@@ -97,7 +157,7 @@ final class LiveTelemetryModelTests: XCTestCase {
             sessionDidEnd: { endReasons.append($0) }
         )
 
-        model.send(.startRequested(endpoint, vehicleID))
+        model.send(.startRequested(endpoint, vehicleID, .standardPolling))
         for _ in 0..<150 where model.state.failureKey == nil {
             try? await Task.sleep(for: .milliseconds(10))
         }
@@ -122,7 +182,7 @@ final class LiveTelemetryModelTests: XCTestCase {
             odometerDidChange: { observedKilometers.append($0) }
         )
 
-        model.send(.startRequested(endpoint, vehicleID))
+        model.send(.startRequested(endpoint, vehicleID, .standardPolling))
         for _ in 0..<100 where observedKilometers.isEmpty {
             try? await Task.sleep(for: .milliseconds(10))
         }
@@ -139,6 +199,115 @@ final class LiveTelemetryModelTests: XCTestCase {
     /// テスト用のアプリ内車両IDです。
     private var vehicleID: VehicleID {
         VehicleID(rawValue: UUID(uuidString: "10000000-0000-0000-0000-000000000001")!)
+    }
+}
+
+/// BRZ Beta用の回転数と車速定義を返すテストRepositoryです。
+private struct BRZBetaPIDDefinitionRepository: OBDPIDDefinitionRepository {
+    /// 固定定義Repositoryを生成します。
+    ///
+    /// 責務: BRZ Betaモデルテスト用の定義供給境界を構築します。
+    init() {}
+
+    /// 回転数と車速の定義を返します。
+    ///
+    /// 責務: Beta周期取得で数値化する2件の固定定義を返します。
+    /// - Returns: Service 01 PID 0Cと0Dの定義。
+    func definitions() throws -> [OBDPIDDefinition] {
+        [
+            OBDPIDDefinition(
+                service: 0x01,
+                pid: 0x0C,
+                nameKey: "test.engine_speed",
+                requiredByteCount: 2,
+                formula: "(A * 256 + B) / 4",
+                unit: "rpm",
+                minimumValue: 0,
+                maximumValue: nil,
+                sourceURI: "test://engine-speed",
+                revision: 1
+            ),
+            OBDPIDDefinition(
+                service: 0x01,
+                pid: 0x0D,
+                nameKey: "test.vehicle_speed",
+                requiredByteCount: 1,
+                formula: "A",
+                unit: "km/h",
+                minimumValue: 0,
+                maximumValue: nil,
+                sourceURI: "test://vehicle-speed",
+                revision: 1
+            )
+        ]
+    }
+
+    /// テスト対象外の保存要求を受け付けます。
+    ///
+    /// 責務: 未使用のPID定義保存を変更なしで完了します。
+    /// - Parameter definition: テストでは使用しない定義。
+    func upsert(_ definition: OBDPIDDefinition) throws {}
+
+    /// テスト対象外の単一定義読込へ未登録を返します。
+    ///
+    /// 責務: 未使用の単一PID照会を未登録結果へ変換します。
+    /// - Parameters:
+    ///   - service: テストでは使用しないService番号。
+    ///   - pid: テストでは使用しないPID番号。
+    /// - Returns: 常に `nil`。
+    func definition(service: UInt8, pid: UInt8) throws -> OBDPIDDefinition? { nil }
+}
+
+/// 直接読取と周期読取へ固定した回転数と車速を返します。
+private actor PeriodicPIDTelemetryFake: OBDPIDTelemetryPort {
+    /// 周期読取を呼び出された回数です。
+    private(set) var periodicReadCount = 0
+
+    /// 空の周期読取履歴を生成します。
+    ///
+    /// 責務: BRZ Betaテスト用の周期読取回数を初期化します。
+    init() {}
+
+    /// 対応確認用の回転数と車速を返します。
+    ///
+    /// 責務: 直接読取要求を2件の固定応答へ変換します。
+    /// - Parameters:
+    ///   - requests: 応答するService/PID要求。
+    ///   - endpoint: テストでは使用しない接続終端。
+    /// - Returns: 回転数2,000 rpmと車速50 km/hの未加工バイト。
+    func read(
+        _ requests: [OBDPIDRequest],
+        using endpoint: OBDConnectionEndpoint
+    ) async throws -> [OBDPIDRequest: [UInt8]] {
+        values(for: requests)
+    }
+
+    /// 周期応答として回転数と車速を返します。
+    ///
+    /// 責務: 1回の周期受信要求を回数記録付き固定応答へ変換します。
+    /// - Parameters:
+    ///   - requests: 応答するService/PID要求。
+    ///   - endpoint: テストでは使用しない接続終端。
+    /// - Returns: 回転数2,000 rpmと車速50 km/hの未加工バイト。
+    func readPeriodic(
+        _ requests: [OBDPIDRequest],
+        using endpoint: OBDConnectionEndpoint
+    ) async throws -> [OBDPIDRequest: [UInt8]] {
+        periodicReadCount += 1
+        return values(for: requests)
+    }
+
+    /// 指定要求だけを固定応答辞書へ変換します。
+    ///
+    /// 責務: Service 01 PID 0Cと0Dを決定的な未加工値へ対応付けます。
+    /// - Parameter requests: 応答対象の要求。
+    /// - Returns: 入力に含まれる対応要求だけの辞書。
+    private func values(for requests: [OBDPIDRequest]) -> [OBDPIDRequest: [UInt8]] {
+        let available: [OBDPIDRequest: [UInt8]] = [
+            OBDPIDRequest(service: 0x01, pid: 0x0C): [0x1F, 0x40],
+            OBDPIDRequest(service: 0x01, pid: 0x0D): [0x32]
+        ]
+        return available.filter { requests.contains($0.key) }
     }
 }
 

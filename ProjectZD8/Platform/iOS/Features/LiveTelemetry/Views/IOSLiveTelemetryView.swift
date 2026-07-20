@@ -57,7 +57,12 @@ struct IOSLiveTelemetryView: View {
                     }
                 }
                 if state.phase == .loaded {
-                    Label("telemetry.status.streaming", systemImage: "waveform.path.ecg")
+                    Label(
+                        state.acquisitionMode == .brzBetaPeriodic
+                            ? "telemetry.status.brz_beta_periodic"
+                            : "telemetry.status.streaming",
+                        systemImage: "waveform.path.ecg"
+                    )
                         .foregroundStyle(.green)
                 } else if state.phase == .failed {
                     Button("telemetry.retry") { send(.retryRequested) }
@@ -81,6 +86,27 @@ struct IOSLiveTelemetryView: View {
             }
         }
         .accessibilityIdentifier("ios-live-telemetry")
+        .alert(
+            "telemetry.brz_beta.warning.title",
+            isPresented: betaConsentIsPresented
+        ) {
+            Button("telemetry.brz_beta.warning.use_standard", role: .cancel) {
+                send(.brzBetaDeclined)
+            }
+            Button("telemetry.brz_beta.warning.accept", role: .destructive) {
+                send(.brzBetaAccepted)
+            }
+        } message: {
+            Text("telemetry.brz_beta.warning.message")
+        }
+    }
+
+    /// BRZ Betaの危険性確認を表示するBindingです。
+    private var betaConsentIsPresented: Binding<Bool> {
+        Binding(
+            get: { state.phase == .awaitingBRZBetaConsent },
+            set: { _ in }
+        )
     }
 
     /// 指定分類に含まれる現在サンプルだけを返します。

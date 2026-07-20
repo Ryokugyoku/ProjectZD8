@@ -11,9 +11,11 @@ enum MacOSApplicationComposition {
     /// - Returns: DB登録済みPIDを読み取れるモデル。
     /// - Parameter sessionDidEnd: PID取得終了原因をLoggingへ通知する処理。
     /// - Parameter odometerDidChange: 累積走行距離をLoggingへ通知する処理。
+    /// - Parameter rawResponseDidReceive: 数値化前のOBD応答をLoggingへ保存する処理。
     static func makeLiveTelemetryModel(
         sessionDidEnd: @escaping @MainActor (ConnectionSessionEndReason) -> Void = { _ in },
-        odometerDidChange: @escaping @MainActor (Double) -> Void = { _ in }
+        odometerDidChange: @escaping @MainActor (Double) -> Void = { _ in },
+        rawResponseDidReceive: @escaping @Sendable (OBDRawResponseObservation) async throws -> Void = { _ in }
     ) -> LiveTelemetryModel {
         let telemetry = DemoAwareOBDPIDTelemetryAdapter(
             live: OBDLinkEXPIDTelemetryAdapter { endpoint in
@@ -24,7 +26,8 @@ enum MacOSApplicationComposition {
         return LiveTelemetryModel(
             readMajorPIDs: ReadMajorOBDPIDsUseCase(
                 definitionRepository: makeOBDPIDDefinitionRepository(),
-                telemetry: telemetry
+                telemetry: telemetry,
+                rawResponseDidReceive: rawResponseDidReceive
             ),
             loadVehicleCapabilities: LoadVehiclePIDCapabilitiesUseCase(
                 repository: makeVehiclePIDCapabilityRepository(), telemetry: telemetry
@@ -52,7 +55,7 @@ enum MacOSApplicationComposition {
     ///
     /// 責務: macOSの車両別対応PID永続化を利用可能または明示的利用不能境界へ変換します。
     /// - Returns: 車両別対応PID Repository。
-    static func makeVehiclePIDCapabilityRepository() -> any VehiclePIDCapabilityRepository {
+    static func makeVehiclePIDCapabilityRepository() -> any VehiclePIDCapabilityRepository & AccountVehiclePIDCapabilityErasureRepository {
         (try? GRDBVehiclePIDCapabilityRepository.openApplicationRepository())
             ?? UnavailableVehiclePIDCapabilityRepository()
     }
@@ -61,9 +64,13 @@ enum MacOSApplicationComposition {
     ///
     /// 責務: macOSの車両保存、写真読込、シリアル識別をVehicleManagementへ結び付けます。
     /// - Returns: private database同期を使用する車両管理モデル。
-    /// - Parameter connectionVehicleDidResolve: 接続対象車両をLoggingへ通知する処理。
+    /// - Parameter connectionVehicleDidResolve: 接続対象車両、終端、OBD識別観測をLoggingと監視開始へ通知する処理。
     static func makeVehicleManagementModel(
-        connectionVehicleDidResolve: @escaping @MainActor (VehicleProfile, OBDConnectionEndpoint) -> Void = { _, _ in }
+        connectionVehicleDidResolve: @escaping @MainActor (
+            VehicleProfile,
+            OBDConnectionEndpoint,
+            VehicleIdentificationSnapshot
+        ) -> Void = { _, _, _ in }
     ) -> VehicleManagementModel {
         VehicleManagementModel(
             state: VehicleManagementState(),
@@ -87,9 +94,29 @@ enum MacOSApplicationComposition {
     ///
     /// 責務: macOSの接続履歴を利用可能なGRDB実装または明示的利用不能境界へ変換します。
     /// - Returns: Application Support内の接続セッション保存先。
-    static func makeConnectionSessionRepository() -> any ConnectionSessionRepository {
+    static func makeConnectionSessionRepository() -> any ConnectionSessionRepository & ConnectionSessionRawLogRepository & AccountConnectionSessionErasureRepository {
         (try? GRDBConnectionSessionRepository.openApplicationRepository())
             ?? UnavailableConnectionSessionRepository()
+    }
+
+    /// Mac向けセッション同期ユースケースを生成します。
+    ///
+    /// 責務: Macのローカルセッション正本をCloudKit受信と永続取込受領証へ結び付けます。
+    /// - Parameter storage: 接続履歴とRawログを保持する共通ローカル保存先。
+    /// - Returns: Mac取込先として動作するセッション同期ユースケース。
+    static func makeConnectionSessionSynchronization(
+        storage: any ConnectionSessionRepository & ConnectionSessionRawLogRepository
+    ) -> SynchronizeConnectionSessionsUseCase {
+        let identity = UserDefaultsInstallationIdentityStore().identity(
+            displayName: ProcessInfo.processInfo.hostName
+        )
+        return SynchronizeConnectionSessionsUseCase(
+            sessionRepository: storage,
+            rawLogRepository: storage,
+            transferRepository: CloudKitConnectionSessionTransferRepository(),
+            role: .macOS,
+            installationIdentity: identity
+        )
     }
 
     /// iCloud同期とローカル保持を注入したアカウント設定モデルを生成します。
@@ -108,8 +135,11 @@ enum MacOSApplicationComposition {
     /// 実Apple認証とKeychain保存を注入した認証セッションモデルを生成します。
     ///
     /// 責務: macOS表示ウインドウ、Apple認証、Keychain保存をAuthenticationユースケースへ結び付けます。
+    /// - Parameter connectionSessionStorage: アカウント削除時に接続履歴とRawログを消去する共通保存先。
     /// - Returns: 実Appleアカウント認証を使用する認証セッションモデル。
-    static func makeAuthenticationSessionModel() -> AuthenticationSessionModel {
+    static func makeAuthenticationSessionModel(
+        connectionSessionStorage: any AccountConnectionSessionErasureRepository
+    ) -> AuthenticationSessionModel {
         let authorization = AuthenticationServicesAppleAccountAuthorizationClient {
             NSApplication.shared.keyWindow
                 ?? NSApplication.shared.windows.first(where: \.isVisible)
@@ -118,9 +148,14 @@ enum MacOSApplicationComposition {
         let accountSettingsStore = UbiquitousKeyValueStoreAccountSettingsStore()
         let defaultAdapterStore = UserDefaultsDefaultAdapterPreferenceStore()
         let sessionRevocation = UbiquitousKeyValueStoreAccountSessionRevocationStore()
+        let vehicleDataEraser = CloudKitVehicleRepository()
+        let vehiclePIDCapabilityEraser = makeVehiclePIDCapabilityRepository()
         let dataEraser = ProjectZD8AccountDataEraser(
             accountSettingsStore: accountSettingsStore,
-            defaultAdapterStore: defaultAdapterStore
+            defaultAdapterStore: defaultAdapterStore,
+            connectionSessionStorage: connectionSessionStorage,
+            vehicleDataEraser: vehicleDataEraser,
+            vehiclePIDCapabilityEraser: vehiclePIDCapabilityEraser
         )
         return AuthenticationSessionModel(
             state: initialAuthenticationState,
@@ -134,6 +169,8 @@ enum MacOSApplicationComposition {
             ),
             deleteAccount: DeleteAccountUseCase(
                 sessionRevocation: sessionRevocation,
+                sessionTransfers: CloudKitConnectionSessionTransferRepository(),
+                vehicleDataEraser: vehicleDataEraser,
                 dataEraser: dataEraser,
                 sessionStore: sessionStore
             ),

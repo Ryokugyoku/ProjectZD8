@@ -4,6 +4,8 @@ enum OBDPIDTelemetryError: Error, Equatable {
     case definitionCatalogUnavailable
     /// 実車読取実装が現在のプラットフォームにありません。
     case unavailable
+    /// アダプター管理の周期送信が利用できません。
+    case periodicMessagingUnavailable
     /// 要求PIDが固定許可リストにありません。
     case unsupportedPID
     /// アダプターまたは車両が要求を拒否しました。

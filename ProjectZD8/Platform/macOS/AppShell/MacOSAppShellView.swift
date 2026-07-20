@@ -151,6 +151,10 @@ struct MacOSAppShellView: View {
             startVehicleConnection.execute(endpoint: endpoint)
         case .vehicleDisconnectionRequested:
             liveTelemetryModel.send(.stopRequested)
+        case .brzBetaAccepted:
+            liveTelemetryModel.send(.brzBetaAccepted)
+        case .brzBetaDeclined:
+            liveTelemetryModel.send(.brzBetaDeclined)
         }
     }
 

@@ -1,3 +1,4 @@
+import Dispatch
 import Foundation
 
 /// PID定義DBの現在一覧を実車応答へ適用します。
@@ -10,6 +11,10 @@ struct ReadMajorOBDPIDsUseCase {
     private let evaluator: OBDPIDFormulaEvaluator
     /// 観測完了日時を供給するクロックです。
     private let now: @Sendable () -> Date
+    /// 要求バッチの単調経過時間を計測するクロックです。
+    private let monotonicNanoseconds: @Sendable () -> UInt64
+    /// 数値化前の応答をLoggingへ通知する処理です。
+    private let rawResponseDidReceive: @Sendable (OBDRawResponseObservation) async throws -> Void
 
     /// PID定義Repository、実車読取境界、評価器を固定します。
     ///
@@ -19,16 +24,22 @@ struct ReadMajorOBDPIDsUseCase {
     ///   - telemetry: 未加工PIDバイトの取得境界。
     ///   - evaluator: 定義式の評価器。
     ///   - now: 観測完了日時の供給元。
+    ///   - monotonicNanoseconds: 要求バッチ経過時間を計測する単調クロック。
+    ///   - rawResponseDidReceive: 数値化前の応答をLoggingへ通知する処理。
     init(
         definitionRepository: any OBDPIDDefinitionRepository,
         telemetry: any OBDPIDTelemetryPort,
         evaluator: OBDPIDFormulaEvaluator = .init(),
-        now: @escaping @Sendable () -> Date = Date.init
+        now: @escaping @Sendable () -> Date = Date.init,
+        monotonicNanoseconds: @escaping @Sendable () -> UInt64 = { DispatchTime.now().uptimeNanoseconds },
+        rawResponseDidReceive: @escaping @Sendable (OBDRawResponseObservation) async throws -> Void = { _ in }
     ) {
         self.definitionRepository = definitionRepository
         self.telemetry = telemetry
         self.evaluator = evaluator
         self.now = now
+        self.monotonicNanoseconds = monotonicNanoseconds
+        self.rawResponseDidReceive = rawResponseDidReceive
     }
 
     /// DB登録済みの全PID定義を読み込みます。
@@ -78,8 +89,46 @@ struct ReadMajorOBDPIDsUseCase {
         using endpoint: OBDConnectionEndpoint
     ) async throws -> [OBDPIDSample] {
         let requests = definitions.map { OBDPIDRequest(service: $0.service, pid: $0.pid) }
+        let startedAt = monotonicNanoseconds()
         let responses = try await telemetry.read(requests, using: endpoint)
         let observedAt = now()
+        let elapsed = monotonicNanoseconds() &- startedAt
+        try await recordRawResponses(responses, observedAt: observedAt, elapsedNanoseconds: elapsed)
+        return try definitions.compactMap { definition in
+            let request = OBDPIDRequest(service: definition.service, pid: definition.pid)
+            guard let bytes = responses[request] else { return nil }
+            return OBDPIDSample(
+                request: request,
+                nameKey: definition.nameKey,
+                value: try evaluator.evaluate(definition, bytes: bytes),
+                unit: definition.unit,
+                observedAt: observedAt,
+                summaryKey: definition.summaryKey,
+                highValueKey: definition.highValueKey,
+                lowValueKey: definition.lowValueKey,
+                correlationKey: definition.correlationKey
+            )
+        }
+    }
+
+    /// 指定PID定義をアダプター管理の周期応答から数値化します。
+    ///
+    /// 責務: 1回の周期受信バッチを応答済みPIDの数値観測へ変換します。
+    /// - Parameters:
+    ///   - definitions: 周期取得する読取り専用PID定義。
+    ///   - endpoint: OBDアダプターの物理終端。
+    /// - Returns: 今回受信できた定義順の数値化済みPID観測。
+    /// - Throws: 周期送信、受信、または数式評価に失敗した場合のエラー。
+    func executePeriodic(
+        definitions: [OBDPIDDefinition],
+        using endpoint: OBDConnectionEndpoint
+    ) async throws -> [OBDPIDSample] {
+        let requests = definitions.map { OBDPIDRequest(service: $0.service, pid: $0.pid) }
+        let startedAt = monotonicNanoseconds()
+        let responses = try await telemetry.readPeriodic(requests, using: endpoint)
+        let observedAt = now()
+        let elapsed = monotonicNanoseconds() &- startedAt
+        try await recordRawResponses(responses, observedAt: observedAt, elapsedNanoseconds: elapsed)
         return try definitions.compactMap { definition in
             let request = OBDPIDRequest(service: definition.service, pid: definition.pid)
             guard let bytes = responses[request] else { return nil }
@@ -112,5 +161,31 @@ struct ReadMajorOBDPIDsUseCase {
     /// 責務: 注入済みPID取得境界へ接続資源の終了を通知します。
     func endSession() async {
         await telemetry.endSession()
+    }
+
+    /// 応答辞書を数値化前のLogging観測として通知します。
+    ///
+    /// 責務: 1回の要求バッチ応答を安定したService/PID順のRaw観測へ変換します。
+    /// - Parameters:
+    ///   - responses: 取得境界が返した未デコード応答辞書。
+    ///   - observedAt: 応答群を受け取った実時間。
+    ///   - elapsedNanoseconds: 要求バッチ開始から応答群受信までの単調時間。
+    /// - Throws: Logging保存境界がRaw応答を受理できない場合のエラー。
+    private func recordRawResponses(
+        _ responses: [OBDPIDRequest: [UInt8]],
+        observedAt: Date,
+        elapsedNanoseconds: UInt64
+    ) async throws {
+        for request in responses.keys.sorted(by: { ($0.service, $0.pid) < ($1.service, $1.pid) }) {
+            guard let payload = responses[request] else { continue }
+            try await rawResponseDidReceive(
+                OBDRawResponseObservation(
+                    observedAt: observedAt,
+                    batchElapsedNanoseconds: elapsedNanoseconds,
+                    request: request,
+                    payload: payload
+                )
+            )
+        }
     }
 }

@@ -36,7 +36,7 @@ struct MacOSConnectionHistoryView: View {
             .navigationDestination(for: ConnectionHistoryVehicleGroupID.self) { id in vehicleSessionList(for: id) }
             .navigationDestination(for: ConnectionSessionID.self) { id in
                 if let session = state.sessions.first(where: { $0.id == id }) {
-                    MacOSDrivingLogDevelopmentView(session: session, metrics: metrics)
+                    MacOSConnectionSessionDetailView(session: session, metrics: metrics)
                 }
             }
             .accessibilityIdentifier("macos-connection-history")

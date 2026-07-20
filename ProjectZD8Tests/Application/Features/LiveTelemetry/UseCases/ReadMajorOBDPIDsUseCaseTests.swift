@@ -83,6 +83,43 @@ final class ReadMajorOBDPIDsUseCaseTests: XCTestCase {
         XCTAssertEqual(receivedRequests, [.init(service: 0x01, pid: 0x05)])
     }
 
+    /// 数値化前の応答バイトとバッチ経過時間をRawログ境界へ渡します。
+    ///
+    /// 責務: デコーダー入力が変換される前に安定順序とミリ秒精度相当の単調時間で通知されることを確認します。
+    func testExecuteRecordsRawResponsesBeforeDecoding() async throws {
+        let telemetry = MajorPIDTelemetryFake(values: [
+            .init(service: 0x01, pid: 0x0C): [0x1A, 0xF8],
+            .init(service: 0x01, pid: 0x05): [0x85]
+        ])
+        let recorder = RawObservationRecorder()
+        let clock = MonotonicClockFake(values: [1_000_000, 7_500_000])
+        let useCase = ReadMajorOBDPIDsUseCase(
+            definitionRepository: MajorPIDDefinitionRepositoryFake(
+                definitions: StandardOBDPIDSeed.definitions
+            ),
+            telemetry: telemetry,
+            now: { Date(timeIntervalSince1970: 100) },
+            monotonicNanoseconds: { clock.next() },
+            rawResponseDidReceive: { observation in
+                await recorder.record(observation)
+            }
+        )
+
+        _ = try await useCase.execute(using: endpoint)
+        let observations = await recorder.observations
+
+        XCTAssertEqual(observations.map(\.request), [
+            OBDPIDRequest(service: 0x01, pid: 0x05),
+            OBDPIDRequest(service: 0x01, pid: 0x0C)
+        ])
+        XCTAssertEqual(observations.map(\.payload), [[0x85], [0x1A, 0xF8]])
+        XCTAssertEqual(observations.map(\.batchElapsedNanoseconds), [6_500_000, 6_500_000])
+        XCTAssertEqual(observations.map(\.observedAt), [
+            Date(timeIntervalSince1970: 100),
+            Date(timeIntervalSince1970: 100)
+        ])
+    }
+
     /// PID定義DBが空の場合は実車要求を開始しません。
     ///
     /// 責務: 空のRepository一覧を固定seedへ戻さず専用エラーとして拒否することを確認します。
@@ -182,6 +219,46 @@ private struct MajorPIDDefinitionRepositoryFake: OBDPIDDefinitionRepository {
 
 /// PID定義Repositoryの読込失敗を再現します。
 private struct RepositoryReadError: Error {}
+
+/// Raw応答通知を並行安全に保持します。
+private actor RawObservationRecorder {
+    /// 通知されたRaw応答順です。
+    private(set) var observations: [OBDRawResponseObservation] = []
+
+    /// 1件のRaw応答を通知順へ追記します。
+    ///
+    /// 責務: 非同期Raw応答通知をテストで検査できる配列へ保存します。
+    /// - Parameter observation: 記録する未デコード応答。
+    func record(_ observation: OBDRawResponseObservation) {
+        observations.append(observation)
+    }
+}
+
+/// 注入順に単調時間を返すテスト用クロックです。
+private final class MonotonicClockFake: @unchecked Sendable {
+    /// 次回返す単調時間一覧です。
+    private var values: [UInt64]
+    /// 値取得を直列化するLockです。
+    private let lock = NSLock()
+
+    /// 固定単調時間列を保持します。
+    ///
+    /// 責務: テスト対象へ返す単調時間の順序を初期化します。
+    /// - Parameter values: 呼出順に返すナノ秒値。
+    init(values: [UInt64]) {
+        self.values = values
+    }
+
+    /// 次の単調時間を返します。
+    ///
+    /// 責務: 注入済み時間列から1件を並行安全に取り出します。
+    /// - Returns: 次に予定されたナノ秒値。
+    func next() -> UInt64 {
+        lock.lock()
+        defer { lock.unlock() }
+        return values.removeFirst()
+    }
+}
 
 /// 主要PIDユースケースへ固定バイト辞書を返す境界です。
 private actor MajorPIDTelemetryFake: OBDPIDTelemetryPort {

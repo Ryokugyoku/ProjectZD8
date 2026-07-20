@@ -115,6 +115,7 @@ final class AuthenticationSessionModelTests: XCTestCase {
         await waitForTasks()
 
         XCTAssertEqual(dependencies.dataEraser.erasedIdentifiers, ["delete-user"])
+        XCTAssertEqual(dependencies.transfers.deletedAccountIdentifiers, ["delete-user"])
         XCTAssertEqual(dependencies.revocation.publishedIdentifiers, ["delete-user"])
         XCTAssertNil(dependencies.store.identifier)
         XCTAssertNil(dependencies.model.state.session)
@@ -142,7 +143,7 @@ final class AuthenticationSessionModelTests: XCTestCase {
         XCTAssertEqual(dependencies.model.state.phase, .signedIn)
         XCTAssertEqual(dependencies.model.state.session, session)
         XCTAssertEqual(dependencies.model.state.accountDeletionPhase, .failed)
-        XCTAssertEqual(dependencies.model.state.accountDeletionFailure, .credentialRemovalFailed)
+        XCTAssertEqual(dependencies.model.state.accountDeletionFailure, .deletionFailed)
     }
 
     /// 復元した認証セッションが新しい失効世代を受理せず監視を開始することを検証します。
@@ -211,6 +212,8 @@ final class AuthenticationSessionModelTests: XCTestCase {
         let authorization = AuthenticationModelAuthorizationPortFake()
         let store = AuthenticationModelSessionStorePortFake()
         let dataEraser = AuthenticationModelAccountDataEraserFake()
+        let transfers = AuthenticationModelTransferRepositoryFake()
+        let vehicleDataEraser = AuthenticationModelVehicleDataEraserFake()
         let revocation = AuthenticationModelSessionRevocationPortFake()
         let model = AuthenticationSessionModel(
             state: state ?? AuthenticationState(),
@@ -224,6 +227,8 @@ final class AuthenticationSessionModelTests: XCTestCase {
             ),
             deleteAccount: DeleteAccountUseCase(
                 sessionRevocation: revocation,
+                sessionTransfers: transfers,
+                vehicleDataEraser: vehicleDataEraser,
                 dataEraser: dataEraser,
                 sessionStore: store
             ),
@@ -238,6 +243,7 @@ final class AuthenticationSessionModelTests: XCTestCase {
             authorization: authorization,
             store: store,
             dataEraser: dataEraser,
+            transfers: transfers,
             revocation: revocation
         )
     }
@@ -266,6 +272,9 @@ private struct AuthenticationModelDependencies {
 
     /// 削除対象識別子を記録するアカウントデータ消去Fakeです。
     let dataEraser: AuthenticationModelAccountDataEraserFake
+
+    /// CloudKit運転データ削除を記録するFakeです。
+    let transfers: AuthenticationModelTransferRepositoryFake
 
     /// 失効登録、発行、監視を記録するFakeです。
     let revocation: AuthenticationModelSessionRevocationPortFake
@@ -354,9 +363,90 @@ private final class AuthenticationModelAccountDataEraserFake: AccountDataErasure
     ///
     /// 責務: 1件のデータ消去要求をテストから観測可能な履歴へ記録します。
     /// - Parameter userIdentifier: 消去を要求されたAppleユーザー識別子。
-    func eraseAllData(for userIdentifier: String) {
+    func eraseAllData(for userIdentifier: String) throws {
         erasedIdentifiers.append(userIdentifier)
     }
+}
+
+/// 認証モデルテストでCloudKit運転データ操作を記録します。
+@MainActor
+private final class AuthenticationModelTransferRepositoryFake: ConnectionSessionTransferRepository {
+    /// 全削除を要求されたアカウント識別子です。
+    private(set) var deletedAccountIdentifiers: [String] = []
+
+    /// このテストでは転送送信を使用しません。
+    ///
+    /// 責務: テスト対象外の送信要求を固定Digestで満たします。
+    /// - Parameters:
+    ///   - package: 使用しない転送Payload。
+    ///   - accountIdentifier: 使用しないアカウント識別子。
+    /// - Returns: 固定Digest。
+    func upload(_ package: ConnectionSessionTransferPackage, for accountIdentifier: String) async throws -> String { "digest" }
+
+    /// このテストでは転送を返しません。
+    ///
+    /// 責務: テスト対象外の転送取得要求へ空配列を返します。
+    /// - Parameter accountIdentifier: 使用しないアカウント識別子。
+    /// - Returns: 空配列。
+    func downloadTransfers(for accountIdentifier: String) async throws -> [VerifiedConnectionSessionTransfer] { [] }
+
+    /// このテストでは受領証公開を使用しません。
+    ///
+    /// 責務: テスト対象外の受領証公開要求を副作用なしで満たします。
+    /// - Parameters:
+    ///   - receipt: 使用しないMac受領証。
+    ///   - sessionID: 使用しないセッションID。
+    ///   - accountIdentifier: 使用しないアカウント識別子。
+    func publishMacReceipt(
+        _ receipt: ConnectionSessionMacImportReceipt,
+        sessionID: ConnectionSessionID,
+        for accountIdentifier: String
+    ) async throws {}
+
+    /// このテストでは受領証を返しません。
+    ///
+    /// 責務: テスト対象外の受領証取得要求へ空配列を返します。
+    /// - Parameter accountIdentifier: 使用しないアカウント識別子。
+    /// - Returns: 空配列。
+    func downloadMacReceipts(
+        for accountIdentifier: String
+    ) async throws -> [(ConnectionSessionID, ConnectionSessionMacImportReceipt)] { [] }
+
+    /// CloudKit運転データ全削除を記録します。
+    ///
+    /// 責務: 1件のアカウント識別子を削除要求履歴へ追加します。
+    /// - Parameter accountIdentifier: 削除対象アカウント識別子。
+    func deleteAll(for accountIdentifier: String) async throws {
+        deletedAccountIdentifiers.append(accountIdentifier)
+    }
+}
+
+/// 認証モデルテストで車両データ削除境界を再現します。
+@MainActor
+private final class AuthenticationModelVehicleDataEraserFake: AccountVehicleDataErasurePort {
+    /// 全削除されたアカウント識別子です。
+    private(set) var deletedAccountIdentifiers: [String] = []
+
+    /// 車両カタログ全削除を記録します。
+    ///
+    /// 責務: 1件のアカウント識別子を車両データ削除履歴へ追加します。
+    /// - Parameter accountIdentifier: 削除対象アカウント識別子。
+    func deleteAllVehicleData(for accountIdentifier: String) async throws {
+        deletedAccountIdentifiers.append(accountIdentifier)
+    }
+
+    /// このテストでは端末キャッシュに車両を保持しません。
+    ///
+    /// 責務: テスト対象外のローカル車両ID照会へ空配列を返します。
+    /// - Parameter accountIdentifier: 使用しないアカウント識別子。
+    /// - Returns: 空配列。
+    func localVehicleIDs(for accountIdentifier: String) -> [VehicleID] { [] }
+
+    /// このテストでは端末キャッシュ単独削除を使用しません。
+    ///
+    /// 責務: テスト対象外の車両キャッシュ削除要求を副作用なしで満たします。
+    /// - Parameter accountIdentifier: 使用しないアカウント識別子。
+    func removeLocalVehicleCache(for accountIdentifier: String) {}
 }
 
 /// 認証モデルテストで端末間セッション失効操作を記録します。

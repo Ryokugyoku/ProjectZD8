@@ -143,14 +143,14 @@ final class AuthenticationSessionModel {
             guard let self else { return }
             defer { accountDeletionTask = nil }
             do {
-                try deleteAccount.execute(userIdentifier: userIdentifier)
+                try await deleteAccount.execute(userIdentifier: userIdentifier)
                 sessionRevocation.stopObserving()
                 state.accountDeletionPhase = .idle
                 state.accountDeletionFailure = nil
                 state.session = nil
                 state.phase = .signedOut
             } catch {
-                state.accountDeletionFailure = .credentialRemovalFailed
+                state.accountDeletionFailure = .deletionFailed
                 state.accountDeletionPhase = .failed
             }
         }
