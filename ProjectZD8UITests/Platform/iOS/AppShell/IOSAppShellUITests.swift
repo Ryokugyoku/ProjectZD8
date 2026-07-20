@@ -22,7 +22,7 @@ final class IOSAppShellUITests: XCTestCase {
 
     /// iOS下部ナビゲーションが要求されたすべての遷移先を公開することを検証します。
     ///
-    /// 責務: iOS AppShellが4件のタブ操作を表示することを確認します。
+    /// 責務: iOS AppShellが5件のタブ操作を表示することを確認します。
     @MainActor
     func testTabBarShowsEveryRequestedDestination() {
         let application = XCUIApplication.authenticatedProjectZD8()
@@ -30,8 +30,24 @@ final class IOSAppShellUITests: XCTestCase {
 
         XCTAssertTrue(application.buttons["ios-tab-home"].waitForExistence(timeout: 5))
         XCTAssertTrue(application.buttons["ios-tab-liveLog"].exists)
-        XCTAssertTrue(application.buttons["ios-tab-maintenance"].exists)
+        XCTAssertTrue(application.buttons["ios-tab-history"].exists)
+        XCTAssertTrue(application.buttons["ios-tab-garage"].exists)
         XCTAssertTrue(application.buttons["ios-tab-settings"].exists)
+    }
+
+    /// 下部ナビゲーションのGarage操作でiOS専用車両一覧へ切り替わることを検証します。
+    ///
+    /// 責務: Garageタブの選択がiOS車両管理画面を表示することを確認します。
+    @MainActor
+    func testGarageTabShowsIOSGarageScreen() {
+        let application = XCUIApplication.authenticatedProjectZD8()
+        application.launch()
+
+        let garageButton = application.buttons["ios-tab-garage"]
+        XCTAssertTrue(garageButton.waitForExistence(timeout: 5))
+        garageButton.tap()
+
+        XCTAssertTrue(application.descendants(matching: .any)["ios-garage-screen"].waitForExistence(timeout: 3))
     }
 
     /// デフォルト未設定のHOME操作が押すたびに案内され、手動でも再遷移できることを検証します。

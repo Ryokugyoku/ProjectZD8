@@ -12,7 +12,7 @@ struct IOSDestinationView: View {
     /// 設定画面へ渡す現在のアカウント同期対象設定です。
     let accountSettings: AccountSettings
 
-    /// HOME登録導線へ渡す現在の車両管理状態です。
+    /// HOME登録導線とGarageへ渡す現在の車両管理状態です。
     let vehicleManagementState: VehicleManagementState
 
     /// リアルタイムログ画面へ渡す主要PID読取状態です。
@@ -30,7 +30,7 @@ struct IOSDestinationView: View {
     /// アカウント同期対象の設定操作を通知するクロージャです。
     let sendAccountSettingsAction: (AccountSettingsAction) -> Void
 
-    /// 車両登録操作をVehicleManagementへ通知します。
+    /// 車両登録・編集操作をVehicleManagementへ通知します。
     let sendVehicleManagementAction: (VehicleManagementAction) -> Void
 
     /// 主要PID読取操作をLiveTelemetryへ通知します。
@@ -50,7 +50,7 @@ struct IOSDestinationView: View {
 
     /// 選択された遷移先に対応するiOS画面を提供します。
     ///
-    /// 責務: 現在の遷移先を設定画面または識別用プレースホルダーへ振り分けます。
+    /// 責務: 現在の遷移先をiOS専用のFeature画面へ振り分けます。
     @ViewBuilder
     var body: some View {
         if destination == .home {
@@ -78,9 +78,8 @@ struct IOSDestinationView: View {
                 state: connectionHistoryState,
                 send: sendConnectionHistoryAction
             )
-        } else if destination == .maintenance {
+        } else if destination == .garage {
             IOSGarageView(state: vehicleManagementState, send: sendVehicleManagementAction)
-                .onAppear { sendVehicleManagementAction(.refreshRequested) }
         } else if destination == .settings {
             IOSSettingsView(
                 state: settingsState,

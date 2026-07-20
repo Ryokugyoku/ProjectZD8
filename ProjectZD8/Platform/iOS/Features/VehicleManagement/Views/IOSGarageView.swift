@@ -3,67 +3,94 @@ import SwiftUI
 
 /// iPhoneで登録車両とPID収集設定導線を表示します。
 struct IOSGarageView: View {
+    /// 削除確認中の車両です。
+    @State private var deletionCandidate: VehicleProfile? = nil
     /// Applicationが公開する車両管理状態です。
     let state: VehicleManagementState
     /// 車両管理操作の通知先です。
     let send: (VehicleManagementAction) -> Void
 
-    /// 登録車両の現状、接続待ち、失敗を一画面で提示します。
+    /// 登録車両の現状または選択した車両の編集画面を提示します。
     ///
-    /// 責務: 車両管理状態を接続導線とカード型一覧へ変換して保存・同期操作へ接続します。
+    /// 責務: 車両管理状態を編集フォームまたはカード型一覧へ変換して型付き操作へ接続します。
+    @ViewBuilder
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 22) {
-                    titleSection
-                    statusSection
+        if let vehicle = state.editingVehicle,
+           state.phase == .registering || state.phase == .editing {
+            NavigationStack {
+                IOSVehicleEditorView(vehicle: vehicle, send: send)
+            }
+        } else {
+            NavigationStack {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 22) {
+                        titleSection
+                        statusSection
 
-                    if state.vehicles.isEmpty, state.phase == .loading {
-                        ProgressView("garage.status.loading")
-                            .controlSize(.large)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 24)
-                            .padding(.horizontal, 18)
-                            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-                    } else if state.vehicles.isEmpty {
-                        ContentUnavailableView("garage.empty.title", systemImage: "car.side")
-                            .frame(maxWidth: .infinity, minHeight: 220)
-                            .padding(.vertical, 18)
-                            .background(
-                                LinearGradient(
-                                    colors: [Color.accentColor.opacity(0.08), Color.black.opacity(0.03)],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                ),
-                                in: RoundedRectangle(cornerRadius: 22, style: .continuous)
-                            )
-                    } else {
-                        LazyVStack(spacing: 14) {
-                            ForEach(state.vehicles) { vehicle in
-                                vehicleCard(vehicle)
+                        if state.vehicles.isEmpty, state.phase == .loading {
+                            ProgressView("garage.status.loading")
+                                .controlSize(.large)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 24)
+                                .padding(.horizontal, 18)
+                                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+                        } else if state.vehicles.isEmpty {
+                            ContentUnavailableView("garage.empty.title", systemImage: "car.side")
+                                .frame(maxWidth: .infinity, minHeight: 220)
+                                .padding(.vertical, 18)
+                                .background(
+                                    LinearGradient(
+                                        colors: [Color.accentColor.opacity(0.08), Color.black.opacity(0.03)],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    ),
+                                    in: RoundedRectangle(cornerRadius: 22, style: .continuous)
+                                )
+                        } else {
+                            LazyVStack(spacing: 14) {
+                                ForEach(state.vehicles) { vehicle in
+                                    vehicleCard(vehicle)
+                                }
                             }
                         }
                     }
+                    .padding(20)
                 }
-                .padding(20)
+                .scrollIndicators(.hidden)
+                .navigationTitle("garage.title")
+                .navigationBarTitleDisplayMode(.large)
+                .background {
+                    LinearGradient(
+                        colors: [Color.primary.opacity(0.05), .clear],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    ).ignoresSafeArea()
+                }
+                .onAppear { send(.refreshRequested) }
+                .accessibilityIdentifier("ios-garage-screen")
             }
-            .scrollIndicators(.hidden)
-            .navigationTitle("garage.title")
-            .navigationBarTitleDisplayMode(.large)
-            .background {
-                LinearGradient(
-                    colors: [Color.primary.opacity(0.05), .clear],
-                    startPoint: .top,
-                    endPoint: .bottom
-                ).ignoresSafeArea()
+            .sheet(isPresented: Binding(
+                get: { state.pidSettingsVehicleID != nil },
+                set: { if !$0 { send(.pidSettingsClosed) } }
+            )) {
+                IOSVehiclePIDSettingsView(items: state.pidSelectionItems, send: send)
             }
-            .onAppear { send(.refreshRequested) }
-        }
-        .sheet(isPresented: Binding(
-            get: { state.pidSettingsVehicleID != nil },
-            set: { if !$0 { send(.pidSettingsClosed) } }
-        )) {
-            IOSVehiclePIDSettingsView(items: state.pidSelectionItems, send: send)
+            .alert(
+                "garage.delete.title",
+                isPresented: Binding(
+                    get: { deletionCandidate != nil },
+                    set: { if !$0 { deletionCandidate = nil } }
+                ),
+                presenting: deletionCandidate
+            ) { vehicle in
+                Button("garage.delete.action", role: .destructive) {
+                    deletionCandidate = nil
+                    send(.vehicleDeleted(vehicle.id))
+                }
+                Button("garage.cancel", role: .cancel) { deletionCandidate = nil }
+            } message: { _ in
+                Text("garage.delete.message")
+            }
         }
     }
 
@@ -162,9 +189,11 @@ struct IOSGarageView: View {
                     .buttonStyle(.borderedProminent)
                 Button("garage.pid_settings.open") { send(.pidSettingsRequested(vehicle.id)) }
                     .buttonStyle(.bordered)
-                Button(role: .destructive) { send(.vehicleDeleted(vehicle.id)) } label: {
+                Button(role: .destructive) { deletionCandidate = vehicle } label: {
                     Image(systemName: "trash")
                 }
+                .accessibilityLabel("garage.delete.action")
+                .accessibilityIdentifier("ios-garage-delete-\(vehicle.id.rawValue.uuidString)")
                 Spacer()
             }
             .font(.system(.callout, design: .rounded))

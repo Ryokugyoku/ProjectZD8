@@ -1220,6 +1220,72 @@
         }
       }
     },
+    "garage.delete.action" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eliminar"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "削除"
+          }
+        }
+      }
+    },
+    "garage.delete.message" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This removes the vehicle profile from this account. This action cannot be undone."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esto elimina el perfil del vehículo de esta cuenta. Esta acción no se puede deshacer."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このアカウントから車両プロフィールを削除します。この操作は取り消せません。"
+          }
+        }
+      }
+    },
+    "garage.delete.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete vehicle?"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Eliminar el vehículo?"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "車両を削除しますか？"
+          }
+        }
+      }
+    },
     "garage.edit" : {
       "localizations" : {
         "en" : {
@@ -2680,19 +2746,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Vehicle profile"
+            "value" : "Basic information"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Perfil del vehículo"
+            "value" : "Información básica"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "車両プロフィール"
+            "value" : "基本情報"
           }
         }
       }
@@ -2702,19 +2768,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Other settings"
+            "value" : "Vehicle information"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Otros ajustes"
+            "value" : "Información del vehículo"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "その他"
+            "value" : "車両情報"
           }
         }
       }

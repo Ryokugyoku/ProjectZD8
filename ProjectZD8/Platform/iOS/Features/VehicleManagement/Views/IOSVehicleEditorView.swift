@@ -39,34 +39,37 @@ struct IOSVehicleEditorView: View {
                 LabeledContent(draft.vin.isEmpty ? "garage.field.obd_identifier" : "garage.field.vin", value: draft.displayIdentifier)
                 TextField("garage.field.manufacturer", text: $draft.manufacturer)
                 TextField("garage.field.engine_model", text: $draft.engineModel)
-                TextField("garage.field.model_year", value: $draft.modelYear, format: .number)
             }
             Section("garage.section.energy") {
-                Picker("garage.field.powertrain", selection: $draft.powertrain) {
+                Picker("garage.field.powertrain", selection: powertrainSelection) {
                     ForEach(VehiclePowertrainKind.allCases, id: \.self) { kind in
                         Text(powertrainLabelKey(for: kind))
                     }
                 }
-                .onChange(of: draft.powertrain) { _ in
-                    sanitizeEnergySourcesForCurrentPowertrain()
+                Picker("garage.field.energy", selection: energySourceSelection) {
+                    ForEach(energySources(for: draft.powertrain), id: \.self) { source in
+                        Text(energyLabelKey(for: source))
+                    }
                 }
-                ForEach(energySources(for: draft.powertrain), id: \.self) { source in
-                    Toggle(energyLabelKey(for: source), isOn: energyBinding(source))
-                }
-                TextField("garage.field.tank", value: $draft.tankCapacityLiters, format: .number)
-                    .keyboardType(.decimalPad)
+                .pickerStyle(.menu)
             }
             Section("garage.section.other") {
+                TextField("garage.field.tank", value: $draft.tankCapacityLiters, format: .number)
+                    .keyboardType(.decimalPad)
+                TextField("garage.field.model_year", value: $draft.modelYear, format: .number)
                 TextField("garage.field.note", text: $draft.note, axis: .vertical)
                 Toggle("garage.field.default", isOn: $draft.isDefault)
             }
-            Section {
-                Button("garage.save") { send(.vehicleSaved(draft)) }
-                    .buttonStyle(.borderedProminent)
-                    .frame(maxWidth: .infinity)
-                    .disabled(draft.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+        }
+        .navigationTitle("garage.editor.title")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
                 Button("garage.cancel", role: .cancel) { send(.editCancelled) }
-                    .frame(maxWidth: .infinity)
+            }
+            ToolbarItem(placement: .confirmationAction) {
+                Button("garage.save") { send(.vehicleSaved(draft)) }
+                    .disabled(draft.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
         }
         .fileImporter(isPresented: $isPhotoImporterPresented, allowedContentTypes: [.image]) { result in
@@ -74,12 +77,13 @@ struct IOSVehicleEditorView: View {
         }
         .onAppear {
             draft = vehicle
-            sanitizeEnergySourcesForCurrentPowertrain()
+            prepareEnergySourcesForEditing()
         }
-        .onChange(of: vehicle) { newValue in
+        .onChange(of: vehicle) { _, newValue in
             draft = newValue
-            sanitizeEnergySourcesForCurrentPowertrain()
+            prepareEnergySourcesForEditing()
         }
+        .accessibilityIdentifier("ios-vehicle-editor")
     }
 
     /// 写真または未設定状態をアスペクト比を保って表示します。
@@ -98,18 +102,33 @@ struct IOSVehicleEditorView: View {
         .clipShape(RoundedRectangle(cornerRadius: 22))
     }
 
-    /// 1件のエネルギー源を配列内の選択状態へ変換します。
+    /// 1件のエネルギー種別を編集プロフィールへ接続します。
     ///
-    /// 責務: 指定エネルギー源の選択操作だけを編集プロフィールへ反映します。
-    /// - Parameter source: 選択状態を読み書きするエネルギー源。
-    /// - Returns: 配列要素の有無へ接続したBinding。
-    private func energyBinding(_ source: VehicleEnergySource) -> Binding<Bool> {
-        Binding {
-            draft.energySources.contains(source)
-        } set: { isSelected in
-            if isSelected, !draft.energySources.contains(source) { draft.energySources.append(source) }
-            if !isSelected { draft.energySources.removeAll { $0 == source } }
-        }
+    /// 責務: エネルギー種別の選択状態を編集プロフィールの単一選択値として同期します。
+    /// - Returns: エネルギー種別選択を編集プロフィールへ接続するBinding。
+    private var energySourceSelection: Binding<VehicleEnergySource> {
+        Binding(
+            get: {
+                draft.energySources.first ?? energySources(for: draft.powertrain).first ?? .other
+            },
+            set: { selectedSource in
+                draft.energySources = [selectedSource]
+            }
+        )
+    }
+
+    /// 動力区分の選択をエネルギー源整合化とともに編集プロフィールへ接続します。
+    ///
+    /// 責務: ユーザーが選んだ動力区分を反映し、エネルギー源を新しい区分へ整合させます。
+    /// - Returns: 動力区分選択を編集プロフィールへ接続するBinding。
+    private var powertrainSelection: Binding<VehiclePowertrainKind> {
+        Binding(
+            get: { draft.powertrain },
+            set: { newPowertrain in
+                draft.powertrain = newPowertrain
+                sanitizeEnergySourcesForCurrentPowertrain()
+            }
+        )
     }
 
     /// 駆動システム別に表示するエネルギー源を返します。
@@ -118,18 +137,7 @@ struct IOSVehicleEditorView: View {
     /// - Parameter powertrain: 現在編集中の駆動システム。
     /// - Returns: 表示対象のエネルギー源配列。
     private func energySources(for powertrain: VehiclePowertrainKind) -> [VehicleEnergySource] {
-        switch powertrain {
-        case .combustion:
-            return [.gasolinePremium, .gasolineRegular, .diesel]
-        case .hybrid, .plugInHybrid:
-            return [.gasolinePremium, .gasolineRegular, .diesel, .electricity]
-        case .batteryElectric:
-            return [.electricity]
-        case .fuelCell:
-            return [.hydrogen]
-        case .other:
-            return [.other]
-        }
+        VehicleEnergySourcePolicy.availableSources(for: powertrain)
     }
 
     /// 1件の動力区分をローカライズキーへ変換します。
@@ -156,7 +164,7 @@ struct IOSVehicleEditorView: View {
 
     /// 1件のエネルギー源をローカライズキーへ変換します。
     ///
-    /// 責務: エネルギー種別トグルをキー表示ではなく翻訳済み文言へ変換します。
+    /// 責務: エネルギー種別選択をキー表示ではなく翻訳済み文言へ変換します。
     /// - Parameter source: 表示対象のエネルギー源。
     /// - Returns: ラベルキー。
     private func energyLabelKey(for source: VehicleEnergySource) -> LocalizedStringKey {
@@ -184,13 +192,22 @@ struct IOSVehicleEditorView: View {
 
     /// 駆動区分変更時にエネルギー選択を再構築します。
     ///
-    /// 責務: 選択済みエネルギー源を現在区分で利用可能なものへ再整列させます。
+    /// 責務: 選択済みエネルギー源を失わずに現在区分で利用可能な範囲へ再整列させます。
     private func sanitizeEnergySourcesForCurrentPowertrain() {
-        let available = energySources(for: draft.powertrain)
-        draft.energySources.removeAll { !available.contains($0) }
-        if draft.energySources.isEmpty {
-            draft.energySources = [available.first].compactMap { $0 }
-        }
+        draft.energySources = VehicleEnergySourcePolicy.normalizedSources(
+            draft.energySources,
+            for: draft.powertrain
+        )
+    }
+
+    /// 保存済みエネルギー源を編集開始状態へ準備します。
+    ///
+    /// 責務: 保存済み値を失わずに空のエネルギー源だけを既定値で補完します。
+    private func prepareEnergySourcesForEditing() {
+        draft.energySources = VehicleEnergySourcePolicy.sourcesForEditing(
+            draft.energySources,
+            powertrain: draft.powertrain
+        )
     }
 }
 #endif

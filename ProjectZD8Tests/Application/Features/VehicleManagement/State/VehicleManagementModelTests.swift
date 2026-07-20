@@ -92,6 +92,32 @@ final class VehicleManagementModelTests: XCTestCase {
         XCTAssertEqual(resolutionCount, 0)
     }
 
+    /// 登録確認中の再読込要求が確認対象の識別観測を破棄しないことを検証します。
+    ///
+    /// 責務: 進行中の新規車両登録確認がGarage表示時の一覧再読込によって中断されないことを確認します。
+    func testRefreshRequestedDuringRegistrationConfirmationPreservesPendingIdentification() async throws {
+        let model = VehicleManagementModel(
+            state: VehicleManagementState(),
+            repository: VehicleRepositoryFake(),
+            identifyForConnection: IdentifyVehicleForConnectionUseCase(
+                identification: DemoVehicleIdentificationAdapter()
+            ),
+            photoImporter: VehiclePhotoImportPortFake()
+        )
+        model.send(.accountIdentifierChanged("test-account"))
+        try await waitUntil { model.state.hasLoadedVehicles }
+
+        model.send(.identifyRequested(OBDConnectionEndpoint(adapter: DemoOBDAdapter.candidate)))
+        try await waitUntil { model.state.phase == .confirmingIdentification }
+        let pendingIdentification = try XCTUnwrap(model.state.pendingIdentification)
+
+        model.send(.refreshRequested)
+        for _ in 0..<10 { await Task.yield() }
+
+        XCTAssertEqual(model.state.phase, .confirmingIdentification)
+        XCTAssertEqual(model.state.pendingIdentification, pendingIdentification)
+    }
+
     /// 識別境界の型付きエラーを診断可能な表示キーへ分離します。
     ///
     /// 責務: 実車識別の主要失敗段階が同じ汎用文言へ潰れないことを確認します。

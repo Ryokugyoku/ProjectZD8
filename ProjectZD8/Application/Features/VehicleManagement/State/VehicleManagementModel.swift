@@ -76,7 +76,7 @@ final class VehicleManagementModel {
         case .editCancelled: finishEditing()
         case let .photoSelected(url): Task { await importPhoto(at: url) }
         case let .vehicleDeleted(id): Task { await delete(id) }
-        case .refreshRequested: Task { await loadVehicles() }
+        case .refreshRequested: Task { await refreshVehicleCatalogIfIdle() }
         case let .pidSettingsRequested(vehicleID): loadPIDSettings(for: vehicleID)
         case let .pidCollectionChanged(request, isEnabled): updatePIDSelection(request, isEnabled: isEnabled)
         case .pidSettingsClosed:
@@ -161,6 +161,14 @@ final class VehicleManagementModel {
             state.phase = .failed
             state.failureKey = "garage.error.sync"
         }
+    }
+
+    /// 操作待ち状態で要求された車両一覧の再読込だけを開始します。
+    ///
+    /// 責務: 進行中の識別・登録・編集状態を保持したまま、操作待ち時だけ車両カタログ再読込を開始します。
+    private func refreshVehicleCatalogIfIdle() async {
+        guard state.phase == .idle else { return }
+        await loadVehicles()
     }
 
     /// ローカルとキャッシュ読込データを更新日時で突合し、同期方針を作成します。
