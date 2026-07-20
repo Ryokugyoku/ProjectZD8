@@ -24,6 +24,9 @@ struct MacOSDestinationView: View {
     /// 接続履歴画面へ渡す現在の履歴状態です。
     let connectionHistoryState: ConnectionHistoryState
 
+    /// 接続履歴内のPID解析画面へ渡す状態です。
+    let sessionLogAnalysisState: SessionLogAnalysisState
+
     /// HOMEの操作をAppShellへ通知するクロージャです。
     let sendHomeAction: (MacOSHomeAction) -> Void
 
@@ -41,6 +44,9 @@ struct MacOSDestinationView: View {
 
     /// 接続履歴操作をLogHistoryへ通知します。
     let sendConnectionHistoryAction: (ConnectionHistoryAction) -> Void
+
+    /// PID解析操作をAnalysisへ通知します。
+    let sendSessionLogAnalysisAction: (SessionLogAnalysisAction) -> Void
 
     /// Authenticationが管理するアカウント削除の現在段階です。
     let accountDeletionPhase: AccountDeletionPhase
@@ -75,6 +81,8 @@ struct MacOSDestinationView: View {
             MacOSConnectionHistoryView(
                 state: connectionHistoryState,
                 send: sendConnectionHistoryAction,
+                analysisState: sessionLogAnalysisState,
+                sendAnalysis: sendSessionLogAnalysisAction,
                 metrics: metrics
             )
         } else if destination == .garage {

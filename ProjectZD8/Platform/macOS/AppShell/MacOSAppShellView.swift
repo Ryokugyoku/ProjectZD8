@@ -24,6 +24,9 @@ struct MacOSAppShellView: View {
     /// 接続セッション履歴を提供するモデルです。
     let connectionHistoryModel: ConnectionHistoryModel
 
+    /// 保存済みPID時系列解析を提供するモデルです。
+    let sessionLogAnalysisModel: SessionLogAnalysisModel
+
     /// HOME接続要求をApplicationワークフローへ通知するユースケースです。
     let startVehicleConnection: StartVehicleConnectionUseCase
 
@@ -45,6 +48,7 @@ struct MacOSAppShellView: View {
     ///   - vehicleManagementModel: 登録車両とVIN確認状態を提供するモデル。
     ///   - liveTelemetryModel: 主要PID読取状態を提供するモデル。
     ///   - connectionHistoryModel: アカウント単位の接続履歴を提供するモデル。
+    ///   - sessionLogAnalysisModel: 保存済みPID時系列解析を提供するモデル。
     ///   - startVehicleConnection: HOME接続要求を車両識別とPID取得へ展開するユースケース。
     ///   - accountDeletionPhase: アカウント削除の現在段階。
     ///   - accountDeletionFailure: 直近のアカウント削除失敗。
@@ -55,6 +59,7 @@ struct MacOSAppShellView: View {
         vehicleManagementModel: VehicleManagementModel,
         liveTelemetryModel: LiveTelemetryModel,
         connectionHistoryModel: ConnectionHistoryModel,
+        sessionLogAnalysisModel: SessionLogAnalysisModel,
         startVehicleConnection: StartVehicleConnectionUseCase,
         accountDeletionPhase: AccountDeletionPhase,
         accountDeletionFailure: AccountDeletionFailure?,
@@ -65,6 +70,7 @@ struct MacOSAppShellView: View {
         self.vehicleManagementModel = vehicleManagementModel
         self.liveTelemetryModel = liveTelemetryModel
         self.connectionHistoryModel = connectionHistoryModel
+        self.sessionLogAnalysisModel = sessionLogAnalysisModel
         self.startVehicleConnection = startVehicleConnection
         self.accountDeletionPhase = accountDeletionPhase
         self.accountDeletionFailure = accountDeletionFailure
@@ -115,12 +121,14 @@ struct MacOSAppShellView: View {
                     vehicleManagementState: vehicleManagementModel.state,
                     liveTelemetryState: liveTelemetryModel.state,
                     connectionHistoryState: connectionHistoryModel.state,
+                    sessionLogAnalysisState: sessionLogAnalysisModel.state,
                     sendHomeAction: handleHomeAction,
                     sendSettingsAction: settingsModel.send,
                     sendAccountSettingsAction: accountSettingsModel.send,
                     sendVehicleManagementAction: vehicleManagementModel.send,
                     sendLiveTelemetryAction: liveTelemetryModel.send,
                     sendConnectionHistoryAction: connectionHistoryModel.send,
+                    sendSessionLogAnalysisAction: sessionLogAnalysisModel.send,
                     accountDeletionPhase: accountDeletionPhase,
                     accountDeletionFailure: accountDeletionFailure,
                     sendAuthenticationAction: sendAuthenticationAction

@@ -10,6 +10,10 @@ struct MacOSConnectionHistoryView: View {
     let state: ConnectionHistoryState
     /// 履歴の型付き操作をApplicationへ通知します。
     let send: (ConnectionHistoryAction) -> Void
+    /// 現在表示中のPID時系列解析状態です。
+    let analysisState: SessionLogAnalysisState
+    /// PID時系列解析操作をApplicationへ通知します。
+    let sendAnalysis: (SessionLogAnalysisAction) -> Void
     /// 現在のウインドウサイズに対応する表示寸法です。
     let metrics: MacOSAppShellMetrics
 
@@ -43,6 +47,8 @@ struct MacOSConnectionHistoryView: View {
                             session: session,
                             metrics: metrics,
                             send: send,
+                            analysisState: analysisState,
+                            sendAnalysis: sendAnalysis,
                             isDeleting: state.deletingSessionID == session.id,
                             back: returnToVehicleSessionList
                         )

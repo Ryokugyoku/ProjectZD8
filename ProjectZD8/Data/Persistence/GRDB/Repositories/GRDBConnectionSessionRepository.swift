@@ -161,6 +161,53 @@ final class GRDBConnectionSessionRepository: ConnectionSessionRepository, Connec
         }
     }
 
+    /// 指定セッションのRawログ件数をSQLite集計で返します。
+    ///
+    /// 責務: 1件のセッションIDを子Rawログ行の総件数へ変換します。
+    /// - Parameter sessionID: 件数を取得する接続セッションID。
+    /// - Returns: 保存済みRawログ行数。
+    /// - Throws: SQLite集計読込に失敗した場合のエラー。
+    func entryCount(for sessionID: ConnectionSessionID) throws -> Int {
+        try databaseQueue.read { database in
+            try ConnectionSessionRawLogRecord
+                .filter(Column("sessionID") == sessionID.rawValue.uuidString.lowercased())
+                .fetchCount(database)
+        }
+    }
+
+    /// 指定セッションのRawログを記録順カーソルで分割して返します。
+    ///
+    /// 責務: 1件のセッションIDと記録順カーソルを上限付きの次ページへ変換します。
+    /// - Parameters:
+    ///   - sessionID: 読み込む接続セッションID。
+    ///   - sequence: 直前に読み込んだ記録順序。先頭ページでは `nil`。
+    ///   - limit: 1回で返す最大件数。
+    /// - Returns: `sequence`昇順の次ページRawログ。
+    /// - Throws: SQLite読込または保存値検証に失敗した場合のエラー。
+    func entries(
+        for sessionID: ConnectionSessionID,
+        after sequence: Int64?,
+        limit: Int
+    ) throws -> [ConnectionSessionRawLogEntry] {
+        try databaseQueue.read { database in
+            var request = ConnectionSessionRawLogRecord
+                .filter(Column("sessionID") == sessionID.rawValue.uuidString.lowercased())
+            if let sequence {
+                request = request.filter(Column("sequence") > sequence)
+            }
+            let records = try request
+                .order(Column("sequence"))
+                .limit(max(0, limit))
+                .fetchAll(database)
+            return try records.map { record in
+                guard let entry = record.makeDomainEntry() else {
+                    throw ConnectionSessionRepositoryError.integrityConflict
+                }
+                return entry
+            }
+        }
+    }
+
     /// 指定車両に属する全セッションのRaw応答を時系列で復元します。
     ///
     /// 責務: 1件のアカウントと車両IDを学習抽出可能なセッション境界付きRawログへ変換します。

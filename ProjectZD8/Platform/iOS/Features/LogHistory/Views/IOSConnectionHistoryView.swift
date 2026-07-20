@@ -8,6 +8,11 @@ struct IOSConnectionHistoryView: View {
     /// 履歴の型付き操作をApplicationへ通知します。
     let send: (ConnectionHistoryAction) -> Void
 
+    /// 現在表示中のPID時系列解析状態です。
+    let analysisState: SessionLogAnalysisState
+    /// PID時系列解析操作をApplicationへ通知します。
+    let sendAnalysis: (SessionLogAnalysisAction) -> Void
+
     /// iPhone向けの階層化された接続履歴と詳細導線を提供します。
     ///
     /// 責務: 接続履歴状態を進行中表示と車両別アーカイブへ分けて描画します。
@@ -35,7 +40,7 @@ struct IOSConnectionHistoryView: View {
             }
             .navigationDestination(for: ConnectionSessionID.self) { id in
                 if let session = state.sessions.first(where: { $0.id == id }) {
-                    IOSConnectionSessionDetailView(session: session, send: send)
+                    IOSConnectionSessionDetailView(session: session, send: send, analysisState: analysisState, sendAnalysis: sendAnalysis)
                 }
             }
             .refreshable { send(.refreshRequested) }

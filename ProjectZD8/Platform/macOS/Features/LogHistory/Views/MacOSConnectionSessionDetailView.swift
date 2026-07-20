@@ -9,6 +9,10 @@ struct MacOSConnectionSessionDetailView: View {
     let metrics: MacOSAppShellMetrics
     /// LogHistoryの型付き操作をApplicationへ通知します。
     let send: (ConnectionHistoryAction) -> Void
+    /// 現在表示中のPID時系列解析状態です。
+    let analysisState: SessionLogAnalysisState
+    /// PID時系列解析操作をApplicationへ通知します。
+    let sendAnalysis: (SessionLogAnalysisAction) -> Void
     /// 表示対象を全端末から削除している途中かを示します。
     let isDeleting: Bool
     /// 車両セッション一覧へ戻る一時的な画面遷移操作です。
@@ -24,7 +28,7 @@ struct MacOSConnectionSessionDetailView: View {
                 hero
                 HStack(alignment: .top, spacing: 16 * metrics.scale) {
                     rawDataCard
-                    vehicleScopeCard
+                    analysisCard
                     integrityCard
                 }
                 trainingCard
@@ -35,6 +39,23 @@ struct MacOSConnectionSessionDetailView: View {
         .background(background)
         .navigationTitle("history.detail.title")
         .accessibilityIdentifier("macos-connection-session-detail")
+    }
+
+    /// 車両スコープ枠を置き換える静的性能解析カードです。
+    private var analysisCard: some View {
+        NavigationLink {
+            MacOSSessionLogAnalysisView(session: session, state: analysisState, send: sendAnalysis, metrics: metrics, back: { })
+        } label: {
+            statusCard(
+                titleKey: "analysis.open",
+                value: String(localized: "analysis.card.value"),
+                caption: analysisCardCaption,
+                systemImage: "gauge.with.dots.needle.67percent",
+                color: .indigo
+            )
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("macos-history-open-analysis")
     }
 
     /// 車両セッション一覧へ戻る操作と全端末削除操作を表示します。
@@ -124,17 +145,6 @@ struct MacOSConnectionSessionDetailView: View {
             caption: byteCountText(session.rawLogSummary.byteCount),
             systemImage: "cylinder.split.1x2.fill",
             color: .cyan
-        )
-    }
-
-    /// 学習抽出に使用する車両スコープを表示します。
-    private var vehicleScopeCard: some View {
-        statusCard(
-            titleKey: "history.training.vehicle.title",
-            value: session.vehicle?.name ?? String(localized: "history.vehicle.pending"),
-            caption: session.vehicle?.id.rawValue.uuidString.uppercased() ?? String(localized: "history.training.vehicle.unassigned"),
-            systemImage: "car.side.fill",
-            color: .blue
         )
     }
 
@@ -252,6 +262,15 @@ struct MacOSConnectionSessionDetailView: View {
     /// - Returns: 現在Localeへ整形した容量文字列。
     private func byteCountText(_ bytes: Int64) -> String {
         ByteCountFormatter.string(fromByteCount: max(0, bytes), countStyle: .file)
+    }
+
+    /// 解析対象Rawログ件数をカード補足へ変換します。
+    private var analysisCardCaption: String {
+        String(
+            format: String(localized: "analysis.card.caption"),
+            locale: .autoupdatingCurrent,
+            session.rawLogSummary.recordCount
+        )
     }
 
     /// Manifest Digestを短縮した表示文字列です。

@@ -1,0 +1,91 @@
+import Foundation
+
+/// 保存済みセッションのPID時系列解析を画面へ公開する状態です。
+struct SessionLogAnalysisState: Equatable {
+    /// 解析読込の現在段階です。
+    enum Phase: Equatable {
+        /// セッション選択前または表示を閉じた状態です。
+        case idle
+        /// RawログとPID定義を読込中です。
+        case loading
+        /// 時系列サンプルの生成が完了した状態です。
+        case loaded
+        /// 保存先または定義を読めなかった状態です。
+        case failed
+    }
+
+    /// 1件の時系列PID表示値です。
+    struct TimelineSample: Identifiable, Equatable {
+        /// セッション内のRawログ順序です。
+        let sequence: Int64
+        /// 応答を観測した実時間です。
+        let observedAt: Date
+        /// OBD Service番号です。
+        let service: UInt8
+        /// Service内PID番号です。
+        let pid: UInt8
+        /// PID定義が提供する表示名キーです。
+        let nameKey: String?
+        /// 数式変換後の数値です。変換できない場合は `nil` です。
+        let value: Double?
+        /// 数値の単位です。
+        let unit: String?
+        /// 数式を適用する前の応答データです。
+        let payload: [UInt8]
+        /// 数値化できなかった理由です。
+        let decodingFailure: DecodingFailure?
+
+        /// SwiftUIの行識別子です。
+        var id: Int64 { sequence }
+
+        /// 数値化不能なPIDの理由です。
+        enum DecodingFailure: Equatable {
+            /// 保存済み定義がありません。
+            case missingDefinition
+            /// 定義はありますが式が確認されていません。
+            case unavailableFormula
+            /// Payload長または数式評価が定義を満たしません。
+            case invalidPayload
+        }
+
+        /// 解析済みPID値を生成します。
+        ///
+        /// 責務: 1件のRaw PID応答を表示に必要な変換結果と来歴へ固定します。
+        /// - Parameters:
+        ///   - sequence: セッション内の記録順序。
+        ///   - observedAt: 応答観測時刻。
+        ///   - service: OBD Service番号。
+        ///   - pid: Service内PID番号。
+        ///   - nameKey: PID表示名キー。
+        ///   - value: 数式変換後の値。
+        ///   - unit: 数値単位。
+        ///   - payload: 元の応答データ。
+        ///   - decodingFailure: 数値化不能理由。
+        init(sequence: Int64, observedAt: Date, service: UInt8, pid: UInt8, nameKey: String?, value: Double?, unit: String?, payload: [UInt8], decodingFailure: DecodingFailure?) {
+            self.sequence = sequence
+            self.observedAt = observedAt
+            self.service = service
+            self.pid = pid
+            self.nameKey = nameKey
+            self.value = value
+            self.unit = unit
+            self.payload = payload
+            self.decodingFailure = decodingFailure
+        }
+    }
+
+    /// 現在の解析段階です。
+    var phase: Phase = .idle
+    /// 現在表示しているセッションIDです。
+    var sessionID: ConnectionSessionID?
+    /// セッション内の取得順序で昇順にしたPID時系列です。
+    var timeline: [TimelineSample] = []
+    /// 数式変換を完了した時系列サンプル件数です。
+    var decodedSampleCount = 0
+    /// 読込済みRawログの総件数です。Rawログ読込前は `nil` です。
+    var totalSampleCount: Int?
+    /// 数式変換できずRawのまま保持するサンプル件数です。
+    var rawOnlySampleCount: Int { timeline.count - decodedSampleCount }
+    /// 保存元または変換定義の読込失敗を示すキーです。
+    var failureKey: String?
+}

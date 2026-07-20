@@ -7,6 +7,10 @@ struct IOSConnectionSessionDetailView: View {
     let session: ConnectionSession
     /// LogHistoryの型付き操作をApplicationへ通知します。
     let send: (ConnectionHistoryAction) -> Void
+    /// 現在表示中のPID時系列解析状態です。
+    let analysisState: SessionLogAnalysisState
+    /// PID時系列解析操作をApplicationへ通知します。
+    let sendAnalysis: (SessionLogAnalysisAction) -> Void
 
     /// Rawログの来歴と安全なローカル除去導線を提供します。
     ///
@@ -18,6 +22,7 @@ struct IOSConnectionSessionDetailView: View {
                 rawMetrics
                 storageJourney
                 macReceiptCard
+                analysisAction
                 localRemovalAction
             }
             .padding(.horizontal, 20)
@@ -27,6 +32,21 @@ struct IOSConnectionSessionDetailView: View {
         .navigationTitle("history.detail.title")
         .navigationBarTitleDisplayMode(.inline)
         .accessibilityIdentifier("ios-connection-session-detail")
+    }
+
+    /// 静的性能解析画面への遷移操作を表示します。
+    private var analysisAction: some View {
+        NavigationLink {
+            IOSSessionLogAnalysisView(session: session, state: analysisState, send: sendAnalysis)
+        } label: {
+            Label("analysis.open", systemImage: "gauge.with.dots.needle.67percent")
+                .font(.headline)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 7)
+        }
+        .buttonStyle(.borderedProminent)
+        .tint(.indigo)
+        .accessibilityIdentifier("ios-history-open-analysis")
     }
 
     /// セッションの車両、日時、Rawログ概念を示す主カードです。

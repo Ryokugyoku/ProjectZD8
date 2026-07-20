@@ -21,6 +21,9 @@ struct ProjectZD8App: App {
     /// アカウント単位の接続履歴を保持するモデルです。
     @State private var connectionHistoryModel: ConnectionHistoryModel
 
+    /// 保存済みPIDログの読取専用解析状態を保持するモデルです。
+    @State private var sessionLogAnalysisModel: SessionLogAnalysisModel
+
     /// HOME接続要求を車両識別とPID継続取得へ展開するユースケースです。
     private let startVehicleConnection: StartVehicleConnectionUseCase
 
@@ -47,6 +50,13 @@ struct ProjectZD8App: App {
             ),
             removeIPhoneRawLog: RemoveIPhoneSessionRawLogUseCase(
                 repository: connectionSessionRepository
+            )
+        )
+        let sessionLogAnalysisModel = SessionLogAnalysisModel(
+            state: .init(),
+            decodeTimeline: DecodeSessionLogTimelineUseCase(
+                rawLogRepository: connectionSessionRepository,
+                definitionRepository: IOSApplicationComposition.makeOBDPIDDefinitionRepository()
             )
         )
         let connectionSessionLifecycleModel = ConnectionSessionLifecycleModel(
@@ -90,6 +100,7 @@ struct ProjectZD8App: App {
         )
         _connectionSessionLifecycleModel = State(initialValue: connectionSessionLifecycleModel)
         _connectionHistoryModel = State(initialValue: connectionHistoryModel)
+        _sessionLogAnalysisModel = State(initialValue: sessionLogAnalysisModel)
         startVehicleConnection = StartVehicleConnectionUseCase(
             identifyVehicle: { vehicleManagementModel.send(.identifyRequested($0)) }
         )
@@ -105,6 +116,13 @@ struct ProjectZD8App: App {
             deleteSessionEverywhere: DeleteConnectionSessionEverywhereUseCase(
                 localRepository: connectionSessionRepository,
                 transferRepository: CloudKitConnectionSessionTransferRepository()
+            )
+        )
+        let sessionLogAnalysisModel = SessionLogAnalysisModel(
+            state: .init(),
+            decodeTimeline: DecodeSessionLogTimelineUseCase(
+                rawLogRepository: connectionSessionRepository,
+                definitionRepository: MacOSApplicationComposition.makeOBDPIDDefinitionRepository()
             )
         )
         let connectionSessionLifecycleModel = ConnectionSessionLifecycleModel(
@@ -148,6 +166,7 @@ struct ProjectZD8App: App {
         )
         _connectionSessionLifecycleModel = State(initialValue: connectionSessionLifecycleModel)
         _connectionHistoryModel = State(initialValue: connectionHistoryModel)
+        _sessionLogAnalysisModel = State(initialValue: sessionLogAnalysisModel)
         startVehicleConnection = StartVehicleConnectionUseCase(
             identifyVehicle: { vehicleManagementModel.send(.identifyRequested($0)) }
         )
@@ -168,6 +187,7 @@ struct ProjectZD8App: App {
                         vehicleManagementModel: vehicleManagementModel,
                         liveTelemetryModel: liveTelemetryModel,
                         connectionHistoryModel: connectionHistoryModel,
+                        sessionLogAnalysisModel: sessionLogAnalysisModel,
                         startVehicleConnection: startVehicleConnection,
                         accountDeletionPhase: authenticationModel.state.accountDeletionPhase,
                         accountDeletionFailure: authenticationModel.state.accountDeletionFailure,
@@ -190,6 +210,7 @@ struct ProjectZD8App: App {
                         vehicleManagementModel: vehicleManagementModel,
                         liveTelemetryModel: liveTelemetryModel,
                         connectionHistoryModel: connectionHistoryModel,
+                        sessionLogAnalysisModel: sessionLogAnalysisModel,
                         startVehicleConnection: startVehicleConnection,
                         accountDeletionPhase: authenticationModel.state.accountDeletionPhase,
                         accountDeletionFailure: authenticationModel.state.accountDeletionFailure,

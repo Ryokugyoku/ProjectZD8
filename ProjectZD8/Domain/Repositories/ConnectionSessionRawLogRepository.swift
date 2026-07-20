@@ -17,6 +17,29 @@ protocol ConnectionSessionRawLogRepository {
     /// - Throws: 永続化済みログを読み込めない場合の保存先エラー。
     func entries(for sessionID: ConnectionSessionID) throws -> [ConnectionSessionRawLogEntry]
 
+    /// セッション内のRaw応答件数を返します。
+    ///
+    /// 責務: 1件のセッションIDに属するRawログ総件数を復元します。
+    /// - Parameter sessionID: 件数を取得する接続セッションID。
+    /// - Returns: 保存済みRawログ件数。
+    /// - Throws: 永続化済みログ件数を読み込めない場合の保存先エラー。
+    func entryCount(for sessionID: ConnectionSessionID) throws -> Int
+
+    /// セッション内のRaw応答を指定順序より後から上限件数まで返します。
+    ///
+    /// 責務: 1件のセッションRawログを記録順カーソルで分割して復元します。
+    /// - Parameters:
+    ///   - sessionID: 読み込む接続セッションID。
+    ///   - sequence: 直前に読み込んだ記録順序。先頭ページでは `nil`。
+    ///   - limit: 1回で返す最大件数。
+    /// - Returns: `sequence`昇順で指定上限以下のRawログ。
+    /// - Throws: 永続化済みログを読み込めない場合の保存先エラー。
+    func entries(
+        for sessionID: ConnectionSessionID,
+        after sequence: Int64?,
+        limit: Int
+    ) throws -> [ConnectionSessionRawLogEntry]
+
     /// 車両に属する全セッションのRaw応答を時系列で返します。
     ///
     /// 責務: 1件のアカウントと車両IDに属する未デコード応答をセッション境界付きで復元します。
@@ -68,4 +91,41 @@ protocol ConnectionSessionRawLogRepository {
     /// - Parameter sessionID: ローカルPayloadを除去するセッションID。
     /// - Throws: セッション状態不正または永続化失敗。
     func removeLocalEntries(for sessionID: ConnectionSessionID) throws
+}
+
+/// ページ読取を専用実装しないリポジトリへ互換動作を提供します。
+extension ConnectionSessionRawLogRepository {
+    /// 全件読取結果からRawログ件数を返します。
+    ///
+    /// 責務: 既存の全件読取能力をRawログ件数へ変換します。
+    /// - Parameter sessionID: 件数を取得する接続セッションID。
+    /// - Returns: 保存済みRawログ件数。
+    /// - Throws: 全件読取に失敗した場合の保存先エラー。
+    func entryCount(for sessionID: ConnectionSessionID) throws -> Int {
+        try entries(for: sessionID).count
+    }
+
+    /// 全件読取結果へ記録順カーソルと上限を適用します。
+    ///
+    /// 責務: 既存の全件読取能力を互換的な1ページのRawログへ変換します。
+    /// - Parameters:
+    ///   - sessionID: 読み込む接続セッションID。
+    ///   - sequence: 直前に読み込んだ記録順序。先頭ページでは `nil`。
+    ///   - limit: 1回で返す最大件数。
+    /// - Returns: `sequence`昇順で指定上限以下のRawログ。
+    /// - Throws: 全件読取に失敗した場合の保存先エラー。
+    func entries(
+        for sessionID: ConnectionSessionID,
+        after sequence: Int64?,
+        limit: Int
+    ) throws -> [ConnectionSessionRawLogEntry] {
+        let lowerBound = sequence ?? -1
+        return Array(
+            try entries(for: sessionID)
+                .sorted { $0.sequence < $1.sequence }
+                .lazy
+                .filter { $0.sequence > lowerBound }
+                .prefix(max(0, limit))
+        )
+    }
 }
