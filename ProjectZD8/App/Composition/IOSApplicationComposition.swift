@@ -90,7 +90,7 @@ enum IOSApplicationComposition {
     ///
     /// 責務: iOSの接続履歴を利用可能なGRDB実装または明示的利用不能境界へ変換します。
     /// - Returns: Application Support内の接続セッション保存先。
-    static func makeConnectionSessionRepository() -> any ConnectionSessionRepository & ConnectionSessionRawLogRepository & AccountConnectionSessionErasureRepository {
+    static func makeConnectionSessionRepository() -> any ConnectionSessionRepository & ConnectionSessionRawLogRepository & ConnectionSessionErasureRepository & AccountConnectionSessionErasureRepository {
         (try? GRDBConnectionSessionRepository.openApplicationRepository())
             ?? UnavailableConnectionSessionRepository()
     }
@@ -101,11 +101,12 @@ enum IOSApplicationComposition {
     /// - Parameter storage: 接続履歴とRawログを保持する共通ローカル保存先。
     /// - Returns: iPhone送信元として動作するセッション同期ユースケース。
     static func makeConnectionSessionSynchronization(
-        storage: any ConnectionSessionRepository & ConnectionSessionRawLogRepository
+        storage: any ConnectionSessionRepository & ConnectionSessionRawLogRepository & ConnectionSessionErasureRepository
     ) -> SynchronizeConnectionSessionsUseCase {
         SynchronizeConnectionSessionsUseCase(
             sessionRepository: storage,
             rawLogRepository: storage,
+            sessionErasureRepository: storage,
             transferRepository: CloudKitConnectionSessionTransferRepository(),
             role: .iPhone
         )

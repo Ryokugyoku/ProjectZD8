@@ -326,6 +326,21 @@ private final class AuthenticationDeletionTransferRepositoryFake: ConnectionSess
         for accountIdentifier: String
     ) async throws -> [(ConnectionSessionID, ConnectionSessionMacImportReceipt)] { [] }
 
+    /// このテストでは削除マーカーを返しません。
+    ///
+    /// 責務: テスト対象外の削除マーカー取得へ空集合を返します。
+    /// - Parameter accountIdentifier: 使用しないアカウント識別子。
+    /// - Returns: 空集合。
+    func deletedSessionIDs(for accountIdentifier: String) async throws -> Set<ConnectionSessionID> { [] }
+
+    /// このテストではセッション単位削除を使用しません。
+    ///
+    /// 責務: テスト対象外のセッション削除要求を副作用なしで満たします。
+    /// - Parameters:
+    ///   - sessionID: 使用しないセッションID。
+    ///   - accountIdentifier: 使用しないアカウント識別子。
+    func deleteSession(_ sessionID: ConnectionSessionID, for accountIdentifier: String) async throws {}
+
     /// CloudKit運転データ削除を共有履歴へ追加します。
     ///
     /// 責務: 1件のCloudKit全削除を順序検証可能なイベントへ変換します。

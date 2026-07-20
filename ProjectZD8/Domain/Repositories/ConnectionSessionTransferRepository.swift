@@ -46,6 +46,26 @@ protocol ConnectionSessionTransferRepository {
         for accountIdentifier: String
     ) async throws -> [(ConnectionSessionID, ConnectionSessionMacImportReceipt)]
 
+    /// 全端末で物理削除すべきセッションIDを取得します。
+    ///
+    /// 責務: 1件のアカウントに属するCloudKit削除マーカーをセッションID集合へ変換します。
+    /// - Parameter accountIdentifier: 同期対象のAppleアカウント識別子。
+    /// - Returns: 全端末から削除すべき接続セッションID集合。
+    /// - Throws: CloudKit取得またはレコード復元に失敗した場合のエラー。
+    func deletedSessionIDs(for accountIdentifier: String) async throws -> Set<ConnectionSessionID>
+
+    /// セッション削除マーカーを公開し、対応するCloudKit Payloadと受領証を物理削除します。
+    ///
+    /// 責務: 1件の接続セッションを全端末削除対象として記録しCloudKit運転データを物理削除します。
+    /// - Parameters:
+    ///   - sessionID: 削除対象の接続セッションID。
+    ///   - accountIdentifier: 削除対象を所有するAppleアカウント識別子。
+    /// - Throws: 削除マーカー保存、CloudKit検索、またはレコード削除に失敗した場合のエラー。
+    func deleteSession(
+        _ sessionID: ConnectionSessionID,
+        for accountIdentifier: String
+    ) async throws
+
     /// 指定アカウントの全セッション転送とMac受領証を削除します。
     ///
     /// 責務: 1件のアカウント識別子に属するCloudKit運転データを削除済み状態へします。

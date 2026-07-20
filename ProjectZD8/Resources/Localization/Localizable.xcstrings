@@ -2911,6 +2911,69 @@
         }
       }
     },
+    "history.delete.button" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Delete session" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Eliminar sesión" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "セッションを削除" } }
+      }
+    },
+    "history.delete.cancel" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Cancel" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Cancelar" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "キャンセル" } }
+      }
+    },
+    "history.delete.confirm" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Delete permanently" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Eliminar permanentemente" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "完全に削除" } }
+      }
+    },
+    "history.delete.error" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "The session could not be deleted from every device. No local-only deletion was reported as complete." } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "No se pudo eliminar la sesión de todos los dispositivos. La eliminación solo local no se marcó como completada." } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "すべてのデバイスからセッションを削除できませんでした。ローカルだけの削除を完了扱いにはしていません。" } }
+      }
+    },
+    "history.delete.error.dismiss" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Close" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Cerrar" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "閉じる" } }
+      }
+    },
+    "history.delete.error.title" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Deletion failed" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Error al eliminar" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "削除できませんでした" } }
+      }
+    },
+    "history.delete.warning.message" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "%lld Raw records (%@) and this session will be permanently deleted from this Mac, CloudKit, and every synced device. This cannot be undone." } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Se eliminarán permanentemente %lld registros raw (%@) y esta sesión de este Mac, CloudKit y todos los dispositivos sincronizados. Esta acción no se puede deshacer." } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "このセッションとRawログ%lld件（%@）を、このMac、CloudKit、および同期するすべてのデバイスから完全に削除します。この操作は取り消せません。" } }
+      }
+    },
+    "history.delete.warning.title" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Permanently delete this session?" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "¿Eliminar esta sesión permanentemente?" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "このセッションを完全に削除しますか？" } }
+      }
+    },
+    "history.detail.back" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Back to sessions" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Volver a sesiones" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "セッション一覧に戻る" } }
+      }
+    },
     "history.detail.development.badge" : {
       "extractionState" : "stale",
       "localizations" : {

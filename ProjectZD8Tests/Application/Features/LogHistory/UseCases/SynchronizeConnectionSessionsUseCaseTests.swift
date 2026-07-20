@@ -5,6 +5,41 @@ import XCTest
 /// セッション転送とMac取込受領証の端末役割別処理を検証します。
 @MainActor
 final class SynchronizeConnectionSessionsUseCaseTests: XCTestCase {
+    /// CloudKit削除マーカーを送信判定より先にローカル物理削除へ反映します。
+    ///
+    /// 責務: 削除済みセッションが別端末から再アップロードされない同期順序を確認します。
+    func testDeletionMarkerRemovesLocalSessionBeforeUpload() async throws {
+        var session = ConnectionSession(accountIdentifier: "account")
+        session.endedAt = Date()
+        session.endReason = .userDisconnected
+        session.rawLogSummary = ConnectionSessionRawLogSummary(
+            recordCount: 1,
+            byteCount: 1,
+            localState: .available,
+            cloudState: .pending,
+            manifestDigest: nil,
+            macImportReceipt: nil
+        )
+        let local = SynchronizationLocalRepository(sessions: [session])
+        let cloud = SynchronizationTransferRepository(
+            transfers: [],
+            receipts: [],
+            deletedIDs: [session.id]
+        )
+        let useCase = SynchronizeConnectionSessionsUseCase(
+            sessionRepository: local,
+            rawLogRepository: local,
+            sessionErasureRepository: local,
+            transferRepository: cloud,
+            role: .iPhone
+        )
+
+        try await useCase.execute(accountIdentifier: "account")
+
+        XCTAssertEqual(local.deletedSessionIDs, [session.id])
+        XCTAssertTrue(cloud.uploadedSessionIDs.isEmpty)
+    }
+
     /// 同じセッションの複数受領証ではCloudKitが返した最新1件だけを反映します。
     ///
     /// 責務: iPhoneが古いMac受領証で最新の取込証跡を上書きしないことを確認します。
@@ -20,6 +55,7 @@ final class SynchronizeConnectionSessionsUseCaseTests: XCTestCase {
         let useCase = SynchronizeConnectionSessionsUseCase(
             sessionRepository: local,
             rawLogRepository: local,
+            sessionErasureRepository: local,
             transferRepository: cloud,
             role: .iPhone
         )
@@ -51,6 +87,7 @@ final class SynchronizeConnectionSessionsUseCaseTests: XCTestCase {
         let useCase = SynchronizeConnectionSessionsUseCase(
             sessionRepository: local,
             rawLogRepository: local,
+            sessionErasureRepository: local,
             transferRepository: cloud,
             role: .macOS,
             installationIdentity: LocalInstallationIdentity(id: "mac-installation", displayName: "Garage Mac"),
@@ -85,13 +122,15 @@ final class SynchronizeConnectionSessionsUseCaseTests: XCTestCase {
 }
 
 /// 同期ユースケースのローカル保存操作を記録します。
-private final class SynchronizationLocalRepository: ConnectionSessionRepository, ConnectionSessionRawLogRepository {
+private final class SynchronizationLocalRepository: ConnectionSessionRepository, ConnectionSessionRawLogRepository, ConnectionSessionErasureRepository {
     /// 一覧取得で返すセッションです。
-    private let storedSessions: [ConnectionSession]
+    private var storedSessions: [ConnectionSession]
     /// 取り込まれた検証済み転送です。
     private(set) var importedTransfers: [VerifiedConnectionSessionTransfer] = []
     /// 反映されたセッションIDとMac受領証です。
     private(set) var markedReceipts: [(ConnectionSessionID, ConnectionSessionMacImportReceipt)] = []
+    /// 物理削除された接続セッションIDです。
+    private(set) var deletedSessionIDs: [ConnectionSessionID] = []
 
     /// 固定セッション一覧を保持します。
     ///
@@ -176,6 +215,17 @@ private final class SynchronizationLocalRepository: ConnectionSessionRepository,
     /// 責務: テスト対象外のローカル除去要求を満たします。
     /// - Parameter sessionID: 使用しないセッションID。
     func removeLocalEntries(for sessionID: ConnectionSessionID) throws {}
+
+    /// 削除マーカーに対応するセッションIDを記録します。
+    ///
+    /// 責務: 1件のローカル物理削除要求を検査可能な履歴へ追加します。
+    /// - Parameters:
+    ///   - sessionID: 物理削除するセッションID。
+    ///   - accountIdentifier: 使用しないアカウント識別子。
+    func deleteSession(_ sessionID: ConnectionSessionID, for accountIdentifier: String) throws {
+        deletedSessionIDs.append(sessionID)
+        storedSessions.removeAll { $0.id == sessionID && $0.accountIdentifier == accountIdentifier }
+    }
 }
 
 /// 同期ユースケースのCloudKit操作をメモリ上で再現します。
@@ -185,8 +235,12 @@ private final class SynchronizationTransferRepository: ConnectionSessionTransfer
     private let transfers: [VerifiedConnectionSessionTransfer]
     /// 取得で返すMac受領証です。
     private let receipts: [(ConnectionSessionID, ConnectionSessionMacImportReceipt)]
+    /// 取得で返す削除済みセッションIDです。
+    private let deletedIDs: Set<ConnectionSessionID>
     /// 公開されたMac受領証です。
     private(set) var publishedReceipts: [(ConnectionSessionID, ConnectionSessionMacImportReceipt)] = []
+    /// CloudKitへ送信された接続セッションIDです。
+    private(set) var uploadedSessionIDs: [ConnectionSessionID] = []
 
     /// 固定転送と受領証を保持します。
     ///
@@ -196,10 +250,12 @@ private final class SynchronizationTransferRepository: ConnectionSessionTransfer
     ///   - receipts: 取得で返すMac受領証。
     init(
         transfers: [VerifiedConnectionSessionTransfer],
-        receipts: [(ConnectionSessionID, ConnectionSessionMacImportReceipt)]
+        receipts: [(ConnectionSessionID, ConnectionSessionMacImportReceipt)],
+        deletedIDs: Set<ConnectionSessionID> = []
     ) {
         self.transfers = transfers
         self.receipts = receipts
+        self.deletedIDs = deletedIDs
     }
 
     /// このテストでは固定Digestを返します。
@@ -210,7 +266,8 @@ private final class SynchronizationTransferRepository: ConnectionSessionTransfer
     ///   - accountIdentifier: 使用しないアカウント識別子。
     /// - Returns: 固定Digest。
     func upload(_ package: ConnectionSessionTransferPackage, for accountIdentifier: String) async throws -> String {
-        "uploaded"
+        uploadedSessionIDs.append(package.session.id)
+        return "uploaded"
     }
 
     /// 固定の検証済み転送を返します。
@@ -247,6 +304,23 @@ private final class SynchronizationTransferRepository: ConnectionSessionTransfer
     ) async throws -> [(ConnectionSessionID, ConnectionSessionMacImportReceipt)] {
         receipts
     }
+
+    /// 固定の削除済みセッションIDを返します。
+    ///
+    /// 責務: 同期ユースケースへ注入済み削除マーカーを供給します。
+    /// - Parameter accountIdentifier: 使用しないアカウント識別子。
+    /// - Returns: 初期化時に保持した削除済みセッションID集合。
+    func deletedSessionIDs(for accountIdentifier: String) async throws -> Set<ConnectionSessionID> {
+        deletedIDs
+    }
+
+    /// この同期テストでは単体のCloudKit削除を変更なしで受け付けます。
+    ///
+    /// 責務: テスト対象外のセッション削除要求を副作用なしで満たします。
+    /// - Parameters:
+    ///   - sessionID: 使用しないセッションID。
+    ///   - accountIdentifier: 使用しないアカウント識別子。
+    func deleteSession(_ sessionID: ConnectionSessionID, for accountIdentifier: String) async throws {}
 
     /// このテストではCloudKit全削除を変更なしで受け付けます。
     ///

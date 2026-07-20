@@ -36,10 +36,49 @@ struct MacOSConnectionHistoryView: View {
             .navigationDestination(for: ConnectionHistoryVehicleGroupID.self) { id in vehicleSessionList(for: id) }
             .navigationDestination(for: ConnectionSessionID.self) { id in
                 if let session = state.sessions.first(where: { $0.id == id }) {
-                    MacOSConnectionSessionDetailView(session: session, metrics: metrics)
+                    MacOSConnectionSessionDetailView(
+                        session: session,
+                        metrics: metrics,
+                        send: send,
+                        isDeleting: state.deletingSessionID == session.id,
+                        back: returnToVehicleSessionList
+                    )
+                    .onChange(of: state.sessions.contains(where: { $0.id == id })) { _, exists in
+                        if !exists { returnToVehicleSessionList() }
+                    }
                 }
             }
             .accessibilityIdentifier("macos-connection-history")
+        }
+        .alert(
+            "history.delete.warning.title",
+            isPresented: Binding(
+                get: { state.sessionDeletionPrompt != nil },
+                set: { if !$0 { send(.sessionDeletionCancelled) } }
+            ),
+            presenting: state.sessionDeletionPrompt
+        ) { _ in
+            Button("history.delete.cancel", role: .cancel) {
+                send(.sessionDeletionCancelled)
+            }
+            Button("history.delete.confirm", role: .destructive) {
+                send(.sessionDeletionConfirmed)
+            }
+        } message: { prompt in
+            Text(sessionDeletionMessage(prompt))
+        }
+        .alert(
+            "history.delete.error.title",
+            isPresented: Binding(
+                get: { state.sessionDeletionFailureKey != nil },
+                set: { if !$0 { send(.sessionDeletionFailureDismissed) } }
+            )
+        ) {
+            Button("history.delete.error.dismiss") {
+                send(.sessionDeletionFailureDismissed)
+            }
+        } message: {
+            Text("history.delete.error")
         }
     }
 
@@ -255,6 +294,25 @@ struct MacOSConnectionHistoryView: View {
     /// 責務: 現在の接続履歴内ナビゲーション経路をルートへ戻します。
     private func returnToVehicleArchive() {
         navigationPath = NavigationPath()
+    }
+
+    /// 接続履歴内の画面遷移経路を車両セッション一覧へ1段戻します。
+    ///
+    /// 責務: 現在のセッション詳細遷移だけを経路から取り除きます。
+    private func returnToVehicleSessionList() {
+        guard !navigationPath.isEmpty else { return }
+        navigationPath.removeLast()
+    }
+
+    /// 全端末削除警告の件数と容量を含む本文を返します。
+    ///
+    /// 責務: 1件のセッション削除確認状態を不可逆性と実Raw集計を含む警告文へ変換します。
+    /// - Parameter prompt: Applicationが準備した全端末削除確認内容。
+    /// - Returns: Raw件数と容量を含むユーザー向け警告本文。
+    private func sessionDeletionMessage(_ prompt: ConnectionSessionDeletionPrompt) -> String {
+        let format = String(localized: "history.delete.warning.message")
+        let bytes = ByteCountFormatter.string(fromByteCount: max(0, prompt.byteCount), countStyle: .file)
+        return String(format: format, locale: .autoupdatingCurrent, prompt.recordCount, bytes)
     }
 
     /// 車両別履歴ヘッダーの車両識別表示を描画します。

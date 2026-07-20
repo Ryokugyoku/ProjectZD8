@@ -7,6 +7,12 @@ struct MacOSConnectionSessionDetailView: View {
     let session: ConnectionSession
     /// 現在のウインドウサイズに対応する表示寸法です。
     let metrics: MacOSAppShellMetrics
+    /// LogHistoryの型付き操作をApplicationへ通知します。
+    let send: (ConnectionHistoryAction) -> Void
+    /// 表示対象を全端末から削除している途中かを示します。
+    let isDeleting: Bool
+    /// 車両セッション一覧へ戻る一時的な画面遷移操作です。
+    let back: () -> Void
 
     /// 車両別学習データの来歴と保管状態を提供します。
     ///
@@ -14,6 +20,7 @@ struct MacOSConnectionSessionDetailView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20 * metrics.scale) {
+                detailActions
                 hero
                 HStack(alignment: .top, spacing: 16 * metrics.scale) {
                     rawDataCard
@@ -28,6 +35,39 @@ struct MacOSConnectionSessionDetailView: View {
         .background(background)
         .navigationTitle("history.detail.title")
         .accessibilityIdentifier("macos-connection-session-detail")
+    }
+
+    /// 車両セッション一覧へ戻る操作と全端末削除操作を表示します。
+    private var detailActions: some View {
+        HStack(spacing: 12 * metrics.scale) {
+            Button(action: back) {
+                Label("history.detail.back", systemImage: "chevron.left")
+                    .font(.system(size: 13 * metrics.scale, weight: .semibold))
+                    .frame(minHeight: 32 * metrics.scale)
+            }
+            .buttonStyle(.bordered)
+            .accessibilityIdentifier("macos-history-session-back")
+            Spacer()
+            if session.endedAt != nil {
+                Button(role: .destructive) {
+                    send(.sessionDeletionRequested(session.id))
+                } label: {
+                    if isDeleting {
+                        ProgressView()
+                            .controlSize(.small)
+                            .frame(minWidth: 128 * metrics.scale, minHeight: 32 * metrics.scale)
+                    } else {
+                        Label("history.delete.button", systemImage: "trash")
+                            .font(.system(size: 13 * metrics.scale, weight: .semibold))
+                            .frame(minHeight: 32 * metrics.scale)
+                    }
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(.red.opacity(0.88))
+                .disabled(isDeleting)
+                .accessibilityIdentifier("macos-history-delete-session")
+            }
+        }
     }
 
     /// セッションの車両とRawログ保管状態を示す主カードです。

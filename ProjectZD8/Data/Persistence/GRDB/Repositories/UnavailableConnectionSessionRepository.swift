@@ -1,5 +1,5 @@
 /// 製品用セッションDBを準備できない場合に明示的失敗を返します。
-struct UnavailableConnectionSessionRepository: ConnectionSessionRepository, ConnectionSessionRawLogRepository, AccountConnectionSessionErasureRepository {
+struct UnavailableConnectionSessionRepository: ConnectionSessionRepository, ConnectionSessionRawLogRepository, ConnectionSessionErasureRepository, AccountConnectionSessionErasureRepository {
     /// 保存先利用不能を返します。
     ///
     /// 責務: セッション保存要求を利用不能エラーとして失敗させます。
@@ -25,6 +25,20 @@ struct UnavailableConnectionSessionRepository: ConnectionSessionRepository, Conn
     /// - Parameter accountIdentifier: 削除できないAppleアカウント識別子。
     /// - Throws: 常に `ConnectionSessionRepositoryError.unavailable`。
     func deleteSessions(for accountIdentifier: String) throws {
+        throw ConnectionSessionRepositoryError.unavailable
+    }
+
+    /// セッション単位の物理削除を利用不能として失敗させます。
+    ///
+    /// 責務: 1件のセッション物理削除要求を明示的な保存先利用不能へ変換します。
+    /// - Parameters:
+    ///   - sessionID: 削除できないセッションID。
+    ///   - accountIdentifier: 利用不能な保存先のAppleアカウント識別子。
+    /// - Throws: 常に `ConnectionSessionRepositoryError.unavailable`。
+    func deleteSession(
+        _ sessionID: ConnectionSessionID,
+        for accountIdentifier: String
+    ) throws {
         throw ConnectionSessionRepositoryError.unavailable
     }
 

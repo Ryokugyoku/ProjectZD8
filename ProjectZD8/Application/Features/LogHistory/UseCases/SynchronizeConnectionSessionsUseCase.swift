@@ -15,6 +15,8 @@ struct SynchronizeConnectionSessionsUseCase {
     private let sessionRepository: any ConnectionSessionRepository
     /// Rawログと端末別保管状態のローカル保存先です。
     private let rawLogRepository: any ConnectionSessionRawLogRepository
+    /// 削除マーカーを現在端末へ反映するセッション物理削除境界です。
+    private let sessionErasureRepository: any ConnectionSessionErasureRepository
     /// CloudKitのセッション転送境界です。
     private let transferRepository: any ConnectionSessionTransferRepository
     /// 現在端末が担う同期役割です。
@@ -30,6 +32,7 @@ struct SynchronizeConnectionSessionsUseCase {
     /// - Parameters:
     ///   - sessionRepository: 接続履歴のローカル保存先。
     ///   - rawLogRepository: Rawログと保管状態のローカル保存先。
+    ///   - sessionErasureRepository: 削除マーカーを反映するローカル物理削除境界。
     ///   - transferRepository: CloudKitセッション転送境界。
     ///   - role: iPhone送信元またはMac取込先の役割。
     ///   - installationIdentity: Mac受領証へ使用するインストール識別情報。
@@ -37,6 +40,7 @@ struct SynchronizeConnectionSessionsUseCase {
     init(
         sessionRepository: any ConnectionSessionRepository,
         rawLogRepository: any ConnectionSessionRawLogRepository,
+        sessionErasureRepository: any ConnectionSessionErasureRepository,
         transferRepository: any ConnectionSessionTransferRepository,
         role: ConnectionSessionSyncDeviceRole,
         installationIdentity: LocalInstallationIdentity? = nil,
@@ -44,6 +48,7 @@ struct SynchronizeConnectionSessionsUseCase {
     ) {
         self.sessionRepository = sessionRepository
         self.rawLogRepository = rawLogRepository
+        self.sessionErasureRepository = sessionErasureRepository
         self.transferRepository = transferRepository
         self.role = role
         self.installationIdentity = installationIdentity
@@ -56,12 +61,26 @@ struct SynchronizeConnectionSessionsUseCase {
     /// - Parameter accountIdentifier: 同期対象のAppleアカウント識別子。
     /// - Throws: ローカル保存、CloudKit転送、検証、またはMac取込に失敗した場合のエラー。
     func execute(accountIdentifier: String) async throws {
+        try await applySessionDeletions(accountIdentifier: accountIdentifier)
         try await uploadPendingSessions(accountIdentifier: accountIdentifier)
         switch role {
         case .iPhone:
             try await applyMacReceipts(accountIdentifier: accountIdentifier)
         case .macOS:
             try await importTransfersOnMac(accountIdentifier: accountIdentifier)
+        }
+    }
+
+    /// CloudKit削除マーカーを現在端末の物理削除へ反映します。
+    ///
+    /// 責務: 1件のアカウントに属する全削除マーカーを現在端末のセッション物理削除へ変換します。
+    /// - Parameter accountIdentifier: 同期対象のAppleアカウント識別子。
+    /// - Throws: CloudKit削除マーカー取得またはローカル物理削除に失敗した場合のエラー。
+    private func applySessionDeletions(accountIdentifier: String) async throws {
+        let localSessionIDs = Set(try sessionRepository.sessions(for: accountIdentifier).map(\.id))
+        let deletedSessionIDs = try await transferRepository.deletedSessionIDs(for: accountIdentifier)
+        for sessionID in deletedSessionIDs where localSessionIDs.contains(sessionID) {
+            try sessionErasureRepository.deleteSession(sessionID, for: accountIdentifier)
         }
     }
 

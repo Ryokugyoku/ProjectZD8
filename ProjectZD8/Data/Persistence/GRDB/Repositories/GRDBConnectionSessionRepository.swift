@@ -2,7 +2,7 @@ import Foundation
 import GRDB
 
 /// GRDB/SQLiteへ接続セッション履歴を保存します。
-final class GRDBConnectionSessionRepository: ConnectionSessionRepository, ConnectionSessionRawLogRepository, AccountConnectionSessionErasureRepository {
+final class GRDBConnectionSessionRepository: ConnectionSessionRepository, ConnectionSessionRawLogRepository, ConnectionSessionErasureRepository, AccountConnectionSessionErasureRepository {
     /// SQLiteの直列化された読書き境界です。
     private let databaseQueue: DatabaseQueue
 
@@ -66,7 +66,29 @@ final class GRDBConnectionSessionRepository: ConnectionSessionRepository, Connec
                 guard let session = record.makeDomainSession() else {
                     throw DatabaseError(message: "Connection session contains an invalid identifier or end reason")
                 }
-                return session
+                return try sessionWithActualLocalRawSummary(session, database: database)
+            }
+        }
+    }
+
+    /// 指定アカウントが所有するセッションと子Rawログを物理削除します。
+    ///
+    /// 責務: 1件の所有者確認済みセッションを外部キーCascade付きで原子的に物理削除します。
+    /// - Parameters:
+    ///   - sessionID: 削除対象の接続セッションID。
+    ///   - accountIdentifier: 削除対象を所有するAppleアカウント識別子。
+    /// - Throws: 所有関係不一致、セッション不在、またはSQLite削除失敗。
+    func deleteSession(
+        _ sessionID: ConnectionSessionID,
+        for accountIdentifier: String
+    ) throws {
+        try databaseQueue.write { database in
+            let deletedCount = try ConnectionSessionRecord
+                .filter(Column("id") == sessionID.rawValue.uuidString.lowercased())
+                .filter(Column("accountIdentifier") == accountIdentifier)
+                .deleteAll(database)
+            guard deletedCount == 1 else {
+                throw ConnectionSessionRepositoryError.invalidState
             }
         }
     }
@@ -348,5 +370,33 @@ final class GRDBConnectionSessionRepository: ConnectionSessionRepository, Connec
             .filter(Column("sessionID") == sessionID.rawValue.uuidString.lowercased())
             .order(Column("sequence"))
             .fetchAll(database)
+    }
+
+    /// ローカルRawを保持するセッションの表示集計を子テーブル実レコードから復元します。
+    ///
+    /// 責務: 1件のセッション概要を現在のRaw子行件数とPayload合計へ補正します。
+    /// - Parameters:
+    ///   - session: 補正対象の接続セッション。
+    ///   - database: 現在のSQLiteアクセス境界。
+    /// - Returns: ローカルRawがある場合に実レコード集計を反映したセッション。
+    /// - Throws: SQLite集計読込に失敗した場合のエラー。
+    private func sessionWithActualLocalRawSummary(
+        _ session: ConnectionSession,
+        database: Database
+    ) throws -> ConnectionSession {
+        guard session.rawLogSummary.localState != .removed else { return session }
+        let key = session.id.rawValue.uuidString.lowercased()
+        let row = try Row.fetchOne(
+            database,
+            sql: "SELECT COUNT(*) AS recordCount, COALESCE(SUM(length(payload)), 0) AS byteCount FROM connection_session_raw_logs WHERE sessionID = ?",
+            arguments: [key]
+        )
+        var corrected = session
+        corrected.rawLogSummary.recordCount = row?["recordCount"] ?? 0
+        corrected.rawLogSummary.byteCount = row?["byteCount"] ?? 0
+        if corrected.rawLogSummary.recordCount > 0 {
+            corrected.rawLogSummary.localState = .available
+        }
+        return corrected
     }
 }

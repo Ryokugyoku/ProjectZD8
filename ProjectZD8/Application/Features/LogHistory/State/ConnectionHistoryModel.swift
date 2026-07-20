@@ -12,12 +12,16 @@ final class ConnectionHistoryModel {
     @ObservationIgnored private let synchronizeSessions: SynchronizeConnectionSessionsUseCase?
     /// iPhoneローカルRawログ除去ユースケースです。
     @ObservationIgnored private let removeIPhoneRawLog: RemoveIPhoneSessionRawLogUseCase?
+    /// macOSの全端末セッション削除ユースケースです。
+    @ObservationIgnored private let deleteSessionEverywhere: DeleteConnectionSessionEverywhereUseCase?
     /// 現在のAppleアカウント識別子です。
     @ObservationIgnored private var accountIdentifier: String?
     /// 古いアカウント同期完了を現在状態へ反映しないための世代です。
     @ObservationIgnored private var syncGeneration: UInt = 0
     /// 現在進行中のCloudKit同期タスクです。
     @ObservationIgnored private var syncTask: Task<Void, Never>?
+    /// 現在進行中の全端末削除タスクです。
+    @ObservationIgnored private var deletionTask: Task<Void, Never>?
 
     /// 初期状態とセッション照会先を固定して生成します。
     ///
@@ -27,16 +31,19 @@ final class ConnectionHistoryModel {
     ///   - repository: アカウント単位のセッション取得先。
     ///   - synchronizeSessions: セッション単位のCloudKit同期ユースケース。
     ///   - removeIPhoneRawLog: iPhoneローカルRawログ除去ユースケース。
+    ///   - deleteSessionEverywhere: macOSの全端末セッション削除ユースケース。
     init(
         state: ConnectionHistoryState,
         repository: any ConnectionSessionRepository,
         synchronizeSessions: SynchronizeConnectionSessionsUseCase? = nil,
-        removeIPhoneRawLog: RemoveIPhoneSessionRawLogUseCase? = nil
+        removeIPhoneRawLog: RemoveIPhoneSessionRawLogUseCase? = nil,
+        deleteSessionEverywhere: DeleteConnectionSessionEverywhereUseCase? = nil
     ) {
         self.state = state
         self.repository = repository
         self.synchronizeSessions = synchronizeSessions
         self.removeIPhoneRawLog = removeIPhoneRawLog
+        self.deleteSessionEverywhere = deleteSessionEverywhere
     }
 
     /// 空の履歴状態と指定セッション照会先を使って生成します。
@@ -46,22 +53,25 @@ final class ConnectionHistoryModel {
     ///   - repository: アカウント単位のセッション取得先。
     ///   - synchronizeSessions: セッション単位のCloudKit同期ユースケース。
     ///   - removeIPhoneRawLog: iPhoneローカルRawログ除去ユースケース。
+    ///   - deleteSessionEverywhere: macOSの全端末セッション削除ユースケース。
     convenience init(
         repository: any ConnectionSessionRepository,
         synchronizeSessions: SynchronizeConnectionSessionsUseCase? = nil,
-        removeIPhoneRawLog: RemoveIPhoneSessionRawLogUseCase? = nil
+        removeIPhoneRawLog: RemoveIPhoneSessionRawLogUseCase? = nil,
+        deleteSessionEverywhere: DeleteConnectionSessionEverywhereUseCase? = nil
     ) {
         self.init(
             state: ConnectionHistoryState(),
             repository: repository,
             synchronizeSessions: synchronizeSessions,
-            removeIPhoneRawLog: removeIPhoneRawLog
+            removeIPhoneRawLog: removeIPhoneRawLog,
+            deleteSessionEverywhere: deleteSessionEverywhere
         )
     }
 
     /// 型付き操作を履歴照会へ変換します。
     ///
-    /// 責務: 1件のLogHistory操作をアカウント変更または再読込へ振り分けます。
+    /// 責務: 1件のLogHistory操作を対応する履歴状態変更またはユースケースへ振り分けます。
     /// - Parameter action: AppまたはPlatformから通知された操作。
     func send(_ action: ConnectionHistoryAction) {
         switch action {
@@ -75,6 +85,10 @@ final class ConnectionHistoryModel {
         case let .localRawRemovalRequested(sessionID): prepareRawRemoval(sessionID: sessionID)
         case .localRawRemovalConfirmed: confirmRawRemoval()
         case .localRawRemovalCancelled: state.rawRemovalPrompt = nil
+        case let .sessionDeletionRequested(sessionID): prepareSessionDeletion(sessionID: sessionID)
+        case .sessionDeletionConfirmed: confirmSessionDeletion()
+        case .sessionDeletionCancelled: state.sessionDeletionPrompt = nil
+        case .sessionDeletionFailureDismissed: state.sessionDeletionFailureKey = nil
         }
     }
 
@@ -96,10 +110,61 @@ final class ConnectionHistoryModel {
         accountIdentifier = identifier
         syncTask?.cancel()
         syncTask = nil
+        deletionTask?.cancel()
+        deletionTask = nil
         syncGeneration &+= 1
         state = ConnectionHistoryState()
         guard identifier?.isEmpty == false else { return }
         refreshSessions()
+    }
+
+    /// 指定セッションの全端末物理削除確認を準備します。
+    ///
+    /// 責務: 1件の終了済みセッションIDを全端末削除警告の表示状態へ変換します。
+    /// - Parameter sessionID: 削除候補の接続セッションID。
+    private func prepareSessionDeletion(sessionID: ConnectionSessionID) {
+        guard deleteSessionEverywhere != nil,
+              state.deletingSessionID == nil,
+              let session = state.sessions.first(where: { $0.id == sessionID }),
+              session.endedAt != nil else { return }
+        state.sessionDeletionPrompt = ConnectionSessionDeletionPrompt(
+            sessionID: sessionID,
+            recordCount: session.rawLogSummary.recordCount,
+            byteCount: session.rawLogSummary.byteCount
+        )
+    }
+
+    /// 確認済みセッションを全端末削除処理へ渡します。
+    ///
+    /// 責務: 現在の削除確認状態をCloudKit削除伝播とローカル物理削除へ変換します。
+    private func confirmSessionDeletion() {
+        guard let prompt = state.sessionDeletionPrompt,
+              let session = state.sessions.first(where: { $0.id == prompt.sessionID }),
+              let deleteSessionEverywhere,
+              state.deletingSessionID == nil else { return }
+        state.sessionDeletionPrompt = nil
+        state.sessionDeletionFailureKey = nil
+        state.deletingSessionID = session.id
+        let precedingSyncTask = syncTask
+        syncTask?.cancel()
+        syncTask = nil
+        syncGeneration &+= 1
+        state.syncPhase = .idle
+        deletionTask = Task { [weak self] in
+            await precedingSyncTask?.value
+            do {
+                try await deleteSessionEverywhere.execute(session: session)
+                guard let self else { return }
+                self.state.deletingSessionID = nil
+                self.loadSessions()
+            } catch is CancellationError {
+                return
+            } catch {
+                guard let self else { return }
+                self.state.deletingSessionID = nil
+                self.state.sessionDeletionFailureKey = "history.delete.error"
+            }
+        }
     }
 
     /// ローカル履歴を即時反映してからCloudKit同期を開始します。

@@ -9,6 +9,8 @@ final class CloudKitConnectionSessionTransferRepository: ConnectionSessionTransf
     private static let transferRecordType = "ConnectionSessionRawLog"
     /// Mac取込受領証を保持するCloudKitレコード種別です。
     private static let receiptRecordType = "ConnectionSessionMacReceipt"
+    /// 全端末へセッション物理削除を伝えるCloudKitレコード種別です。
+    private static let deletionRecordType = "ConnectionSessionDeletion"
     /// セッションPayload Assetのフィールド名です。
     private static let payloadAssetKey = "payloadAsset"
     /// 同期アカウントの不可逆識別値フィールドです。
@@ -188,6 +190,65 @@ final class CloudKitConnectionSessionTransferRepository: ConnectionSessionTransf
         .sorted { $0.1.importedAt > $1.1.importedAt }
     }
 
+    /// 指定アカウントのセッション削除マーカーを復元します。
+    ///
+    /// 責務: CloudKit削除マーカー群を重複のない接続セッションID集合へ変換します。
+    /// - Parameter accountIdentifier: 同期対象のAppleアカウント識別子。
+    /// - Returns: 全端末から物理削除すべき接続セッションID集合。
+    /// - Throws: CloudKit取得または不正なセッションID復元に失敗した場合のエラー。
+    func deletedSessionIDs(for accountIdentifier: String) async throws -> Set<ConnectionSessionID> {
+        let deletionRecords = try await records(
+            recordType: Self.deletionRecordType,
+            accountIdentifier: accountIdentifier
+        )
+        return try Set(deletionRecords.map { record in
+            guard let sessionIDString = record[Self.sessionIDKey] as? String,
+                  let sessionUUID = UUID(uuidString: sessionIDString) else {
+                throw ConnectionSessionRepositoryError.integrityConflict
+            }
+            return ConnectionSessionID(rawValue: sessionUUID)
+        })
+    }
+
+    /// 削除マーカーを保存して対応するCloudKit転送Payloadと受領証を物理削除します。
+    ///
+    /// 責務: 1件の接続セッションを全端末削除対象として永続化し運転データレコードを物理削除します。
+    /// - Parameters:
+    ///   - sessionID: 削除対象の接続セッションID。
+    ///   - accountIdentifier: 削除対象を所有するAppleアカウント識別子。
+    /// - Throws: 削除マーカー保存、CloudKit検索、またはレコード削除に失敗した場合のエラー。
+    func deleteSession(
+        _ sessionID: ConnectionSessionID,
+        for accountIdentifier: String
+    ) async throws {
+        let deletionID = deletionRecordID(
+            sessionID: sessionID,
+            accountIdentifier: accountIdentifier
+        )
+        let deletionRecord: CKRecord
+        do {
+            deletionRecord = try await privateDatabase.record(for: deletionID)
+        } catch let error as CKError where error.code == .unknownItem {
+            deletionRecord = CKRecord(recordType: Self.deletionRecordType, recordID: deletionID)
+        }
+        deletionRecord[Self.accountFingerprintKey] = fingerprint(for: accountIdentifier) as CKRecordValue
+        deletionRecord[Self.sessionIDKey] = sessionID.rawValue.uuidString.lowercased() as CKRecordValue
+        _ = try await privateDatabase.save(deletionRecord)
+
+        try await deleteRecordIfPresent(
+            transferRecordID(sessionID: sessionID, accountIdentifier: accountIdentifier)
+        )
+        let receiptRecords = try await records(
+            recordType: Self.receiptRecordType,
+            accountIdentifier: accountIdentifier
+        )
+        for record in receiptRecords where (record[Self.sessionIDKey] as? String)?.caseInsensitiveCompare(
+            sessionID.rawValue.uuidString
+        ) == .orderedSame {
+            try await deleteRecordIfPresent(record.recordID)
+        }
+    }
+
     /// 指定アカウントの全セッションAssetとMac受領証をCloudKitから削除します。
     ///
     /// 責務: 1件のアカウントFingerprintに属する全運転データレコードを再試行可能な削除へ変換します。
@@ -202,12 +263,25 @@ final class CloudKitConnectionSessionTransferRepository: ConnectionSessionTransf
             recordType: Self.receiptRecordType,
             accountIdentifier: accountIdentifier
         )
-        for record in transferRecords + receiptRecords {
-            do {
-                _ = try await privateDatabase.deleteRecord(withID: record.recordID)
-            } catch let error as CKError where error.code == .unknownItem {
-                continue
-            }
+        let deletionRecords = try await records(
+            recordType: Self.deletionRecordType,
+            accountIdentifier: accountIdentifier
+        )
+        for record in transferRecords + receiptRecords + deletionRecords {
+            try await deleteRecordIfPresent(record.recordID)
+        }
+    }
+
+    /// CloudKitレコードが存在する場合だけ物理削除します。
+    ///
+    /// 責務: 1件のCloudKitレコードIDを冪等な物理削除結果へ変換します。
+    /// - Parameter recordID: 物理削除するCloudKitレコードID。
+    /// - Throws: レコード不在以外のCloudKit削除失敗。
+    private func deleteRecordIfPresent(_ recordID: CKRecord.ID) async throws {
+        do {
+            _ = try await privateDatabase.deleteRecord(withID: recordID)
+        } catch let error as CKError where error.code == .unknownItem {
+            return
         }
     }
 
@@ -273,6 +347,22 @@ final class CloudKitConnectionSessionTransferRepository: ConnectionSessionTransf
         let deviceFingerprint = sha256(Data(deviceID.utf8))
         return CKRecord.ID(
             recordName: "mac-receipt-\(fingerprint(for: accountIdentifier))-\(sessionID.rawValue.uuidString.lowercased())-\(deviceFingerprint)"
+        )
+    }
+
+    /// セッション削除マーカー用の安定CloudKitレコードIDを生成します。
+    ///
+    /// 責務: アカウントとセッションIDを衝突しない削除マーカーIDへ変換します。
+    /// - Parameters:
+    ///   - sessionID: 物理削除する接続セッションID。
+    ///   - accountIdentifier: 削除対象を所有するAppleアカウント識別子。
+    /// - Returns: private database内で安定する削除マーカーID。
+    private func deletionRecordID(
+        sessionID: ConnectionSessionID,
+        accountIdentifier: String
+    ) -> CKRecord.ID {
+        CKRecord.ID(
+            recordName: "deleted-session-\(fingerprint(for: accountIdentifier))-\(sessionID.rawValue.uuidString.lowercased())"
         )
     }
 

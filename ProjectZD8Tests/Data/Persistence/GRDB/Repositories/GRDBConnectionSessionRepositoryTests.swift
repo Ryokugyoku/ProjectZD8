@@ -88,6 +88,64 @@ final class GRDBConnectionSessionRepositoryTests: XCTestCase {
         XCTAssertEqual(entries.map(\.payload), [[0x1A, 0xF8], [0x85]])
     }
 
+    /// 一覧表示のRaw集計は壊れた概要列ではなく実際の子ログ行を使用します。
+    ///
+    /// 責務: ローカルRaw保有セッションの表示件数と容量を実ログから復元できることを確認します。
+    func testSessionsUseActualRawRowsForLocalSummary() throws {
+        let queue = try DatabaseQueue()
+        let repository = try GRDBConnectionSessionRepository(databaseQueue: queue)
+        let session = ConnectionSession(accountIdentifier: "account")
+        try repository.save(session)
+        try repository.append(
+            OBDRawResponseObservation(
+                observedAt: Date(),
+                batchElapsedNanoseconds: 1,
+                request: OBDPIDRequest(service: 0x01, pid: 0x0C),
+                payload: [0x01, 0x02, 0x03]
+            ),
+            to: session.id
+        )
+        try queue.write { database in
+            try database.execute(
+                sql: "UPDATE connection_sessions SET rawRecordCount = 99, rawByteCount = 999, localRawState = 'empty' WHERE id = ?",
+                arguments: [session.id.rawValue.uuidString.lowercased()]
+            )
+        }
+
+        let loaded = try XCTUnwrap(repository.sessions(for: "account").first)
+
+        XCTAssertEqual(loaded.rawLogSummary.recordCount, 1)
+        XCTAssertEqual(loaded.rawLogSummary.byteCount, 3)
+        XCTAssertEqual(loaded.rawLogSummary.localState, .available)
+    }
+
+    /// セッション単位削除は所有者を確認して子Rawログも物理削除します。
+    ///
+    /// 責務: 1件の所有者確認済みセッション削除が別アカウントを保持してCascade削除することを確認します。
+    func testDeleteSessionRemovesOnlyOwnedSessionAndRawEntries() throws {
+        let repository = try GRDBConnectionSessionRepository(databaseQueue: DatabaseQueue())
+        let deleted = ConnectionSession(accountIdentifier: "account")
+        let retained = ConnectionSession(accountIdentifier: "other")
+        try repository.save(deleted)
+        try repository.save(retained)
+        try repository.append(
+            OBDRawResponseObservation(
+                observedAt: Date(),
+                batchElapsedNanoseconds: 1,
+                request: OBDPIDRequest(service: 0x01, pid: 0x0D),
+                payload: [0x20]
+            ),
+            to: deleted.id
+        )
+
+        XCTAssertThrowsError(try repository.deleteSession(deleted.id, for: "other"))
+        try repository.deleteSession(deleted.id, for: "account")
+
+        XCTAssertTrue(try repository.sessions(for: "account").isEmpty)
+        XCTAssertTrue(try repository.entries(for: deleted.id).isEmpty)
+        XCTAssertEqual(try repository.sessions(for: "other").map(\.id), [retained.id])
+    }
+
     /// Mac取込証跡と集計を残したまま現在端末のRaw Payloadだけを除去します。
     ///
     /// 責務: iPhoneローカル除去が履歴、車両、件数、およびMac受領証を破壊しないことを確認します。

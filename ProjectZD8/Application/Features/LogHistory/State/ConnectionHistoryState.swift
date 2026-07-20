@@ -44,6 +44,29 @@ struct ConnectionSessionRawRemovalPrompt: Equatable, Sendable {
     }
 }
 
+/// macOSで全端末削除前に表示するセッション情報です。
+struct ConnectionSessionDeletionPrompt: Equatable, Sendable {
+    /// 削除対象の接続セッションIDです。
+    let sessionID: ConnectionSessionID
+    /// 物理削除するRawログの収集件数です。
+    let recordCount: Int64
+    /// 物理削除するRaw Payload合計バイト数です。
+    let byteCount: Int64
+
+    /// 削除対象を警告表示に必要な値へまとめます。
+    ///
+    /// 責務: 1件の削除候補を全端末削除警告に必要な識別子とRaw集計へ変換します。
+    /// - Parameters:
+    ///   - sessionID: 削除対象の接続セッションID。
+    ///   - recordCount: 物理削除するRawログの収集件数。
+    ///   - byteCount: 物理削除するRaw Payload合計バイト数。
+    init(sessionID: ConnectionSessionID, recordCount: Int64, byteCount: Int64) {
+        self.sessionID = sessionID
+        self.recordCount = recordCount
+        self.byteCount = byteCount
+    }
+}
+
 /// 終了済みセッション一覧へ適用する終了理由条件です。
 enum ConnectionHistoryEndReasonFilter: String, CaseIterable, Equatable, Sendable {
     /// すべての終了理由を表示します。
@@ -159,6 +182,12 @@ struct ConnectionHistoryState: Equatable {
     var syncPhase: ConnectionHistorySyncPhase = .idle
     /// iPhoneローカルRawログ除去前の確認内容です。
     var rawRemovalPrompt: ConnectionSessionRawRemovalPrompt?
+    /// macOS全端末セッション削除前の確認内容です。
+    var sessionDeletionPrompt: ConnectionSessionDeletionPrompt?
+    /// 全端末セッション削除中の対象IDです。
+    var deletingSessionID: ConnectionSessionID?
+    /// 直近の全端末削除失敗を示すローカライズキーです。
+    var sessionDeletionFailureKey: String?
 
     /// 現在接続中のセッションです。
     var activeSessions: [ConnectionSession] { sessions.filter { $0.status == .connected } }

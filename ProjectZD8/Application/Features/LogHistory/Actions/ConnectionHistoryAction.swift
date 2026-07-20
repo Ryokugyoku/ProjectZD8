@@ -1,6 +1,6 @@
 import Foundation
 
-/// 接続履歴の読込範囲、絞り込み、更新をLogHistoryへ通知します。
+/// 接続履歴の読込範囲、絞り込み、更新、削除をLogHistoryへ通知します。
 enum ConnectionHistoryAction: Equatable {
     /// 現在の認証アカウントへ読込範囲を切り替えます。
     case accountIdentifierChanged(String?)
@@ -22,4 +22,12 @@ enum ConnectionHistoryAction: Equatable {
     case localRawRemovalConfirmed
     /// ローカルRawログ除去の確認を取り消します。
     case localRawRemovalCancelled
+    /// 指定セッションを全端末から物理削除する前の確認を要求します。
+    case sessionDeletionRequested(ConnectionSessionID)
+    /// 表示中の警告を承知して全端末削除を確定します。
+    case sessionDeletionConfirmed
+    /// 全端末削除の確認を取り消します。
+    case sessionDeletionCancelled
+    /// 全端末削除失敗の通知を閉じます。
+    case sessionDeletionFailureDismissed
 }

@@ -101,6 +101,10 @@ struct ProjectZD8App: App {
             repository: connectionSessionRepository,
             synchronizeSessions: MacOSApplicationComposition.makeConnectionSessionSynchronization(
                 storage: connectionSessionRepository
+            ),
+            deleteSessionEverywhere: DeleteConnectionSessionEverywhereUseCase(
+                localRepository: connectionSessionRepository,
+                transferRepository: CloudKitConnectionSessionTransferRepository()
             )
         )
         let connectionSessionLifecycleModel = ConnectionSessionLifecycleModel(
