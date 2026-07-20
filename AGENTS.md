@@ -5,11 +5,18 @@ Human review is the final approval gate; Codex must make its reasoning inspectab
 
 ## Required reading
 
-Before changing source code, read:
+Start every repository task with `Documentation/INDEX.md`. Use its task routing for
+read-only questions so that unrelated documents are not loaded.
+
+Before changing source code, additionally read:
 
 1. `Documentation/CODING_STANDARDS.md`
 2. `Documentation/PLACEMENT_RULES.md`
 3. The target file and its direct dependencies
+
+For documentation-only changes, read the index, the documents being changed, and
+their direct inbound links. The two source-code standards above are required only
+when the documentation change alters source-code rules or architecture ownership.
 
 Preserve unrelated user changes. Do not broaden the requested scope without explicit approval.
 
@@ -18,6 +25,7 @@ Preserve unrelated user changes. Do not broaden the requested scope without expl
 Use the smallest sufficient evidence set. Token reduction MUST NOT weaken required reading, safety, dependency review, tests, or truthful reporting.
 
 - Start with `git status --short` and `rg` or `rg --files`. After required reading, inspect only the target, direct dependencies, and directly relevant tests or configuration; expand only when evidence requires it.
+- For read-only questions, follow the narrowest route in `Documentation/INDEX.md`; do not read both standards in full unless the question spans both.
 - Do not enumerate or read empty scaffold directories, generated output, DerivedData, package caches, binaries, or unrelated features.
 - Reuse same-task evidence; do not reread unchanged files or repeat unchanged checks without a concrete reason.
 - Run the narrowest relevant check first, then broaden validation in proportion to the change's risk. A narrow check does not replace a required broader gate.

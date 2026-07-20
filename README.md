@@ -11,9 +11,10 @@ Open `ProjectZD8.xcodeproj` in Xcode to build and run the app.
 
 ## Development rules
 
-Codex and human contributors must follow [AGENTS.md](AGENTS.md),
-[the coding standards](Documentation/CODING_STANDARDS.md), and
-[the folder placement rules](Documentation/PLACEMENT_RULES.md).
+Start with the [documentation index](Documentation/INDEX.md), which routes each
+task to the smallest relevant section. Codex and human contributors must follow
+[AGENTS.md](AGENTS.md), [the coding standards](Documentation/CODING_STANDARDS.md),
+and [the folder placement rules](Documentation/PLACEMENT_RULES.md) when applicable.
 
 ## License
 
