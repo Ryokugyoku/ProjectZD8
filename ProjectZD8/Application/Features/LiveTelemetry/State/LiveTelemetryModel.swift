@@ -1,6 +1,6 @@
 import Observation
 
-/// 優先度付きPID継続取得をApplicationユースケースへ結び付けます。
+/// 車両接続中の優先度付きPID継続取得ライフサイクルをApplicationユースケースへ結び付けます。
 @MainActor
 @Observable
 final class LiveTelemetryModel {
@@ -28,6 +28,8 @@ final class LiveTelemetryModel {
     @ObservationIgnored private let sessionDidEnd: @MainActor (ConnectionSessionEndReason) -> Void
     /// 取得できた累積走行距離をLoggingへ通知する処理です。
     @ObservationIgnored private let odometerDidChange: @MainActor (Double) -> Void
+    /// 車両接続中のシステムスリープ抑止を切り替えるOS境界です。
+    @ObservationIgnored private let systemSleepInhibitor: (any VehicleConnectionSystemSleepInhibiting)?
     /// 現在画面の表示有無から独立して動く取得タスクです。
     @ObservationIgnored private var pollingTask: Task<Void, Never>?
     /// 古い取得完了を新しい接続状態へ反映しないための世代です。
@@ -45,13 +47,15 @@ final class LiveTelemetryModel {
     ///   - pollingPolicy: PIDごとの更新優先度と間引き周期を決める方針。
     ///   - sessionDidEnd: PID取得終了原因をLoggingへ通知する処理。
     ///   - odometerDidChange: Service 01 PID A6の累積走行距離をLoggingへ通知する処理。
+    ///   - systemSleepInhibitor: 車両接続中だけシステムスリープを抑止する境界。
     init(
         state: LiveTelemetryState,
         readMajorPIDs: ReadMajorOBDPIDsUseCase,
         loadVehicleCapabilities: LoadVehiclePIDCapabilitiesUseCase? = nil,
         pollingPolicy: OBDPIDPollingPolicy,
         sessionDidEnd: @escaping @MainActor (ConnectionSessionEndReason) -> Void = { _ in },
-        odometerDidChange: @escaping @MainActor (Double) -> Void = { _ in }
+        odometerDidChange: @escaping @MainActor (Double) -> Void = { _ in },
+        systemSleepInhibitor: (any VehicleConnectionSystemSleepInhibiting)? = nil
     ) {
         self.state = state
         self.readMajorPIDs = readMajorPIDs
@@ -59,6 +63,7 @@ final class LiveTelemetryModel {
         self.pollingPolicy = pollingPolicy
         self.sessionDidEnd = sessionDidEnd
         self.odometerDidChange = odometerDidChange
+        self.systemSleepInhibitor = systemSleepInhibitor
     }
 
     /// 空の表示状態と既定更新方針を使って生成します。
@@ -69,11 +74,13 @@ final class LiveTelemetryModel {
     ///   - loadVehicleCapabilities: 車両別対応PIDの再利用または初回探索を行うユースケース。
     ///   - sessionDidEnd: PID取得終了原因をLoggingへ通知する処理。
     ///   - odometerDidChange: Service 01 PID A6の累積走行距離をLoggingへ通知する処理。
+    ///   - systemSleepInhibitor: 車両接続中だけシステムスリープを抑止する境界。
     convenience init(
         readMajorPIDs: ReadMajorOBDPIDsUseCase,
         loadVehicleCapabilities: LoadVehiclePIDCapabilitiesUseCase? = nil,
         sessionDidEnd: @escaping @MainActor (ConnectionSessionEndReason) -> Void = { _ in },
-        odometerDidChange: @escaping @MainActor (Double) -> Void = { _ in }
+        odometerDidChange: @escaping @MainActor (Double) -> Void = { _ in },
+        systemSleepInhibitor: (any VehicleConnectionSystemSleepInhibiting)? = nil
     ) {
         self.init(
             state: LiveTelemetryState(),
@@ -81,7 +88,8 @@ final class LiveTelemetryModel {
             loadVehicleCapabilities: loadVehicleCapabilities,
             pollingPolicy: OBDPIDPollingPolicy(),
             sessionDidEnd: sessionDidEnd,
-            odometerDidChange: odometerDidChange
+            odometerDidChange: odometerDidChange,
+            systemSleepInhibitor: systemSleepInhibitor
         )
     }
 
@@ -108,7 +116,7 @@ final class LiveTelemetryModel {
 
     /// 指定OBD終端からPID継続取得を開始します。
     ///
-    /// 責務: 以前の取得を無効化して最新接続の継続取得タスクを開始します。
+    /// 責務: 以前の取得を無効化して最新接続のスリープ抑止と継続取得を開始します。
     /// - Parameters:
     ///   - endpoint: OBDアダプターの物理終端。
     ///   - vehicleID: 対応PID設定を参照する車両ID。
@@ -129,6 +137,7 @@ final class LiveTelemetryModel {
         state.failureKey = nil
         state.samples = []
         state.supportedPIDCount = 0
+        systemSleepInhibitor?.setVehicleConnectionActive(true)
         pendingBRZBetaDecision = nil
         pollingTask = Task { [weak self] in
             _ = await previousTask?.value
@@ -143,7 +152,7 @@ final class LiveTelemetryModel {
 
     /// 現在のPID継続取得を無効化します。
     ///
-    /// 責務: 現在世代の取得タスクを取消して待機状態へ戻します。
+    /// 責務: 現在世代の取得を終了してスリープ抑止解除済みの待機状態へ戻します。
     private func stop() {
         let shouldNotifySessionEnd = pollingTask != nil || state.isConnectionActive
         let previousTask = pollingTask
@@ -159,6 +168,7 @@ final class LiveTelemetryModel {
             await readMajorPIDs.endSession()
             guard let self, self.pollingGeneration == generation else { return }
             self.state.phase = .idle
+            self.systemSleepInhibitor?.setVehicleConnectionActive(false)
             if shouldNotifySessionEnd { self.sessionDidEnd(.userDisconnected) }
         }
     }
@@ -327,13 +337,15 @@ final class LiveTelemetryModel {
 
     /// PID取得失敗を終了処理と表示状態へ統一的に反映します。
     ///
-    /// 責務: 1件の取得エラーを接続終了理由とローカライズ済み状態キーへ変換します。
+    /// 責務: 1件の取得エラーをスリープ抑止解除済みの接続終了状態へ変換します。
     /// - Parameters:
     ///   - error: 取得処理から伝播したエラー。
     ///   - generation: エラーが属する取得世代。
     private func handlePollingFailure(_ error: Error, generation: UInt) async {
         await readMajorPIDs.endSession()
         guard pollingGeneration == generation else { return }
+        if error is CancellationError { return }
+        systemSleepInhibitor?.setVehicleConnectionActive(false)
         switch error {
         case OBDPIDTelemetryError.definitionCatalogUnavailable:
             state.phase = .failed
@@ -353,8 +365,6 @@ final class LiveTelemetryModel {
             state.phase = .idle
             state.failureKey = "telemetry.disconnected.connection_lost"
             sessionDidEnd(.connectionLost)
-        case is CancellationError:
-            return
         default:
             state.phase = .failed
             state.failureKey = "telemetry.error.read_failed"

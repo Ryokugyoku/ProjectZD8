@@ -5,9 +5,9 @@ import UIKit
 /// iOSアプリケーションで使用する実装依存関係を組み立てます。
 @MainActor
 enum IOSApplicationComposition {
-    /// PID定義DBとiOSデモBluetooth読取境界を結び付けます。
+    /// PID定義DB、iOSデモBluetooth読取境界、接続中スリープ抑止を結び付けます。
     ///
-    /// 責務: iOSのPID定義永続化をデモ対応かつ実BLE未提供のLiveTelemetry構成へ注入します。
+    /// 責務: iOSのPID取得依存関係と接続中スリープ抑止を1件のLiveTelemetry構成へ注入します。
     /// - Returns: デモBluetoothで継続取得でき、実BLEでは明示的利用不能を返すモデル。
     /// - Parameter sessionDidEnd: PID取得終了原因をLoggingへ通知する処理。
     /// - Parameter odometerDidChange: 累積走行距離をLoggingへ通知する処理。
@@ -31,7 +31,8 @@ enum IOSApplicationComposition {
                 repository: makeVehiclePIDCapabilityRepository(), telemetry: telemetry
             ),
             sessionDidEnd: sessionDidEnd,
-            odometerDidChange: odometerDidChange
+            odometerDidChange: odometerDidChange,
+            systemSleepInhibitor: ProcessInfoVehicleConnectionSystemSleepInhibitor()
         )
     }
 

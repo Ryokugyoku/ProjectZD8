@@ -5,9 +5,9 @@ import AuthenticationServices
 /// macOSアプリケーションで使用する実装依存関係を組み立てます。
 @MainActor
 enum MacOSApplicationComposition {
-    /// PID定義DBとEXシリアル読取を結び付けます。
+    /// PID定義DB、EXシリアル読取、接続中スリープ抑止を結び付けます。
     ///
-    /// 責務: macOSのPID定義永続化とOBDLink EX読取実装をLiveTelemetry状態へ注入します。
+    /// 責務: macOSのPID取得依存関係と接続中スリープ抑止を1件のLiveTelemetry構成へ注入します。
     /// - Returns: DB登録済みPIDを読み取れるモデル。
     /// - Parameter sessionDidEnd: PID取得終了原因をLoggingへ通知する処理。
     /// - Parameter odometerDidChange: 累積走行距離をLoggingへ通知する処理。
@@ -33,7 +33,8 @@ enum MacOSApplicationComposition {
                 repository: makeVehiclePIDCapabilityRepository(), telemetry: telemetry
             ),
             sessionDidEnd: sessionDidEnd,
-            odometerDidChange: odometerDidChange
+            odometerDidChange: odometerDidChange,
+            systemSleepInhibitor: ProcessInfoVehicleConnectionSystemSleepInhibitor()
         )
     }
 

@@ -95,13 +95,15 @@ final class LiveTelemetryModelTests: XCTestCase {
 
     /// PID定義DB失敗を通信失敗とは異なる表示キーへ反映します。
     ///
-    /// 責務: カタログ利用不能エラーが専用の失敗表示状態になることを確認します。
+    /// 責務: カタログ利用不能エラーがスリープ抑止解除済みの専用失敗表示になることを確認します。
     func testReadMapsDefinitionCatalogFailureToDedicatedMessage() async {
+        let systemSleepInhibitor = VehicleConnectionSystemSleepInhibitorSpy()
         let model = LiveTelemetryModel(
             readMajorPIDs: ReadMajorOBDPIDsUseCase(
                 definitionRepository: FailingPIDDefinitionRepository(),
                 telemetry: UnavailableOBDPIDTelemetryAdapter()
-            )
+            ),
+            systemSleepInhibitor: systemSleepInhibitor
         )
 
         model.send(.startRequested(endpoint, vehicleID, .standardPolling))
@@ -111,22 +113,26 @@ final class LiveTelemetryModelTests: XCTestCase {
 
         XCTAssertEqual(model.state.phase, .failed)
         XCTAssertEqual(model.state.failureKey, "telemetry.error.pid_catalog_unavailable")
+        XCTAssertEqual(systemSleepInhibitor.connectionStates, [true, false])
     }
 
     /// 切断要求が通信セッション終了後に待機状態へ戻ることを検証します。
     ///
-    /// 責務: 手動切断が取得取消しと通信資源解放の完了を待つことを確認します。
+    /// 責務: 手動切断が通信資源解放後にスリープ抑止を解除することを確認します。
     func testStopWaitsForSessionEndBeforeBecomingIdle() async {
         let telemetry = EndTrackingPIDTelemetryFake()
+        let systemSleepInhibitor = VehicleConnectionSystemSleepInhibitorSpy()
         var endReasons: [ConnectionSessionEndReason] = []
         let model = LiveTelemetryModel(
             readMajorPIDs: ReadMajorOBDPIDsUseCase(
                 definitionRepository: FixedPIDDefinitionRepository(),
                 telemetry: telemetry
             ),
-            sessionDidEnd: { endReasons.append($0) }
+            sessionDidEnd: { endReasons.append($0) },
+            systemSleepInhibitor: systemSleepInhibitor
         )
         model.send(.startRequested(endpoint, vehicleID, .standardPolling))
+        XCTAssertEqual(systemSleepInhibitor.connectionStates, [true])
         for _ in 0..<100 where model.state.phase == .reading {
             try? await Task.sleep(for: .milliseconds(10))
         }
@@ -141,20 +147,23 @@ final class LiveTelemetryModelTests: XCTestCase {
         let endCount = await telemetry.endCount
         XCTAssertGreaterThanOrEqual(endCount, 1)
         XCTAssertEqual(endReasons, [.userDisconnected])
+        XCTAssertEqual(systemSleepInhibitor.connectionStates, [true, false])
     }
 
     /// 継続取得中に全PID応答が消えた場合の自動切断を検証します。
     ///
-    /// 責務: ECU無応答を接続中の失敗表示ではなく安全終了済みの未接続状態へ変換することを確認します。
+    /// 責務: ECU無応答をスリープ抑止解除済みの未接続状態へ変換することを確認します。
     func testNoVehicleResponseEndsSessionAndBecomesDisconnected() async {
         let telemetry = InitialResponseThenEmptyPIDTelemetryFake()
+        let systemSleepInhibitor = VehicleConnectionSystemSleepInhibitorSpy()
         var endReasons: [ConnectionSessionEndReason] = []
         let model = LiveTelemetryModel(
             readMajorPIDs: ReadMajorOBDPIDsUseCase(
                 definitionRepository: FixedPIDDefinitionRepository(),
                 telemetry: telemetry
             ),
-            sessionDidEnd: { endReasons.append($0) }
+            sessionDidEnd: { endReasons.append($0) },
+            systemSleepInhibitor: systemSleepInhibitor
         )
 
         model.send(.startRequested(endpoint, vehicleID, .standardPolling))
@@ -167,6 +176,7 @@ final class LiveTelemetryModelTests: XCTestCase {
         let endCount = await telemetry.endCount
         XCTAssertGreaterThanOrEqual(endCount, 1)
         XCTAssertEqual(endReasons, [.vehicleNoResponse])
+        XCTAssertEqual(systemSleepInhibitor.connectionStates, [true, false])
     }
 
     /// A6観測を累積走行距離通知としてLogging境界へ渡します。
@@ -199,6 +209,26 @@ final class LiveTelemetryModelTests: XCTestCase {
     /// テスト用のアプリ内車両IDです。
     private var vehicleID: VehicleID {
         VehicleID(rawValue: UUID(uuidString: "10000000-0000-0000-0000-000000000001")!)
+    }
+}
+
+/// 車両接続中のシステムスリープ抑止通知を記録します。
+@MainActor
+private final class VehicleConnectionSystemSleepInhibitorSpy: VehicleConnectionSystemSleepInhibiting {
+    /// 通知された車両接続状態です。
+    private(set) var connectionStates: [Bool] = []
+
+    /// 空の通知履歴を生成します。
+    ///
+    /// 責務: スリープ抑止通知の記録先を空状態で構築します。
+    init() {}
+
+    /// 通知された車両接続状態を記録します。
+    ///
+    /// 責務: 1件の車両接続状態を検証用履歴へ追加します。
+    /// - Parameter isActive: 通知された車両接続状態。
+    func setVehicleConnectionActive(_ isActive: Bool) {
+        connectionStates.append(isActive)
     }
 }
 
