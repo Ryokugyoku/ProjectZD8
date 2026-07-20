@@ -18,6 +18,7 @@ struct IOSAccountDeletionFlowView: View {
     var body: some View {
         Color.clear
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .allowsHitTesting(phase != .idle)
             .alert(
                 "account.delete.warning.title",
                 isPresented: warningBinding

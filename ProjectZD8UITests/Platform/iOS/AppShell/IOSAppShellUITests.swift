@@ -154,6 +154,31 @@ final class IOSAppShellUITests: XCTestCase {
         add(screenshot)
     }
 
+    /// アカウント削除開始操作が最初の警告を表示することを検証します。
+    ///
+    /// 責務: iOS設定画面の削除開始ボタンが未起動の削除フローへ入力を渡せることを確認します。
+    @MainActor
+    func testAccountDeletionStartPresentsWarning() {
+        let application = XCUIApplication.authenticatedProjectZD8()
+        application.launch()
+
+        let settingsButton = application.buttons["ios-tab-settings"]
+        XCTAssertTrue(settingsButton.waitForExistence(timeout: 5))
+        settingsButton.tap()
+
+        let deleteStart = application.buttons["ios-account-delete-start"]
+        for _ in 0..<4 where !deleteStart.exists {
+            application.descendants(matching: .any)["ios-settings-screen"].swipeUp()
+        }
+        XCTAssertTrue(deleteStart.waitForExistence(timeout: 2))
+        deleteStart.tap()
+
+        let nextButton = ["次へ", "Next", "Siguiente"]
+            .map { application.buttons[$0] }
+            .first { $0.waitForExistence(timeout: 1) }
+        XCTAssertNotNil(nextButton)
+    }
+
     /// アカウント削除が2段階確認後にログイン画面へ戻ることを検証します。
     ///
     /// 責務: iOS設定画面の警告、削除事項、最終削除、ログアウト遷移を一続きで確認します。

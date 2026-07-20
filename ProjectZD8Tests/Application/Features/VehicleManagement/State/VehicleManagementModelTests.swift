@@ -32,6 +32,65 @@ final class VehicleManagementModelTests: XCTestCase {
         XCTAssertEqual(model.state.vehicles.map(\.vin), ["TESTZD8CXR0000001"])
     }
 
+    /// 未登録車両は登録保存が成功した後にだけ接続開始へ引き渡します。
+    ///
+    /// 責務: 車両登録の保存完了前後で接続確定通知の発行時点が変わることを確認します。
+    func testUnregisteredVehicleResolvesConnectionAfterRegistrationSave() async throws {
+        let repository = VehicleRepositoryFake()
+        var resolvedVehicles: [VehicleProfile] = []
+        let model = VehicleManagementModel(
+            state: VehicleManagementState(),
+            repository: repository,
+            identifyForConnection: IdentifyVehicleForConnectionUseCase(
+                identification: DemoVehicleIdentificationAdapter()
+            ),
+            photoImporter: VehiclePhotoImportPortFake(),
+            connectionVehicleDidResolve: { vehicle, _, _ in resolvedVehicles.append(vehicle) }
+        )
+        model.send(.accountIdentifierChanged("test-account"))
+        try await waitUntil { model.state.hasLoadedVehicles }
+
+        model.send(.identifyRequested(OBDConnectionEndpoint(adapter: DemoOBDAdapter.candidate)))
+        try await waitUntil { model.state.phase == .confirmingIdentification }
+        XCTAssertTrue(resolvedVehicles.isEmpty)
+
+        model.send(.identificationConfirmed)
+        let draft = try XCTUnwrap(model.state.editingVehicle)
+        model.send(.vehicleSaved(draft))
+        try await waitUntil { model.state.phase == .idle && resolvedVehicles.count == 1 }
+
+        XCTAssertEqual(resolvedVehicles.map(\.id), [draft.id])
+    }
+
+    /// 未登録車両の登録をキャンセルした場合は接続開始へ引き渡しません。
+    ///
+    /// 責務: 登録キャンセル後に接続確定通知が発行されないことを確認します。
+    func testRegistrationCancellationDoesNotResolveConnection() async throws {
+        var resolutionCount = 0
+        let model = VehicleManagementModel(
+            state: VehicleManagementState(),
+            repository: VehicleRepositoryFake(),
+            identifyForConnection: IdentifyVehicleForConnectionUseCase(
+                identification: DemoVehicleIdentificationAdapter()
+            ),
+            photoImporter: VehiclePhotoImportPortFake(),
+            connectionVehicleDidResolve: { _, _, _ in resolutionCount += 1 }
+        )
+        model.send(.accountIdentifierChanged("test-account"))
+        try await waitUntil { model.state.hasLoadedVehicles }
+
+        model.send(.identifyRequested(OBDConnectionEndpoint(adapter: DemoOBDAdapter.candidate)))
+        try await waitUntil { model.state.phase == .confirmingIdentification }
+        model.send(.identificationConfirmed)
+        XCTAssertEqual(model.state.phase, .registering)
+        model.send(.registrationCancelled)
+
+        XCTAssertEqual(model.state.phase, .idle)
+        XCTAssertNil(model.state.pendingIdentification)
+        XCTAssertNil(model.state.editingVehicle)
+        XCTAssertEqual(resolutionCount, 0)
+    }
+
     /// 識別境界の型付きエラーを診断可能な表示キーへ分離します。
     ///
     /// 責務: 実車識別の主要失敗段階が同じ汎用文言へ潰れないことを確認します。

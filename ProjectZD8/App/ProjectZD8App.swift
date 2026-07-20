@@ -64,6 +64,7 @@ struct ProjectZD8App: App {
             }
         )
         let vehicleManagementModel = IOSApplicationComposition.makeVehicleManagementModel { vehicle, endpoint, identification in
+            connectionSessionLifecycleModel.send(.startRequested)
             connectionSessionLifecycleModel.send(.vehicleResolved(vehicle))
             let mode: LiveTelemetryAcquisitionMode = CurrentGenerationBRZVINPolicy().matches(identification.vin)
                 ? .brzBetaPeriodic
@@ -90,7 +91,6 @@ struct ProjectZD8App: App {
         _connectionSessionLifecycleModel = State(initialValue: connectionSessionLifecycleModel)
         _connectionHistoryModel = State(initialValue: connectionHistoryModel)
         startVehicleConnection = StartVehicleConnectionUseCase(
-            startConnectionSession: { connectionSessionLifecycleModel.send(.startRequested) },
             identifyVehicle: { vehicleManagementModel.send(.identifyRequested($0)) }
         )
         #endif
@@ -122,6 +122,7 @@ struct ProjectZD8App: App {
             }
         )
         let vehicleManagementModel = MacOSApplicationComposition.makeVehicleManagementModel { vehicle, endpoint, identification in
+            connectionSessionLifecycleModel.send(.startRequested)
             connectionSessionLifecycleModel.send(.vehicleResolved(vehicle))
             let mode: LiveTelemetryAcquisitionMode = CurrentGenerationBRZVINPolicy().matches(identification.vin)
                 ? .brzBetaPeriodic
@@ -148,7 +149,6 @@ struct ProjectZD8App: App {
         _connectionSessionLifecycleModel = State(initialValue: connectionSessionLifecycleModel)
         _connectionHistoryModel = State(initialValue: connectionHistoryModel)
         startVehicleConnection = StartVehicleConnectionUseCase(
-            startConnectionSession: { connectionSessionLifecycleModel.send(.startRequested) },
             identifyVehicle: { vehicleManagementModel.send(.identifyRequested($0)) }
         )
         #endif

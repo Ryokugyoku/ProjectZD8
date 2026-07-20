@@ -234,6 +234,31 @@ final class MacOSAppShellUITests: XCTestCase {
         XCTAssertTrue(systemAppearance.isSelected)
     }
 
+    /// アカウント削除開始操作が最初の警告を表示することを検証します。
+    ///
+    /// 責務: macOS設定画面の削除開始ボタンが未起動の削除フローへ入力を渡せることを確認します。
+    @MainActor
+    func testAccountDeletionStartPresentsWarning() {
+        let application = XCUIApplication.authenticatedProjectZD8()
+        application.launch()
+
+        let settingsButton = application.buttons["macos-sidebar-settings"]
+        XCTAssertTrue(settingsButton.waitForExistence(timeout: 5))
+        settingsButton.click()
+
+        let deleteStart = application.buttons["macos-account-delete-start"]
+        if !deleteStart.waitForExistence(timeout: 1) {
+            application.descendants(matching: .any)["macos-settings-screen"].swipeUp()
+        }
+        XCTAssertTrue(deleteStart.waitForExistence(timeout: 2))
+        deleteStart.click()
+
+        let nextButton = ["次へ", "Next", "Siguiente"]
+            .map { application.sheets.buttons[$0] }
+            .first { $0.waitForExistence(timeout: 1) }
+        XCTAssertNotNil(nextButton)
+    }
+
     /// アカウント削除が2段階確認後にログイン画面へ戻ることを検証します。
     ///
     /// 責務: macOS設定画面の警告、削除事項、最終削除、ログアウト遷移を一続きで確認します。

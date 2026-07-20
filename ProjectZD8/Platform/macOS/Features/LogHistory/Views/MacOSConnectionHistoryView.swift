@@ -4,7 +4,7 @@ import SwiftUI
 /// macOS向けに進行中セッションと車両別アーカイブをコックピット調で描画します。
 struct MacOSConnectionHistoryView: View {
     /// 接続履歴内の車両一覧とセッション詳細を結ぶ一時的な画面遷移経路です。
-    @State private var navigationPath = NavigationPath()
+    @State private var navigationState = MacOSConnectionHistoryNavigationState()
 
     /// LogHistoryが提供する現在の履歴状態です。
     let state: ConnectionHistoryState
@@ -17,7 +17,7 @@ struct MacOSConnectionHistoryView: View {
     ///
     /// 責務: 接続履歴状態を進行中表示と車両別アーカイブへ分けて描画します。
     var body: some View {
-        NavigationStack(path: $navigationPath) {
+        NavigationStack(path: $navigationState.path) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20 * metrics.scale) {
                     hero
@@ -33,22 +33,26 @@ struct MacOSConnectionHistoryView: View {
                 .padding(26 * metrics.scale)
             }
             .background(historyBackground)
-            .navigationDestination(for: ConnectionHistoryVehicleGroupID.self) { id in vehicleSessionList(for: id) }
-            .navigationDestination(for: ConnectionSessionID.self) { id in
-                if let session = state.sessions.first(where: { $0.id == id }) {
-                    MacOSConnectionSessionDetailView(
-                        session: session,
-                        metrics: metrics,
-                        send: send,
-                        isDeleting: state.deletingSessionID == session.id,
-                        back: returnToVehicleSessionList
-                    )
-                    .onChange(of: state.sessions.contains(where: { $0.id == id })) { _, exists in
-                        if !exists { returnToVehicleSessionList() }
+            .navigationDestination(for: MacOSConnectionHistoryRoute.self) { route in
+                switch route {
+                case let .vehicleSessions(id):
+                    vehicleSessionList(for: id)
+                case let .sessionDetail(id):
+                    if let session = state.sessions.first(where: { $0.id == id }) {
+                        MacOSConnectionSessionDetailView(
+                            session: session,
+                            metrics: metrics,
+                            send: send,
+                            isDeleting: state.deletingSessionID == session.id,
+                            back: returnToVehicleSessionList
+                        )
                     }
                 }
             }
             .accessibilityIdentifier("macos-connection-history")
+        }
+        .onChange(of: Set(state.sessions.map(\.id))) { _, availableSessionIDs in
+            navigationState.returnFromDeletedSession(availableSessionIDs: availableSessionIDs)
         }
         .alert(
             "history.delete.warning.title",
@@ -129,7 +133,7 @@ struct MacOSConnectionHistoryView: View {
             } else {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 300 * metrics.scale), spacing: 14 * metrics.scale)], spacing: 14 * metrics.scale) {
                     ForEach(state.vehicleGroups) { group in
-                        NavigationLink(value: group.id) { vehicleGroupCard(group) }
+                        NavigationLink(value: MacOSConnectionHistoryRoute.vehicleSessions(group.id)) { vehicleGroupCard(group) }
                             .buttonStyle(.plain)
                             .accessibilityIdentifier("macos-history-vehicle-\(groupIdentifier(group.id))")
                     }
@@ -222,7 +226,7 @@ struct MacOSConnectionHistoryView: View {
                 if sessions.isEmpty { noFilterResults } else {
                     LazyVStack(spacing: 10 * metrics.scale) {
                         ForEach(sessions) { session in
-                            NavigationLink(value: session.id) { sessionRow(session) }
+                            NavigationLink(value: MacOSConnectionHistoryRoute.sessionDetail(session.id)) { sessionRow(session) }
                                 .buttonStyle(.plain)
                                 .accessibilityIdentifier("macos-history-session-\(session.id.rawValue.uuidString)")
                         }
@@ -293,15 +297,14 @@ struct MacOSConnectionHistoryView: View {
     ///
     /// 責務: 現在の接続履歴内ナビゲーション経路をルートへ戻します。
     private func returnToVehicleArchive() {
-        navigationPath = NavigationPath()
+        navigationState.returnToVehicleArchive()
     }
 
     /// 接続履歴内の画面遷移経路を車両セッション一覧へ1段戻します。
     ///
     /// 責務: 現在のセッション詳細遷移だけを経路から取り除きます。
     private func returnToVehicleSessionList() {
-        guard !navigationPath.isEmpty else { return }
-        navigationPath.removeLast()
+        navigationState.returnToVehicleSessionList()
     }
 
     /// 全端末削除警告の件数と容量を含む本文を返します。
