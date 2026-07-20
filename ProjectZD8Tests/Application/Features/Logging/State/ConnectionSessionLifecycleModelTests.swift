@@ -30,8 +30,8 @@ final class ConnectionSessionLifecycleModelTests: XCTestCase {
         model.send(.accountIdentifierChanged("account"))
         model.send(.startRequested)
         model.send(.vehicleResolved(vehicle))
-        model.send(.odometerObserved(kilometers: 12_345.6))
-        model.send(.odometerObserved(kilometers: 12_346.8))
+        model.send(.distanceObserved(.init(source: .odometer, kilometers: 12_345.6)))
+        model.send(.distanceObserved(.init(source: .odometer, kilometers: 12_346.8)))
         model.send(.endRequested(.vehicleNoResponse))
 
         let saved = try XCTUnwrap(repository.storage[sessionID.rawValue])
@@ -57,13 +57,50 @@ final class ConnectionSessionLifecycleModelTests: XCTestCase {
 
         model.send(.accountIdentifierChanged("account"))
         model.send(.startRequested)
-        model.send(.odometerObserved(kilometers: -.infinity))
-        model.send(.odometerObserved(kilometers: -1))
+        model.send(.distanceObserved(.init(source: .odometer, kilometers: -.infinity)))
+        model.send(.distanceObserved(.init(source: .distanceSinceCodesCleared, kilometers: -1)))
 
         let session = try XCTUnwrap(model.activeSession)
         XCTAssertNil(session.startingOdometerKilometers)
         XCTAssertNil(session.endingOdometerKilometers)
         XCTAssertNil(session.recordedDistanceKilometers)
+    }
+
+    /// コード消去後走行距離を代替記録し、総走行距離取得後は優先元を固定します。
+    ///
+    /// 責務: PID 31からPID A6へ昇格したセッションが低優先PIDへ戻らないことを確認します。
+    func testOdometerSupersedesDistanceSinceCodesCleared() throws {
+        let repository = RecordingConnectionSessionRepository()
+        let model = ConnectionSessionLifecycleModel(repository: repository)
+
+        model.send(.accountIdentifierChanged("account"))
+        model.send(.startRequested)
+        model.send(.distanceObserved(.init(source: .distanceSinceCodesCleared, kilometers: 1_000)))
+        model.send(.distanceObserved(.init(source: .distanceSinceCodesCleared, kilometers: 1_001.5)))
+        model.send(.distanceObserved(.init(source: .odometer, kilometers: 30_000)))
+        model.send(.distanceObserved(.init(source: .distanceSinceCodesCleared, kilometers: 1_002)))
+        model.send(.distanceObserved(.init(source: .odometer, kilometers: 30_000.8)))
+
+        let session = try XCTUnwrap(model.activeSession)
+        XCTAssertEqual(session.startingOdometerKilometers, 30_000)
+        XCTAssertEqual(session.endingOdometerKilometers, 30_000.8)
+        XCTAssertEqual(try XCTUnwrap(session.recordedDistanceKilometers), 0.8, accuracy: 0.000_1)
+    }
+
+    /// 総走行距離を取得できないセッションではコード消去後走行距離の差分を保持します。
+    ///
+    /// 責務: PID 31だけの有効な観測列を接続履歴の走行距離差分へ変換できることを確認します。
+    func testDistanceSinceCodesClearedProvidesFallbackDistance() throws {
+        let repository = RecordingConnectionSessionRepository()
+        let model = ConnectionSessionLifecycleModel(repository: repository)
+
+        model.send(.accountIdentifierChanged("account"))
+        model.send(.startRequested)
+        model.send(.distanceObserved(.init(source: .distanceSinceCodesCleared, kilometers: 500)))
+        model.send(.distanceObserved(.init(source: .distanceSinceCodesCleared, kilometers: 502.4)))
+
+        let session = try XCTUnwrap(model.activeSession)
+        XCTAssertEqual(try XCTUnwrap(session.recordedDistanceKilometers), 2.4, accuracy: 0.000_1)
     }
 
     /// アプリ再開時に残った未終了セッションを接続中のまま復元しません。

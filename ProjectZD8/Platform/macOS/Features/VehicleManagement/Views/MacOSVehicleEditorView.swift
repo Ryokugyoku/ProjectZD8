@@ -8,6 +8,8 @@ struct MacOSVehicleEditorView: View {
     @State private var draft: VehicleProfile
     /// 写真ファイル選択の表示状態です。
     @State private var isPhotoImporterPresented = false
+    /// 現在編集中の元プロフィールです。
+    let vehicle: VehicleProfile
     /// 車両管理操作の通知先です。
     let send: (VehicleManagementAction) -> Void
     /// 現在のウインドウ寸法に対応する表示寸法です。
@@ -22,6 +24,7 @@ struct MacOSVehicleEditorView: View {
     ///   - metrics: ウインドウ対応寸法。
     init(vehicle: VehicleProfile, send: @escaping (VehicleManagementAction) -> Void, metrics: MacOSAppShellMetrics) {
         _draft = State(initialValue: vehicle)
+        self.vehicle = vehicle
         self.send = send
         self.metrics = metrics
     }
@@ -57,6 +60,14 @@ struct MacOSVehicleEditorView: View {
         .fileImporter(isPresented: $isPhotoImporterPresented, allowedContentTypes: [.image]) { result in
             if case let .success(url) = result { send(.photoSelected(url)) }
         }
+        .onAppear {
+            draft = vehicle
+            sanitizeEnergySourcesForCurrentPowertrain()
+        }
+        .onChange(of: vehicle) { newValue in
+            draft = newValue
+            sanitizeEnergySourcesForCurrentPowertrain()
+        }
     }
 
     /// 写真プレビューと選択操作です。
@@ -88,12 +99,15 @@ struct MacOSVehicleEditorView: View {
             TextField("garage.field.engine_model", text: $draft.engineModel)
             Picker("garage.field.powertrain", selection: $draft.powertrain) {
                 ForEach(VehiclePowertrainKind.allCases, id: \.self) { kind in
-                    Text(LocalizedStringKey("garage.powertrain.\(kind.rawValue)"))
+                    Text(powertrainLabelKey(for: kind))
                 }
             }
+            .onChange(of: draft.powertrain) { _ in
+                sanitizeEnergySourcesForCurrentPowertrain()
+            }
             Section("garage.field.energy") {
-                ForEach(VehicleEnergySource.allCases, id: \.self) { source in
-                    Toggle(LocalizedStringKey("garage.energy.\(source.rawValue)"), isOn: energyBinding(source))
+                ForEach(energySources(for: draft.powertrain), id: \.self) { source in
+                    Toggle(energyLabelKey(for: source), isOn: energyBinding(source))
                 }
             }
             TextField("garage.field.tank", value: $draft.tankCapacityLiters, format: .number)
@@ -116,6 +130,87 @@ struct MacOSVehicleEditorView: View {
         } set: { isSelected in
             if isSelected, !draft.energySources.contains(source) { draft.energySources.append(source) }
             if !isSelected { draft.energySources.removeAll { $0 == source } }
+        }
+    }
+
+    /// 駆動システム別に表示するエネルギー源を返します。
+    ///
+    /// 責務: 動力区分に対する運用可能なエネルギー種別だけを編集UIへ限定します。
+    /// - Parameter powertrain: 現在編集中の駆動システム。
+    /// - Returns: 表示対象のエネルギー源配列。
+    private func energySources(for powertrain: VehiclePowertrainKind) -> [VehicleEnergySource] {
+        switch powertrain {
+        case .combustion:
+            return [.gasolinePremium, .gasolineRegular, .diesel]
+        case .hybrid, .plugInHybrid:
+            return [.gasolinePremium, .gasolineRegular, .diesel, .electricity]
+        case .batteryElectric:
+            return [.electricity]
+        case .fuelCell:
+            return [.hydrogen]
+        case .other:
+            return [.other]
+        }
+    }
+
+    /// 1件の動力区分をローカライズキーへ変換します。
+    ///
+    /// 責務: 動力区分選択の表示をキー文字列ではなくローカライズ済みラベルへ固定します。
+    /// - Parameter kind: 表示対象の動力区分。
+    /// - Returns: ラベルキー。
+    private func powertrainLabelKey(for kind: VehiclePowertrainKind) -> LocalizedStringKey {
+        switch kind {
+        case .combustion:
+            "garage.powertrain.combustion"
+        case .hybrid:
+            "garage.powertrain.hybrid"
+        case .plugInHybrid:
+            "garage.powertrain.plugInHybrid"
+        case .batteryElectric:
+            "garage.powertrain.batteryElectric"
+        case .fuelCell:
+            "garage.powertrain.fuelCell"
+        case .other:
+            "garage.powertrain.other"
+        }
+    }
+
+    /// 1件のエネルギー源をローカライズキーへ変換します。
+    ///
+    /// 責務: エネルギー種別トグルをキー表示ではなく翻訳済み文言へ変換します。
+    /// - Parameter source: 表示対象のエネルギー源。
+    /// - Returns: ラベルキー。
+    private func energyLabelKey(for source: VehicleEnergySource) -> LocalizedStringKey {
+        switch source {
+        case .gasolinePremium:
+            "garage.energy.gasolinePremium"
+        case .gasolineRegular:
+            "garage.energy.gasolineRegular"
+        case .gasoline:
+            "garage.energy.gasoline"
+        case .diesel:
+            "garage.energy.diesel"
+        case .lpg:
+            "garage.energy.lpg"
+        case .cng:
+            "garage.energy.cng"
+        case .hydrogen:
+            "garage.energy.hydrogen"
+        case .electricity:
+            "garage.energy.electricity"
+        case .other:
+            "garage.energy.other"
+        }
+    }
+
+    /// 駆動区分変更時にエネルギー選択を再構築します。
+    ///
+    /// 責務: 選択済みエネルギー源を現在区分で利用可能なものへ再整列させます。
+    private func sanitizeEnergySourcesForCurrentPowertrain() {
+        let available = energySources(for: draft.powertrain)
+        draft.energySources.removeAll { !available.contains($0) }
+        if draft.energySources.isEmpty {
+            draft.energySources = [available.first].compactMap { $0 }
         }
     }
 }

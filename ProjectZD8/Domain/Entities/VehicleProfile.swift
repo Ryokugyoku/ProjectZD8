@@ -47,7 +47,7 @@ struct VehicleProfile: Identifiable, Equatable, Codable, Sendable {
         manufacturer: String = "",
         engineModel: String = "",
         powertrain: VehiclePowertrainKind = .combustion,
-        energySources: [VehicleEnergySource] = [.gasoline],
+        energySources: [VehicleEnergySource] = [.gasolineRegular],
         tankCapacityLiters: Double? = nil,
         modelYear: Int? = nil,
         note: String = "",

@@ -63,4 +63,29 @@ enum DemoOBDAdapter {
     static func matches(_ endpoint: OBDConnectionEndpoint) -> Bool {
         (usbSystemIdentifiers + bluetoothSystemIdentifiers).contains(endpoint.systemIdentifier)
     }
+
+    /// デモ終端から再現可能な合成VINを生成します。
+    ///
+    /// 責務: 1件のデモ終端を重複しない固定VINへ変換します。
+    /// - Parameter endpoint: 合成VINを採番するデモ終端。
+    /// - Returns: 17文字のデモVIN。
+    static func syntheticVIN(for endpoint: OBDConnectionEndpoint) -> String {
+        guard let index = enumeratedPrefixIndex(for: endpoint) else {
+            return "TESTZD8CXR0000000"
+        }
+        return "TESTZD8CXR" + String(format: "%07d", index)
+    }
+
+    /// 1件のデモ終端を17文字VINの連番へ収束します。
+    ///
+    /// 責務: 1件のデモ候補をシステム識別子順の固定番号へ変換します。
+    /// - Parameter endpoint: 変換対象のOBD終端。
+    /// - Returns: 1から6までのシリアル番号。見つからない場合は `nil`。
+    private static func enumeratedPrefixIndex(for endpoint: OBDConnectionEndpoint) -> Int? {
+        let allIdentifiers = usbSystemIdentifiers + bluetoothSystemIdentifiers
+        guard let index = allIdentifiers.firstIndex(of: endpoint.systemIdentifier) else {
+            return nil
+        }
+        return index + 1
+    }
 }

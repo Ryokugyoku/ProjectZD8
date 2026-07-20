@@ -183,21 +183,43 @@ final class LiveTelemetryModelTests: XCTestCase {
     ///
     /// 責務: 数値化済みService 01 PID A6が走行距離コールバックへ通知されることを確認します。
     func testOdometerSampleNotifiesLoggingBoundary() async {
-        var observedKilometers: [Double] = []
+        var observations: [ConnectionSessionDistanceObservation] = []
         let model = LiveTelemetryModel(
             readMajorPIDs: ReadMajorOBDPIDsUseCase(
                 definitionRepository: FixedOdometerDefinitionRepository(),
                 telemetry: FixedOdometerTelemetryFake()
             ),
-            odometerDidChange: { observedKilometers.append($0) }
+            distanceDidChange: { observations.append($0) }
         )
 
         model.send(.startRequested(endpoint, vehicleID, .standardPolling))
-        for _ in 0..<100 where observedKilometers.isEmpty {
+        for _ in 0..<100 where observations.isEmpty {
             try? await Task.sleep(for: .milliseconds(10))
         }
 
-        XCTAssertEqual(observedKilometers.first, 12_345.6)
+        XCTAssertEqual(observations.first, .init(source: .odometer, kilometers: 12_345.6))
+        model.send(.stopRequested)
+    }
+
+    /// A6非対応時はPID 31観測を接続履歴の代替累積距離として渡します。
+    ///
+    /// 責務: 数値化済みService 01 PID 31が取得元付き走行距離コールバックへ通知されることを確認します。
+    func testDistanceSinceCodesClearedNotifiesFallbackBoundary() async {
+        var observations: [ConnectionSessionDistanceObservation] = []
+        let model = LiveTelemetryModel(
+            readMajorPIDs: ReadMajorOBDPIDsUseCase(
+                definitionRepository: FixedDistanceSinceCodesClearedDefinitionRepository(),
+                telemetry: FixedDistanceSinceCodesClearedTelemetryFake()
+            ),
+            distanceDidChange: { observations.append($0) }
+        )
+
+        model.send(.startRequested(endpoint, vehicleID, .standardPolling))
+        for _ in 0..<100 where observations.isEmpty {
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+
+        XCTAssertEqual(observations.first, .init(source: .distanceSinceCodesCleared, kilometers: 1_234))
         model.send(.stopRequested)
     }
 
@@ -402,6 +424,70 @@ private actor FixedOdometerTelemetryFake: OBDPIDTelemetryPort {
         using endpoint: OBDConnectionEndpoint
     ) async throws -> [OBDPIDRequest: [UInt8]] {
         Dictionary(uniqueKeysWithValues: requests.map { ($0, [0x00, 0x01, 0xE2, 0x40]) })
+    }
+}
+
+/// PID 31定義だけを返すテスト用PID Repositoryです。
+private struct FixedDistanceSinceCodesClearedDefinitionRepository: OBDPIDDefinitionRepository {
+    /// PID 31通知テスト用の空状態を生成します。
+    ///
+    /// 責務: 固定コード消去後走行距離定義を提供するテスト境界を構築します。
+    init() {}
+
+    /// コード消去後走行距離定義を1件返します。
+    ///
+    /// 責務: Service 01 PID 31の固定定義一覧を返します。
+    /// - Returns: 2バイトのコード消去後走行距離定義1件。
+    func definitions() throws -> [OBDPIDDefinition] {
+        [OBDPIDDefinition(
+            service: 0x01,
+            pid: 0x31,
+            nameKey: "obd.pid.distance_since_codes_cleared",
+            requiredByteCount: 2,
+            formula: "A * 256 + B",
+            unit: "km",
+            minimumValue: 0,
+            maximumValue: 65_535,
+            sourceURI: "test://distance-since-codes-cleared",
+            revision: 1
+        )]
+    }
+
+    /// テスト対象外の保存要求を受け付けます。
+    ///
+    /// 責務: 未使用のPID定義保存を変更なしで完了します。
+    /// - Parameter definition: テストでは使用しない定義。
+    func upsert(_ definition: OBDPIDDefinition) throws {}
+
+    /// テスト対象外の単一定義読込へ未登録を返します。
+    ///
+    /// 責務: 未使用の単一PID照会を未登録結果へ変換します。
+    /// - Parameters:
+    ///   - service: テストでは使用しないService番号。
+    ///   - pid: テストでは使用しないPID番号。
+    /// - Returns: 常に `nil`。
+    func definition(service: UInt8, pid: UInt8) throws -> OBDPIDDefinition? { nil }
+}
+
+/// 固定のコード消去後走行距離応答を返すテスト用PID境界です。
+private actor FixedDistanceSinceCodesClearedTelemetryFake: OBDPIDTelemetryPort {
+    /// PID 31通知テスト用の空状態を生成します。
+    ///
+    /// 責務: 固定コード消去後走行距離応答を提供するテスト境界を構築します。
+    init() {}
+
+    /// 要求PIDへ1,234 km相当の固定バイトを返します。
+    ///
+    /// 責務: 1回のPID 31読取要求を固定コード消去後走行距離応答へ変換します。
+    /// - Parameters:
+    ///   - requests: 応答するPID要求。
+    ///   - endpoint: テストでは使用しない接続終端。
+    /// - Returns: PID 31へ1,234 km相当の2バイトを割り当てた辞書。
+    func read(
+        _ requests: [OBDPIDRequest],
+        using endpoint: OBDConnectionEndpoint
+    ) async throws -> [OBDPIDRequest: [UInt8]] {
+        Dictionary(uniqueKeysWithValues: requests.map { ($0, [0x04, 0xD2]) })
     }
 }
 

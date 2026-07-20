@@ -26,6 +26,7 @@ struct MacOSGarageView: View {
         }
         .background(Color(nsColor: .windowBackgroundColor))
         .accessibilityIdentifier("macos-garage-screen")
+        .onAppear { send(.refreshRequested) }
         .sheet(isPresented: Binding(
             get: { state.pidSettingsVehicleID != nil },
             set: { if !$0 { send(.pidSettingsClosed) } }
@@ -50,10 +51,6 @@ struct MacOSGarageView: View {
                             .foregroundStyle(.secondary)
                     }
                     Spacer()
-                    Button { send(.refreshRequested) } label: {
-                        Label("garage.refresh", systemImage: "arrow.clockwise")
-                    }
-                    .controlSize(.large)
                 }
 
                 statusBanner

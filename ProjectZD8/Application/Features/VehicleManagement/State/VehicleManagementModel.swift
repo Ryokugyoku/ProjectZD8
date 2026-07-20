@@ -141,19 +141,64 @@ final class VehicleManagementModel {
 
     /// 現在アカウントの車両一覧を同期先またはキャッシュから読み込みます。
     ///
-    /// 責務: 現在の1件のアカウントスコープへ車両一覧読込結果を反映します。
+    /// 責務: 現在の1件のアカウントスコープへ車両一覧読込結果を反映し、更新日時ベースで同期待ち合わせします。
     private func loadVehicles() async {
         guard let accountIdentifier else { return }
         state.phase = .loading
         do {
-            state.vehicles = try await repository.loadVehicles(for: accountIdentifier)
+            let remote = try await repository.loadVehicles(for: accountIdentifier)
+            let syncResult = reconcileVehicles(local: state.vehicles, remote: remote)
+            state.vehicles = syncResult.merged
             state.hasLoadedVehicles = true
             state.phase = .idle
             state.failureKey = nil
+            Task { [accountIdentifier] in
+                for vehicle in syncResult.uploadTargets {
+                    try? await repository.saveVehicle(vehicle, for: accountIdentifier)
+                }
+            }
         } catch {
             state.phase = .failed
             state.failureKey = "garage.error.sync"
         }
+    }
+
+    /// ローカルとキャッシュ読込データを更新日時で突合し、同期方針を作成します。
+    ///
+    /// 責務: 1回の読込結果をローカル一覧と比較し、採用対象とクラウド反映候補を返します。
+    /// - Parameters:
+    ///   - local: 画面保持中の車両一覧。
+    ///   - remote: リポジトリ読込時点の車両一覧。
+    /// - Returns: 反映先一覧とアップロード対象。
+    private func reconcileVehicles(
+        local: [VehicleProfile],
+        remote: [VehicleProfile]
+    ) -> (merged: [VehicleProfile], uploadTargets: [VehicleProfile]) {
+        let remoteByID = Dictionary(uniqueKeysWithValues: remote.map { ($0.id, $0) })
+        var merged: [VehicleProfile] = []
+        var uploadTargets: [VehicleProfile] = []
+        var syncedIDs: Set<VehicleID> = []
+
+        for localVehicle in local {
+            if let remoteVehicle = remoteByID[localVehicle.id] {
+                syncedIDs.insert(localVehicle.id)
+                if localVehicle.updatedAt > remoteVehicle.updatedAt {
+                    merged.append(localVehicle)
+                    uploadTargets.append(localVehicle)
+                } else {
+                    merged.append(remoteVehicle)
+                }
+            } else {
+                merged.append(localVehicle)
+                uploadTargets.append(localVehicle)
+            }
+        }
+
+        for remoteVehicle in remote where !syncedIDs.contains(remoteVehicle.id) {
+            merged.append(remoteVehicle)
+        }
+
+        return (merged.sorted { $0.updatedAt > $1.updatedAt }, uploadTargets)
     }
 
     /// OBD識別結果を登録済み接続または登録確認へ反映します。

@@ -28,8 +28,9 @@ final class VehicleManagementModelTests: XCTestCase {
         model.send(.vehicleSaved(draft))
         try await waitUntil { model.state.phase == .idle && model.state.vehicles.count == 1 }
 
-        XCTAssertEqual(repository.savedVehicles.map(\.vin), ["TESTZD8CXR0000001"])
-        XCTAssertEqual(model.state.vehicles.map(\.vin), ["TESTZD8CXR0000001"])
+        let expectedVIN = DemoOBDAdapter.syntheticVIN(for: OBDConnectionEndpoint(adapter: DemoOBDAdapter.candidate))
+        XCTAssertEqual(repository.savedVehicles.map(\.vin), [expectedVIN])
+        XCTAssertEqual(model.state.vehicles.map(\.vin), [expectedVIN])
     }
 
     /// 未登録車両は登録保存が成功した後にだけ接続開始へ引き渡します。

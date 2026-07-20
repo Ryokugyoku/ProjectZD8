@@ -21,15 +21,16 @@ struct DemoVehicleIdentificationAdapter: VehicleIdentificationPort {
     /// - Throws: デモ以外の終端では `VehicleIdentificationError.transportUnsupported`。
     func identifyVehicle(using endpoint: OBDConnectionEndpoint) async throws -> VehicleIdentificationSnapshot {
         guard DemoOBDAdapter.matches(endpoint) else { throw VehicleIdentificationError.transportUnsupported }
+        let syntheticVIN = DemoOBDAdapter.syntheticVIN(for: endpoint)
         return VehicleIdentificationSnapshot(
-            vin: "TESTZD8CXR0000001",
+            vin: syntheticVIN,
             fields: [
                 .init(id: "manufacturer", label: "Manufacturer", value: "ProjectZD8 Demo Motors", source: endpoint.displayName),
                 .init(id: "engineModel", label: "Engine Model", value: "ZD8-SIM-24", source: endpoint.displayName),
                 .init(id: "obdProtocol", label: "OBD Protocol", value: "ISO 15765-4 (simulated)", source: endpoint.displayName)
             ],
             rawResponses: [
-                .init(requestID: "vehicleIdentificationNumber", payload: "49 02 01 TESTZD8CXR0000001")
+                .init(requestID: "vehicleIdentificationNumber", payload: "49 02 01 \(syntheticVIN)")
             ],
             observedAt: now()
         )

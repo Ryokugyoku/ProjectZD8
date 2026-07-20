@@ -80,6 +80,7 @@ struct IOSDestinationView: View {
             )
         } else if destination == .maintenance {
             IOSGarageView(state: vehicleManagementState, send: sendVehicleManagementAction)
+                .onAppear { sendVehicleManagementAction(.refreshRequested) }
         } else if destination == .settings {
             IOSSettingsView(
                 state: settingsState,

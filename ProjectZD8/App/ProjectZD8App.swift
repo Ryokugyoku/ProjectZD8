@@ -56,7 +56,7 @@ struct ProjectZD8App: App {
         )
         let liveTelemetryModel = IOSApplicationComposition.makeLiveTelemetryModel(
             sessionDidEnd: { connectionSessionLifecycleModel.send(.endRequested($0)) },
-            odometerDidChange: { connectionSessionLifecycleModel.send(.odometerObserved(kilometers: $0)) },
+            distanceDidChange: { connectionSessionLifecycleModel.send(.distanceObserved($0)) },
             rawResponseDidReceive: { observation in
                 try await MainActor.run {
                     try connectionSessionLifecycleModel.recordRawResponse(observation)
@@ -114,7 +114,7 @@ struct ProjectZD8App: App {
         )
         let liveTelemetryModel = MacOSApplicationComposition.makeLiveTelemetryModel(
             sessionDidEnd: { connectionSessionLifecycleModel.send(.endRequested($0)) },
-            odometerDidChange: { connectionSessionLifecycleModel.send(.odometerObserved(kilometers: $0)) },
+            distanceDidChange: { connectionSessionLifecycleModel.send(.distanceObserved($0)) },
             rawResponseDidReceive: { observation in
                 try await MainActor.run {
                     try connectionSessionLifecycleModel.recordRawResponse(observation)

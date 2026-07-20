@@ -19,6 +19,8 @@ final class ConnectionSessionLifecycleModel {
     @ObservationIgnored private let historyDidChange: @MainActor () -> Void
     /// 現在のAppleアカウント識別子です。
     @ObservationIgnored private var accountIdentifier: String?
+    /// 現在セッションの走行距離差分へ採用している累積距離取得元です。
+    @ObservationIgnored private var selectedDistanceSource: ConnectionSessionDistanceSource?
 
     /// セッション保存先と副作用依存を固定して生成します。
     ///
@@ -52,7 +54,7 @@ final class ConnectionSessionLifecycleModel {
         case let .accountIdentifierChanged(identifier): activateAccount(identifier)
         case .startRequested: startSession()
         case let .vehicleResolved(vehicle): bindVehicle(vehicle)
-        case let .odometerObserved(kilometers): recordOdometer(kilometers)
+        case let .distanceObserved(observation): recordDistance(observation)
         case let .endRequested(reason): endSession(reason: reason)
         }
     }
@@ -77,6 +79,7 @@ final class ConnectionSessionLifecycleModel {
         guard identifier != accountIdentifier else { return }
         accountIdentifier = identifier
         activeSession = nil
+        selectedDistanceSource = nil
         guard let identifier, !identifier.isEmpty else { return }
         do {
             let unfinished = try repository.sessions(for: identifier).filter { $0.endedAt == nil }
@@ -105,6 +108,7 @@ final class ConnectionSessionLifecycleModel {
         do {
             try repository.save(session)
             activeSession = session
+            selectedDistanceSource = nil
             historyDidChange()
         } catch {
             activeSession = nil
@@ -127,20 +131,29 @@ final class ConnectionSessionLifecycleModel {
         }
     }
 
-    /// 累積走行距離の先頭値と最新値を現在セッションへ保存します。
+    /// 優先順位を満たす累積距離の先頭値と最新値を現在セッションへ保存します。
     ///
-    /// 責務: 1件の有効な累積走行距離観測をセッション差分算出用の境界値へ反映します。
-    /// - Parameter kilometers: Service 01 PID A6から取得したキロメートル単位の累積走行距離。
-    private func recordOdometer(_ kilometers: Double) {
-        guard kilometers.isFinite, kilometers >= 0, var session = activeSession else { return }
-        if session.startingOdometerKilometers == nil {
-            session.startingOdometerKilometers = kilometers
+    /// 責務: 1件の有効な累積距離観測を取得元の優先順位に従ってセッション差分境界へ反映します。
+    /// - Parameter observation: 取得元とキロメートル値を保持する累積距離観測。
+    private func recordDistance(_ observation: ConnectionSessionDistanceObservation) {
+        guard observation.kilometers.isFinite, observation.kilometers >= 0,
+              var session = activeSession else { return }
+        if let selectedDistanceSource,
+           observation.source != selectedDistanceSource,
+           !observation.source.hasPriority(over: selectedDistanceSource) {
+            return
         }
-        guard session.endingOdometerKilometers != kilometers else { return }
-        session.endingOdometerKilometers = kilometers
+        if observation.source != selectedDistanceSource {
+            session.startingOdometerKilometers = observation.kilometers
+            session.endingOdometerKilometers = observation.kilometers
+        } else {
+            guard session.endingOdometerKilometers != observation.kilometers else { return }
+            session.endingOdometerKilometers = observation.kilometers
+        }
         do {
             try repository.save(session)
             activeSession = session
+            selectedDistanceSource = observation.source
             historyDidChange()
         } catch {
             return
@@ -158,6 +171,7 @@ final class ConnectionSessionLifecycleModel {
         do {
             try repository.save(session)
             activeSession = nil
+            selectedDistanceSource = nil
             historyDidChange()
         } catch {
             activeSession = session

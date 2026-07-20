@@ -2,6 +2,10 @@
 enum VehicleEnergySource: String, CaseIterable, Codable, Sendable {
     /// ガソリンです。
     case gasoline
+    /// ハイオク（プレミアムガソリン）です。
+    case gasolinePremium
+    /// レギュラー（通常ガソリン）です。
+    case gasolineRegular
     /// 軽油です。
     case diesel
     /// 液化石油ガスです。

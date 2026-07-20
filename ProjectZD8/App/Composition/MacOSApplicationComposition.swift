@@ -10,11 +10,11 @@ enum MacOSApplicationComposition {
     /// 責務: macOSのPID取得依存関係と接続中スリープ抑止を1件のLiveTelemetry構成へ注入します。
     /// - Returns: DB登録済みPIDを読み取れるモデル。
     /// - Parameter sessionDidEnd: PID取得終了原因をLoggingへ通知する処理。
-    /// - Parameter odometerDidChange: 累積走行距離をLoggingへ通知する処理。
+    /// - Parameter distanceDidChange: 取得元付き累積距離をLoggingへ通知する処理。
     /// - Parameter rawResponseDidReceive: 数値化前のOBD応答をLoggingへ保存する処理。
     static func makeLiveTelemetryModel(
         sessionDidEnd: @escaping @MainActor (ConnectionSessionEndReason) -> Void = { _ in },
-        odometerDidChange: @escaping @MainActor (Double) -> Void = { _ in },
+        distanceDidChange: @escaping @MainActor (ConnectionSessionDistanceObservation) -> Void = { _ in },
         rawResponseDidReceive: @escaping @Sendable (OBDRawResponseObservation) async throws -> Void = { _ in }
     ) -> LiveTelemetryModel {
         let telemetry = DemoAwareOBDPIDTelemetryAdapter(
@@ -33,7 +33,7 @@ enum MacOSApplicationComposition {
                 repository: makeVehiclePIDCapabilityRepository(), telemetry: telemetry
             ),
             sessionDidEnd: sessionDidEnd,
-            odometerDidChange: odometerDidChange,
+            distanceDidChange: distanceDidChange,
             systemSleepInhibitor: ProcessInfoVehicleConnectionSystemSleepInhibitor()
         )
     }

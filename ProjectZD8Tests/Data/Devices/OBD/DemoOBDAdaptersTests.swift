@@ -12,7 +12,7 @@ final class DemoOBDAdaptersTests: XCTestCase {
             now: { Date(timeIntervalSince1970: 123) }
         ).identifyVehicle(using: endpoint)
 
-        XCTAssertEqual(snapshot.vin, "TESTZD8CXR0000001")
+        XCTAssertEqual(snapshot.vin, DemoOBDAdapter.syntheticVIN(for: endpoint))
         XCTAssertEqual(snapshot.fields.first(where: { $0.id == "manufacturer" })?.value, "ProjectZD8 Demo Motors")
         XCTAssertEqual(snapshot.observedAt, Date(timeIntervalSince1970: 123))
     }
@@ -69,23 +69,26 @@ final class DemoOBDAdaptersTests: XCTestCase {
         let snapshot = try await DemoVehicleIdentificationAdapter().identifyVehicle(using: bluetoothEndpoint)
         let readings = try await DemoOBDPIDTelemetryAdapter().read([speed], using: bluetoothEndpoint)
 
-        XCTAssertEqual(snapshot.vin, "TESTZD8CXR0000001")
+        XCTAssertEqual(snapshot.vin, DemoOBDAdapter.syntheticVIN(for: bluetoothEndpoint))
         XCTAssertNotNil(readings[speed])
     }
 
-    /// USBとBluetoothの全デモ終端を同一デモVINへ解決します。
+    /// USBとBluetoothの全デモ終端でVINが重複しないことを検証します。
     ///
-    /// 責務: 追加後の6件のデモ終端が共通車両識別子を返すことを確認します。
-    func testAllDemoEndpointsUseSameVIN() async throws {
+    /// 責務: 追加後の6件デモ終端が順序依存でユニークな車両識別子を返すことを確認します。
+    func testAllDemoEndpointsUseDistinctVINs() async throws {
         let candidates = DemoOBDAdapter.usbCandidates + DemoOBDAdapter.bluetoothCandidates
 
         XCTAssertEqual(candidates.count, 6)
+        var vins: Set<String> = []
         for candidate in candidates {
             let snapshot = try await DemoVehicleIdentificationAdapter().identifyVehicle(
                 using: OBDConnectionEndpoint(adapter: candidate)
             )
-            XCTAssertEqual(snapshot.vin, "TESTZD8CXR0000001")
+            let vin = try XCTUnwrap(snapshot.vin)
+            XCTAssertTrue(vins.insert(vin).inserted)
         }
+        XCTAssertEqual(vins.count, 6)
     }
 
     /// デモ累積走行距離を履歴画面へ渡せる正常値として返します。

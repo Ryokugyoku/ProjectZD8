@@ -26,8 +26,8 @@ final class LiveTelemetryModel {
     @ObservationIgnored private let pollingPolicy: OBDPIDPollingPolicy
     /// PID取得セッションが終了した原因をLoggingへ通知する処理です。
     @ObservationIgnored private let sessionDidEnd: @MainActor (ConnectionSessionEndReason) -> Void
-    /// 取得できた累積走行距離をLoggingへ通知する処理です。
-    @ObservationIgnored private let odometerDidChange: @MainActor (Double) -> Void
+    /// 取得できた取得元付き累積距離をLoggingへ通知する処理です。
+    @ObservationIgnored private let distanceDidChange: @MainActor (ConnectionSessionDistanceObservation) -> Void
     /// 車両接続中のシステムスリープ抑止を切り替えるOS境界です。
     @ObservationIgnored private let systemSleepInhibitor: (any VehicleConnectionSystemSleepInhibiting)?
     /// 現在画面の表示有無から独立して動く取得タスクです。
@@ -46,7 +46,7 @@ final class LiveTelemetryModel {
     ///   - loadVehicleCapabilities: 車両別対応PIDの再利用または初回探索を行うユースケース。
     ///   - pollingPolicy: PIDごとの更新優先度と間引き周期を決める方針。
     ///   - sessionDidEnd: PID取得終了原因をLoggingへ通知する処理。
-    ///   - odometerDidChange: Service 01 PID A6の累積走行距離をLoggingへ通知する処理。
+    ///   - distanceDidChange: Service 01 PID A6またはPID 31の累積距離をLoggingへ通知する処理。
     ///   - systemSleepInhibitor: 車両接続中だけシステムスリープを抑止する境界。
     init(
         state: LiveTelemetryState,
@@ -54,7 +54,7 @@ final class LiveTelemetryModel {
         loadVehicleCapabilities: LoadVehiclePIDCapabilitiesUseCase? = nil,
         pollingPolicy: OBDPIDPollingPolicy,
         sessionDidEnd: @escaping @MainActor (ConnectionSessionEndReason) -> Void = { _ in },
-        odometerDidChange: @escaping @MainActor (Double) -> Void = { _ in },
+        distanceDidChange: @escaping @MainActor (ConnectionSessionDistanceObservation) -> Void = { _ in },
         systemSleepInhibitor: (any VehicleConnectionSystemSleepInhibiting)? = nil
     ) {
         self.state = state
@@ -62,7 +62,7 @@ final class LiveTelemetryModel {
         self.loadVehicleCapabilities = loadVehicleCapabilities
         self.pollingPolicy = pollingPolicy
         self.sessionDidEnd = sessionDidEnd
-        self.odometerDidChange = odometerDidChange
+        self.distanceDidChange = distanceDidChange
         self.systemSleepInhibitor = systemSleepInhibitor
     }
 
@@ -73,13 +73,13 @@ final class LiveTelemetryModel {
     ///   - readMajorPIDs: PID読取と数値化を行うユースケース。
     ///   - loadVehicleCapabilities: 車両別対応PIDの再利用または初回探索を行うユースケース。
     ///   - sessionDidEnd: PID取得終了原因をLoggingへ通知する処理。
-    ///   - odometerDidChange: Service 01 PID A6の累積走行距離をLoggingへ通知する処理。
+    ///   - distanceDidChange: Service 01 PID A6またはPID 31の累積距離をLoggingへ通知する処理。
     ///   - systemSleepInhibitor: 車両接続中だけシステムスリープを抑止する境界。
     convenience init(
         readMajorPIDs: ReadMajorOBDPIDsUseCase,
         loadVehicleCapabilities: LoadVehiclePIDCapabilitiesUseCase? = nil,
         sessionDidEnd: @escaping @MainActor (ConnectionSessionEndReason) -> Void = { _ in },
-        odometerDidChange: @escaping @MainActor (Double) -> Void = { _ in },
+        distanceDidChange: @escaping @MainActor (ConnectionSessionDistanceObservation) -> Void = { _ in },
         systemSleepInhibitor: (any VehicleConnectionSystemSleepInhibiting)? = nil
     ) {
         self.init(
@@ -88,7 +88,7 @@ final class LiveTelemetryModel {
             loadVehicleCapabilities: loadVehicleCapabilities,
             pollingPolicy: OBDPIDPollingPolicy(),
             sessionDidEnd: sessionDidEnd,
-            odometerDidChange: odometerDidChange,
+            distanceDidChange: distanceDidChange,
             systemSleepInhibitor: systemSleepInhibitor
         )
     }
@@ -396,7 +396,7 @@ final class LiveTelemetryModel {
             supportedRequests.contains(OBDPIDRequest(service: $0.service, pid: $0.pid))
         }
         state.samples = ordered(initialSamples, definitions: supportedDefinitions)
-        notifyOdometer(from: initialSamples)
+        notifyDistance(from: initialSamples)
         state.supportedPIDCount = supportedDefinitions.count
         state.phase = .loaded
         var tick: UInt = 1
@@ -426,17 +426,24 @@ final class LiveTelemetryModel {
         var latest = Dictionary(uniqueKeysWithValues: state.samples.map { ($0.request, $0) })
         for sample in samples { latest[sample.request] = sample }
         state.samples = ordered(Array(latest.values), definitions: definitions)
-        notifyOdometer(from: samples)
+        notifyDistance(from: samples)
     }
 
-    /// PID観測一覧に含まれる累積走行距離をLoggingへ通知します。
+    /// PID観測一覧から優先順位が最も高い累積距離をLoggingへ通知します。
     ///
-    /// 責務: 1回分のPID観測からService 01 PID A6だけを累積走行距離通知へ変換します。
+    /// 責務: 1回分のPID観測をA6優先、PID 31代替の取得元付き累積距離通知へ変換します。
     /// - Parameter samples: 今回取得できた数値化済みPID観測。
-    private func notifyOdometer(from samples: [OBDPIDSample]) {
-        let request = OBDPIDRequest(service: 0x01, pid: 0xA6)
-        guard let odometer = samples.first(where: { $0.request == request })?.value else { return }
-        odometerDidChange(odometer)
+    private func notifyDistance(from samples: [OBDPIDSample]) {
+        let candidates: [(OBDPIDRequest, ConnectionSessionDistanceSource)] = [
+            (OBDPIDRequest(service: 0x01, pid: 0xA6), .odometer),
+            (OBDPIDRequest(service: 0x01, pid: 0x31), .distanceSinceCodesCleared)
+        ]
+        guard let candidate = candidates.compactMap({ request, source in
+            samples.first(where: { $0.request == request }).map {
+                ConnectionSessionDistanceObservation(source: source, kilometers: $0.value)
+            }
+        }).first else { return }
+        distanceDidChange(candidate)
     }
 
     /// 観測値を優先度付き定義順へ並べます。
