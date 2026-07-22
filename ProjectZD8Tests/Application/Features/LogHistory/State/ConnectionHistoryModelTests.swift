@@ -110,6 +110,30 @@ final class ConnectionHistoryModelTests: XCTestCase {
         XCTAssertEqual(model.state.sortOrder, .oldest)
     }
 
+    /// ユーザーが意図した停止の確認後は警告件数から外し、観測理由を保持します。
+    ///
+    /// 責務: 接続喪失セッションの確認操作を正式データ状態と元終了理由の保持へ変換できることを確認します。
+    func testStopReviewAcceptsUserInitiatedStopWithoutReplacingObservedReason() {
+        let vehicle = ConnectionSessionVehicle(id: VehicleID(), name: "BRZ", displayIdentifier: "ZD8")
+        let session = makeClosedSession(startedAt: 100, duration: 60, reason: .connectionLost, vehicle: vehicle)
+        let repository = MutableConnectionSessionRepository(sessions: [session])
+        let model = ConnectionHistoryModel(
+            repository: repository,
+            reviewInterruptedSession: ReviewInterruptedConnectionSessionUseCase(repository: repository)
+        )
+        model.send(.accountIdentifierChanged("account"))
+
+        model.send(.stopReviewRequested(session.id))
+        XCTAssertEqual(model.state.stopReviewPrompt?.observedReason, .connectionLost)
+        model.send(.stopReviewConfirmed)
+
+        let reviewed = model.state.sessions.first
+        XCTAssertEqual(reviewed?.endReason, .connectionLost)
+        XCTAssertEqual(reviewed?.stopReviewDecision, .userInitiated)
+        XCTAssertEqual(reviewed?.status, .completed)
+        XCTAssertEqual(model.state.interruptedCount, 0)
+    }
+
     /// 指定条件を持つ終了済みセッションを生成します。
     ///
     /// 責務: テスト入力を終了日時と終了理由が確定した1件のセッションへ変換します。
@@ -130,6 +154,40 @@ final class ConnectionHistoryModelTests: XCTestCase {
         session.endedAt = start.addingTimeInterval(duration)
         session.endReason = reason
         return session
+    }
+}
+
+/// 保存内容を更新可能な接続履歴テスト実装です。
+private final class MutableConnectionSessionRepository: ConnectionSessionRepository {
+    /// 現在保持するセッション一覧です。
+    private var storedSessions: [ConnectionSession]
+
+    /// 初期セッション一覧を固定して生成します。
+    ///
+    /// 責務: 1件の固定セッション配列を更新可能なテスト保存先へ変換します。
+    /// - Parameter sessions: 初期状態として保持するセッション一覧。
+    init(sessions: [ConnectionSession]) {
+        storedSessions = sessions
+    }
+
+    /// 同じIDのセッションを現在内容で置き換えます。
+    ///
+    /// 責務: 1件のセッション保存要求をID単位のテスト状態更新へ変換します。
+    /// - Parameter session: 保存する接続セッション。
+    func save(_ session: ConnectionSession) throws {
+        storedSessions.removeAll { $0.id == session.id }
+        storedSessions.append(session)
+    }
+
+    /// 指定アカウントのセッションを新しい順で返します。
+    ///
+    /// 責務: 現在のテスト履歴を1件のアカウント識別子で絞り込みます。
+    /// - Parameter accountIdentifier: 取得対象のアカウント識別子。
+    /// - Returns: 開始日時が新しい順の該当セッション。
+    func sessions(for accountIdentifier: String) throws -> [ConnectionSession] {
+        storedSessions
+            .filter { $0.accountIdentifier == accountIdentifier }
+            .sorted { $0.startedAt > $1.startedAt }
     }
 }
 

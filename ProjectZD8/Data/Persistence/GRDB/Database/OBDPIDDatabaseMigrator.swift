@@ -54,6 +54,28 @@ enum OBDPIDDatabaseMigrator {
                 table.primaryKey(["vehicleID", "service", "pid"])
             }
         }
+        migrator.registerMigration("v3_add_vehicle_specific_pid_scope") { database in
+            try database.alter(table: OBDPIDDefinitionRecord.databaseTableName) { table in
+                table.add(column: "header", .integer)
+                table.add(column: "vehicleModelCode", .text)
+            }
+            try database.execute(sql: """
+                CREATE TRIGGER obd_pid_definitions_vehicle_scope_insert
+                BEFORE INSERT ON obd_pid_definitions
+                WHEN (NEW.header IS NULL) != (NEW.vehicleModelCode IS NULL)
+                BEGIN
+                    SELECT RAISE(ABORT, 'Vehicle-specific PID requires both header and model code');
+                END
+                """)
+            try database.execute(sql: """
+                CREATE TRIGGER obd_pid_definitions_vehicle_scope_update
+                BEFORE UPDATE OF header, vehicleModelCode ON obd_pid_definitions
+                WHEN (NEW.header IS NULL) != (NEW.vehicleModelCode IS NULL)
+                BEGIN
+                    SELECT RAISE(ABORT, 'Vehicle-specific PID requires both header and model code');
+                END
+                """)
+        }
         return migrator
     }
 

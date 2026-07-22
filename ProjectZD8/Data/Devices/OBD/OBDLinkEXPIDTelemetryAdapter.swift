@@ -12,6 +12,8 @@ actor OBDLinkEXPIDTelemetryAdapter: OBDPIDTelemetryPort {
     private var activeEndpoint: OBDConnectionEndpoint?
     /// 2件のBRZ Beta周期メッセージがアダプターへ登録済みかどうかです。
     private var isPeriodicMessagingActive = false
+    /// 現在ELMへ設定している11bit送信ヘッダーです。
+    private var activeTransmitHeader: UInt16?
 
     /// Transport Factoryを固定して生成します。
     ///
@@ -39,6 +41,7 @@ actor OBDLinkEXPIDTelemetryAdapter: OBDPIDTelemetryPort {
         }
         do {
             let activeChannel = try await channel(for: endpoint)
+            try await setTransmitHeader(0x7DF, using: activeChannel)
             return try await read(commands, using: activeChannel)
         } catch VehicleIdentificationError.responseTimedOut {
             await closeActiveSession()
@@ -50,6 +53,67 @@ actor OBDLinkEXPIDTelemetryAdapter: OBDPIDTelemetryPort {
             await closeActiveSession()
             throw error
         }
+    }
+
+    /// 型式確認済み定義を指定ECUへ1件ずつ送信します。
+    ///
+    /// 責務: 車種専用PID定義群をヘッダー切替済みの応答辞書へ変換します。
+    /// - Parameters:
+    ///   - definitions: 11bitヘッダーと型式を持つ専用PID定義。
+    ///   - endpoint: EXが公開するUSBシリアル終端。
+    /// - Returns: 正応答を確認できたService/PIDごとのデータバイト。
+    /// - Throws: 定義、ヘッダー、接続、または応答処理に失敗した場合のエラー。
+    func readVehicleSpecific(
+        _ definitions: [OBDPIDDefinition],
+        using endpoint: OBDConnectionEndpoint
+    ) async throws -> [OBDPIDRequest: [UInt8]] {
+        guard endpoint.transport == .serial else { throw OBDPIDTelemetryError.unavailable }
+        let prepared = try definitions.map { definition -> (UInt16, ELM327VehicleSpecificPIDCommand) in
+            guard let header = definition.header,
+                  let command = ELM327VehicleSpecificPIDCommand(definition: definition) else {
+                throw OBDPIDTelemetryError.unsupportedPID
+            }
+            return (header, command)
+        }
+        do {
+            let channel = try await channel(for: endpoint)
+            var result: [OBDPIDRequest: [UInt8]] = [:]
+            for (header, command) in prepared {
+                try await setTransmitHeader(header, using: channel)
+                let response = try await channel.execute(command)
+                if let payload = try? ELM327PIDResponseParser().parse(response, request: command.request) {
+                    result[command.request] = payload
+                }
+            }
+            return result
+        } catch VehicleIdentificationError.responseTimedOut {
+            await closeActiveSession()
+            throw OBDPIDTelemetryError.noVehicleResponse
+        } catch VehicleIdentificationError.connectionFailed {
+            await closeActiveSession()
+            throw OBDPIDTelemetryError.connectionLost
+        } catch {
+            await closeActiveSession()
+            throw error
+        }
+    }
+
+    /// 必要な場合だけELM送信ヘッダーを切り替えます。
+    ///
+    /// 責務: 現在値と異なる1件の11bit CAN IDをELMへ設定します。
+    /// - Parameters:
+    ///   - header: 設定する11bit CAN ID。
+    ///   - channel: 初期化済みELMチャネル。
+    /// - Throws: ヘッダー範囲不正またはELM拒否時のエラー。
+    private func setTransmitHeader(_ header: UInt16, using channel: SerializedELMCommandChannel) async throws {
+        guard activeTransmitHeader != header,
+              let command = ELM327TransmitHeaderCommand(header: header) else {
+            if activeTransmitHeader == header { return }
+            throw OBDPIDTelemetryError.unsupportedPID
+        }
+        let response = try await channel.execute(command)
+        guard isAccepted(response) else { throw OBDPIDTelemetryError.commandRejected }
+        activeTransmitHeader = header
     }
 
     /// 回転数と車速をOBDLinkの周期送信で読み取ります。
@@ -196,5 +260,6 @@ actor OBDLinkEXPIDTelemetryAdapter: OBDPIDTelemetryPort {
         activeChannel = nil
         activeEndpoint = nil
         isPeriodicMessagingActive = false
+        activeTransmitHeader = nil
     }
 }

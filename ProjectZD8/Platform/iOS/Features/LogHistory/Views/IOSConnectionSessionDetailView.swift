@@ -19,6 +19,7 @@ struct IOSConnectionSessionDetailView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 hero
+                stopReviewCard
                 rawMetrics
                 storageJourney
                 macReceiptCard
@@ -34,18 +35,68 @@ struct IOSConnectionSessionDetailView: View {
         .accessibilityIdentifier("ios-connection-session-detail")
     }
 
+    /// 観測済み停止理由とユーザー確認状態を表示します。
+    @ViewBuilder private var stopReviewCard: some View {
+        if session.needsStopReview {
+            VStack(alignment: .leading, spacing: 13) {
+                HStack(spacing: 10) {
+                    WarningTriangleIcon(size: 19)
+                    Text("history.stop_review.card.title")
+                        .font(.headline)
+                }
+                Text(stopReviewCardMessageKey)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                Button("history.stop_review.card.action") {
+                    send(.stopReviewRequested(session.id))
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(.orange)
+                .frame(maxWidth: .infinity, alignment: .trailing)
+            }
+            .padding(17)
+            .background(Color.orange.opacity(0.08), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .overlay { RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(Color.orange.opacity(0.22)) }
+        } else if session.stopReviewDecision == .userInitiated {
+            Label("history.stop_review.accepted", systemImage: "checkmark.seal.fill")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.green)
+                .padding(15)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.green.opacity(0.07), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        }
+    }
+
+    /// 観測済み終了理由に対応する詳細カード本文です。
+    private var stopReviewCardMessageKey: LocalizedStringKey {
+        session.endReason == .vehicleNoResponse
+            ? "history.stop_review.card.no_response"
+            : "history.stop_review.card.connection_lost"
+    }
+
     /// 静的性能解析画面への遷移操作を表示します。
     private var analysisAction: some View {
         NavigationLink {
             IOSSessionLogAnalysisView(session: session, state: analysisState, send: sendAnalysis)
         } label: {
-            Label("analysis.open", systemImage: "gauge.with.dots.needle.67percent")
-                .font(.headline)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 7)
+            HStack(spacing: 13) {
+                Image(systemName: "chart.xyaxis.line")
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(.indigo)
+                    .frame(width: 44, height: 44)
+                    .background(Color.indigo.opacity(0.11), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("analysis.open").font(.headline)
+                    Text("analysis.open.hint").font(.caption).foregroundStyle(.secondary)
+                }
+                Spacer()
+                Image(systemName: "chevron.right").font(.caption.weight(.bold)).foregroundStyle(.tertiary)
+            }
+            .padding(16)
+            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .overlay { RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(Color.indigo.opacity(0.16)) }
         }
-        .buttonStyle(.borderedProminent)
-        .tint(.indigo)
+        .buttonStyle(.plain)
         .accessibilityIdentifier("ios-history-open-analysis")
     }
 
@@ -57,39 +108,36 @@ struct IOSConnectionSessionDetailView: View {
                     Text("history.raw.badge")
                         .font(.caption.weight(.bold))
                         .tracking(1.5)
-                        .foregroundStyle(.white.opacity(0.78))
+                        .foregroundStyle(.tint)
                     Text(session.vehicle?.name ?? String(localized: "history.vehicle.pending"))
                         .font(.system(.largeTitle, design: .rounded, weight: .bold))
-                        .foregroundStyle(.white)
                     Text(session.startedAt, format: .dateTime.year().month().day().hour().minute())
                         .font(.subheadline.monospaced().weight(.semibold))
-                        .foregroundStyle(.white.opacity(0.72))
+                        .foregroundStyle(.secondary)
                 }
                 Spacer(minLength: 16)
-                Image(systemName: "waveform.path.ecg.rectangle.fill")
-                    .font(.system(size: 34, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .frame(width: 66, height: 66)
-                    .background(.white.opacity(0.14), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+                VStack(spacing: 8) {
+                    if let modelCode = session.distanceSourceModelCode {
+                        VehicleModelBadge(modelCode: modelCode)
+                    }
+                    Image(systemName: "waveform.path.ecg.rectangle.fill")
+                        .font(.system(size: 34, weight: .semibold))
+                        .foregroundStyle(.tint)
+                        .frame(width: 66, height: 66)
+                        .background(Color.accentColor.opacity(0.14), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+                }
             }
             Text("history.raw.subtitle")
                 .font(.subheadline.weight(.medium))
-                .foregroundStyle(.white.opacity(0.82))
+                .foregroundStyle(.secondary)
             Text(session.id.rawValue.uuidString.uppercased())
                 .font(.caption2.monospaced())
-                .foregroundStyle(.white.opacity(0.55))
+                .foregroundStyle(.tertiary)
                 .textSelection(.enabled)
         }
         .padding(24)
-        .background(
-            LinearGradient(
-                colors: [Color.indigo.opacity(0.96), Color.blue.opacity(0.88), Color.cyan.opacity(0.72)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            ),
-            in: RoundedRectangle(cornerRadius: 30, style: .continuous)
-        )
-        .shadow(color: .blue.opacity(0.22), radius: 24, y: 12)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
+        .overlay { RoundedRectangle(cornerRadius: 28, style: .continuous).stroke(Color.primary.opacity(0.08)) }
     }
 
     /// Rawログ件数、容量、時刻精度を表示します。

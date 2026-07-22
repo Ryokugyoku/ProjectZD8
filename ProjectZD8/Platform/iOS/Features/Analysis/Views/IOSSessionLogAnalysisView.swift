@@ -1,7 +1,29 @@
 #if os(iOS)
+import Charts
 import SwiftUI
 
-/// iPhone向けに保存済みPID時系列を静的な性能解析として描画します。
+/// iPhoneのセッション解析で切り替える表示単位です。
+private enum IOSSessionLogAnalysisMode: String, CaseIterable, Identifiable {
+    /// 走行時間、距離、速度帯、回転域、部品・系統を確認します。
+    case overview
+    /// 1件のPIDを時間軸で確認します。
+    case trends
+    /// 2件のPIDの関係を散布図で確認します。
+    case relationships
+
+    /// Pickerで使用する安定識別子です。
+    var id: String { rawValue }
+    /// 表示モード名のローカライズキーです。
+    var titleKey: LocalizedStringKey {
+        switch self {
+        case .overview: "analysis.mode.overview"
+        case .trends: "analysis.mode.trends"
+        case .relationships: "analysis.mode.relationships"
+        }
+    }
+}
+
+/// iPhone向けに保存済みPIDログを走行サマリー、グラフ、Raw根拠へ整理します。
 struct IOSSessionLogAnalysisView: View {
     /// 表示するセッションです。
     let session: ConnectionSession
@@ -9,69 +31,395 @@ struct IOSSessionLogAnalysisView: View {
     let state: SessionLogAnalysisState
     /// Analysisの型付き操作をApplicationへ通知します。
     let send: (SessionLogAnalysisAction) -> Void
-    /// 現在の画面を閉じてセッション詳細へ戻します。
-    @Environment(\.dismiss) private var dismiss
-
-    /// セッションのPID性能解析を提供します。
+    /// 現在選択中の解析表示です。
+    @State private var mode: IOSSessionLogAnalysisMode = .overview
+    /// 折れ線グラフへ表示するPIDです。
+    @State private var selectedSeriesID: OBDPIDRequest?
+    /// 散布図へ表示するPID組です。
+    @State private var selectedRelationshipID: String?
+    /// 接続履歴と同じ視覚階層でセッション解析を提供します。
     ///
-    /// 責務: 1件のセッション解析状態をiPhone向けの静的性能解析画面へ変換します。
+    /// 責務: 1件のセッション解析状態をiPhone向け走行サマリーとグラフへ変換します。
     var body: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 16) {
                 hero
                 summary
-                timeline
+                modePicker
+                selectedContent
             }
             .padding(20)
         }
         .background(background)
         .navigationTitle("analysis.title")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar { ToolbarItem(placement: .topBarLeading) { Button("analysis.back.session") { send(.dismissed); dismiss() } } }
-        .onAppear { if state.sessionID != session.id { send(.sessionSelected(session.id)) } }
+        .onAppear {
+            if state.sessionID != session.id { send(.sessionSelected(session.id)) }
+            selectDefaults()
+        }
+        .onDisappear { send(.dismissed) }
+        .onChange(of: state.pidSeries.map(\.id)) { _, _ in selectDefaults() }
+        .onChange(of: state.relationships.map(\.id)) { _, _ in selectDefaults() }
         .accessibilityIdentifier("ios-session-log-analysis")
     }
 
-    /// セッションの解析対象と不変な表示概念を示す主カードです。
+    /// 解析対象とRawログ件数を接続履歴と同じ主カードで示します。
     private var hero: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Label("analysis.eyebrow", systemImage: "gauge.with.dots.needle.67percent")
-                .font(.caption.weight(.bold)).tracking(1.2).foregroundStyle(.white.opacity(0.76))
-            Text(session.vehicle?.name ?? String(localized: "history.vehicle.pending"))
-                .font(.system(.largeTitle, design: .rounded, weight: .bold)).foregroundStyle(.white)
-            Text(session.startedAt, format: .dateTime.year().month().day().hour().minute().second())
-                .font(.caption.monospaced().weight(.semibold)).foregroundStyle(.white.opacity(0.70))
-            Text("analysis.hero.caption").font(.subheadline).foregroundStyle(.white.opacity(0.84))
-        }
-        .frame(maxWidth: .infinity, alignment: .leading).padding(24)
-        .background(LinearGradient(colors: [.indigo, .blue.opacity(0.88), .cyan.opacity(0.66)], startPoint: .topLeading, endPoint: .bottomTrailing), in: RoundedRectangle(cornerRadius: 28, style: .continuous))
-    }
-
-    /// 解析件数と変換成否を表示します。
-    private var summary: some View {
-        HStack(spacing: 10) {
-            metric(value: state.timeline.count.formatted(), key: "analysis.summary.samples", symbol: "waveform.path.ecg", color: .cyan)
-            metric(value: state.decodedSampleCount.formatted(), key: "analysis.summary.decoded", symbol: "function", color: .green)
-            metric(value: state.rawOnlySampleCount.formatted(), key: "analysis.summary.raw", symbol: "shippingbox", color: .orange)
-        }
-    }
-
-    /// 全PIDの観測順表示または読込状態を描画します。
-    @ViewBuilder private var timeline: some View {
-        if state.phase == .loading && state.timeline.isEmpty { ProgressView("analysis.loading").frame(maxWidth: .infinity).padding(28) }
-        else if state.phase == .failed && state.timeline.isEmpty { Label("analysis.error.storage", systemImage: "exclamationmark.triangle.fill").foregroundStyle(.red).padding(20) }
-        else if state.phase == .loaded && state.timeline.isEmpty { ContentUnavailableView("analysis.empty.title", systemImage: "waveform.slash", description: Text("analysis.empty.body")) }
-        else {
-            LazyVStack(alignment: .leading, spacing: 10) {
-                HStack {
-                    Text("analysis.timeline.title").font(.system(.title3, design: .rounded, weight: .bold))
-                    Spacer()
-                    if state.phase == .loading { ProgressView().controlSize(.small) }
-                }
-                Text("analysis.timeline.subtitle").font(.caption).foregroundStyle(.secondary)
-                if state.phase == .loading { analysisProgress }
-                ForEach(state.timeline) { sample in sampleRow(sample) }
+        HStack(spacing: 14) {
+            Image(systemName: "chart.xyaxis.line")
+                .font(.system(size: 25, weight: .semibold))
+                .foregroundStyle(.tint)
+                .frame(width: 58, height: 58)
+                .background(Color.accentColor.opacity(0.14), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            VStack(alignment: .leading, spacing: 4) {
+                Text("analysis.eyebrow").font(.caption.weight(.bold)).tracking(1.4).foregroundStyle(.tint)
+                Text(session.vehicle?.name ?? String(localized: "history.vehicle.pending"))
+                    .font(.system(.largeTitle, design: .rounded, weight: .bold))
+                Text(session.startedAt, format: .dateTime.year().month().day().hour().minute().second())
+                    .font(.caption.monospaced()).foregroundStyle(.secondary)
             }
+        }
+        .padding(22)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
+        .overlay { RoundedRectangle(cornerRadius: 28, style: .continuous).stroke(Color.primary.opacity(0.08)) }
+    }
+
+    /// 読込済み、数値化済み、Raw保持の件数を表示します。
+    private var summary: some View {
+        HStack(spacing: 8) {
+            metric(value: state.timeline.count, key: "analysis.summary.samples", symbol: "waveform.path.ecg", color: .cyan)
+            metric(value: state.decodedSampleCount, key: "analysis.summary.decoded", symbol: "function", color: .green)
+            metric(value: state.rawOnlySampleCount, key: "analysis.summary.raw", symbol: "shippingbox", color: .orange)
+        }
+    }
+
+    /// 解析の3種類をメニューとして切り替えます。
+    private var modePicker: some View {
+        Picker("analysis.mode.title", selection: $mode) {
+            ForEach(IOSSessionLogAnalysisMode.allCases) { item in
+                Text(item.titleKey).tag(item)
+            }
+        }
+        .pickerStyle(.menu)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityIdentifier("ios-analysis-mode")
+    }
+
+    /// 現在の読込段階または選択モードを描画します。
+    @ViewBuilder private var selectedContent: some View {
+        if state.phase == .loading && state.timeline.isEmpty {
+            ProgressView("analysis.loading").frame(maxWidth: .infinity).padding(28)
+        } else if state.phase == .failed && state.timeline.isEmpty {
+            HStack(spacing: 9) {
+                WarningTriangleIcon(size: 18, color: .red)
+                Text("analysis.error.storage")
+            }
+            .foregroundStyle(.red)
+            .padding(20)
+        } else if state.phase == .loaded && state.timeline.isEmpty {
+            ContentUnavailableView("analysis.empty.title", systemImage: "waveform.slash", description: Text("analysis.empty.body"))
+        } else {
+            if state.phase == .loading { analysisProgress }
+            switch mode {
+            case .overview: sessionOverview
+            case .trends: trends
+            case .relationships: relationships
+            }
+        }
+    }
+
+    /// セッション時間、距離、速度帯、回転域、部品・系統を一覧化します。
+    private var sessionOverview: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            analysisCard(title: "analysis.overview.title", subtitle: "analysis.overview.subtitle") {
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
+                    overviewMetric(value: sessionDurationText, key: "analysis.overview.session_duration", symbol: "clock")
+                    overviewMetric(value: movingDurationText, key: "analysis.overview.moving_duration", symbol: "car.side")
+                    overviewMetric(value: distanceText, key: distanceTitleKey, symbol: "road.lanes")
+                }
+                Text("analysis.overview.estimate_note")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+            durationRanking(
+                title: "analysis.overview.speed_ranking",
+                subtitle: "analysis.overview.speed_ranking_note",
+                bands: state.performanceSummary.speedBands,
+                unitKey: "analysis.overview.speed_band"
+            )
+            durationRanking(
+                title: "analysis.overview.rpm_ranking",
+                subtitle: "analysis.overview.rpm_ranking_note",
+                bands: state.performanceSummary.rpmBands,
+                unitKey: "analysis.overview.rpm_band"
+            )
+            componentOverview
+        }
+    }
+
+    /// 選択PIDの時間変化を1単位ずつ折れ線グラフで表示します。
+    @ViewBuilder private var trends: some View {
+        if let series = selectedSeries {
+            analysisCard(title: "analysis.trend.title", subtitle: "analysis.trend.subtitle") {
+                Picker("analysis.trend.pid", selection: $selectedSeriesID) {
+                    ForEach(state.pidSeries) { item in
+                        Text(seriesName(item)).tag(Optional(item.id))
+                    }
+                }
+                trendGuide(series)
+                Chart(series.points) { point in
+                    LineMark(
+                        x: .value(String(localized: "analysis.chart.time"), point.observedAt),
+                        y: .value(String(localized: "analysis.chart.value"), point.value)
+                    )
+                        .foregroundStyle(Color.accentColor)
+                        .interpolationMethod(.linear)
+                }
+                .chartYAxisLabel(series.unit)
+                .frame(height: 250)
+            }
+        } else {
+            ContentUnavailableView("analysis.trend.empty.title", systemImage: "chart.xyaxis.line", description: Text("analysis.trend.empty.body"))
+        }
+    }
+
+    /// 選択PIDの識別子、意味、統計値、解釈上の注意を表示します。
+    ///
+    /// 責務: 1件のPID系列を折れ線グラフの読解ガイドへ変換します。
+    /// - Parameter series: 説明するPID系列。
+    /// - Returns: PIDの来歴と観測可能範囲を示す案内表示。
+    private func trendGuide(_ series: SessionPIDSeries) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Text(pidLabel(service: series.id.service, pid: series.id.pid))
+                    .font(.caption.monospaced().weight(.semibold))
+                    .foregroundStyle(.tint)
+                if let modelCode = series.vehicleModelCode {
+                    VehicleModelBadge(modelCode: modelCode)
+                        .scaleEffect(0.68)
+                        .frame(width: 26, height: 26)
+                }
+            }
+            Text(String(localized: String.LocalizationValue(series.interpretationKey)))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            HStack(spacing: 14) {
+                statistic("analysis.trend.minimum", value: series.minimumValue, unit: series.unit)
+                statistic("analysis.trend.average", value: series.averageValue, unit: series.unit)
+                statistic("analysis.trend.maximum", value: series.maximumValue, unit: series.unit)
+            }
+        }
+        .padding(12)
+        .background(Color.accentColor.opacity(0.07), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+
+    /// 取得できたPIDを部品・系統別の観察カードとして表示します。
+    private var componentOverview: some View {
+        analysisCard(title: "analysis.components.title", subtitle: "analysis.components.subtitle") {
+            if state.componentInsights.isEmpty {
+                Text("analysis.components.empty").font(.caption).foregroundStyle(.secondary)
+            } else {
+                ForEach(state.componentInsights) { insight in
+                    VStack(alignment: .leading, spacing: 5) {
+                        Label(componentTitleKey(insight.component), systemImage: componentSymbol(insight.component))
+                            .font(.subheadline.weight(.semibold))
+                        HStack(spacing: 8) {
+                            Text(seriesName(insight.series)).font(.caption.weight(.semibold))
+                            if let modelCode = insight.series.vehicleModelCode {
+                                VehicleModelBadge(modelCode: modelCode)
+                                    .scaleEffect(0.68)
+                                    .frame(width: 26, height: 26)
+                            }
+                        }
+                        Text(componentDescriptionKey(insight.component)).font(.caption).foregroundStyle(.secondary)
+                        Text(statisticsText(insight.series)).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                    }
+                    .padding(.vertical, 5)
+                }
+            }
+        }
+    }
+
+    /// 数値帯ランキングを推定滞在時間と構成比で表示します。
+    ///
+    /// 責務: 1件の時間帯ランキングをiPhone向け順位カードへ変換します。
+    /// - Parameters:
+    ///   - title: ランキング見出し。
+    ///   - subtitle: 集計方法の説明。
+    ///   - bands: 滞在時間順の数値帯。
+    ///   - unitKey: 数値帯書式のローカライズキー。
+    /// - Returns: 最大5件の順位またはデータ不足表示。
+    private func durationRanking(
+        title: LocalizedStringKey,
+        subtitle: LocalizedStringKey,
+        bands: [SessionDurationBand],
+        unitKey: String
+    ) -> some View {
+        analysisCard(title: title, subtitle: subtitle) {
+            if bands.isEmpty {
+                Text("analysis.overview.ranking_empty").font(.caption).foregroundStyle(.secondary)
+            } else {
+                ForEach(Array(bands.enumerated()), id: \.element.id) { index, band in
+                    HStack {
+                        Text("\(index + 1)").font(.headline.monospacedDigit()).foregroundStyle(.tint).frame(width: 24)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(bandText(band, key: unitKey)).font(.subheadline.weight(.semibold))
+                            Text(band.proportion, format: .percent.precision(.fractionLength(0))).font(.caption2).foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Text(durationText(band.duration)).font(.subheadline.monospacedDigit())
+                    }
+                }
+            }
+        }
+    }
+
+    /// 代表PID組を近接時刻で対応付けた散布図で表示します。
+    @ViewBuilder private var relationships: some View {
+        if let relationship = selectedRelationship {
+            analysisCard(title: "analysis.relationship.title", subtitle: "analysis.relationship.subtitle") {
+                Picker("analysis.relationship.pair", selection: $selectedRelationshipID) {
+                    ForEach(state.relationships) { item in
+                        Text(relationshipName(item)).tag(Optional(item.id))
+                    }
+                }
+                relationshipGuide(relationship)
+                if let modelCode = relationship.xSeries.vehicleModelCode ?? relationship.ySeries.vehicleModelCode {
+                    VehicleModelBadge(modelCode: modelCode)
+                }
+                Chart(relationship.points) { point in
+                    PointMark(
+                        x: .value(seriesName(relationship.xSeries), point.x),
+                        y: .value(seriesName(relationship.ySeries), point.y)
+                    )
+                    .foregroundStyle(Color.indigo.opacity(0.72))
+                }
+                .chartXAxisLabel(relationship.xSeries.unit)
+                .chartYAxisLabel(relationship.ySeries.unit)
+                .frame(height: 250)
+            }
+        } else {
+            ContentUnavailableView("analysis.relationship.empty.title", systemImage: "chart.dots.scatter", description: Text("analysis.relationship.empty.body"))
+        }
+    }
+
+    /// 選択中の散布図について共通の読み方とPID組固有の観察目的を表示します。
+    ///
+    /// 責務: 1件のPID相関候補を誤診断を避ける利用解説へ変換します。
+    /// - Parameter relationship: 解説対象のPID相関候補。
+    /// - Returns: 散布点の読み方と選択組の観察目的を持つ案内表示。
+    private func relationshipGuide(_ relationship: SessionPIDRelationship) -> some View {
+        VStack(alignment: .leading, spacing: 7) {
+            Label("analysis.relationship.guide.title", systemImage: "info.circle.fill")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.indigo)
+            Text("analysis.relationship.guide.common")
+            Text(relationshipGuideKey(relationship))
+        }
+        .font(.caption)
+        .foregroundStyle(.secondary)
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.indigo.opacity(0.07), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+
+    /// PID組を散布図で観察できる内容のローカライズキーへ変換します。
+    ///
+    /// 責務: 1件の既定PID相関候補へ対応する観察目的を選択します。
+    /// - Parameter relationship: 解説対象のPID相関候補。
+    /// - Returns: PID組固有の観察目的を示すローカライズキー。
+    private func relationshipGuideKey(_ relationship: SessionPIDRelationship) -> LocalizedStringKey {
+        switch (
+            relationship.xSeries.id.service,
+            relationship.xSeries.id.pid,
+            relationship.ySeries.id.service,
+            relationship.ySeries.id.pid
+        ) {
+        case (0x01, 0x0C, 0x01, 0x0D): "analysis.relationship.guide.rpm_speed"
+        case (0x01, 0x0C, 0x01, 0x04): "analysis.relationship.guide.rpm_load"
+        case (0x01, 0x0C, 0x01, 0x10): "analysis.relationship.guide.rpm_maf"
+        case (0x01, 0x11, 0x01, 0x04): "analysis.relationship.guide.throttle_load"
+        case (0x01, 0x06, 0x01, 0x07): "analysis.relationship.guide.trim_banks"
+        case (0x01, 0x0D, 0x21, 0x17): "analysis.relationship.guide.speed_zd8_atf"
+        default: "analysis.relationship.guide.common"
+        }
+    }
+
+    /// 共通見出しを持つ解析カードを生成します。
+    ///
+    /// 責務: 1件の解析内容を見出しと説明を持つiPhoneカードへ変換します。
+    /// - Parameters:
+    ///   - title: カード見出しのローカライズキー。
+    ///   - subtitle: カード説明のローカライズキー。
+    ///   - content: カード内へ描画する解析内容。
+    /// - Returns: 接続履歴と同じ素材階層の解析カード。
+    private func analysisCard<Content: View>(
+        title: LocalizedStringKey,
+        subtitle: LocalizedStringKey,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 13) {
+            Text(title).font(.title3.weight(.bold))
+            Text(subtitle).font(.caption).foregroundStyle(.secondary)
+            content()
+        }
+        .padding(16)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .overlay { RoundedRectangle(cornerRadius: 22, style: .continuous).stroke(Color.primary.opacity(0.07)) }
+    }
+
+    /// 1件の解析集計をコンパクトなカードへ変換します。
+    ///
+    /// 責務: 1件の解析件数をアイコンと見出しを持つiPhoneカードへ変換します。
+    /// - Parameters:
+    ///   - value: 表示する件数。
+    ///   - key: 集計見出しのローカライズキー。
+    ///   - symbol: 集計概念を示すSF Symbol。
+    ///   - color: 集計カードのアクセント色。
+    /// - Returns: 同じ幅で並べられる集計カード。
+    private func metric(value: Int, key: LocalizedStringKey, symbol: String, color: Color) -> some View {
+        VStack(alignment: .leading, spacing: 7) {
+            Image(systemName: symbol).foregroundStyle(color)
+            Text(value, format: .number).font(.headline.weight(.bold))
+            Text(key).font(.caption2).foregroundStyle(.secondary)
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+    }
+
+    /// 走行サマリーの1件を値、見出し、シンボルで表示します。
+    ///
+    /// 責務: 1件の表示済み走行集計をiPhone向け小型カードへ変換します。
+    /// - Parameters:
+    ///   - value: 表示用に整形済みの値。
+    ///   - key: 値の意味を示すローカライズキー。
+    ///   - symbol: 集計概念を示すSF Symbol。
+    /// - Returns: 走行サマリー内の小型カード。
+    private func overviewMetric(value: String, key: LocalizedStringKey, symbol: String) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Image(systemName: symbol).foregroundStyle(.tint)
+            Text(value).font(.headline.monospacedDigit()).lineLimit(1).minimumScaleFactor(0.75)
+            Text(key).font(.caption2).foregroundStyle(.secondary)
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+
+    /// 統計名と値を縦に並べて表示します。
+    ///
+    /// 責務: 1件のPID統計値を折れ線ガイド内の短い表示へ変換します。
+    /// - Parameters:
+    ///   - key: 最小・平均・最大の見出し。
+    ///   - value: 表示する数値。
+    ///   - unit: PID定義の単位。
+    /// - Returns: 見出し付き統計値。
+    private func statistic(_ key: LocalizedStringKey, value: Double, unit: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(key).font(.caption2).foregroundStyle(.secondary)
+            Text(measurementText(value, unit: unit)).font(.caption.monospacedDigit().weight(.semibold))
         }
     }
 
@@ -85,44 +433,188 @@ struct IOSSessionLogAnalysisView: View {
         .font(.caption)
     }
 
-    /// 1件のPIDを値、Raw根拠、時刻とともに描画します。
-    ///
-    /// 責務: 1件の解析PIDサンプルを時刻と変換来歴を持つiPhone行へ変換します。
-    /// - Parameter sample: 描画する時系列PIDサンプル。
-    /// - Returns: 数値化済み値またはRaw根拠を持つ解析行。
-    private func sampleRow(_ sample: SessionLogAnalysisState.TimelineSample) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .firstTextBaseline) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(sample.nameKey.map { String(localized: String.LocalizationValue($0)) } ?? pidLabel(sample)).font(.subheadline.weight(.bold))
-                    Text(pidLabel(sample)).font(.caption.monospaced()).foregroundStyle(.secondary)
-                }
-                Spacer()
-                if let value = sample.value { Text(value.formatted(.number.precision(.fractionLength(0...2))) + " " + (sample.unit ?? "")).font(.system(.headline, design: .rounded, weight: .bold)).foregroundStyle(.tint) }
-                else { Text("analysis.raw.unavailable").font(.caption.weight(.bold)).foregroundStyle(.orange) }
-            }
-            HStack { Text(sample.observedAt, format: .dateTime.hour().minute().second().secondFraction(.fractional(3))).font(.caption.monospaced()).foregroundStyle(.secondary); Spacer(); Text(payloadHex(sample.payload)).font(.caption.monospaced()).foregroundStyle(.secondary) }
-        }
-        .padding(15).background(Color.primary.opacity(0.045), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+    /// 現在選択中または先頭の折れ線系列です。
+    private var selectedSeries: SessionPIDSeries? {
+        state.pidSeries.first(where: { $0.id == selectedSeriesID }) ?? state.pidSeries.first
     }
 
-    /// 集計値をコンパクトなカードへ変換します。
+    /// 現在選択中または先頭の散布図系列です。
+    private var selectedRelationship: SessionPIDRelationship? {
+        state.relationships.first(where: { $0.id == selectedRelationshipID }) ?? state.relationships.first
+    }
+
+    /// 読込済み系列から未選択の折れ線と散布図へ初期値を設定します。
     ///
-    /// 責務: 1件の解析集計をアイコンと数値を持つiPhoneカードへ変換します。
-    private func metric(value: String, key: LocalizedStringKey, symbol: String, color: Color) -> some View {
-        VStack(alignment: .leading, spacing: 7) { Image(systemName: symbol).foregroundStyle(color); Text(value).font(.headline.weight(.bold)); Text(key).font(.caption2).foregroundStyle(.secondary) }
-            .padding(13).frame(maxWidth: .infinity, alignment: .leading).background(.thinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+    /// 責務: 現在の解析系列を未選択Pickerの先頭選択へ反映します。
+    private func selectDefaults() {
+        if selectedSeriesID == nil { selectedSeriesID = state.pidSeries.first?.id }
+        if selectedRelationshipID == nil { selectedRelationshipID = state.relationships.first?.id }
+    }
+
+    /// PID系列の定義名または識別子を返します。
+    ///
+    /// 責務: 1件のPID系列をローカライズ済み表示名へ変換します。
+    /// - Parameter series: 表示名を求めるPID系列。
+    /// - Returns: 定義名またはService/PID識別子。
+    private func seriesName(_ series: SessionPIDSeries) -> String {
+        series.nameKey.map { String(localized: String.LocalizationValue($0)) }
+            ?? pidLabel(service: series.id.service, pid: series.id.pid)
+    }
+
+    /// 散布図の2軸名を短い組名へ変換します。
+    ///
+    /// 責務: 1件のPID相関候補を横軸名と縦軸名の表示文字列へ変換します。
+    /// - Parameter relationship: 表示するPID相関候補。
+    /// - Returns: 2件のPID名を積記号で結んだ文字列。
+    private func relationshipName(_ relationship: SessionPIDRelationship) -> String {
+        "\(seriesName(relationship.xSeries)) × \(seriesName(relationship.ySeries))"
+    }
+
+    /// セッション開始から終了までの接続時間を表示文字列へ変換します。
+    private var sessionDurationText: String {
+        guard let endedAt = session.endedAt else { return String(localized: "analysis.value.in_progress") }
+        return durationText(max(endedAt.timeIntervalSince(session.startedAt), 0))
+    }
+
+    /// 車速観測から推定した走行時間を表示文字列へ変換します。
+    private var movingDurationText: String {
+        state.performanceSummary.estimatedMovingDuration.map(durationText) ?? String(localized: "analysis.value.unavailable")
+    }
+
+    /// 保存済み距離差または車速積算の参考距離を表示します。
+    private var distanceText: String {
+        if let distance = session.recordedDistanceKilometers { return measurementText(distance, unit: "km") }
+        guard let distance = state.performanceSummary.estimatedDistanceKilometers else {
+            return String(localized: "analysis.value.unavailable")
+        }
+        return String(format: String(localized: "analysis.value.estimated_distance"), locale: .autoupdatingCurrent, distance)
+    }
+
+    /// 距離値の取得元に対応する見出しです。
+    private var distanceTitleKey: LocalizedStringKey {
+        session.recordedDistanceKilometers == nil ? "analysis.overview.estimated_distance" : "analysis.overview.distance"
+    }
+
+    /// 数値帯を下限と上限を持つ表示文字列へ変換します。
+    ///
+    /// 責務: 1件の数値帯をローカライズ済み範囲表記へ変換します。
+    /// - Parameters:
+    ///   - band: 表示する数値帯。
+    ///   - key: 単位ごとの書式キー。
+    /// - Returns: 下限以上かつ上限未満を表す文字列。
+    private func bandText(_ band: SessionDurationBand, key: String) -> String {
+        String(
+            format: String(localized: String.LocalizationValue(key)),
+            locale: .autoupdatingCurrent,
+            band.lowerBound,
+            band.upperBound
+        )
+    }
+
+    /// 秒数を時分秒の短い表示へ変換します。
+    ///
+    /// 責務: 1件の秒数を現在ロケールの簡潔な時間表示へ変換します。
+    /// - Parameter duration: 表示する秒数。
+    /// - Returns: 秒までを含む省略単位形式。
+    private func durationText(_ duration: TimeInterval) -> String {
+        let formatter = DateComponentsFormatter()
+        formatter.allowedUnits = duration >= 3_600 ? [.hour, .minute] : duration >= 60 ? [.minute, .second] : [.second]
+        formatter.unitsStyle = .abbreviated
+        formatter.maximumUnitCount = 2
+        return formatter.string(from: duration) ?? String(localized: "analysis.value.unavailable")
+    }
+
+    /// 数値と単位を現在ロケールの短い表示へ変換します。
+    ///
+    /// 責務: 1件の有限数値とPID単位を小数1桁の表示へ変換します。
+    /// - Parameters:
+    ///   - value: 表示する数値。
+    ///   - unit: PID定義の単位。
+    /// - Returns: 数値と単位を結合した文字列。
+    private func measurementText(_ value: Double, unit: String) -> String {
+        "\(value.formatted(.number.precision(.fractionLength(0...1)))) \(unit)"
+    }
+
+    /// 部品・系統分類を表示見出しへ変換します。
+    ///
+    /// 責務: 1件の部品・系統分類をローカライズキーへ変換します。
+    /// - Parameter component: 表示する部品・系統分類。
+    /// - Returns: 対応する見出しキー。
+    private func componentTitleKey(_ component: SessionComponentInsight.Component) -> LocalizedStringKey {
+        switch component {
+        case .electrical: "analysis.components.electrical.title"
+        case .thermal: "analysis.components.thermal.title"
+        case .fuelAndIntake: "analysis.components.fuel_intake.title"
+        case .exhaust: "analysis.components.exhaust.title"
+        case .diagnostics: "analysis.components.diagnostics.title"
+        }
+    }
+
+    /// 部品・系統分類を説明文へ変換します。
+    ///
+    /// 責務: 1件の部品・系統分類を安全な観察目的のローカライズキーへ変換します。
+    /// - Parameter component: 説明する部品・系統分類。
+    /// - Returns: 対応する説明キー。
+    private func componentDescriptionKey(_ component: SessionComponentInsight.Component) -> LocalizedStringKey {
+        switch component {
+        case .electrical: "analysis.components.electrical.body"
+        case .thermal: "analysis.components.thermal.body"
+        case .fuelAndIntake: "analysis.components.fuel_intake.body"
+        case .exhaust: "analysis.components.exhaust.body"
+        case .diagnostics: "analysis.components.diagnostics.body"
+        }
+    }
+
+    /// 部品・系統分類をSF Symbolへ変換します。
+    ///
+    /// 責務: 1件の部品・系統分類を識別用シンボルへ変換します。
+    /// - Parameter component: 表示する部品・系統分類。
+    /// - Returns: 対応するSF Symbol名。
+    private func componentSymbol(_ component: SessionComponentInsight.Component) -> String {
+        switch component {
+        case .electrical: "bolt.12"
+        case .thermal: "thermometer.medium"
+        case .fuelAndIntake: "wind"
+        case .exhaust: "aqi.medium"
+        case .diagnostics: "wrench.and.screwdriver"
+        }
+    }
+
+    /// PID系列の最小・平均・最大を1行へ整形します。
+    ///
+    /// 責務: 1件のPID系列統計を部品カード用の短い表示へ変換します。
+    /// - Parameter series: 整形するPID系列。
+    /// - Returns: 最小、平均、最大を単位付きで示す文字列。
+    private func statisticsText(_ series: SessionPIDSeries) -> String {
+        String(
+            format: String(localized: "analysis.components.statistics"),
+            locale: .autoupdatingCurrent,
+            series.latestValue,
+            series.minimumValue,
+            series.averageValue,
+            series.maximumValue,
+            series.unit
+        )
     }
 
     /// PID識別子を16進表現へ変換します。
     ///
     /// 責務: 1件のService/PIDを安定した表示識別子へ変換します。
-    private func pidLabel(_ sample: SessionLogAnalysisState.TimelineSample) -> String { String(format: String(localized: "analysis.pid.identifier"), locale: .autoupdatingCurrent, sample.service, sample.pid) }
-    /// Payloadを検証可能な16進表現へ変換します。
-    ///
-    /// 責務: 1件のRaw Payloadを短い16進来歴文字列へ変換します。
-    private func payloadHex(_ payload: [UInt8]) -> String { payload.map { String(format: "%02X", $0) }.joined(separator: " ") }
-    /// 画面に抑制された奥行きを与えます。
-    private var background: some View { ZStack { Color(uiColor: .systemGroupedBackground); RadialGradient(colors: [.cyan.opacity(0.10), .clear], center: .topTrailing, startRadius: 0, endRadius: 480) }.ignoresSafeArea() }
+    /// - Parameters:
+    ///   - service: OBD Service番号。
+    ///   - pid: Service内PID番号。
+    /// - Returns: ServiceとPIDを16進表記した文字列。
+    private func pidLabel(service: UInt8, pid: UInt8) -> String {
+        String(format: String(localized: "analysis.pid.identifier"), locale: .autoupdatingCurrent, service, pid)
+    }
+
+    /// 接続履歴画面と同じ抑制された奥行きを与える背景です。
+    private var background: some View {
+        ZStack {
+            Color(uiColor: .systemGroupedBackground)
+            RadialGradient(colors: [Color.accentColor.opacity(0.08), .clear], center: .topTrailing, startRadius: 0, endRadius: 480)
+        }
+        .ignoresSafeArea()
+    }
 }
 #endif

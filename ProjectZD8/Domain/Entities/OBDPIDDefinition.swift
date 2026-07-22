@@ -1,11 +1,15 @@
 import Foundation
 
 /// 1件の標準OBD PIDを数値へ変換するための永続化可能な定義です。
-struct OBDPIDDefinition: Equatable, Sendable {
+nonisolated struct OBDPIDDefinition: Equatable, Sendable {
     /// OBD要求のService番号です。
     let service: UInt8
     /// Service内のPID番号です。
     let pid: UInt8
+    /// 送信先ECUを固定する11bit CANヘッダーです。標準機能アドレスの場合は `nil` です。
+    let header: UInt16?
+    /// この定義を使用できる車両型式です。標準PIDの場合は `nil` です。
+    let vehicleModelCode: String?
     /// 表示名へ解決できる安定キーです。
     let nameKey: String
     /// 数式が参照する応答データの必要バイト数です。
@@ -37,6 +41,8 @@ struct OBDPIDDefinition: Equatable, Sendable {
     /// - Parameters:
     ///   - service: OBD要求のService番号。
     ///   - pid: Service内のPID番号。
+    ///   - header: 送信先ECUを固定する11bit CANヘッダー。
+    ///   - vehicleModelCode: この定義を使用できる車両型式。
     ///   - nameKey: 表示名の安定キー。
     ///   - requiredByteCount: 数式評価に必要なバイト数。
     ///   - formula: 制限付き数式。
@@ -52,6 +58,8 @@ struct OBDPIDDefinition: Equatable, Sendable {
     init(
         service: UInt8,
         pid: UInt8,
+        header: UInt16? = nil,
+        vehicleModelCode: String? = nil,
         nameKey: String,
         requiredByteCount: Int?,
         formula: String?,
@@ -67,6 +75,8 @@ struct OBDPIDDefinition: Equatable, Sendable {
     ) {
         self.service = service
         self.pid = pid
+        self.header = header
+        self.vehicleModelCode = vehicleModelCode
         self.nameKey = nameKey
         self.requiredByteCount = requiredByteCount
         self.formula = formula
@@ -83,4 +93,7 @@ struct OBDPIDDefinition: Equatable, Sendable {
 
     /// 定義式で安全に数値化できるPIDかどうかです。
     var isDecodable: Bool { requiredByteCount != nil && formula?.isEmpty == false }
+
+    /// 特定車両だけへ要求できる拡張PIDかどうかです。
+    var isVehicleSpecific: Bool { header != nil && vehicleModelCode?.isEmpty == false }
 }

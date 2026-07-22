@@ -92,6 +92,17 @@ struct DecodeSessionLogTimelineUseCase {
     ///   - failure: 数値化できなかった理由。
     /// - Returns: 原データ来歴を保持する表示用PIDサンプル。
     private func sample(for entry: ConnectionSessionRawLogEntry, definition: OBDPIDDefinition?, value: Double?, failure: SessionLogAnalysisState.TimelineSample.DecodingFailure?) -> SessionLogAnalysisState.TimelineSample {
-        .init(sequence: entry.sequence, observedAt: entry.observedAt, service: entry.service, pid: entry.pid, nameKey: definition?.nameKey, value: value, unit: definition?.unit, payload: entry.payload, decodingFailure: failure)
+        .init(
+            sequence: entry.sequence,
+            observedAt: entry.observedAt,
+            service: entry.service,
+            pid: entry.pid,
+            nameKey: definition?.nameKey,
+            value: value,
+            unit: definition?.unit,
+            vehicleModelCode: definition?.vehicleModelCode,
+            payload: entry.payload,
+            decodingFailure: failure
+        )
     }
 }

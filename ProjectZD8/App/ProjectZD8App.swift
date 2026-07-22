@@ -50,6 +50,9 @@ struct ProjectZD8App: App {
             ),
             removeIPhoneRawLog: RemoveIPhoneSessionRawLogUseCase(
                 repository: connectionSessionRepository
+            ),
+            reviewInterruptedSession: ReviewInterruptedConnectionSessionUseCase(
+                repository: connectionSessionRepository
             )
         )
         let sessionLogAnalysisModel = SessionLogAnalysisModel(
@@ -73,10 +76,14 @@ struct ProjectZD8App: App {
                 }
             }
         )
-        let vehicleManagementModel = IOSApplicationComposition.makeVehicleManagementModel { vehicle, endpoint, identification in
+        let vehicleManagementModel = IOSApplicationComposition.makeVehicleManagementModel(
+            connectionSessionRepository: connectionSessionRepository,
+            vehicleSessionsDidDelete: { connectionHistoryModel.send(.refreshRequested) }
+        ) { vehicle, endpoint, identification in
             connectionSessionLifecycleModel.send(.startRequested)
             connectionSessionLifecycleModel.send(.vehicleResolved(vehicle))
-            let mode: LiveTelemetryAcquisitionMode = CurrentGenerationBRZVINPolicy().matches(identification.vin)
+            let mode: LiveTelemetryAcquisitionMode = ZD8VehicleModelPolicy().matches(identification.vin)
+                || ZD8VehicleModelPolicy().matches(identification.obdIdentifier)
                 ? .brzBetaPeriodic
                 : .standardPolling
             liveTelemetryModel.send(.startRequested(endpoint, vehicle.id, mode))
@@ -116,6 +123,9 @@ struct ProjectZD8App: App {
             deleteSessionEverywhere: DeleteConnectionSessionEverywhereUseCase(
                 localRepository: connectionSessionRepository,
                 transferRepository: CloudKitConnectionSessionTransferRepository()
+            ),
+            reviewInterruptedSession: ReviewInterruptedConnectionSessionUseCase(
+                repository: connectionSessionRepository
             )
         )
         let sessionLogAnalysisModel = SessionLogAnalysisModel(
@@ -139,10 +149,14 @@ struct ProjectZD8App: App {
                 }
             }
         )
-        let vehicleManagementModel = MacOSApplicationComposition.makeVehicleManagementModel { vehicle, endpoint, identification in
+        let vehicleManagementModel = MacOSApplicationComposition.makeVehicleManagementModel(
+            connectionSessionRepository: connectionSessionRepository,
+            vehicleSessionsDidDelete: { connectionHistoryModel.send(.refreshRequested) }
+        ) { vehicle, endpoint, identification in
             connectionSessionLifecycleModel.send(.startRequested)
             connectionSessionLifecycleModel.send(.vehicleResolved(vehicle))
-            let mode: LiveTelemetryAcquisitionMode = CurrentGenerationBRZVINPolicy().matches(identification.vin)
+            let mode: LiveTelemetryAcquisitionMode = ZD8VehicleModelPolicy().matches(identification.vin)
+                || ZD8VehicleModelPolicy().matches(identification.obdIdentifier)
                 ? .brzBetaPeriodic
                 : .standardPolling
             liveTelemetryModel.send(.startRequested(endpoint, vehicle.id, mode))

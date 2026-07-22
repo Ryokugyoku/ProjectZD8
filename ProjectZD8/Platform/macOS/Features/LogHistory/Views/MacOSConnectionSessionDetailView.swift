@@ -26,6 +26,7 @@ struct MacOSConnectionSessionDetailView: View {
             VStack(alignment: .leading, spacing: 20 * metrics.scale) {
                 detailActions
                 hero
+                stopReviewCard
                 HStack(alignment: .top, spacing: 16 * metrics.scale) {
                     rawDataCard
                     analysisCard
@@ -41,18 +42,67 @@ struct MacOSConnectionSessionDetailView: View {
         .accessibilityIdentifier("macos-connection-session-detail")
     }
 
+    /// 観測済み停止理由とユーザー確認状態を表示します。
+    @ViewBuilder private var stopReviewCard: some View {
+        if session.needsStopReview {
+            HStack(spacing: 14 * metrics.scale) {
+                WarningTriangleIcon(size: 20 * metrics.scale)
+                VStack(alignment: .leading, spacing: 4 * metrics.scale) {
+                    Text("history.stop_review.card.title")
+                        .font(.system(size: 14 * metrics.scale, weight: .bold, design: .rounded))
+                    Text(stopReviewCardMessageKey)
+                        .font(.system(size: 11 * metrics.scale))
+                        .foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 12 * metrics.scale)
+                Button("history.stop_review.card.action") {
+                    send(.stopReviewRequested(session.id))
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(.orange)
+            }
+            .padding(17 * metrics.scale)
+            .background(Color.orange.opacity(0.08), in: RoundedRectangle(cornerRadius: 18 * metrics.scale, style: .continuous))
+            .overlay { RoundedRectangle(cornerRadius: 18 * metrics.scale, style: .continuous).stroke(Color.orange.opacity(0.22)) }
+        } else if session.stopReviewDecision == .userInitiated {
+            Label("history.stop_review.accepted", systemImage: "checkmark.seal.fill")
+                .font(.system(size: 12 * metrics.scale, weight: .semibold))
+                .foregroundStyle(.green)
+                .padding(15 * metrics.scale)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.green.opacity(0.07), in: RoundedRectangle(cornerRadius: 18 * metrics.scale, style: .continuous))
+        }
+    }
+
+    /// 観測済み終了理由に対応する詳細カード本文です。
+    private var stopReviewCardMessageKey: LocalizedStringKey {
+        session.endReason == .vehicleNoResponse
+            ? "history.stop_review.card.no_response"
+            : "history.stop_review.card.connection_lost"
+    }
+
     /// 車両スコープ枠を置き換える静的性能解析カードです。
     private var analysisCard: some View {
         NavigationLink {
-            MacOSSessionLogAnalysisView(session: session, state: analysisState, send: sendAnalysis, metrics: metrics, back: { })
+            MacOSSessionLogAnalysisView(session: session, state: analysisState, send: sendAnalysis, metrics: metrics)
         } label: {
-            statusCard(
-                titleKey: "analysis.open",
-                value: String(localized: "analysis.card.value"),
-                caption: analysisCardCaption,
-                systemImage: "gauge.with.dots.needle.67percent",
-                color: .indigo
-            )
+            VStack(spacing: 8 * metrics.scale) {
+                statusCard(
+                    titleKey: "analysis.open",
+                    value: String(localized: "analysis.card.value"),
+                    caption: analysisCardCaption,
+                    systemImage: "chart.xyaxis.line",
+                    color: .indigo
+                )
+                HStack {
+                    Text("analysis.open.hint")
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                }
+                .font(.system(size: 10 * metrics.scale, weight: .bold))
+                .foregroundStyle(.indigo)
+                .padding(.horizontal, 4 * metrics.scale)
+            }
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier("macos-history-open-analysis")
@@ -96,45 +146,40 @@ struct MacOSConnectionSessionDetailView: View {
         HStack(spacing: 22 * metrics.scale) {
             Image(systemName: "waveform.path.ecg.rectangle.fill")
                 .font(.system(size: 34 * metrics.scale, weight: .semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(.tint)
                 .frame(width: 78 * metrics.scale, height: 78 * metrics.scale)
-                .background(.white.opacity(0.14), in: RoundedRectangle(cornerRadius: 23 * metrics.scale, style: .continuous))
+                .background(Color.accentColor.opacity(0.14), in: RoundedRectangle(cornerRadius: 23 * metrics.scale, style: .continuous))
             VStack(alignment: .leading, spacing: 6 * metrics.scale) {
                 Text("history.training.badge")
                     .font(.system(size: 10 * metrics.scale, weight: .bold, design: .rounded))
                     .tracking(1.8 * metrics.scale)
-                    .foregroundStyle(.white.opacity(0.72))
+                    .foregroundStyle(.tint)
                 Text(session.vehicle?.name ?? String(localized: "history.vehicle.pending"))
                     .font(.system(size: 30 * metrics.scale, weight: .bold, design: .rounded))
-                    .foregroundStyle(.white)
                 Text(session.startedAt, format: .dateTime.year().month().day().hour().minute())
                     .font(.system(size: 12 * metrics.scale, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(.white.opacity(0.72))
+                    .foregroundStyle(.secondary)
             }
             Spacer(minLength: 20 * metrics.scale)
             VStack(alignment: .trailing, spacing: 7 * metrics.scale) {
-                Label(trainingStatusKey, systemImage: isTrainingReady ? "checkmark.seal.fill" : "clock.badge.exclamationmark")
+                if let modelCode = session.distanceSourceModelCode {
+                    VehicleModelBadge(modelCode: modelCode)
+                }
+                Label(sessionStatusKey, systemImage: session.status == .completed ? "checkmark.seal.fill" : "clock.badge.exclamationmark")
                     .font(.system(size: 12 * metrics.scale, weight: .bold))
-                    .foregroundStyle(isTrainingReady ? Color.green : Color.orange)
+                    .foregroundStyle(session.status == .completed ? Color.green : Color.orange)
                     .padding(.horizontal, 13 * metrics.scale)
                     .padding(.vertical, 8 * metrics.scale)
-                    .background(.black.opacity(0.20), in: Capsule())
+                    .background(Color.primary.opacity(0.055), in: Capsule())
                 Text(session.id.rawValue.uuidString.uppercased())
                     .font(.system(size: 9 * metrics.scale, design: .monospaced))
-                    .foregroundStyle(.white.opacity(0.48))
+                    .foregroundStyle(.tertiary)
                     .textSelection(.enabled)
             }
         }
         .padding(25 * metrics.scale)
-        .background(
-            LinearGradient(
-                colors: [Color.indigo.opacity(0.96), Color.blue.opacity(0.85), Color.cyan.opacity(0.68)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            ),
-            in: RoundedRectangle(cornerRadius: 28 * metrics.scale, style: .continuous)
-        )
-        .shadow(color: .blue.opacity(0.18), radius: 24 * metrics.scale, y: 10 * metrics.scale)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 28 * metrics.scale, style: .continuous))
+        .overlay { RoundedRectangle(cornerRadius: 28 * metrics.scale, style: .continuous).stroke(Color.primary.opacity(0.08)) }
     }
 
     /// 未デコードRawログの件数と容量を表示します。
@@ -151,13 +196,11 @@ struct MacOSConnectionSessionDetailView: View {
     /// ManifestとMac取込受領証の一致状態を表示します。
     private var integrityCard: some View {
         statusCard(
-            titleKey: "history.training.integrity.title",
-            value: session.rawLogSummary.isDurablyImportedByMac
-                ? String(localized: "history.training.integrity.verified")
-                : String(localized: "history.training.integrity.pending"),
-            caption: digestCaption,
-            systemImage: session.rawLogSummary.isDurablyImportedByMac ? "checkmark.shield.fill" : "shield.lefthalf.filled",
-            color: session.rawLogSummary.isDurablyImportedByMac ? .green : .orange
+            titleKey: "history.detail.disposition.title",
+            value: dispositionValue,
+            caption: observedEndReason,
+            systemImage: session.status == .completed ? "checkmark.shield.fill" : "shield.lefthalf.filled",
+            color: session.status == .completed ? .green : .orange
         )
     }
 
@@ -273,10 +316,31 @@ struct MacOSConnectionSessionDetailView: View {
         )
     }
 
-    /// Manifest Digestを短縮した表示文字列です。
-    private var digestCaption: String {
-        guard let digest = session.rawLogSummary.manifestDigest else { return "—" }
-        return String(digest.prefix(16)).uppercased()
+    /// セッションの正式データ判定を短い値へ変換します。
+    private var dispositionValue: String {
+        if session.status == .connected { return String(localized: "history.status.connected") }
+        if session.needsStopReview { return String(localized: "history.detail.disposition.review") }
+        if session.stopReviewDecision == .userInitiated {
+            return String(localized: "history.detail.disposition.user_accepted")
+        }
+        return session.status == .completed
+            ? String(localized: "history.detail.disposition.regular")
+            : String(localized: "history.status.interrupted")
+    }
+
+    /// アプリが観測した終了理由を保持した表示文字列です。
+    private var observedEndReason: String {
+        guard let reason = session.endReason else { return "—" }
+        return String(localized: String.LocalizationValue("history.reason.\(reason.rawValue)"))
+    }
+
+    /// 履歴表示用の現在状態に対応するローカライズキーです。
+    private var sessionStatusKey: LocalizedStringKey {
+        switch session.status {
+        case .connected: "history.status.connected"
+        case .completed: "history.status.completed"
+        case .interrupted: "history.status.interrupted"
+        }
     }
 
     /// 現在セッションを車両別学習抽出へ使用できるかを示します。
@@ -285,11 +349,6 @@ struct MacOSConnectionSessionDetailView: View {
             && session.rawLogSummary.localState == .available
             && session.rawLogSummary.recordCount > 0
             && session.rawLogSummary.isDurablyImportedByMac
-    }
-
-    /// 学習準備状態に対応するローカライズキーです。
-    private var trainingStatusKey: LocalizedStringKey {
-        isTrainingReady ? "history.training.ready" : "history.training.pending"
     }
 
     /// macOS詳細画面へ抑制された奥行きを与える背景です。

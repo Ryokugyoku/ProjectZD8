@@ -4,6 +4,8 @@ enum ConnectionSessionDistanceSource: Int, Equatable, Sendable {
     case distanceSinceCodesCleared = 0
     /// 車両の累積走行距離を表すService 01 PID A6です。
     case odometer = 1
+    /// ZD8専用Service 21 PID 02の累積走行距離です。
+    case vehicleSpecificOdometer = 2
 
     /// 別の取得元より優先して採用できるかを返します。
     ///
@@ -21,6 +23,8 @@ struct ConnectionSessionDistanceObservation: Equatable, Sendable {
     let source: ConnectionSessionDistanceSource
     /// PID定義でキロメートルへ数値化済みの累積距離です。
     let kilometers: Double
+    /// 車種専用PIDから取得した場合の適用型式です。
+    let vehicleModelCode: String?
 
     /// 取得元とキロメートル値を固定して生成します。
     ///
@@ -28,8 +32,10 @@ struct ConnectionSessionDistanceObservation: Equatable, Sendable {
     /// - Parameters:
     ///   - source: 累積距離を取得したPIDの意味。
     ///   - kilometers: キロメートルへ数値化済みの累積距離。
-    init(source: ConnectionSessionDistanceSource, kilometers: Double) {
+    ///   - vehicleModelCode: 車種専用PIDの適用型式。
+    init(source: ConnectionSessionDistanceSource, kilometers: Double, vehicleModelCode: String? = nil) {
         self.source = source
         self.kilometers = kilometers
+        self.vehicleModelCode = vehicleModelCode
     }
 }

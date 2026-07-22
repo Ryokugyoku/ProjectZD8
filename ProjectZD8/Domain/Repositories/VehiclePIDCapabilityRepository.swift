@@ -17,6 +17,15 @@ protocol VehiclePIDCapabilityRepository: Sendable {
     /// - Throws: 既存データまたは永続書込失敗の場合のエラー。
     func insertInitial(_ capabilities: [VehiclePIDCapability], for vehicleID: VehicleID) throws
 
+    /// 応答確認済みPIDを既存の収集選択を変えず追加します。
+    ///
+    /// 責務: 1台の車両へ新たに応答したPIDだけを非破壊で登録します。
+    /// - Parameters:
+    ///   - capabilities: 新たに応答確認できたPID設定。
+    ///   - vehicleID: 登録先の車両識別子。
+    /// - Throws: 車両不一致または永続書込失敗の場合のエラー。
+    func mergeDiscovered(_ capabilities: [VehiclePIDCapability], for vehicleID: VehicleID) throws
+
     /// 1件の対応PIDの収集選択を更新します。
     ///
     /// 責務: 指定車両の指定PIDだけの収集有効状態を変更します。

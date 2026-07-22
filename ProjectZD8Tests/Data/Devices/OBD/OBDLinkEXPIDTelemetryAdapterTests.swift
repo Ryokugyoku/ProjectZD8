@@ -11,7 +11,7 @@ final class OBDLinkEXPIDTelemetryAdapterTests: XCTestCase {
     func testReadsAllowlistedMajorPIDsAndClosesTransport() async throws {
         let transport = PIDTransportFake(responses: [
             "ELM327 v1.4b\r>", "OK\r>", "OK\r>", "OK\r>", "OK\r>", "OK\r>",
-            "SEARCHING...\r41 05 85\r>", "41 0C 00 00\r>"
+            "OK\r>", "SEARCHING...\r41 05 85\r>", "41 0C 00 00\r>"
         ])
         let adapter = OBDLinkEXPIDTelemetryAdapter(makeTransport: { _ in transport })
         let requests = [
@@ -26,8 +26,30 @@ final class OBDLinkEXPIDTelemetryAdapterTests: XCTestCase {
 
         XCTAssertEqual(values[requests[0]], [0x85])
         XCTAssertEqual(values[requests[1]], [0x00, 0x00])
-        XCTAssertEqual(commands, ["ATZ\r", "ATE0\r", "ATL0\r", "ATS1\r", "ATH0\r", "ATSP0\r", "0105\r", "010C\r"])
+        XCTAssertEqual(commands, ["ATZ\r", "ATE0\r", "ATL0\r", "ATS1\r", "ATH0\r", "ATSP0\r", "ATSH7DF\r", "0105\r", "010C\r"])
         XCTAssertTrue(didClose)
+    }
+
+    /// ZD8専用PIDを定義済み物理ヘッダーへ送信します。
+    ///
+    /// 責務: 車種専用定義が7E0と7E1へ個別送信され、正応答だけを保持することを確認します。
+    func testReadsZD8PIDsWithDefinitionHeaders() async throws {
+        let transport = PIDTransportFake(responses: [
+            "ELM327 v1.4b\r>", "OK\r>", "OK\r>", "OK\r>", "OK\r>", "OK\r>",
+            "OK\r>", "61 02 00 01 E2 40\r>", "OK\r>", "61 17 76\r>"
+        ])
+        let adapter = OBDLinkEXPIDTelemetryAdapter(makeTransport: { _ in transport })
+
+        let values = try await adapter.readVehicleSpecific(ZD8OBDPIDSeed.definitions, using: endpoint)
+        await adapter.endSession()
+        let commands = await transport.commands
+
+        XCTAssertEqual(values[.init(service: 0x21, pid: 0x02)], [0x00, 0x01, 0xE2, 0x40])
+        XCTAssertEqual(values[.init(service: 0x21, pid: 0x17)], [0x76])
+        XCTAssertTrue(commands.contains("ATSH7E0\r"))
+        XCTAssertTrue(commands.contains("2102\r"))
+        XCTAssertTrue(commands.contains("ATSH7E1\r"))
+        XCTAssertTrue(commands.contains("2117\r"))
     }
 
     /// OBDLinkへ回転数と車速の周期送信を登録して受信します。

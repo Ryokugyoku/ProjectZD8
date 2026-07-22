@@ -14,6 +14,8 @@ final class ConnectionHistoryModel {
     @ObservationIgnored private let removeIPhoneRawLog: RemoveIPhoneSessionRawLogUseCase?
     /// macOSの全端末セッション削除ユースケースです。
     @ObservationIgnored private let deleteSessionEverywhere: DeleteConnectionSessionEverywhereUseCase?
+    /// 自動判別できない停止をユーザー確認済みとして保存するユースケースです。
+    @ObservationIgnored private let reviewInterruptedSession: ReviewInterruptedConnectionSessionUseCase?
     /// 現在のAppleアカウント識別子です。
     @ObservationIgnored private var accountIdentifier: String?
     /// 古いアカウント同期完了を現在状態へ反映しないための世代です。
@@ -32,18 +34,21 @@ final class ConnectionHistoryModel {
     ///   - synchronizeSessions: セッション単位のCloudKit同期ユースケース。
     ///   - removeIPhoneRawLog: iPhoneローカルRawログ除去ユースケース。
     ///   - deleteSessionEverywhere: macOSの全端末セッション削除ユースケース。
+    ///   - reviewInterruptedSession: ユーザー操作による停止の確認結果を保存するユースケース。
     init(
         state: ConnectionHistoryState,
         repository: any ConnectionSessionRepository,
         synchronizeSessions: SynchronizeConnectionSessionsUseCase? = nil,
         removeIPhoneRawLog: RemoveIPhoneSessionRawLogUseCase? = nil,
-        deleteSessionEverywhere: DeleteConnectionSessionEverywhereUseCase? = nil
+        deleteSessionEverywhere: DeleteConnectionSessionEverywhereUseCase? = nil,
+        reviewInterruptedSession: ReviewInterruptedConnectionSessionUseCase? = nil
     ) {
         self.state = state
         self.repository = repository
         self.synchronizeSessions = synchronizeSessions
         self.removeIPhoneRawLog = removeIPhoneRawLog
         self.deleteSessionEverywhere = deleteSessionEverywhere
+        self.reviewInterruptedSession = reviewInterruptedSession
     }
 
     /// 空の履歴状態と指定セッション照会先を使って生成します。
@@ -54,18 +59,21 @@ final class ConnectionHistoryModel {
     ///   - synchronizeSessions: セッション単位のCloudKit同期ユースケース。
     ///   - removeIPhoneRawLog: iPhoneローカルRawログ除去ユースケース。
     ///   - deleteSessionEverywhere: macOSの全端末セッション削除ユースケース。
+    ///   - reviewInterruptedSession: ユーザー操作による停止の確認結果を保存するユースケース。
     convenience init(
         repository: any ConnectionSessionRepository,
         synchronizeSessions: SynchronizeConnectionSessionsUseCase? = nil,
         removeIPhoneRawLog: RemoveIPhoneSessionRawLogUseCase? = nil,
-        deleteSessionEverywhere: DeleteConnectionSessionEverywhereUseCase? = nil
+        deleteSessionEverywhere: DeleteConnectionSessionEverywhereUseCase? = nil,
+        reviewInterruptedSession: ReviewInterruptedConnectionSessionUseCase? = nil
     ) {
         self.init(
             state: ConnectionHistoryState(),
             repository: repository,
             synchronizeSessions: synchronizeSessions,
             removeIPhoneRawLog: removeIPhoneRawLog,
-            deleteSessionEverywhere: deleteSessionEverywhere
+            deleteSessionEverywhere: deleteSessionEverywhere,
+            reviewInterruptedSession: reviewInterruptedSession
         )
     }
 
@@ -82,6 +90,10 @@ final class ConnectionHistoryModel {
         case let .endReasonFilterChanged(filter): state.endReasonFilter = filter
         case let .sortOrderChanged(order): state.sortOrder = order
         case .filtersReset: resetFilters()
+        case let .stopReviewRequested(sessionID): prepareStopReview(sessionID: sessionID)
+        case .stopReviewConfirmed: confirmStopReview()
+        case .stopReviewCancelled: state.stopReviewPrompt = nil
+        case .stopReviewFailureDismissed: state.stopReviewFailureKey = nil
         case let .localRawRemovalRequested(sessionID): prepareRawRemoval(sessionID: sessionID)
         case .localRawRemovalConfirmed: confirmRawRemoval()
         case .localRawRemovalCancelled: state.rawRemovalPrompt = nil
@@ -89,6 +101,39 @@ final class ConnectionHistoryModel {
         case .sessionDeletionConfirmed: confirmSessionDeletion()
         case .sessionDeletionCancelled: state.sessionDeletionPrompt = nil
         case .sessionDeletionFailureDismissed: state.sessionDeletionFailureKey = nil
+        }
+    }
+
+    /// 指定セッションのユーザー操作停止確認を準備します。
+    ///
+    /// 責務: 1件の確認可能なセッションIDを観測済み終了理由を含む確認表示へ変換します。
+    /// - Parameter sessionID: 確認対象の接続セッションID。
+    private func prepareStopReview(sessionID: ConnectionSessionID) {
+        guard reviewInterruptedSession != nil,
+              let session = state.sessions.first(where: { $0.id == sessionID }),
+              session.needsStopReview,
+              let reason = session.endReason else { return }
+        state.stopReviewFailureKey = nil
+        state.stopReviewPrompt = ConnectionSessionStopReviewPrompt(
+            sessionID: sessionID,
+            observedReason: reason
+        )
+    }
+
+    /// 表示中の停止確認を正式データ扱いとして保存します。
+    ///
+    /// 責務: 現在の停止確認内容をユーザー操作停止の永続化と履歴再読込へ変換します。
+    private func confirmStopReview() {
+        guard let prompt = state.stopReviewPrompt,
+              let session = state.sessions.first(where: { $0.id == prompt.sessionID }),
+              let reviewInterruptedSession else { return }
+        do {
+            _ = try reviewInterruptedSession.execute(session: session)
+            state.stopReviewPrompt = nil
+            loadSessions()
+        } catch {
+            state.stopReviewPrompt = nil
+            state.stopReviewFailureKey = "history.stop_review.error"
         }
     }
 

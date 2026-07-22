@@ -17,6 +17,12 @@ final class VehicleManagementModel {
     @ObservationIgnored private let pidCapabilityRepository: (any VehiclePIDCapabilityRepository)?
     /// PID名称を解決するカタログ境界です。
     @ObservationIgnored private let pidDefinitionRepository: (any OBDPIDDefinitionRepository)?
+    /// 接続履歴を車両別の軽量集計へ変換するユースケースです。
+    @ObservationIgnored private let loadVehicleActivitySummaries: LoadVehicleActivitySummariesUseCase?
+    /// 車両と関連セッションを全端末から削除するユースケースです。
+    @ObservationIgnored private let deleteVehicleWithSessions: DeleteVehicleWithSessionsUseCase?
+    /// 車両関連セッション削除後に履歴表示へ再読込を通知する処理です。
+    @ObservationIgnored private let vehicleSessionsDidDelete: @MainActor () -> Void
     /// 接続対象車両、終端、編集前のOBD識別観測をLoggingと監視開始へ通知する処理です。
     @ObservationIgnored private let connectionVehicleDidResolve: @MainActor (
         VehicleProfile,
@@ -36,6 +42,9 @@ final class VehicleManagementModel {
     ///   - photoImporter: 選択画像をプロフィールデータへ変換する境界。
     ///   - pidCapabilityRepository: 車両別対応PID設定の保存先。
     ///   - pidDefinitionRepository: PID名称を解決するカタログ境界。
+    ///   - loadVehicleActivitySummaries: 接続履歴をGarage表示用集計へ変換するユースケース。
+    ///   - deleteVehicleWithSessions: 車両と関連セッションを全端末から削除するユースケース。
+    ///   - vehicleSessionsDidDelete: 車両関連セッション削除後に履歴表示へ再読込を通知する処理。
     ///   - connectionVehicleDidResolve: 接続対象車両、終端、編集前のOBD識別観測を通知する処理。
     init(
         state: VehicleManagementState,
@@ -44,6 +53,9 @@ final class VehicleManagementModel {
         photoImporter: any VehiclePhotoImportPort,
         pidCapabilityRepository: (any VehiclePIDCapabilityRepository)? = nil,
         pidDefinitionRepository: (any OBDPIDDefinitionRepository)? = nil,
+        loadVehicleActivitySummaries: LoadVehicleActivitySummariesUseCase? = nil,
+        deleteVehicleWithSessions: DeleteVehicleWithSessionsUseCase? = nil,
+        vehicleSessionsDidDelete: @escaping @MainActor () -> Void = {},
         connectionVehicleDidResolve: @escaping @MainActor (
             VehicleProfile,
             OBDConnectionEndpoint,
@@ -56,6 +68,9 @@ final class VehicleManagementModel {
         self.photoImporter = photoImporter
         self.pidCapabilityRepository = pidCapabilityRepository
         self.pidDefinitionRepository = pidDefinitionRepository
+        self.loadVehicleActivitySummaries = loadVehicleActivitySummaries
+        self.deleteVehicleWithSessions = deleteVehicleWithSessions
+        self.vehicleSessionsDidDelete = vehicleSessionsDidDelete
         self.connectionVehicleDidResolve = connectionVehicleDidResolve
     }
 
@@ -99,8 +114,16 @@ final class VehicleManagementModel {
             let names = Dictionary(uniqueKeysWithValues: definitions.map {
                 (OBDPIDRequest(service: $0.service, pid: $0.pid), $0.nameKey)
             })
+            let modelCodes = Dictionary(uniqueKeysWithValues: definitions.map {
+                (OBDPIDRequest(service: $0.service, pid: $0.pid), $0.vehicleModelCode)
+            })
             state.pidSelectionItems = try pidCapabilityRepository.capabilities(for: vehicleID).map {
-                VehiclePIDSelectionItem(id: $0.id.request, nameKey: names[$0.id.request], isEnabled: $0.isCollectionEnabled)
+                VehiclePIDSelectionItem(
+                    id: $0.id.request,
+                    nameKey: names[$0.id.request],
+                    isEnabled: $0.isCollectionEnabled,
+                    vehicleModelCode: modelCodes[$0.id.request] ?? nil
+                )
             }
             state.pidSettingsVehicleID = vehicleID
             state.failureKey = nil
@@ -150,6 +173,8 @@ final class VehicleManagementModel {
             let syncResult = reconcileVehicles(local: state.vehicles, remote: remote)
             state.vehicles = syncResult.merged
             state.hasLoadedVehicles = true
+            loadActivitySummaries(for: accountIdentifier)
+            loadSpecialPIDRegistrations()
             state.phase = .idle
             state.failureKey = nil
             Task { [accountIdentifier] in
@@ -161,6 +186,37 @@ final class VehicleManagementModel {
             state.phase = .failed
             state.failureKey = "garage.error.sync"
         }
+    }
+
+    /// 現在アカウントの接続履歴をGarage用の車両別集計へ読み込みます。
+    ///
+    /// 責務: 1件のアカウント識別子へ対応する車両別ログ集計を現在状態へ反映します。
+    /// - Parameter accountIdentifier: 集計対象のAppleアカウント識別子。
+    private func loadActivitySummaries(for accountIdentifier: String) {
+        guard let loadVehicleActivitySummaries else { return }
+        state.activityByVehicleID = (try? loadVehicleActivitySummaries.execute(
+            accountIdentifier: accountIdentifier
+        )) ?? [:]
+    }
+
+    /// 登録車両ごとの車種専用PID対応状態を読み込みます。
+    ///
+    /// 責務: 保存済みPID能力と定義をGarage用の車両別型式表示へ変換します。
+    private func loadSpecialPIDRegistrations() {
+        guard let pidCapabilityRepository, let pidDefinitionRepository,
+              let definitions = try? pidDefinitionRepository.definitions() else { return }
+        let modelCodes = Dictionary(uniqueKeysWithValues: definitions.compactMap { definition in
+            definition.vehicleModelCode.map {
+                (OBDPIDRequest(service: definition.service, pid: definition.pid), $0)
+            }
+        })
+        var registrations: [VehicleID: String] = [:]
+        for vehicle in state.vehicles where ZD8VehicleModelPolicy().matches(vehicle) {
+            guard let capabilities = try? pidCapabilityRepository.capabilities(for: vehicle.id),
+                  let modelCode = capabilities.lazy.compactMap({ modelCodes[$0.id.request] }).first else { continue }
+            registrations[vehicle.id] = modelCode
+        }
+        state.specialPIDModelCodeByVehicleID = registrations
     }
 
     /// 操作待ち状態で要求された車両一覧の再読込だけを開始します。
@@ -225,6 +281,7 @@ final class VehicleManagementModel {
                 state.connectionVehicle = vehicle
                 state.phase = .readyToConnect
                 connectionVehicleDidResolve(vehicle, endpoint, snapshot)
+                if let accountIdentifier { loadActivitySummaries(for: accountIdentifier) }
             case let .requiresRegistration(snapshot):
                 state.pendingIdentification = snapshot
                 state.phase = .confirmingIdentification
@@ -295,7 +352,7 @@ final class VehicleManagementModel {
             name: manufacturer.isEmpty ? "" : manufacturer,
             manufacturer: manufacturer,
             engineModel: engineModel,
-            isDefault: state.vehicles.isEmpty
+            isDefault: false
         )
         state.phase = .registering
     }
@@ -351,12 +408,6 @@ final class VehicleManagementModel {
         let connectionIdentification = state.phase == .registering ? state.pendingIdentification : nil
         var saved = vehicle
         saved.updatedAt = Date()
-        if saved.isDefault {
-            for index in state.vehicles.indices where state.vehicles[index].id != saved.id {
-                state.vehicles[index].isDefault = false
-                try? await repository.saveVehicle(state.vehicles[index], for: accountIdentifier)
-            }
-        }
         do {
             try await repository.saveVehicle(saved, for: accountIdentifier)
             if let index = state.vehicles.firstIndex(where: { $0.id == saved.id }) {
@@ -373,6 +424,7 @@ final class VehicleManagementModel {
                     connectionVehicleDidResolve(saved, endpoint, connectionIdentification)
                 }
             }
+            loadActivitySummaries(for: accountIdentifier)
             state.phase = .idle
             state.failureKey = nil
         } catch {
@@ -382,17 +434,31 @@ final class VehicleManagementModel {
         }
     }
 
-    /// 指定車両を現在アカウントから削除します。
+    /// 指定車両と関連セッションを現在アカウントから削除します。
     ///
-    /// 責務: 指定IDの車両1件を保存先と表示一覧の両方から除去します。
+    /// 責務: 指定IDの車両1件と全関連セッションを削除して表示一覧へ成功結果を反映します。
     /// - Parameter id: 削除対象のアプリ内車両ID。
     private func delete(_ id: VehicleID) async {
         guard let accountIdentifier else { return }
+        guard let deleteVehicleWithSessions else {
+            state.phase = .failed
+            state.failureKey = "garage.error.delete"
+            return
+        }
         do {
-            try await repository.deleteVehicle(id: id, for: accountIdentifier)
+            try await deleteVehicleWithSessions.execute(
+                vehicleID: id,
+                accountIdentifier: accountIdentifier
+            )
             state.vehicles.removeAll { $0.id == id }
+            state.activityByVehicleID[id] = nil
             state.editingVehicle = nil
             state.phase = .idle
+            state.failureKey = nil
+            vehicleSessionsDidDelete()
+        } catch DeleteVehicleWithSessionsUseCase.Error.activeSession {
+            state.phase = .failed
+            state.failureKey = "garage.error.delete_active_session"
         } catch {
             state.phase = .failed
             state.failureKey = "garage.error.delete"

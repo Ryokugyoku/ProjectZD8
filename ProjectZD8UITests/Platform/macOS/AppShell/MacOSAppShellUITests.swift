@@ -43,6 +43,10 @@ final class MacOSAppShellUITests: XCTestCase {
         garageButton.click()
 
         XCTAssertTrue(application.descendants(matching: .any)["macos-garage-screen"].waitForExistence(timeout: 2))
+        let screenshot = XCTAttachment(screenshot: application.screenshot())
+        screenshot.name = "Mac-Garage-Japanese"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
     }
 
     /// macOSサイドバーの遷移先を操作するとコンテンツ領域が切り替わることを検証します。

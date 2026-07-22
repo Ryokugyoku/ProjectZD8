@@ -12,6 +12,25 @@ enum ConnectionHistorySyncPhase: Equatable, Sendable {
     case failed
 }
 
+/// 自動判別できなかったセッション停止をユーザーへ確認する内容です。
+struct ConnectionSessionStopReviewPrompt: Equatable, Sendable {
+    /// 確認対象の接続セッションIDです。
+    let sessionID: ConnectionSessionID
+    /// アプリが観測した直接の終了理由です。
+    let observedReason: ConnectionSessionEndReason
+
+    /// セッションと観測済み終了理由を確認内容として生成します。
+    ///
+    /// 責務: 1件の確認可能な接続セッションを停止確認表示に必要な値へ固定します。
+    /// - Parameters:
+    ///   - sessionID: 確認対象の接続セッションID。
+    ///   - observedReason: アプリが観測した直接の終了理由。
+    init(sessionID: ConnectionSessionID, observedReason: ConnectionSessionEndReason) {
+        self.sessionID = sessionID
+        self.observedReason = observedReason
+    }
+}
+
 /// iPhoneローカルRawログ除去前に表示する確認内容です。
 struct ConnectionSessionRawRemovalPrompt: Equatable, Sendable {
     /// 除去候補の接続セッションIDです。
@@ -180,6 +199,10 @@ struct ConnectionHistoryState: Equatable {
     var sortOrder: ConnectionHistorySortOrder = .newest
     /// CloudKitセッション同期の現在段階です。
     var syncPhase: ConnectionHistorySyncPhase = .idle
+    /// ユーザー操作による停止かを確認する表示内容です。
+    var stopReviewPrompt: ConnectionSessionStopReviewPrompt?
+    /// 直近の停止確認保存失敗を示すローカライズキーです。
+    var stopReviewFailureKey: String?
     /// iPhoneローカルRawログ除去前の確認内容です。
     var rawRemovalPrompt: ConnectionSessionRawRemovalPrompt?
     /// macOS全端末セッション削除前の確認内容です。

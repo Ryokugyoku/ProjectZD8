@@ -32,6 +32,28 @@ final class GRDBVehiclePIDCapabilityRepositoryTests: XCTestCase {
         XCTAssertThrowsError(try repository.insertInitial([capability(pid: 0x0D)], for: vehicleID))
     }
 
+    /// 拡張PID探索結果を既存の収集選択を壊さず追加します。
+    ///
+    /// 責務: 応答確認済みの車種専用PIDだけを追加し既存PIDの無効選択を保持することを確認します。
+    func testMergeDiscoveredPreservesExistingSelectionAndAddsVehicleSpecificPID() throws {
+        let repository = try GRDBVehiclePIDCapabilityRepository(databaseQueue: DatabaseQueue())
+        let standard = capability(pid: 0x0D)
+        try repository.insertInitial([standard], for: vehicleID)
+        try repository.setCollectionEnabled(false, for: standard.id.request, vehicleID: vehicleID)
+        let discovered = VehiclePIDCapability(
+            vehicleID: vehicleID,
+            request: OBDPIDRequest(service: 0x21, pid: 0x17),
+            isCollectionEnabled: true,
+            discoveredAt: Date(timeIntervalSince1970: 200)
+        )
+
+        try repository.mergeDiscovered([standard, discovered], for: vehicleID)
+
+        let loaded = try repository.capabilities(for: vehicleID)
+        XCTAssertEqual(loaded.map(\.id.request), [standard.id.request, discovered.id.request])
+        XCTAssertEqual(loaded.map(\.isCollectionEnabled), [false, true])
+    }
+
     /// アカウント削除対象の車両別PID設定だけを一括削除します。
     ///
     /// 責務: 登録車両ID群の収集設定を削除し、別車両の設定を保持することを確認します。

@@ -87,6 +87,27 @@ final class ConnectionSessionLifecycleModelTests: XCTestCase {
         XCTAssertEqual(try XCTUnwrap(session.recordedDistanceKilometers), 0.8, accuracy: 0.000_1)
     }
 
+    /// ZD8専用走行距離の取得元と型式をセッションへ保持します。
+    ///
+    /// 責務: 専用PIDの累積距離が標準PIDより優先され表示用型式とともに保存されることを確認します。
+    func testVehicleSpecificOdometerPersistsModelCodeAndSupersedesStandardOdometer() throws {
+        let repository = RecordingConnectionSessionRepository()
+        let model = ConnectionSessionLifecycleModel(repository: repository)
+
+        model.send(.accountIdentifierChanged("account"))
+        model.send(.startRequested)
+        model.send(.distanceObserved(.init(source: .odometer, kilometers: 30_000)))
+        model.send(.distanceObserved(.init(source: .vehicleSpecificOdometer, kilometers: 30_100, vehicleModelCode: "ZD8")))
+        model.send(.distanceObserved(.init(source: .odometer, kilometers: 30_001)))
+        model.send(.distanceObserved(.init(source: .vehicleSpecificOdometer, kilometers: 30_101.2, vehicleModelCode: "ZD8")))
+
+        let session = try XCTUnwrap(model.activeSession)
+        XCTAssertEqual(session.startingOdometerKilometers, 30_100)
+        XCTAssertEqual(session.endingOdometerKilometers, 30_101.2)
+        XCTAssertEqual(try XCTUnwrap(session.recordedDistanceKilometers), 1.2, accuracy: 0.000_1)
+        XCTAssertEqual(session.distanceSourceModelCode, "ZD8")
+    }
+
     /// 総走行距離を取得できないセッションではコード消去後走行距離の差分を保持します。
     ///
     /// 責務: PID 31だけの有効な観測列を接続履歴の走行距離差分へ変換できることを確認します。

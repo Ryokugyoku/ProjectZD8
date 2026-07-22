@@ -16,6 +16,8 @@ struct ConnectionSessionRecord: Codable, FetchableRecord, PersistableRecord {
     let endedAt: Date?
     /// 終了原因の安定文字列表現です。
     let endReason: String?
+    /// ユーザーが確認した停止種別の安定文字列表現です。
+    let stopReviewDecision: String?
     /// 関連付けた登録車両UUIDの文字列表現です。
     let vehicleID: String?
     /// 接続時点の車両名称です。
@@ -26,6 +28,8 @@ struct ConnectionSessionRecord: Codable, FetchableRecord, PersistableRecord {
     let startingOdometerKilometers: Double?
     /// セッション内で最後に取得した累積走行距離です。
     let endingOdometerKilometers: Double?
+    /// 車種専用累積距離PIDの適用型式です。
+    let distanceSourceModelCode: String?
     /// セッションへ記録されたRaw応答件数です。
     let rawRecordCount: Int64
     /// Raw応答Payloadの合計バイト数です。
@@ -55,11 +59,13 @@ struct ConnectionSessionRecord: Codable, FetchableRecord, PersistableRecord {
         startedAt = session.startedAt
         endedAt = session.endedAt
         endReason = session.endReason?.rawValue
+        stopReviewDecision = session.stopReviewDecision?.rawValue
         vehicleID = session.vehicle?.id.rawValue.uuidString.lowercased()
         vehicleName = session.vehicle?.name
         vehicleDisplayIdentifier = session.vehicle?.displayIdentifier
         startingOdometerKilometers = session.startingOdometerKilometers
         endingOdometerKilometers = session.endingOdometerKilometers
+        distanceSourceModelCode = session.distanceSourceModelCode
         rawRecordCount = session.rawLogSummary.recordCount
         rawByteCount = session.rawLogSummary.byteCount
         localRawState = session.rawLogSummary.localState.rawValue
@@ -105,8 +111,13 @@ struct ConnectionSessionRecord: Codable, FetchableRecord, PersistableRecord {
         )
         session.endedAt = endedAt
         session.endReason = reason
+        if let stopReviewDecision {
+            guard let decision = ConnectionSessionStopReviewDecision(rawValue: stopReviewDecision) else { return nil }
+            session.stopReviewDecision = decision
+        }
         session.startingOdometerKilometers = startingOdometerKilometers
         session.endingOdometerKilometers = endingOdometerKilometers
+        session.distanceSourceModelCode = distanceSourceModelCode
         let receipt: ConnectionSessionMacImportReceipt?
         if let macImportedDeviceID,
            let macImportedDeviceName,

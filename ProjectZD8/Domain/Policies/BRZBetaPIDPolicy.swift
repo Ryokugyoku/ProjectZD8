@@ -1,5 +1,5 @@
 /// BRZ Beta周期取得で使用する標準OBD現在値を限定します。
-struct BRZBetaPIDPolicy {
+nonisolated struct BRZBetaPIDPolicy {
     /// エンジン回転数と車速の読取り専用要求です。
     static let requests: [OBDPIDRequest] = [
         OBDPIDRequest(service: 0x01, pid: 0x0C),
@@ -21,5 +21,5 @@ struct BRZBetaPIDPolicy {
 /// PID定義から読取要求を復元します。
 private extension OBDPIDDefinition {
     /// この定義が表すService/PID要求です。
-    var request: OBDPIDRequest { OBDPIDRequest(service: service, pid: pid) }
+    nonisolated var request: OBDPIDRequest { OBDPIDRequest(service: service, pid: pid) }
 }

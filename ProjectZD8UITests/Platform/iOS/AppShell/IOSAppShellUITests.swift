@@ -48,6 +48,10 @@ final class IOSAppShellUITests: XCTestCase {
         garageButton.tap()
 
         XCTAssertTrue(application.descendants(matching: .any)["ios-garage-screen"].waitForExistence(timeout: 3))
+        let screenshot = XCTAttachment(screenshot: application.screenshot())
+        screenshot.name = "iPhone-Garage-Japanese"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
     }
 
     /// デフォルト未設定のHOME操作が押すたびに案内され、手動でも再遷移できることを検証します。

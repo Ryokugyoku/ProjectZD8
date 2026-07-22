@@ -70,6 +70,16 @@ enum ConnectionSessionDatabaseMigrator {
                 columns: ["accountIdentifier", "vehicleID", "startedAt"]
             )
         }
+        migrator.registerMigration("v5_add_connection_session_stop_review") { database in
+            try database.alter(table: ConnectionSessionRecord.databaseTableName) { table in
+                table.add(column: "stopReviewDecision", .text)
+            }
+        }
+        migrator.registerMigration("v6_add_distance_source_model_code") { database in
+            try database.alter(table: ConnectionSessionRecord.databaseTableName) { table in
+                table.add(column: "distanceSourceModelCode", .text)
+            }
+        }
         return migrator
     }
 }

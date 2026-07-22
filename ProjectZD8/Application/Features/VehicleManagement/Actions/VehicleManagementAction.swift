@@ -20,7 +20,7 @@ enum VehicleManagementAction {
     case editCancelled
     /// 編集中プロフィールへユーザーが選んだ写真を読み込みます。
     case photoSelected(URL)
-    /// 指定車両を削除します。
+    /// 指定車両と車両に紐づく全セッションを削除します。
     case vehicleDeleted(VehicleID)
     /// 同期先から車両一覧を再読込します。
     case refreshRequested

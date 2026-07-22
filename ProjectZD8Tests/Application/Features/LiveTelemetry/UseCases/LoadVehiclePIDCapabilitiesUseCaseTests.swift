@@ -51,10 +51,105 @@ final class LoadVehiclePIDCapabilitiesUseCaseTests: XCTestCase {
         XCTAssertEqual(queriedPIDs, [])
     }
 
+    /// ZD8型式では対応一覧にない専用PIDを個別送信して応答済みだけ追加します。
+    ///
+    /// 責務: 車種専用PID探索が型式一致、正応答、非破壊登録を満たすことを確認します。
+    func testProbesAndRegistersRespondingZD8PID() async throws {
+        let stored = VehiclePIDCapability(
+            vehicleID: vehicleID,
+            request: .init(service: 0x01, pid: 0x0C),
+            isCollectionEnabled: true,
+            discoveredAt: .distantPast
+        )
+        let repository = CapabilityRepositoryFake(stored: [stored])
+        let telemetry = VehicleSpecificTelemetryFake()
+        let useCase = LoadVehiclePIDCapabilitiesUseCase(
+            repository: repository,
+            telemetry: telemetry,
+            definitionRepository: DefinitionRepositoryFake(definitions: ZD8OBDPIDSeed.definitions),
+            now: { Date(timeIntervalSince1970: 456) }
+        )
+
+        let result = try await useCase.execute(
+            vehicleID: vehicleID,
+            vehicleModelCode: "ZD8",
+            endpoint: endpoint
+        )
+
+        XCTAssertEqual(result.map(\.id.request), [
+            .init(service: 0x01, pid: 0x0C),
+            .init(service: 0x21, pid: 0x02)
+        ])
+        let requested = await telemetry.requestedPIDs
+        XCTAssertEqual(requested, [0x02, 0x17])
+    }
+
     /// テスト用車両IDです。
     private var vehicleID: VehicleID { VehicleID(rawValue: UUID(uuidString: "10000000-0000-0000-0000-000000000001")!) }
     /// テスト用OBD終端です。
     private var endpoint: OBDConnectionEndpoint { .init(transport: .serial, systemIdentifier: "/dev/test", displayName: "Test") }
+}
+
+/// 専用PID定義を固定一覧で返すテストカタログです。
+private struct DefinitionRepositoryFake: OBDPIDDefinitionRepository {
+    /// 返すPID定義です。
+    let definitionsValue: [OBDPIDDefinition]
+
+    /// 固定定義を保持します。
+    ///
+    /// 責務: 専用PID探索テスト用カタログを初期化します。
+    /// - Parameter definitions: 読込時に返す定義。
+    init(definitions: [OBDPIDDefinition]) { definitionsValue = definitions }
+
+    /// 固定定義一覧を返します。
+    ///
+    /// 責務: テスト用PIDカタログをそのまま返します。
+    /// - Returns: 初期化時の定義。
+    func definitions() throws -> [OBDPIDDefinition] { definitionsValue }
+
+    /// テスト対象外の書込を変更なしで完了します。
+    ///
+    /// 責務: 専用PID探索テストで不要な保存操作を受理します。
+    /// - Parameter definition: 使用しない定義。
+    func upsert(_ definition: OBDPIDDefinition) throws {}
+
+    /// 固定一覧からService/PID一致定義を返します。
+    ///
+    /// 責務: 1件のService/PIDをテスト用定義検索へ変換します。
+    /// - Parameters:
+    ///   - service: OBD Service番号。
+    ///   - pid: Service内PID番号。
+    /// - Returns: 一致する定義。
+    func definition(service: UInt8, pid: UInt8) throws -> OBDPIDDefinition? {
+        definitionsValue.first { $0.service == service && $0.pid == pid }
+    }
+}
+
+/// 専用PIDの一部だけへ正応答を返すテスト通信境界です。
+private actor VehicleSpecificTelemetryFake: OBDPIDTelemetryPort {
+    /// 専用探索で要求されたPIDです。
+    private(set) var requestedPIDs: [UInt8] = []
+
+    /// 標準探索を行わないテストでは空応答を返します。
+    ///
+    /// 責務: テスト対象外の標準PID要求を空応答へ変換します。
+    /// - Parameters:
+    ///   - requests: 使用しない標準PID要求。
+    ///   - endpoint: 使用しないOBD終端。
+    /// - Returns: 空の応答辞書。
+    func read(_ requests: [OBDPIDRequest], using endpoint: OBDConnectionEndpoint) async throws -> [OBDPIDRequest: [UInt8]] { [:] }
+
+    /// 走行距離だけへ応答してAT油温を非対応として扱います。
+    ///
+    /// 責務: 専用PID定義群を一部応答の探索結果へ変換します。
+    /// - Parameters:
+    ///   - definitions: 探索する専用PID定義。
+    ///   - endpoint: 使用しないOBD終端。
+    /// - Returns: Service 21 PID 02だけの応答。
+    func readVehicleSpecific(_ definitions: [OBDPIDDefinition], using endpoint: OBDConnectionEndpoint) async throws -> [OBDPIDRequest: [UInt8]] {
+        requestedPIDs = definitions.map(\.pid)
+        return [.init(service: 0x21, pid: 0x02): [0, 0, 0, 10]]
+    }
 }
 
 /// 対応PID設定をメモリ保持するテスト境界です。
@@ -82,6 +177,18 @@ private final class CapabilityRepositoryFake: VehiclePIDCapabilityRepository, @u
     ///   - capabilities: 保存する設定。
     ///   - vehicleID: 使用しない車両ID。
     func insertInitial(_ capabilities: [VehiclePIDCapability], for vehicleID: VehicleID) throws { stored = capabilities }
+
+    /// 新たに応答した設定を既存テスト状態へ追加します。
+    ///
+    /// 責務: テスト用の追加探索結果を重複なく保持します。
+    /// - Parameters:
+    ///   - capabilities: 追加する対応PID。
+    ///   - vehicleID: 使用しない車両ID。
+    func mergeDiscovered(_ capabilities: [VehiclePIDCapability], for vehicleID: VehicleID) throws {
+        for capability in capabilities where !stored.contains(where: { $0.id == capability.id }) {
+            stored.append(capability)
+        }
+    }
 
     /// テスト対象外の選択更新を受け付けます。
     ///

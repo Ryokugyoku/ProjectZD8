@@ -217,8 +217,10 @@ struct MacOSSidebarView: View {
 
     /// 正常終了しなかった履歴件数をサイドバー上の注意表示として描画します。
     private var historyWarningBadge: some View {
-        Label("\(interruptedHistoryCount)", systemImage: "exclamationmark.triangle.fill")
-            .labelStyle(.titleAndIcon)
+        HStack(spacing: 4 * metrics.scale) {
+            WarningTriangleIcon(size: 9.5 * metrics.scale)
+            Text("\(interruptedHistoryCount)")
+        }
             .font(.system(size: 9.5 * metrics.scale, weight: .bold, design: .rounded))
             .foregroundStyle(.orange)
             .padding(.horizontal, 7 * metrics.scale)

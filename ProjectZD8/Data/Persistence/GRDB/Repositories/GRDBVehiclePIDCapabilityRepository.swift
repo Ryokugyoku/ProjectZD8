@@ -76,6 +76,24 @@ final class GRDBVehiclePIDCapabilityRepository: VehiclePIDCapabilityRepository, 
         }
     }
 
+    /// 応答確認済みPIDを既存選択へ追加します。
+    ///
+    /// 責務: 1台の車両へ未登録の対応PIDだけを収集有効で追加します。
+    /// - Parameters:
+    ///   - capabilities: 新たに応答したPID設定。
+    ///   - vehicleID: 登録先の車両ID。
+    /// - Throws: 車両不一致またはSQLite書込失敗の場合のエラー。
+    func mergeDiscovered(_ capabilities: [VehiclePIDCapability], for vehicleID: VehicleID) throws {
+        try databaseQueue.write { database in
+            for capability in capabilities {
+                guard capability.id.vehicleID == vehicleID, capability.isCollectionEnabled else {
+                    throw DatabaseError(message: "Discovered vehicle PID capabilities must match the vehicle and be enabled")
+                }
+                try VehiclePIDCapabilityRecord(capability: capability).insert(database, onConflict: .ignore)
+            }
+        }
+    }
+
     /// 1件の対応PIDの収集選択を更新します。
     ///
     /// 責務: 指定車両の指定PIDだけの収集有効状態を変更します。

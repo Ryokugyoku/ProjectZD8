@@ -74,6 +74,11 @@ struct MacOSLiveTelemetryView: View {
                             VStack(alignment: .leading, spacing: 10 * metrics.scale) {
                                 HStack {
                                     Text(LocalizedStringKey(sample.nameKey)).foregroundStyle(.secondary)
+                                    if let modelCode = sample.vehicleModelCode {
+                                        VehicleModelBadge(modelCode: modelCode)
+                                            .scaleEffect(0.74)
+                                            .frame(width: 28, height: 28)
+                                    }
                                     Spacer()
                                     Button { helpSample = sample } label: {
                                         Image(systemName: "questionmark.circle")

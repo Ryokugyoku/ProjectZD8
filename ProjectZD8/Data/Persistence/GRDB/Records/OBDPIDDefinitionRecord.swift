@@ -9,6 +9,10 @@ struct OBDPIDDefinitionRecord: Codable, FetchableRecord, PersistableRecord {
     let service: Int
     /// Service内PID番号です。
     let pid: Int
+    /// 送信先の11bit CANヘッダーです。
+    let header: Int?
+    /// 適用対象の車両型式です。
+    let vehicleModelCode: String?
     /// 表示名の安定キーです。
     let nameKey: String
     /// 変換に必要な応答バイト数です。
@@ -41,6 +45,8 @@ struct OBDPIDDefinitionRecord: Codable, FetchableRecord, PersistableRecord {
     init(definition: OBDPIDDefinition) {
         service = Int(definition.service)
         pid = Int(definition.pid)
+        header = definition.header.map(Int.init)
+        vehicleModelCode = definition.vehicleModelCode
         nameKey = definition.nameKey
         requiredByteCount = definition.requiredByteCount
         formula = definition.formula
@@ -61,6 +67,8 @@ struct OBDPIDDefinitionRecord: Codable, FetchableRecord, PersistableRecord {
     /// - Parameters:
     ///   - service: OBD Service番号。
     ///   - pid: Service内PID番号。
+    ///   - header: 送信先の11bit CANヘッダー。
+    ///   - vehicleModelCode: 適用対象の車両型式。
     ///   - nameKey: 表示名の安定キー。
     ///   - requiredByteCount: 必要応答バイト数。
     ///   - formula: 制限付き変換数式。
@@ -73,9 +81,11 @@ struct OBDPIDDefinitionRecord: Codable, FetchableRecord, PersistableRecord {
     ///   - highValueKey: 高値時説明のローカライズキー。
     ///   - lowValueKey: 低値時説明のローカライズキー。
     ///   - correlationKey: 相関項目説明のローカライズキー。
-    init(service: Int, pid: Int, nameKey: String, requiredByteCount: Int?, formula: String?, unit: String, minimumValue: Double?, maximumValue: Double?, sourceURI: String, revision: Int, summaryKey: String = "obd.pid.help.unconfirmed.summary", highValueKey: String = "obd.pid.help.unconfirmed.high", lowValueKey: String = "obd.pid.help.unconfirmed.low", correlationKey: String = "obd.pid.help.unconfirmed.correlation") {
+    init(service: Int, pid: Int, header: Int? = nil, vehicleModelCode: String? = nil, nameKey: String, requiredByteCount: Int?, formula: String?, unit: String, minimumValue: Double?, maximumValue: Double?, sourceURI: String, revision: Int, summaryKey: String = "obd.pid.help.unconfirmed.summary", highValueKey: String = "obd.pid.help.unconfirmed.high", lowValueKey: String = "obd.pid.help.unconfirmed.low", correlationKey: String = "obd.pid.help.unconfirmed.correlation") {
         self.service = service
         self.pid = pid
+        self.header = header
+        self.vehicleModelCode = vehicleModelCode
         self.nameKey = nameKey
         self.requiredByteCount = requiredByteCount
         self.formula = formula
@@ -95,10 +105,13 @@ struct OBDPIDDefinitionRecord: Codable, FetchableRecord, PersistableRecord {
     /// 責務: 検証済みDB列を1件のPID Domain定義へ写像します。
     /// - Returns: ServiceとPIDがUInt8範囲内の場合のDomain定義。
     func makeDomainDefinition() -> OBDPIDDefinition? {
-        guard let service = UInt8(exactly: service), let pid = UInt8(exactly: pid) else { return nil }
+        guard let service = UInt8(exactly: service), let pid = UInt8(exactly: pid),
+              header == nil || UInt16(exactly: header!) != nil else { return nil }
         return OBDPIDDefinition(
             service: service,
             pid: pid,
+            header: header.flatMap(UInt16.init(exactly:)),
+            vehicleModelCode: vehicleModelCode,
             nameKey: nameKey,
             requiredByteCount: requiredByteCount,
             formula: formula,

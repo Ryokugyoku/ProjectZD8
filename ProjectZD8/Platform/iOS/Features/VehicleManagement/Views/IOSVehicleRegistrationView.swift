@@ -17,14 +17,26 @@ struct IOSVehicleRegistrationView: View {
             Group {
                 switch state.phase {
                 case .identifying, .loading:
-                    VStack(spacing: 16) {
-                        ProgressView("garage.status.identifying")
-                            .controlSize(.large)
-                        Text("garage.identification.loading_hint")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
+                    VStack(spacing: 22) {
+                        ZStack {
+                            Circle().fill(Color.accentColor.opacity(0.10)).frame(width: 126, height: 126)
+                            Circle().stroke(Color.accentColor.opacity(0.20), lineWidth: 1).frame(width: 96, height: 96)
+                            Image(systemName: "car.side.fill")
+                                .font(.system(size: 42, weight: .semibold))
+                                .foregroundStyle(.tint)
+                            ProgressView().controlSize(.large).offset(y: 70)
+                        }
+                        VStack(spacing: 7) {
+                            Text("garage.connection.in_progress")
+                                .font(.system(.title2, design: .rounded, weight: .bold))
+                            Text("garage.identification.loading_hint")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                                .multilineTextAlignment(.center)
+                        }
                     }
-                    .frame(maxWidth: .infinity, minHeight: 260)
+                    .padding(28)
+                    .frame(maxWidth: .infinity, minHeight: 340)
                     .background(
                         LinearGradient(
                             colors: [.accentColor.opacity(0.11), .clear],
@@ -73,13 +85,24 @@ struct IOSVehicleRegistrationView: View {
     private func confirmation(_ snapshot: VehicleIdentificationSnapshot) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
-                Label("garage.identification.eyebrow", systemImage: "car.badge.gearshape")
-                    .foregroundStyle(.tint)
-                Text(snapshot.vin == nil ? "garage.field.obd_identifier" : "garage.identification.vin")
-                    .font(.system(.title2, design: .rounded, weight: .bold))
-                Text(snapshot.vin ?? snapshot.obdIdentifier ?? "—")
-                    .font(.system(.title3, design: .monospaced, weight: .bold))
-                    .textSelection(.enabled)
+                VStack(alignment: .leading, spacing: 10) {
+                    Label("garage.identification.eyebrow", systemImage: "car.badge.gearshape")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.tint)
+                    Text("garage.identification.title")
+                        .font(.system(.title, design: .rounded, weight: .bold))
+                    Text(snapshot.vin == nil ? "garage.field.obd_identifier" : "garage.identification.vin")
+                        .font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                    Text(snapshot.vin ?? snapshot.obdIdentifier ?? "—")
+                        .font(.system(.title3, design: .monospaced, weight: .bold))
+                        .textSelection(.enabled)
+                }
+                .padding(18)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(
+                    LinearGradient(colors: [Color.accentColor.opacity(0.15), Color.accentColor.opacity(0.03)], startPoint: .topLeading, endPoint: .bottomTrailing),
+                    in: RoundedRectangle(cornerRadius: 20, style: .continuous)
+                )
 
                 VStack(alignment: .leading, spacing: 10) {
                     ForEach(snapshot.fields) { field in

@@ -63,6 +63,41 @@ struct IOSConnectionHistoryView: View {
         } message: { prompt in
             Text(removalAlertMessage(prompt))
         }
+        .alert(
+            "history.stop_review.title",
+            isPresented: Binding(
+                get: { state.stopReviewPrompt != nil },
+                set: { if !$0 { send(.stopReviewCancelled) } }
+            ),
+            presenting: state.stopReviewPrompt
+        ) { _ in
+            Button("history.stop_review.cancel", role: .cancel) { send(.stopReviewCancelled) }
+            Button("history.stop_review.confirm") { send(.stopReviewConfirmed) }
+        } message: { prompt in
+            Text(stopReviewMessageKey(prompt.observedReason))
+        }
+        .alert(
+            "history.stop_review.error.title",
+            isPresented: Binding(
+                get: { state.stopReviewFailureKey != nil },
+                set: { if !$0 { send(.stopReviewFailureDismissed) } }
+            )
+        ) {
+            Button("history.stop_review.error.dismiss") { send(.stopReviewFailureDismissed) }
+        } message: {
+            Text("history.stop_review.error")
+        }
+    }
+
+    /// 観測済み終了理由に対応する停止確認本文を返します。
+    ///
+    /// 責務: 1件の確認可能な終了理由を断定を避けたユーザー確認文へ変換します。
+    /// - Parameter reason: アプリが観測した終了理由。
+    /// - Returns: 終了理由に対応するローカライズキー。
+    private func stopReviewMessageKey(_ reason: ConnectionSessionEndReason) -> LocalizedStringKey {
+        reason == .vehicleNoResponse
+            ? "history.stop_review.message.no_response"
+            : "history.stop_review.message.connection_lost"
     }
 
     /// 現在の除去判断に対応する警告タイトルです。
@@ -333,8 +368,13 @@ struct IOSConnectionHistoryView: View {
     /// - Returns: 詳細画面へ遷移可能なセッション行。
     private func sessionRow(_ session: ConnectionSession) -> some View {
         HStack(spacing: 13) {
-            Image(systemName: session.status == .completed ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
-                .foregroundStyle(session.status == .completed ? .blue : .orange).font(.title3)
+            if session.status == .completed {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundStyle(.blue)
+                    .font(.title3)
+            } else {
+                WarningTriangleIcon(size: 19)
+            }
             VStack(alignment: .leading, spacing: 5) {
                 Text(session.startedAt, format: .dateTime.year().month().day().hour().minute())
                     .font(.subheadline.monospacedDigit().weight(.semibold))
@@ -407,7 +447,11 @@ struct IOSConnectionHistoryView: View {
     /// - Parameter count: 表示する中断件数。
     /// - Returns: 中断を示す警告バッジ。
     private func warningBadge(_ count: Int) -> some View {
-        Label("\(count)", systemImage: "exclamationmark.triangle.fill").font(.caption.weight(.bold)).foregroundStyle(.orange)
+        HStack(spacing: 4) {
+            WarningTriangleIcon(size: 11)
+            Text("\(count)")
+        }
+            .font(.caption.weight(.bold)).foregroundStyle(.orange)
             .padding(.horizontal, 9).padding(.vertical, 6).background(.orange.opacity(0.11), in: Capsule())
             .accessibilityLabel(Text("history.warning.interrupted"))
             .accessibilityValue(Text(count, format: .number))

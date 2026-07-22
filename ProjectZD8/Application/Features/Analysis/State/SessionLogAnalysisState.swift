@@ -15,7 +15,7 @@ struct SessionLogAnalysisState: Equatable {
     }
 
     /// 1件の時系列PID表示値です。
-    struct TimelineSample: Identifiable, Equatable {
+    struct TimelineSample: Identifiable, Equatable, Sendable {
         /// セッション内のRawログ順序です。
         let sequence: Int64
         /// 応答を観測した実時間です。
@@ -30,6 +30,8 @@ struct SessionLogAnalysisState: Equatable {
         let value: Double?
         /// 数値の単位です。
         let unit: String?
+        /// 車種専用PIDの場合に表示する型式です。
+        let vehicleModelCode: String?
         /// 数式を適用する前の応答データです。
         let payload: [UInt8]
         /// 数値化できなかった理由です。
@@ -39,7 +41,7 @@ struct SessionLogAnalysisState: Equatable {
         var id: Int64 { sequence }
 
         /// 数値化不能なPIDの理由です。
-        enum DecodingFailure: Equatable {
+        enum DecodingFailure: Equatable, Sendable {
             /// 保存済み定義がありません。
             case missingDefinition
             /// 定義はありますが式が確認されていません。
@@ -59,9 +61,10 @@ struct SessionLogAnalysisState: Equatable {
         ///   - nameKey: PID表示名キー。
         ///   - value: 数式変換後の値。
         ///   - unit: 数値単位。
+        ///   - vehicleModelCode: 車種専用PIDの適用型式。
         ///   - payload: 元の応答データ。
         ///   - decodingFailure: 数値化不能理由。
-        init(sequence: Int64, observedAt: Date, service: UInt8, pid: UInt8, nameKey: String?, value: Double?, unit: String?, payload: [UInt8], decodingFailure: DecodingFailure?) {
+        init(sequence: Int64, observedAt: Date, service: UInt8, pid: UInt8, nameKey: String?, value: Double?, unit: String?, vehicleModelCode: String? = nil, payload: [UInt8], decodingFailure: DecodingFailure?) {
             self.sequence = sequence
             self.observedAt = observedAt
             self.service = service
@@ -69,6 +72,7 @@ struct SessionLogAnalysisState: Equatable {
             self.nameKey = nameKey
             self.value = value
             self.unit = unit
+            self.vehicleModelCode = vehicleModelCode
             self.payload = payload
             self.decodingFailure = decodingFailure
         }
@@ -86,6 +90,14 @@ struct SessionLogAnalysisState: Equatable {
     var totalSampleCount: Int?
     /// 数式変換できずRawのまま保持するサンプル件数です。
     var rawOnlySampleCount: Int { timeline.count - decodedSampleCount }
+    /// 数値化済みサンプルをService/PID単位へまとめた折れ線系列です。
+    var pidSeries: [SessionPIDSeries] = []
+    /// 速度・回転数の滞在傾向と車速積算距離をまとめた走行サマリーです。
+    var performanceSummary: SessionPerformanceSummary = .empty
+    /// 取得できたPIDを車両部品・系統の観察目的へ結び付けた表示状態です。
+    var componentInsights: [SessionComponentInsight] = []
+    /// 近接時刻で対応付けられる代表PID組の散布図状態です。
+    var relationships: [SessionPIDRelationship] = []
     /// 保存元または変換定義の読込失敗を示すキーです。
     var failureKey: String?
 }

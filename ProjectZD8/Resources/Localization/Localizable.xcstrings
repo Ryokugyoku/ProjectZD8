@@ -482,7 +482,52 @@
         }
       }
     },
+    "analysis.chart.time" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Time"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tiempo"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "時刻"
+          }
+        }
+      }
+    },
+    "analysis.chart.value" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Value"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Valor"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "値"
+          }
+        }
+      }
+    },
     "analysis.column.pid" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -505,6 +550,7 @@
       }
     },
     "analysis.column.raw" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -527,6 +573,7 @@
       }
     },
     "analysis.column.time" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -549,6 +596,7 @@
       }
     },
     "analysis.column.value" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -566,6 +614,314 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "変換値"
+          }
+        }
+      }
+    },
+    "analysis.components.diagnostics.body" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PID 31 is distance since codes were cleared; PID 21 is distance with the MIL on. They do not identify a clear date or fault cause and depend on ECU behavior."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El PID 31 es distancia desde el borrado y el 21 distancia con MIL. No identifican fecha ni causa y dependen de la ECU."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PID 31は故障コード消去後、PID 21はMIL点灯中の累積距離です。消去日時や原因は特定できず、ECUの挙動にも依存します。"
+          }
+        }
+      }
+    },
+    "analysis.components.diagnostics.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Diagnostic distance history"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Historial de distancia de diagnóstico"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "診断距離履歴"
+          }
+        }
+      }
+    },
+    "analysis.components.electrical.body" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ECU supply voltage can be compared across rpm and electrical load. It is not a direct alternator-output measurement or a standalone diagnosis."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El voltaje visto por la ECU puede compararse con rpm y carga eléctrica. No mide directamente el alternador ni lo diagnostica por sí solo."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ECUが見ている電圧を回転数や電装負荷と比較できます。オルタネータ出力の直接測定ではなく、単独診断もできません。"
+          }
+        }
+      }
+    },
+    "analysis.components.electrical.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Charging and electrical"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Carga y sistema eléctrico"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "充電・電源系"
+          }
+        }
+      }
+    },
+    "analysis.components.empty" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No recorded PID can be linked to a supported vehicle system."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ningún PID registrado puede vincularse a un sistema compatible."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "対応している部品・系統へ結び付けられるPIDがありません。"
+          }
+        }
+      }
+    },
+    "analysis.components.exhaust.body" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Catalyst or DPF temperature shows thermal history. Temperature alone does not establish soot loading, regeneration success, or component health."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La temperatura muestra historial térmico. Por sí sola no determina hollín, regeneración ni estado del componente."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "触媒・DPF温度から熱履歴を見ます。温度だけでは煤量、再生成否、部品健全性を確定できません。"
+          }
+        }
+      }
+    },
+    "analysis.components.exhaust.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Exhaust aftertreatment"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Postratamiento de escape"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "排気後処理系"
+          }
+        }
+      }
+    },
+    "analysis.components.fuel_intake.body" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fuel trims and airflow help compare mixture correction and intake demand. Interpret them with load, rpm, temperature, leaks, and service data."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Los ajustes y el caudal ayudan a comparar mezcla y admisión. Interprételos con carga, rpm, temperatura y datos de servicio."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "燃料補正と吸入空気量から混合気補正や吸気需要を比較します。負荷、回転数、温度、漏れ、整備情報も必要です。"
+          }
+        }
+      }
+    },
+    "analysis.components.fuel_intake.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fuel and intake"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Combustible y admisión"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "燃料・吸気系"
+          }
+        }
+      }
+    },
+    "analysis.components.statistics" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Latest %1$.1f / Min %2$.1f / Avg %3$.1f / Max %4$.1f %5$@"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Últ. %1$.1f / Mín. %2$.1f / Prom. %3$.1f / Máx. %4$.1f %5$@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "最新 %1$.1f / 最小 %2$.1f / 平均 %3$.1f / 最大 %4$.1f %5$@"
+          }
+        }
+      }
+    },
+    "analysis.components.subtitle" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Only systems backed by recorded PIDs are shown. Values are comparison clues, not standalone fault diagnoses."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Solo se muestran sistemas respaldados por PID. Los valores sirven para comparar, no para diagnosticar por sí solos."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "取得できたPIDがある系統だけを表示します。値は比較の手掛かりであり、単独で故障を確定するものではありません。"
+          }
+        }
+      }
+    },
+    "analysis.components.thermal.body" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Coolant and oil temperatures show warm-up and heat trends. Compare similar conditions; one value does not identify a failed part."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Las temperaturas muestran calentamiento y tendencia térmica. Compare condiciones similares; un valor no identifica una pieza averiada."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "冷却水温・油温から暖機と熱の推移を見ます。近い条件で比較し、単発の値だけで部品故障を断定しません。"
+          }
+        }
+      }
+    },
+    "analysis.components.thermal.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cooling and lubrication"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Refrigeración y lubricación"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "冷却・潤滑系"
+          }
+        }
+      }
+    },
+    "analysis.components.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vehicle systems"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sistemas del vehículo"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "部品・系統から見る"
           }
         }
       }
@@ -641,24 +997,25 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "SESSION PERFORMANCE ANALYSIS"
+            "value" : "SESSION DRIVING ANALYSIS"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ANÁLISIS DE RENDIMIENTO DE SESIÓN"
+            "value" : "ANÁLISIS DE CONDUCCIÓN DE SESIÓN"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "セッション性能解析"
+            "value" : "セッション走行解析"
           }
         }
       }
     },
     "analysis.hero.caption" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -702,6 +1059,94 @@
         }
       }
     },
+    "analysis.mode.overview" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Driving summary"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Resumen de conducción"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "走行サマリー"
+          }
+        }
+      }
+    },
+    "analysis.mode.relationships" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Relationships"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Relaciones"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "相関"
+          }
+        }
+      }
+    },
+    "analysis.mode.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "View"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vista"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "表示"
+          }
+        }
+      }
+    },
+    "analysis.mode.trends" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Trends"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tendencias"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "折れ線"
+          }
+        }
+      }
+    },
     "analysis.open" : {
       "localizations" : {
         "en" : {
@@ -720,6 +1165,336 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ログデータ解析"
+          }
+        }
+      }
+    },
+    "analysis.open.hint" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open driving summary and charts"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abrir resumen y gráficos"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "走行サマリー・グラフを開く"
+          }
+        }
+      }
+    },
+    "analysis.overview.distance" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recorded session distance"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Distancia registrada de sesión"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "記録済みセッション距離"
+          }
+        }
+      }
+    },
+    "analysis.overview.estimate_note" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Moving time, estimated distance, and rankings use adjacent observations. Long gaps are excluded, so totals can be shorter than connection time."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Los cálculos usan observaciones adyacentes. Se excluyen intervalos largos."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "走行時間・推定距離・ランキングは隣接観測から算出します。長い欠測は除くため、接続時間より短くなる場合があります。"
+          }
+        }
+      }
+    },
+    "analysis.overview.estimated_distance" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Estimated distance from speed"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Distancia estimada por velocidad"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "車速からの推定距離"
+          }
+        }
+      }
+    },
+    "analysis.overview.moving_duration" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Observed moving time"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tiempo en movimiento observado"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "観測走行時間"
+          }
+        }
+      }
+    },
+    "analysis.overview.ranking_empty" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not enough continuous observations to estimate duration."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No hay observaciones continuas suficientes."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "滞在時間を推定できる連続観測がありません。"
+          }
+        }
+      }
+    },
+    "analysis.overview.rpm_band" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$.0f–<%2$.0f rpm"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$.0f–<%2$.0f rpm"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$.0f〜%2$.0f rpm未満"
+          }
+        }
+      }
+    },
+    "analysis.overview.rpm_ranking" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Most-used engine-speed ranges"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rangos de rpm más usados"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "長く維持した回転域"
+          }
+        }
+      }
+    },
+    "analysis.overview.rpm_ranking_note" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ranks 500 rpm ranges. Low rpm alone does not prove sludge risk; engine type, load, oil temperature, oil specification, trip length, and maintenance also matter."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clasifica rangos de 500 rpm. Bajas rpm no demuestran lodos; importan motor, carga, aceite, trayecto y mantenimiento."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "500 rpm単位で順位化します。低回転が多いだけではスラッジリスクを確定できず、形式、負荷、油温、オイル規格、走行時間、整備履歴も必要です。"
+          }
+        }
+      }
+    },
+    "analysis.overview.session_duration" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connection time"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tiempo de conexión"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "接続時間"
+          }
+        }
+      }
+    },
+    "analysis.overview.speed_band" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$.0f–<%2$.0f km/h"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$.0f–<%2$.0f km/h"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$.0f〜%2$.0f km/h未満"
+          }
+        }
+      }
+    },
+    "analysis.overview.speed_ranking" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Most-used speed ranges"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rangos de velocidad más usados"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "長く維持した速度帯"
+          }
+        }
+      }
+    },
+    "analysis.overview.speed_ranking_note" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ranks 10 km/h ranges by estimated observed duration. The 0–10 range includes stops and very low speed."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clasifica rangos de 10 km/h. El rango 0–10 incluye paradas y velocidad muy baja."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "10 km/h単位で推定観測時間を順位化します。0〜10 km/h帯には停車とごく低速の移動を含みます。"
+          }
+        }
+      }
+    },
+    "analysis.overview.subtitle" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Shows time and distance separately from operating-range rankings."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Muestra tiempo y distancia por separado de los rangos."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "時間・距離と、よく使った速度帯・回転域を分けて表示します。"
+          }
+        }
+      }
+    },
+    "analysis.overview.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Session and driving summary"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Resumen de sesión y conducción"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "セッション・走行サマリー"
           }
         }
       }
@@ -747,6 +1522,7 @@
       }
     },
     "analysis.raw.unavailable" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -764,6 +1540,292 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Rawのみ"
+          }
+        }
+      }
+    },
+    "analysis.relationship.empty.body" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A scatter plot appears when a supported PID pair has at least two observations within three seconds."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El diagrama aparece cuando un par PID compatible tiene al menos dos observaciones con una diferencia máxima de tres segundos."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "対応するPID組に3秒以内の観測が2点以上あると表示されます。"
+          }
+        }
+      }
+    },
+    "analysis.relationship.empty.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No relationship available"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No hay relación disponible"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "表示できる相関がありません"
+          }
+        }
+      }
+    },
+    "analysis.relationship.guide.common" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose a PID pair, then look at the spread and clusters of dots. Each dot combines the nearest observations within three seconds; use the chart to compare operating patterns, not to prove causation or diagnose a fault by itself."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elige un par de PID y observa la dispersión y los grupos de puntos. Cada punto combina las observaciones más cercanas en un intervalo de tres segundos; usa el gráfico para comparar patrones de funcionamiento, no para demostrar causalidad ni diagnosticar una avería por sí solo."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PIDの組を選び、点の広がりやまとまりを見ます。各点は3秒以内で最も近い観測同士を組み合わせたものです。運転状態の傾向比較に使い、因果関係の証明や単独での故障診断には使用しません。"
+          }
+        }
+      }
+    },
+    "analysis.relationship.guide.rpm_load" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Engine speed × calculated load shows which speed and relative-load regions were used. Compare dense regions and outliers between sessions to understand operating-range differences."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Régimen del motor × carga calculada muestra qué regiones de régimen y carga relativa se utilizaron. Compara las zonas densas y los valores atípicos entre sesiones para entender las diferencias de funcionamiento."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "エンジン回転数 × 算出負荷は、どの回転域・相対負荷域を使ったかを見る組です。点が集中する領域や外れ方をセッション間で比較し、運転領域の違いを把握できます。"
+          }
+        }
+      }
+    },
+    "analysis.relationship.guide.rpm_maf" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Engine speed × mass air flow shows how measured intake-air mass changed across engine speeds. Use changes in the curve or unusual clusters as comparison clues while accounting for load and driving conditions."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Régimen del motor × caudal de aire muestra cómo cambió la masa de aire de admisión medida según el régimen. Usa los cambios de la curva o grupos inusuales como pistas comparativas, teniendo en cuenta la carga y las condiciones de conducción."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "エンジン回転数 × 吸入空気量は、回転域に対して実測吸入空気質量がどう変化したかを見る組です。負荷や走行条件も考慮し、曲線の変化や不自然なまとまりを比較の手掛かりにします。"
+          }
+        }
+      }
+    },
+    "analysis.relationship.guide.rpm_speed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Engine speed × vehicle speed makes operating ranges, stops, acceleration, and possible shift-related changes easier to see. Compare the shape between similar routes; the plot does not identify a gear by itself."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Régimen del motor × velocidad del vehículo facilita ver rangos de uso, paradas, aceleraciones y posibles cambios relacionados con las marchas. Compara la forma entre rutas similares; el gráfico no identifica una marcha por sí solo."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "エンジン回転数 × 車速は、使用回転域、停車、加速、変速に伴う可能性のある変化を見やすくする組です。似た経路同士で形を比較しますが、この図だけでギア段を特定することはできません。"
+          }
+        }
+      }
+    },
+    "analysis.relationship.guide.speed_zd8_atf" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vehicle speed × ZD8 AT fluid temperature helps compare transmission temperature changes with driving load. It is observational data, not a diagnostic threshold."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Velocidad × temperatura ATF ZD8 permite comparar cambios térmicos con carga de conducción. Es observación, no umbral diagnóstico."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "車速 × ZD8 AT油温は、走行負荷に伴う変速機温度の変化を比較するための観察値です。診断しきい値ではありません。"
+          }
+        }
+      }
+    },
+    "analysis.relationship.guide.throttle_load" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Throttle position × calculated load compares throttle opening with relative engine load. Look for response shape, lag-like spread, and session-to-session differences; throttle position is not always the accelerator-pedal position."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Posición de la mariposa × carga calculada compara la apertura de la mariposa con la carga relativa del motor. Observa la forma de respuesta, la dispersión similar a un retraso y las diferencias entre sesiones; la posición de la mariposa no siempre equivale a la del pedal."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "スロットル開度 × 算出負荷は、スロットル開度と相対的なエンジン負荷を比較する組です。応答の形、遅れに見える広がり、セッション間の違いを見ます。スロットル開度はアクセルペダル位置と同一とは限りません。"
+          }
+        }
+      }
+    },
+    "analysis.relationship.guide.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "How to use this scatter plot"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cómo usar este diagrama de dispersión"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この散布図の見方"
+          }
+        }
+      }
+    },
+    "analysis.relationship.guide.trim_banks" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Short-term fuel trim Bank 1 × Bank 2 compares simultaneous correction tendencies between banks. A balanced cluster or persistent offset can guide comparison, but supported bank layout and other conditions must be confirmed before diagnosis."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajuste de combustible a corto plazo Banco 1 × Banco 2 compara las tendencias de corrección simultáneas. Un grupo equilibrado o un desplazamiento persistente orienta la comparación, pero deben confirmarse la disposición de bancos y otras condiciones antes de diagnosticar."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "短期燃料補正 Bank 1 × Bank 2は、両バンクの同時期の補正傾向を比べる組です。均衡したまとまりや継続的な偏りを比較の手掛かりにできますが、診断前に車両のバンク構成と他条件の確認が必要です。"
+          }
+        }
+      }
+    },
+    "analysis.relationship.pair" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PID pair"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Par de PID"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PIDの組み合わせ"
+          }
+        }
+      }
+    },
+    "analysis.relationship.subtitle" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pairs use the nearest observations within three seconds; this is not proof of causation."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Los pares usan las observaciones más cercanas dentro de tres segundos; no demuestran causalidad."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "3秒以内で最も近い観測を対応付けます。因果関係を示すものではありません。"
+          }
+        }
+      }
+    },
+    "analysis.relationship.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PID relationship"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Relación entre PID"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PIDの関係"
           }
         }
       }
@@ -835,6 +1897,7 @@
       }
     },
     "analysis.timeline.subtitle" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -857,6 +1920,7 @@
       }
     },
     "analysis.timeline.title" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -883,19 +1947,635 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Performance analysis"
+            "value" : "Driving analysis"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Análisis de rendimiento"
+            "value" : "Análisis de conducción"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "性能解析"
+            "value" : "走行解析"
+          }
+        }
+      }
+    },
+    "analysis.trend.average" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Average"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Promedio"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "平均"
+          }
+        }
+      }
+    },
+    "analysis.trend.empty.body" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A line chart appears when at least one PID can be decoded to numeric values."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El gráfico aparece cuando al menos un PID puede convertirse en valores numéricos."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "数値へ変換できるPIDがあると折れ線グラフを表示します。"
+          }
+        }
+      }
+    },
+    "analysis.trend.empty.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No numeric trend available"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No hay tendencia numérica"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "表示できる数値推移がありません"
+          }
+        }
+      }
+    },
+    "analysis.trend.guide.codes_cleared_distance" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PID 31 is cumulative distance since trouble codes were cleared. It does not provide the clear date and behavior depends on the ECU."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El PID 31 es distancia desde el borrado. No da la fecha y depende de la ECU."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PID 31は故障コード消去後の累積走行距離です。消去日時は含まず、リセット挙動や対応はECUごとに異なります。"
+          }
+        }
+      }
+    },
+    "analysis.trend.guide.coolant" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Coolant temperature shows warm-up and cooling behavior. Compare similar conditions; one excursion does not identify the failed cooling part."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La temperatura muestra calentamiento y refrigeración. Una variación no identifica la pieza causante."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "冷却水温は暖機と冷却挙動を示します。近い条件で比較し、単発変化だけで原因部品を特定しません。"
+          }
+        }
+      }
+    },
+    "analysis.trend.guide.exhaust_temperature" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Catalyst or DPF temperature shows thermal history. It does not quantify soot or prove regeneration or component health."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La temperatura muestra historial térmico. No cuantifica hollín ni demuestra regeneración o estado."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "触媒・DPF温度は熱履歴を示しますが、煤量、再生成否、部品健全性は確定できません。"
+          }
+        }
+      }
+    },
+    "analysis.trend.guide.fuel_trim" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fuel trim shows ECU mixture correction. Interpretation requires bank layout, closed-loop state, load, temperature, and vehicle limits."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El ajuste muestra corrección de mezcla. Requiere banco, lazo cerrado, carga, temperatura y límites."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "燃料補正はECUの混合気補正です。バンク構成、制御状態、負荷、温度、車種別基準が必要です。"
+          }
+        }
+      }
+    },
+    "analysis.trend.guide.generic" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This PID records the named value over time. Compare timing, range, and repeated changes with other conditions; do not infer a fault from this series alone."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este PID registra el valor indicado. Compare momento, rango y cambios; no deduzca una avería solo con esta serie."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "表示名の値を時系列で記録します。変化時刻、範囲、繰り返し方を他条件と比較し、この系列だけで故障を断定しません。"
+          }
+        }
+      }
+    },
+    "analysis.trend.guide.load" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Calculated load is ECU-derived relative load, not measured torque. Compare it with rpm, throttle, airflow, and road conditions."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La carga calculada es relativa, no par medido. Compárela con rpm, mariposa, aire y condiciones."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "算出負荷はECUが求める相対負荷で、実測トルクではありません。回転数、スロットル、吸入空気量、走行条件と比較します。"
+          }
+        }
+      }
+    },
+    "analysis.trend.guide.maf" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mass air flow is intake-air mass per second. Compare it with rpm, load, and throttle; conditions, leaks, restriction, contamination, or calibration can affect it."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El caudal es masa de aire por segundo. Compárelo con rpm, carga y mariposa; fugas, restricción o sensor pueden afectarlo."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "吸入空気量は1秒あたりの空気質量です。回転数、負荷、スロットルと比較し、漏れ、詰まり、汚れ、校正差も考慮します。"
+          }
+        }
+      }
+    },
+    "analysis.trend.guide.mil_distance" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PID 21 is cumulative distance traveled while the MIL was on. It does not identify the fault cause or when the lamp came on."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El PID 21 es distancia con MIL encendida. No identifica causa ni fecha."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PID 21はMIL点灯中の累積走行距離です。故障原因や点灯開始日時は特定できません。"
+          }
+        }
+      }
+    },
+    "analysis.trend.guide.odometer" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PID A6 is an ECU-reported odometer. Availability varies and it is not a certified instrument reading."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El PID A6 es odómetro informado por la ECU. Su disponibilidad varía y no es lectura certificada."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PID A6はECUが報告する累積走行距離です。対応は車両ごとに異なり、法定計器の証明値ではありません。"
+          }
+        }
+      }
+    },
+    "analysis.trend.guide.oil_temperature" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Oil temperature shows warm-up and heat exposure. It does not directly measure pressure, level, viscosity, or sludge."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La temperatura muestra calentamiento. No mide directamente presión, nivel, viscosidad ni lodos."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "油温は暖機と熱履歴を示しますが、油圧、油量、粘度、スラッジを直接測る値ではありません。"
+          }
+        }
+      }
+    },
+    "analysis.trend.guide.rpm" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PID 0C is engine speed. It shows rpm ranges, idle, acceleration, and possible shift changes; it does not identify load or gear by itself."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El PID 0C es rpm del motor. Muestra rangos, ralentí y aceleración; no identifica carga ni marcha."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PID 0Cはエンジン回転数です。使用域、アイドリング、加速、変速に伴う変化が見えますが、負荷やギア段は単独で特定できません。"
+          }
+        }
+      }
+    },
+    "analysis.trend.guide.runtime" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PID 1F is engine run time since the current start, not this app's session duration."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El PID 1F es tiempo desde el arranque, no duración de la sesión."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PID 1Fは現在の始動からのエンジン稼働時間で、アプリの接続時間とは異なります。"
+          }
+        }
+      }
+    },
+    "analysis.trend.guide.speed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PID 0D is ECU-reported vehicle speed. It shows stops, cruising, and acceleration; GPS speed can differ."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El PID 0D es velocidad informada por la ECU. Muestra paradas y aceleración; puede diferir del GPS."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PID 0DはECUが報告する車速です。停車、巡航、加減速が見えます。GPS速度とは差が出る場合があります。"
+          }
+        }
+      }
+    },
+    "analysis.trend.guide.throttle" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Throttle or pedal PIDs show commanded or measured position. Confirm the name: throttle and accelerator-pedal position are not interchangeable."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Los PID muestran posición de mariposa o pedal. Confirme el nombre; no son equivalentes."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "スロットル・ペダルPIDは要求値や実位置です。名称を確認し、スロットル開度とペダル位置を同一視しません。"
+          }
+        }
+      }
+    },
+    "analysis.trend.guide.voltage" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PID 42 is ECU supply voltage. Compare dips with rpm and electrical load; it is not direct alternator output."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El PID 42 es voltaje visto por la ECU. Compare caídas con rpm y carga; no es salida directa del alternador."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PID 42はECUが見ている電源電圧です。降下を回転数・電装負荷と比較できますが、オルタネータ出力の直接測定ではありません。"
+          }
+        }
+      }
+    },
+    "analysis.trend.guide.zd8_atf" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ZD8-specific AT fluid temperature is shown only after a response from the transmission ECU. Confirm operating conditions before interpreting it."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La temperatura ATF específica de ZD8 aparece solo tras respuesta de la ECU de transmisión. Confirme las condiciones antes de interpretarla."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ZD8専用AT油温は変速機ECUから応答を確認した場合だけ表示します。値の解釈前に走行条件を確認してください。"
+          }
+        }
+      }
+    },
+    "analysis.trend.guide.zd8_distance" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ZD8-specific vehicle distance is an ECU-reported cumulative value and is not a certified instrument reading."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La distancia específica de ZD8 es un valor acumulado informado por la ECU, no una lectura certificada."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ZD8専用走行距離はECUが報告する累積値であり、法定計器の証明値ではありません。"
+          }
+        }
+      }
+    },
+    "analysis.trend.maximum" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Maximum"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Máximo"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "最大"
+          }
+        }
+      }
+    },
+    "analysis.trend.minimum" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Minimum"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mínimo"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "最小"
+          }
+        }
+      }
+    },
+    "analysis.trend.pid" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PID to chart"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PID del gráfico"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "表示するPID"
+          }
+        }
+      }
+    },
+    "analysis.trend.subtitle" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "One PID is shown at a time so different units are never mixed."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se muestra un PID a la vez para no mezclar unidades diferentes."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "単位を混在させないため、1つのPIDずつ表示します。"
+          }
+        }
+      }
+    },
+    "analysis.trend.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Time trend"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tendencia temporal"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "時間変化"
+          }
+        }
+      }
+    },
+    "analysis.value.estimated_distance" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "~%.1f km"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "~%.1f km"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "約%.1f km"
+          }
+        }
+      }
+    },
+    "analysis.value.in_progress" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In progress"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En curso"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "継続中"
+          }
+        }
+      }
+    },
+    "analysis.value.unavailable" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not available"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No disponible"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "取得なし"
           }
         }
       }
@@ -1670,6 +3350,116 @@
         }
       }
     },
+    "garage.activity.duration" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Total time"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tiempo total"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "累積時間"
+          }
+        }
+      }
+    },
+    "garage.activity.last_log" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Last log"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Último registro"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "最終ログ"
+          }
+        }
+      }
+    },
+    "garage.activity.no_logs" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No logs yet"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sin registros"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ログなし"
+          }
+        }
+      }
+    },
+    "garage.activity.odometer" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Latest odometer"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Odómetro más reciente"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "最新の累積走行距離"
+          }
+        }
+      }
+    },
+    "garage.activity.sessions" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sessions"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sesiones"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "セッション"
+          }
+        }
+      }
+    },
     "garage.cancel" : {
       "localizations" : {
         "en" : {
@@ -1692,7 +3482,74 @@
         }
       }
     },
+    "garage.connection.active" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connected"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conectado"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "接続中"
+          }
+        }
+      }
+    },
+    "garage.connection.handoff" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Starting the vehicle connection…"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Iniciando la conexión del vehículo…"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "車両接続を開始しています…"
+          }
+        }
+      }
+    },
+    "garage.connection.in_progress" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connecting to vehicle…"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conectando con el vehículo…"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "車両へ接続中…"
+          }
+        }
+      }
+    },
     "garage.default" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -1741,19 +3598,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "This removes the vehicle profile from this account. This action cannot be undone."
+            "value" : "This permanently deletes the vehicle and all of its sessions and Raw logs from every device. This action cannot be undone."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Esto elimina el perfil del vehículo de esta cuenta. Esta acción no se puede deshacer."
+            "value" : "Esto elimina permanentemente el vehículo y todas sus sesiones y registros Raw de todos los dispositivos. Esta acción no se puede deshacer."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "このアカウントから車両プロフィールを削除します。この操作は取り消せません。"
+            "value" : "この車両と、車両に紐づく全てのセッションおよびRawログを全端末から完全に削除します。この操作は取り消せません。"
           }
         }
       }
@@ -1798,6 +3655,50 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "編集"
+          }
+        }
+      }
+    },
+    "garage.editor.save_hint" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apply this profile"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aplicar este perfil"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このプロフィールを反映"
+          }
+        }
+      }
+    },
+    "garage.editor.studio" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "VEHICLE STUDIO"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ESTUDIO DEL VEHÍCULO"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "VEHICLE STUDIO"
           }
         }
       }
@@ -2132,6 +4033,28 @@
         }
       }
     },
+    "garage.error.delete_active_session" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Disconnect the active vehicle session before deleting this vehicle."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Desconecta la sesión activa del vehículo antes de eliminarlo."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "接続中の車両セッションを終了してから、この車両を削除してください。"
+          }
+        }
+      }
+    },
     "garage.error.malformed_response" : {
       "localizations" : {
         "en" : {
@@ -2353,6 +4276,7 @@
       }
     },
     "garage.field.default" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2772,6 +4696,7 @@
       }
     },
     "garage.photo" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2811,6 +4736,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "写真を選択"
+          }
+        }
+      }
+    },
+    "garage.pid_settings.collecting" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Collecting"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recopilando"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "収集中"
           }
         }
       }
@@ -2859,6 +4806,116 @@
         }
       }
     },
+    "garage.pid_settings.filter" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Collection status"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Estado de recopilación"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "収集状態"
+          }
+        }
+      }
+    },
+    "garage.pid_settings.filter.all" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Todos"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "すべて"
+          }
+        }
+      }
+    },
+    "garage.pid_settings.filter.disabled" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paused"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En pausa"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "停止中"
+          }
+        }
+      }
+    },
+    "garage.pid_settings.filter.enabled" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Active"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Activos"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "収集中"
+          }
+        }
+      }
+    },
+    "garage.pid_settings.no_results" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No matching PIDs"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No hay PID coincidentes"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "一致するPIDがありません"
+          }
+        }
+      }
+    },
     "garage.pid_settings.open" : {
       "localizations" : {
         "en" : {
@@ -2881,24 +4938,90 @@
         }
       }
     },
-    "garage.pid_settings.search" : {
+    "garage.pid_settings.paused" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Search by PID"
+            "value" : "Paused"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Buscar por PID"
+            "value" : "En pausa"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "PID番号で検索"
+            "value" : "停止中"
+          }
+        }
+      }
+    },
+    "garage.pid_settings.results" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Supported PIDs"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PID compatibles"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "対応PID"
+          }
+        }
+      }
+    },
+    "garage.pid_settings.search" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search by name, mode, or PID"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Buscar por nombre, modo o PID"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "名称・Mode・PIDで検索"
+          }
+        }
+      }
+    },
+    "garage.pid_settings.summary %lld %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$lld of %2$lld PIDs enabled"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$lld de %2$lld PID activos"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%2$lld件中 %1$lld件を収集"
           }
         }
       }
@@ -3080,6 +5203,7 @@
       }
     },
     "garage.ready" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -3125,7 +5249,6 @@
       }
     },
     "garage.refresh" : {
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -3280,6 +5403,7 @@
       }
     },
     "garage.status.identifying" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -3341,6 +5465,72 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "登録車両を美しく整理し、iPhoneと同期します。"
+          }
+        }
+      }
+    },
+    "garage.summary.connected" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connected now"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conectados ahora"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "現在接続中"
+          }
+        }
+      }
+    },
+    "garage.summary.sessions" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recorded sessions"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sesiones registradas"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "記録セッション"
+          }
+        }
+      }
+    },
+    "garage.summary.vehicles" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Registered vehicles"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vehículos registrados"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "登録車両"
           }
         }
       }
@@ -3784,6 +5974,94 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "走行ログは現在開発中です"
+          }
+        }
+      }
+    },
+    "history.detail.disposition.regular" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Regular data"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Datos normales"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正式データ"
+          }
+        }
+      }
+    },
+    "history.detail.disposition.review" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Confirmation required"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Requiere confirmación"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ユーザー確認が必要"
+          }
+        }
+      }
+    },
+    "history.detail.disposition.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Session handling"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tratamiento de sesión"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "セッション判定"
+          }
+        }
+      }
+    },
+    "history.detail.disposition.user_accepted" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "User-confirmed stop"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Parada confirmada por el usuario"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ユーザー確認済み停止"
           }
         }
       }
@@ -4902,19 +7180,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Connection lost"
+            "value" : "Device connection lost (possibly unplugged)"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Conexión perdida"
+            "value" : "Conexión del dispositivo perdida (posible desconexión)"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "接続喪失"
+            "value" : "デバイス接続喪失（取り外しの可能性）"
           }
         }
       }
@@ -4994,19 +7272,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Vehicle not responding"
+            "value" : "Vehicle response stopped (possibly ignition off)"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "El vehículo no responde"
+            "value" : "Respuesta del vehículo detenida (posible encendido apagado)"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "車両が応答不能"
+            "value" : "車両応答停止（イグニッションOFFの可能性）"
           }
         }
       }
@@ -5197,7 +7475,6 @@
       }
     },
     "history.status.completed" : {
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -5220,7 +7497,6 @@
       }
     },
     "history.status.connected" : {
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -5243,7 +7519,6 @@
       }
     },
     "history.status.interrupted" : {
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -5261,6 +7536,292 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "中断"
+          }
+        }
+      }
+    },
+    "history.stop_review.accepted" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recorded as an intentional user stop. The observed end reason is preserved."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Registrada como parada intencional del usuario. Se conserva el motivo observado."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ユーザーが意図した停止として記録しました。観測した終了理由は保持しています。"
+          }
+        }
+      }
+    },
+    "history.stop_review.cancel" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keep warning"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mantener advertencia"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "警告のままにする"
+          }
+        }
+      }
+    },
+    "history.stop_review.card.action" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Review stop"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Revisar parada"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "停止内容を確認"
+          }
+        }
+      }
+    },
+    "history.stop_review.card.connection_lost" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The adapter or device connection disappeared. Confirm only if you intentionally unplugged it."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La conexión del adaptador o dispositivo desapareció. Confirma solo si lo desconectaste intencionalmente."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "アダプターまたはデバイス接続が失われました。意図して取り外した場合だけ確認してください。"
+          }
+        }
+      }
+    },
+    "history.stop_review.card.no_response" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The vehicle stopped responding. Confirm only if you intentionally switched the ignition off."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El vehículo dejó de responder. Confirma solo si apagaste el encendido intencionalmente."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "車両応答が停止しました。意図してイグニッションをOFFにした場合だけ確認してください。"
+          }
+        }
+      }
+    },
+    "history.stop_review.card.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Was this an intentional stop?"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Fue una parada intencional?"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "意図した停止でしたか？"
+          }
+        }
+      }
+    },
+    "history.stop_review.confirm" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use as regular data"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Usar como datos normales"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正式データとして扱う"
+          }
+        }
+      }
+    },
+    "history.stop_review.error" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The stop confirmation could not be saved. The warning remains unchanged."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo guardar la confirmación. La advertencia no ha cambiado."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "停止確認を保存できませんでした。警告状態は変更していません。"
+          }
+        }
+      }
+    },
+    "history.stop_review.error.dismiss" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OK"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aceptar"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "閉じる"
+          }
+        }
+      }
+    },
+    "history.stop_review.error.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Could not save confirmation"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo guardar la confirmación"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "確認を保存できませんでした"
+          }
+        }
+      }
+    },
+    "history.stop_review.message.connection_lost" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The app observed a lost device connection. If you intentionally unplugged the OBD device, it can be treated as regular data while preserving this observed reason."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La app detectó la pérdida de conexión del dispositivo. Si desconectaste intencionalmente el dispositivo OBD, puede tratarse como datos normales conservando el motivo observado."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "デバイス接続の喪失を観測しました。OBDデバイスを意図して取り外した場合は、この終了理由を残したまま正式データとして扱えます。"
+          }
+        }
+      }
+    },
+    "history.stop_review.message.no_response" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The app observed that the vehicle stopped responding. If you intentionally switched the ignition off, it can be treated as regular data while preserving this observed reason."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La app detectó que el vehículo dejó de responder. Si apagaste intencionalmente el encendido, puede tratarse como datos normales conservando el motivo observado."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "車両応答の停止を観測しました。意図してイグニッションをOFFにした場合は、この終了理由を残したまま正式データとして扱えます。"
+          }
+        }
+      }
+    },
+    "history.stop_review.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Confirm session stop"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Confirmar parada de sesión"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "セッション停止の確認"
           }
         }
       }
@@ -5421,6 +7982,7 @@
       }
     },
     "history.training.integrity.pending" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -5443,6 +8005,7 @@
       }
     },
     "history.training.integrity.title" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -5465,6 +8028,7 @@
       }
     },
     "history.training.integrity.verified" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -5531,6 +8095,7 @@
       }
     },
     "history.training.pending" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -5597,6 +8162,7 @@
       }
     },
     "history.training.ready" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -6832,6 +9398,9 @@
           }
         }
       }
+    },
+    "km" : {
+
     },
     "obd.pid.01.00.name" : {
       "extractionState" : "stale",
@@ -12395,6 +14964,182 @@
         }
       }
     },
+    "obd.pid.zd8.21.02.correlation" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Compare start and end values within the same session; do not compare unrelated vehicles or reset histories."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Compare inicio y fin de la misma sesión; no mezcle vehículos ni historiales reiniciados."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "同一セッションの開始値と終了値を比較し、別車両やリセット履歴とは混在させないでください。"
+          }
+        }
+      }
+    },
+    "obd.pid.zd8.21.02.name" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vehicle Distance"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Distancia del vehículo"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "走行距離"
+          }
+        }
+      }
+    },
+    "obd.pid.zd8.21.02.summary" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ZD8-specific cumulative vehicle distance reported by the engine ECU."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Distancia acumulada específica de ZD8 informada por la ECU del motor."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "エンジンECUが報告するZD8専用の累積走行距離です。"
+          }
+        }
+      }
+    },
+    "obd.pid.zd8.21.17.correlation" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Compare with vehicle speed and elapsed driving time under the same ambient and operating conditions."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Compare con velocidad y tiempo de conducción bajo las mismas condiciones ambientales y operativas."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "同じ外気・走行条件で車速や走行時間と合わせて比較してください。"
+          }
+        }
+      }
+    },
+    "obd.pid.zd8.21.17.high" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A high value alone does not identify a fault. Reduce load safely and follow the vehicle manual or professional inspection guidance."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un valor alto por sí solo no identifica una falla. Reduzca la carga con seguridad y siga el manual o una inspección profesional."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "高値だけで故障とは判断できません。安全に負荷を下げ、車両取扱説明書または専門点検の案内に従ってください。"
+          }
+        }
+      }
+    },
+    "obd.pid.zd8.21.17.low" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A low value may reflect ambient temperature or warm-up state. Confirm elapsed time and operating conditions."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un valor bajo puede reflejar ambiente o calentamiento. Confirme tiempo y condiciones de operación."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "低値は外気温や暖機状態を反映する場合があります。経過時間と走行条件を確認してください。"
+          }
+        }
+      }
+    },
+    "obd.pid.zd8.21.17.name" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AT Fluid Temperature"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Temperatura del fluido AT"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AT油温"
+          }
+        }
+      }
+    },
+    "obd.pid.zd8.21.17.summary" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ZD8 automatic-transmission fluid temperature reported by the transmission ECU."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Temperatura del fluido AT de ZD8 informada por la ECU de transmisión."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "変速機ECUが報告するZD8 AT車専用のAT油温です。"
+          }
+        }
+      }
+    },
     "Project ZD8" : {
 
     },
@@ -14656,6 +17401,28 @@
     },
     "VEHICLE / SESSION / SEQUENCE" : {
 
+    },
+    "vehicle_specific_pid.badge %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@-specific PID"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PID exclusivo de %@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@専用PID"
+          }
+        }
+      }
     },
     "ZD8" : {
 

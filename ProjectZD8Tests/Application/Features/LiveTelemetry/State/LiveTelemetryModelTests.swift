@@ -223,6 +223,33 @@ final class LiveTelemetryModelTests: XCTestCase {
         model.send(.stopRequested)
     }
 
+    /// ZD8専用PID対応時はBeta周期取得より専用値を含む通常取得を優先します。
+    ///
+    /// 責務: 走行距離とAT油温をリアルタイム表示へ残し専用走行距離をLoggingへ通知することを確認します。
+    func testZD8ExtendedPIDsUseStandardPollingAndNotifyVehicleSpecificOdometer() async {
+        let telemetry = ZD8ExtendedPIDTelemetryFake()
+        var observations: [ConnectionSessionDistanceObservation] = []
+        let model = LiveTelemetryModel(
+            readMajorPIDs: ReadMajorOBDPIDsUseCase(
+                definitionRepository: ZD8ExtendedPIDDefinitionRepository(),
+                telemetry: telemetry
+            ),
+            distanceDidChange: { observations.append($0) }
+        )
+
+        model.send(.startRequested(endpoint, vehicleID, .brzBetaPeriodic))
+        for _ in 0..<100 where model.state.phase != .loaded || observations.isEmpty {
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+
+        XCTAssertEqual(model.state.acquisitionMode, .standardPolling)
+        XCTAssertEqual(Set(model.state.samples.map(\.request)), Set(ZD8ExtendedPIDDefinitionRepository.requests))
+        XCTAssertEqual(observations.first, .init(source: .vehicleSpecificOdometer, kilometers: 12_345.6, vehicleModelCode: "ZD8"))
+        let periodicReadCount = await telemetry.periodicReadCount
+        XCTAssertEqual(periodicReadCount, 0)
+        model.send(.stopRequested)
+    }
+
     /// テスト用OBD接続終端です。
     private var endpoint: OBDConnectionEndpoint {
         .init(transport: .serial, systemIdentifier: "/dev/cu.test", displayName: "Test adapter")
@@ -308,6 +335,104 @@ private struct BRZBetaPIDDefinitionRepository: OBDPIDDefinitionRepository {
     ///   - pid: テストでは使用しないPID番号。
     /// - Returns: 常に `nil`。
     func definition(service: UInt8, pid: UInt8) throws -> OBDPIDDefinition? { nil }
+}
+
+/// 標準2件とZD8専用2件を返すテストRepositoryです。
+private struct ZD8ExtendedPIDDefinitionRepository: OBDPIDDefinitionRepository {
+    /// リアルタイム表示で期待する全要求です。
+    static let requests: [OBDPIDRequest] = BRZBetaPIDPolicy.requests + [
+        OBDPIDRequest(service: 0x21, pid: 0x02),
+        OBDPIDRequest(service: 0x21, pid: 0x17)
+    ]
+
+    /// 固定定義Repositoryを生成します。
+    ///
+    /// 責務: ZD8専用リアルタイム取得テスト用の定義供給境界を構築します。
+    init() {}
+
+    /// 標準2件とZD8専用2件の定義を返します。
+    ///
+    /// 責務: リアルタイム取得へ標準PIDおよび確定済みZD8専用PIDを供給します。
+    /// - Returns: 回転数、車速、走行距離、AT油温の定義。
+    func definitions() throws -> [OBDPIDDefinition] {
+        try BRZBetaPIDDefinitionRepository().definitions() + ZD8OBDPIDSeed.definitions
+    }
+
+    /// テスト対象外の保存要求を受け付けます。
+    ///
+    /// 責務: 未使用のPID定義保存を変更なしで完了します。
+    /// - Parameter definition: テストでは使用しない定義。
+    func upsert(_ definition: OBDPIDDefinition) throws {}
+
+    /// テスト対象外の単一定義読込へ未登録を返します。
+    ///
+    /// 責務: 未使用の単一PID照会を未登録結果へ変換します。
+    /// - Parameters:
+    ///   - service: テストでは使用しないService番号。
+    ///   - pid: テストでは使用しないPID番号。
+    /// - Returns: 常に `nil`。
+    func definition(service: UInt8, pid: UInt8) throws -> OBDPIDDefinition? { nil }
+}
+
+/// 標準PIDとZD8専用PIDへ固定応答を返す通信境界です。
+private actor ZD8ExtendedPIDTelemetryFake: OBDPIDTelemetryPort {
+    /// 周期読取を呼び出された回数です。
+    private(set) var periodicReadCount = 0
+
+    /// 空の読取履歴を生成します。
+    ///
+    /// 責務: ZD8専用リアルタイム取得テスト用の通信境界を構築します。
+    init() {}
+
+    /// 標準要求へ回転数と車速の固定Payloadを返します。
+    ///
+    /// 責務: 受け取った標準要求を数式評価可能な固定応答へ変換します。
+    /// - Parameters:
+    ///   - requests: 標準PID要求。
+    ///   - endpoint: テストでは使用しない終端。
+    /// - Returns: 要求に存在する回転数と車速のPayload。
+    func read(_ requests: [OBDPIDRequest], using endpoint: OBDConnectionEndpoint) async throws -> [OBDPIDRequest: [UInt8]] {
+        var responses: [OBDPIDRequest: [UInt8]] = [:]
+        for request in requests {
+            if request == OBDPIDRequest(service: 0x01, pid: 0x0C) { responses[request] = [0x1F, 0x40] }
+            if request == OBDPIDRequest(service: 0x01, pid: 0x0D) { responses[request] = [60] }
+        }
+        return responses
+    }
+
+    /// ZD8専用要求へ走行距離とAT油温の固定Payloadを返します。
+    ///
+    /// 責務: ヘッダー付き専用定義を数式評価可能な固定応答へ変換します。
+    /// - Parameters:
+    ///   - definitions: ZD8専用PID定義。
+    ///   - endpoint: テストでは使用しない終端。
+    /// - Returns: 走行距離とAT油温のPayload。
+    func readVehicleSpecific(_ definitions: [OBDPIDDefinition], using endpoint: OBDConnectionEndpoint) async throws -> [OBDPIDRequest: [UInt8]] {
+        var responses: [OBDPIDRequest: [UInt8]] = [:]
+        for definition in definitions {
+            let request = OBDPIDRequest(service: definition.service, pid: definition.pid)
+            if request.pid == 0x02 { responses[request] = [0x00, 0x01, 0xE2, 0x40] }
+            if request.pid == 0x17 { responses[request] = [130] }
+        }
+        return responses
+    }
+
+    /// 周期取得が選択されなかったことを検証用に記録します。
+    ///
+    /// 責務: 誤って送られた周期要求を回数へ記録して空応答を返します。
+    /// - Parameters:
+    ///   - requests: 周期PID要求。
+    ///   - endpoint: テストでは使用しない終端。
+    /// - Returns: 常に空の応答。
+    func readPeriodic(_ requests: [OBDPIDRequest], using endpoint: OBDConnectionEndpoint) async throws -> [OBDPIDRequest: [UInt8]] {
+        periodicReadCount += 1
+        return [:]
+    }
+
+    /// テスト通信セッションを終了します。
+    ///
+    /// 責務: 終了要求を副作用なしで受理します。
+    func endSession() async {}
 }
 
 /// 直接読取と周期読取へ固定した回転数と車速を返します。

@@ -10,6 +10,19 @@ protocol OBDPIDTelemetryPort: Sendable {
     /// - Throws: 非対応PID、接続、拒否応答、または形式不正の場合のエラー。
     func read(_ requests: [OBDPIDRequest], using endpoint: OBDConnectionEndpoint) async throws -> [OBDPIDRequest: [UInt8]]
 
+    /// 車両型式と送信ヘッダーが確認済みの専用PIDを読み取ります。
+    ///
+    /// 責務: 型式適用済みPID定義群を物理ECU指定の未加工応答へ変換します。
+    /// - Parameters:
+    ///   - definitions: 型式と11bit送信ヘッダーを持つ専用PID定義。
+    ///   - endpoint: OBDアダプターの物理終端。
+    /// - Returns: 応答が確認できたService/PIDごとの未加工データバイト。
+    /// - Throws: ヘッダー不正、非対応通信、拒否応答、または接続失敗の場合のエラー。
+    func readVehicleSpecific(
+        _ definitions: [OBDPIDDefinition],
+        using endpoint: OBDConnectionEndpoint
+    ) async throws -> [OBDPIDRequest: [UInt8]]
+
     /// アダプターへ周期送信を委譲して次の応答群を読み取ります。
     ///
     /// 責務: 許可済みService/PID要求群をアダプター管理の周期応答バイトへ変換します。
@@ -31,6 +44,21 @@ protocol OBDPIDTelemetryPort: Sendable {
 
 /// セッション資源を保持しないPID取得境界へ既定終了動作を提供します。
 extension OBDPIDTelemetryPort {
+    /// 専用PID通信を実装しない境界では明示的な非対応を返します。
+    ///
+    /// 責務: 任意実装の車種専用PID要求を安全な非対応結果へ変換します。
+    /// - Parameters:
+    ///   - definitions: 実行しない専用PID定義。
+    ///   - endpoint: 使用しないOBD終端。
+    /// - Returns: 正常終了しません。
+    /// - Throws: 常に `OBDPIDTelemetryError.unsupportedPID`。
+    func readVehicleSpecific(
+        _ definitions: [OBDPIDDefinition],
+        using endpoint: OBDConnectionEndpoint
+    ) async throws -> [OBDPIDRequest: [UInt8]] {
+        throw OBDPIDTelemetryError.unsupportedPID
+    }
+
     /// 周期送信を実装しない境界では明示的な非対応を返します。
     ///
     /// 責務: 任意実装の周期取得要求を安全な非対応結果へ変換します。

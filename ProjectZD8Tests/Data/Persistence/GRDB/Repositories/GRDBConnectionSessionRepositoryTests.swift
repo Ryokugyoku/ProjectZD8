@@ -31,14 +31,34 @@ final class GRDBConnectionSessionRepositoryTests: XCTestCase {
         session.endReason = .userDisconnected
         session.startingOdometerKilometers = 98_765.4
         session.endingOdometerKilometers = 98_767.9
+        session.distanceSourceModelCode = "ZD8"
 
         try repository.save(session)
         let loaded = try XCTUnwrap(repository.sessions(for: "account").first)
 
         XCTAssertEqual(loaded, session)
         XCTAssertEqual(loaded.status, .completed)
+        XCTAssertEqual(loaded.distanceSourceModelCode, "ZD8")
         XCTAssertEqual(try XCTUnwrap(loaded.recordedDistanceKilometers), 2.5, accuracy: 0.000_1)
         XCTAssertTrue(try repository.sessions(for: "different-account").isEmpty)
+    }
+
+    /// ユーザー確認済み停止を元終了理由と独立して永続化します。
+    ///
+    /// 責務: 1件の確認済み接続喪失セッションが終了理由と確認結果を欠落なく往復することを確認します。
+    func testSaveAndLoadPreservesUserInitiatedStopReview() throws {
+        let repository = try GRDBConnectionSessionRepository(databaseQueue: DatabaseQueue())
+        var session = ConnectionSession(accountIdentifier: "account", startedAt: Date(timeIntervalSince1970: 100))
+        session.endedAt = Date(timeIntervalSince1970: 200)
+        session.endReason = .connectionLost
+        session.stopReviewDecision = .userInitiated
+
+        try repository.save(session)
+        let loaded = try XCTUnwrap(repository.sessions(for: "account").first)
+
+        XCTAssertEqual(loaded.endReason, .connectionLost)
+        XCTAssertEqual(loaded.stopReviewDecision, .userInitiated)
+        XCTAssertEqual(loaded.status, .completed)
     }
 
     /// Rawログ追記後にライフサイクル保存しても集計と車両関連付けを保持します。

@@ -22,19 +22,31 @@ struct ConnectionSession: Identifiable, Equatable, Codable, Sendable {
     var endedAt: Date?
     /// 終了が確定した直接原因です。
     var endReason: ConnectionSessionEndReason?
+    /// 自動判別できない終了に対するユーザー確認結果です。
+    var stopReviewDecision: ConnectionSessionStopReviewDecision?
     /// 接続時点の登録車両表示情報です。
     var vehicle: ConnectionSessionVehicle?
     /// セッション内で最初に取得できた累積走行距離です。
     var startingOdometerKilometers: Double?
     /// セッション内で最後に取得できた累積走行距離です。
     var endingOdometerKilometers: Double?
+    /// 累積走行距離を車種専用PIDから取得した場合の型式です。
+    var distanceSourceModelCode: String?
     /// 未デコードRawログの件数と端末間保管状態です。
     var rawLogSummary: ConnectionSessionRawLogSummary
 
     /// 終了情報から履歴表示用の現在状態を返します。
     var status: Status {
         guard let endReason else { return .connected }
-        return endReason == .userDisconnected ? .completed : .interrupted
+        return endReason == .userDisconnected || stopReviewDecision == .userInitiated
+            ? .completed
+            : .interrupted
+    }
+
+    /// ユーザー操作の可能性があるため確認を提示できる終了かを示します。
+    var needsStopReview: Bool {
+        guard stopReviewDecision == nil else { return false }
+        return endReason == .vehicleNoResponse || endReason == .connectionLost
     }
 
     /// セッション中の累積走行距離差分です。
@@ -66,9 +78,11 @@ struct ConnectionSession: Identifiable, Equatable, Codable, Sendable {
         self.startedAt = startedAt
         endedAt = nil
         endReason = nil
+        stopReviewDecision = nil
         self.vehicle = vehicle
         startingOdometerKilometers = nil
         endingOdometerKilometers = nil
+        distanceSourceModelCode = nil
         rawLogSummary = .empty
     }
 }

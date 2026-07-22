@@ -46,7 +46,7 @@ final class LiveTelemetryModel {
     ///   - loadVehicleCapabilities: 車両別対応PIDの再利用または初回探索を行うユースケース。
     ///   - pollingPolicy: PIDごとの更新優先度と間引き周期を決める方針。
     ///   - sessionDidEnd: PID取得終了原因をLoggingへ通知する処理。
-    ///   - distanceDidChange: Service 01 PID A6またはPID 31の累積距離をLoggingへ通知する処理。
+    ///   - distanceDidChange: 車種専用PID、Service 01 PID A6、またはPID 31の累積距離をLoggingへ通知する処理。
     ///   - systemSleepInhibitor: 車両接続中だけシステムスリープを抑止する境界。
     init(
         state: LiveTelemetryState,
@@ -73,7 +73,7 @@ final class LiveTelemetryModel {
     ///   - readMajorPIDs: PID読取と数値化を行うユースケース。
     ///   - loadVehicleCapabilities: 車両別対応PIDの再利用または初回探索を行うユースケース。
     ///   - sessionDidEnd: PID取得終了原因をLoggingへ通知する処理。
-    ///   - distanceDidChange: Service 01 PID A6またはPID 31の累積距離をLoggingへ通知する処理。
+    ///   - distanceDidChange: 車種専用PID、Service 01 PID A6、またはPID 31の累積距離をLoggingへ通知する処理。
     ///   - systemSleepInhibitor: 車両接続中だけシステムスリープを抑止する境界。
     convenience init(
         readMajorPIDs: ReadMajorOBDPIDsUseCase,
@@ -190,12 +190,20 @@ final class LiveTelemetryModel {
         do {
             let definitions: [OBDPIDDefinition]
             if let loadVehicleCapabilities {
-                let capabilities = try await loadVehicleCapabilities.execute(vehicleID: vehicleID, endpoint: endpoint)
+                let vehicleModelCode = requestedMode == .brzBetaPeriodic
+                    ? ZD8VehicleModelPolicy.modelCode
+                    : nil
+                let capabilities = try await loadVehicleCapabilities.execute(
+                    vehicleID: vehicleID,
+                    vehicleModelCode: vehicleModelCode,
+                    endpoint: endpoint
+                )
                 definitions = try readMajorPIDs.loadDefinitions(for: capabilities)
             } else {
                 definitions = try readMajorPIDs.loadDefinitions()
             }
             if requestedMode == .brzBetaPeriodic,
+               !definitions.contains(where: \.isVehicleSpecific),
                let betaDefinitions = BRZBetaPIDPolicy().definitions(from: definitions),
                try await offerBRZBetaIfEligible(
                    standardDefinitions: definitions,
@@ -431,16 +439,21 @@ final class LiveTelemetryModel {
 
     /// PID観測一覧から優先順位が最も高い累積距離をLoggingへ通知します。
     ///
-    /// 責務: 1回分のPID観測をA6優先、PID 31代替の取得元付き累積距離通知へ変換します。
+    /// 責務: 1回分のPID観測を車種専用距離、A6、PID 31の優先順で取得元付き累積距離通知へ変換します。
     /// - Parameter samples: 今回取得できた数値化済みPID観測。
     private func notifyDistance(from samples: [OBDPIDSample]) {
         let candidates: [(OBDPIDRequest, ConnectionSessionDistanceSource)] = [
+            (OBDPIDRequest(service: 0x21, pid: 0x02), .vehicleSpecificOdometer),
             (OBDPIDRequest(service: 0x01, pid: 0xA6), .odometer),
             (OBDPIDRequest(service: 0x01, pid: 0x31), .distanceSinceCodesCleared)
         ]
         guard let candidate = candidates.compactMap({ request, source in
             samples.first(where: { $0.request == request }).map {
-                ConnectionSessionDistanceObservation(source: source, kilometers: $0.value)
+                ConnectionSessionDistanceObservation(
+                    source: source,
+                    kilometers: $0.value,
+                    vehicleModelCode: $0.vehicleModelCode
+                )
             }
         }).first else { return }
         distanceDidChange(candidate)

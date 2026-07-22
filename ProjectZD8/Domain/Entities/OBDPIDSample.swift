@@ -10,6 +10,8 @@ struct OBDPIDSample: Equatable, Identifiable, Sendable {
     let value: Double
     /// 定義に含まれる単位です。
     let unit: String
+    /// 車種専用PIDの場合に表示する型式です。
+    let vehicleModelCode: String?
     /// 観測完了日時です。
     let observedAt: Date
     /// 項目概要のローカライズキーです。
@@ -32,16 +34,18 @@ struct OBDPIDSample: Equatable, Identifiable, Sendable {
     ///   - nameKey: ローカライズ用名称キー。
     ///   - value: 定義式適用後の数値。
     ///   - unit: 数値の単位。
+    ///   - vehicleModelCode: 車種専用PIDの適用型式。
     ///   - observedAt: 観測完了日時。
     ///   - summaryKey: 項目概要のローカライズキー。
     ///   - highValueKey: 高値時説明のローカライズキー。
     ///   - lowValueKey: 低値時説明のローカライズキー。
     ///   - correlationKey: 相関項目説明のローカライズキー。
-    init(request: OBDPIDRequest, nameKey: String, value: Double, unit: String, observedAt: Date, summaryKey: String = "obd.pid.help.unconfirmed.summary", highValueKey: String = "obd.pid.help.unconfirmed.high", lowValueKey: String = "obd.pid.help.unconfirmed.low", correlationKey: String = "obd.pid.help.unconfirmed.correlation") {
+    init(request: OBDPIDRequest, nameKey: String, value: Double, unit: String, vehicleModelCode: String? = nil, observedAt: Date, summaryKey: String = "obd.pid.help.unconfirmed.summary", highValueKey: String = "obd.pid.help.unconfirmed.high", lowValueKey: String = "obd.pid.help.unconfirmed.low", correlationKey: String = "obd.pid.help.unconfirmed.correlation") {
         self.request = request
         self.nameKey = nameKey
         self.value = value
         self.unit = unit
+        self.vehicleModelCode = vehicleModelCode
         self.observedAt = observedAt
         self.summaryKey = summaryKey
         self.highValueKey = highValueKey

@@ -21,14 +21,17 @@ enum IOSApplicationComposition {
             live: UnavailableOBDPIDTelemetryAdapter(),
             demo: DemoOBDPIDTelemetryAdapter()
         )
+        let definitionRepository = makeOBDPIDDefinitionRepository()
         return LiveTelemetryModel(
             readMajorPIDs: ReadMajorOBDPIDsUseCase(
-                definitionRepository: makeOBDPIDDefinitionRepository(),
+                definitionRepository: definitionRepository,
                 telemetry: telemetry,
                 rawResponseDidReceive: rawResponseDidReceive
             ),
             loadVehicleCapabilities: LoadVehiclePIDCapabilitiesUseCase(
-                repository: makeVehiclePIDCapabilityRepository(), telemetry: telemetry
+                repository: makeVehiclePIDCapabilityRepository(),
+                telemetry: telemetry,
+                definitionRepository: definitionRepository
             ),
             sessionDidEnd: sessionDidEnd,
             distanceDidChange: distanceDidChange,
@@ -44,6 +47,7 @@ enum IOSApplicationComposition {
         do {
             let repository = try GRDBOBDPIDDefinitionRepository.openApplicationRepository()
             try StandardOBDPIDSeed.install(into: repository)
+            try ZD8OBDPIDSeed.install(into: repository)
             return repository
         } catch {
             return UnavailableOBDPIDDefinitionRepository()
@@ -63,17 +67,22 @@ enum IOSApplicationComposition {
     ///
     /// 責務: iOSの車両保存とデモ対応かつ実BLE未提供の識別境界をVehicleManagementへ結び付けます。
     /// - Returns: private database同期を使用する車両管理モデル。
+    /// - Parameter connectionSessionRepository: Garageの車両別ログ集計に使用する接続履歴取得先。
+    /// - Parameter vehicleSessionsDidDelete: 車両関連セッション削除後に履歴表示へ再読込を通知する処理。
     /// - Parameter connectionVehicleDidResolve: 接続対象車両、終端、OBD識別観測をLoggingと監視開始へ通知する処理。
     static func makeVehicleManagementModel(
+        connectionSessionRepository: any ConnectionSessionRepository & ConnectionSessionErasureRepository,
+        vehicleSessionsDidDelete: @escaping @MainActor () -> Void = {},
         connectionVehicleDidResolve: @escaping @MainActor (
             VehicleProfile,
             OBDConnectionEndpoint,
             VehicleIdentificationSnapshot
         ) -> Void = { _, _, _ in }
     ) -> VehicleManagementModel {
-        VehicleManagementModel(
+        let vehicleRepository = CloudKitVehicleRepository()
+        return VehicleManagementModel(
             state: VehicleManagementState(),
-            repository: CloudKitVehicleRepository(),
+            repository: vehicleRepository,
             identifyForConnection: IdentifyVehicleForConnectionUseCase(
                 identification: DemoAwareVehicleIdentificationAdapter(
                     live: UnavailableVehicleIdentificationAdapter(error: .transportUnsupported),
@@ -83,6 +92,16 @@ enum IOSApplicationComposition {
             photoImporter: VehiclePhotoFileImporter(),
             pidCapabilityRepository: makeVehiclePIDCapabilityRepository(),
             pidDefinitionRepository: makeOBDPIDDefinitionRepository(),
+            loadVehicleActivitySummaries: LoadVehicleActivitySummariesUseCase(
+                repository: connectionSessionRepository
+            ),
+            deleteVehicleWithSessions: DeleteVehicleWithSessionsUseCase(
+                sessionRepository: connectionSessionRepository,
+                localSessionErasureRepository: connectionSessionRepository,
+                sessionTransferRepository: CloudKitConnectionSessionTransferRepository(),
+                vehicleRepository: vehicleRepository
+            ),
+            vehicleSessionsDidDelete: vehicleSessionsDidDelete,
             connectionVehicleDidResolve: connectionVehicleDidResolve
         )
     }

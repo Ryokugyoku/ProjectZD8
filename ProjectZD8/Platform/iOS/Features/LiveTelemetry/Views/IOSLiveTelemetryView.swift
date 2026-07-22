@@ -29,7 +29,14 @@ struct IOSLiveTelemetryView: View {
                             List(categorySamples) { sample in
                                 HStack {
                                     VStack(alignment: .leading) {
-                                        Text(LocalizedStringKey(sample.nameKey))
+                                        HStack(spacing: 8) {
+                                            Text(LocalizedStringKey(sample.nameKey))
+                                            if let modelCode = sample.vehicleModelCode {
+                                                VehicleModelBadge(modelCode: modelCode)
+                                                    .scaleEffect(0.68)
+                                                    .frame(width: 26, height: 26)
+                                            }
+                                        }
                                         Text(formatted(sample)).font(.body.monospacedDigit())
                                     }
                                     Spacer()

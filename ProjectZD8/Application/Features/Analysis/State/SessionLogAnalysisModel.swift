@@ -58,6 +58,22 @@ final class SessionLogAnalysisModel {
                     }
                 )
                 guard state.sessionID == sessionID else { return }
+                let timeline = state.timeline
+                let visualizationTask = Task.detached(priority: .userInitiated) {
+                    guard !Task.isCancelled else { return Optional<SessionLogVisualizationSnapshot>.none }
+                    let snapshot = SessionLogVisualizationBuilder.build(from: timeline)
+                    return Task.isCancelled ? nil : snapshot
+                }
+                let visualization = await withTaskCancellationHandler {
+                    await visualizationTask.value
+                } onCancel: {
+                    visualizationTask.cancel()
+                }
+                guard let visualization, state.sessionID == sessionID else { return }
+                state.pidSeries = visualization.series
+                state.performanceSummary = visualization.performanceSummary
+                state.componentInsights = visualization.componentInsights
+                state.relationships = visualization.relationships
                 state.phase = .loaded
             } catch is CancellationError {
                 return

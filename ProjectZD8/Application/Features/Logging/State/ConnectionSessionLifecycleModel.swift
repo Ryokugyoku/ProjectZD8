@@ -146,9 +146,11 @@ final class ConnectionSessionLifecycleModel {
         if observation.source != selectedDistanceSource {
             session.startingOdometerKilometers = observation.kilometers
             session.endingOdometerKilometers = observation.kilometers
+            session.distanceSourceModelCode = observation.vehicleModelCode
         } else {
             guard session.endingOdometerKilometers != observation.kilometers else { return }
             session.endingOdometerKilometers = observation.kilometers
+            session.distanceSourceModelCode = observation.vehicleModelCode
         }
         do {
             try repository.save(session)

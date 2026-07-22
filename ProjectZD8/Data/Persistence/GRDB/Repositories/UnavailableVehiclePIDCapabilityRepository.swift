@@ -22,6 +22,15 @@ struct UnavailableVehiclePIDCapabilityRepository: VehiclePIDCapabilityRepository
     /// - Throws: 常に `UnavailableError`。
     func insertInitial(_ capabilities: [VehiclePIDCapability], for vehicleID: VehicleID) throws { throw UnavailableError() }
 
+    /// 利用不能な保存先では追加登録を失敗として返します。
+    ///
+    /// 責務: 専用PID追加要求を假成功にせず利用不能エラーへ変換します。
+    /// - Parameters:
+    ///   - capabilities: 保存しない対応PID。
+    ///   - vehicleID: 使用しない車両ID。
+    /// - Throws: 常に利用不能エラー。
+    func mergeDiscovered(_ capabilities: [VehiclePIDCapability], for vehicleID: VehicleID) throws { throw UnavailableError() }
+
     /// 常に選択更新失敗を通知します。
     ///
     /// 責務: PID収集選択更新を利用不能エラーへ変換します。

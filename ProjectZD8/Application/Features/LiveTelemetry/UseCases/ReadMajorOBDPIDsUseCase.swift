@@ -88,9 +88,15 @@ struct ReadMajorOBDPIDsUseCase {
         definitions: [OBDPIDDefinition],
         using endpoint: OBDConnectionEndpoint
     ) async throws -> [OBDPIDSample] {
-        let requests = definitions.map { OBDPIDRequest(service: $0.service, pid: $0.pid) }
+        let standardDefinitions = definitions.filter { !$0.isVehicleSpecific }
+        let vehicleSpecificDefinitions = definitions.filter(\.isVehicleSpecific)
+        let requests = standardDefinitions.map { OBDPIDRequest(service: $0.service, pid: $0.pid) }
         let startedAt = monotonicNanoseconds()
-        let responses = try await telemetry.read(requests, using: endpoint)
+        var responses = requests.isEmpty ? [:] : try await telemetry.read(requests, using: endpoint)
+        if !vehicleSpecificDefinitions.isEmpty {
+            let vehicleResponses = try await telemetry.readVehicleSpecific(vehicleSpecificDefinitions, using: endpoint)
+            responses.merge(vehicleResponses) { _, latest in latest }
+        }
         let observedAt = now()
         let elapsed = monotonicNanoseconds() &- startedAt
         try await recordRawResponses(responses, observedAt: observedAt, elapsedNanoseconds: elapsed)
@@ -102,6 +108,7 @@ struct ReadMajorOBDPIDsUseCase {
                 nameKey: definition.nameKey,
                 value: try evaluator.evaluate(definition, bytes: bytes),
                 unit: definition.unit,
+                vehicleModelCode: definition.vehicleModelCode,
                 observedAt: observedAt,
                 summaryKey: definition.summaryKey,
                 highValueKey: definition.highValueKey,
@@ -137,6 +144,7 @@ struct ReadMajorOBDPIDsUseCase {
                 nameKey: definition.nameKey,
                 value: try evaluator.evaluate(definition, bytes: bytes),
                 unit: definition.unit,
+                vehicleModelCode: definition.vehicleModelCode,
                 observedAt: observedAt,
                 summaryKey: definition.summaryKey,
                 highValueKey: definition.highValueKey,

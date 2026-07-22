@@ -57,6 +57,48 @@ nonisolated struct ELM327CurrentDataCommand: Sendable, ELM327CommandEncoding {
     var encodedData: Data { Data((requestID + "\r").utf8) }
 }
 
+/// 定義済みの車種専用PIDへ送る読取り専用ELMコマンドです。
+nonisolated struct ELM327VehicleSpecificPIDCommand: Sendable, ELM327CommandEncoding {
+    /// Service/PIDの複合識別子です。
+    let request: OBDPIDRequest
+
+    /// 定義済みの車種専用Service/PIDを固定します。
+    ///
+    /// 責務: 1件の専用PID定義を読取りコマンドへ変換します。
+    /// - Parameter definition: 型式と11bitヘッダーを持つ専用PID定義。
+    init?(definition: OBDPIDDefinition) {
+        guard definition.isVehicleSpecific, definition.service == 0x21 else { return nil }
+        request = OBDPIDRequest(service: definition.service, pid: definition.pid)
+    }
+
+    /// 未加工観測で使用する安定要求識別子です。
+    var requestID: String { String(format: "%02X%02X", request.service, request.pid) }
+
+    /// 復帰文字を付けた送信用ASCIIデータです。
+    var encodedData: Data { Data((requestID + "\r").utf8) }
+}
+
+/// ELMの11bit送信ヘッダーを検証済みCAN IDへ切り替えます。
+nonisolated struct ELM327TransmitHeaderCommand: Sendable, ELM327CommandEncoding {
+    /// 設定する11bit CAN IDです。
+    let header: UInt16
+
+    /// 11bit範囲の送信ヘッダーだけを受理します。
+    ///
+    /// 責務: 1件の11bit CAN IDをELM送信ヘッダー設定へ変換します。
+    /// - Parameter header: 設定するCAN ID。
+    init?(header: UInt16) {
+        guard header <= 0x7FF else { return nil }
+        self.header = header
+    }
+
+    /// 未加工観測で使用する安定要求識別子です。
+    var requestID: String { String(format: "ATSH%03X", header) }
+
+    /// 復帰文字を付けた送信用ASCIIデータです。
+    var encodedData: Data { Data((requestID + "\r").utf8) }
+}
+
 /// OBDLinkへ2件の読取り専用標準PID周期送信を設定する型付きコマンドです。
 enum STNBRZBetaPeriodicCommand: String, Sendable, ELM327CommandEncoding {
     /// 登録済み周期メッセージを解除します。

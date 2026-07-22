@@ -34,6 +34,34 @@ final class GRDBOBDPIDDefinitionRepositoryTests: XCTestCase {
         XCTAssertEqual(definition.sourceURI, "https://www.csselectronics.com/pages/obd2-pid-table-on-board-diagnostics-j1979")
     }
 
+    /// ZD8専用定義をヘッダーおよび型式スコープとともに登録します。
+    ///
+    /// 責務: 確定済みの走行距離とAT油温だけがZD8専用定義として永続化されることを確認します。
+    func testInstallsOnlyConfirmedZD8DefinitionsWithVehicleScope() throws {
+        let repository = try GRDBOBDPIDDefinitionRepository(databaseQueue: DatabaseQueue())
+
+        try ZD8OBDPIDSeed.install(into: repository)
+
+        let definitions = try repository.definitions()
+        XCTAssertEqual(definitions, ZD8OBDPIDSeed.definitions)
+        XCTAssertEqual(definitions.map(\.header), [0x7E0, 0x7E1])
+        XCTAssertEqual(definitions.map(\.vehicleModelCode), ["ZD8", "ZD8"])
+        XCTAssertEqual(definitions.map(\.pid), [0x02, 0x17])
+    }
+
+    /// ヘッダーと型式の片方だけを持つ専用PIDを拒否します。
+    ///
+    /// 責務: SQL直接書込みでも車種専用PIDの適用範囲を部分登録できないことを確認します。
+    func testVehicleSpecificScopeRequiresHeaderAndModelCodeTogether() throws {
+        let queue = try DatabaseQueue()
+        _ = try GRDBOBDPIDDefinitionRepository(databaseQueue: queue)
+
+        try queue.write { database in
+            XCTAssertThrowsError(try insertVehicleScopeDirect(database, header: 0x7E0, modelCode: nil, pid: 0x02))
+            XCTAssertThrowsError(try insertVehicleScopeDirect(database, header: nil, modelCode: "ZD8", pid: 0x17))
+        }
+    }
+
     /// 登録順に依存せずService/PID順の一覧を取得します。
     ///
     /// 責務: GRDB一覧読込が全PID定義を安定した識別子順で復元することを確認します。
@@ -136,6 +164,27 @@ final class GRDBOBDPIDDefinitionRepositoryTests: XCTestCase {
                 VALUES (?, 1, 'x', ?, 'A', '', NULL, NULL, 's', 1, 's', 'h', 'l', 'c')
                 """,
             arguments: [service, byteCount]
+        )
+    }
+
+    /// 車種専用スコープ列を指定してSQLへ直接挿入します。
+    ///
+    /// 責務: ヘッダーと型式の組合せを車種専用制約へ渡します。
+    /// - Parameters:
+    ///   - database: 書込み中のDB接続。
+    ///   - header: ECU送信ヘッダー。
+    ///   - modelCode: 適用型式。
+    ///   - pid: レコードを区別するPID。
+    /// - Throws: DB制約に違反した場合のGRDBエラー。
+    private func insertVehicleScopeDirect(_ database: Database, header: Int?, modelCode: String?, pid: Int) throws {
+        try database.execute(
+            sql: """
+                INSERT INTO obd_pid_definitions
+                    (service, pid, nameKey, requiredByteCount, formula, unit, minimumValue, maximumValue,
+                     sourceURI, revision, summaryKey, highValueKey, lowValueKey, correlationKey, header, vehicleModelCode)
+                VALUES (33, ?, 'x', 1, 'A', '', NULL, NULL, 's', 1, 's', 'h', 'l', 'c', ?, ?)
+                """,
+            arguments: [pid, header, modelCode]
         )
     }
 }
