@@ -57,6 +57,7 @@ struct MacOSConnectionHistoryView: View {
             }
             .accessibilityIdentifier("macos-connection-history")
         }
+        .onAppear { send(.refreshRequested) }
         .onChange(of: Set(state.sessions.map(\.id))) { _, availableSessionIDs in
             navigationState.returnFromDeletedSession(availableSessionIDs: availableSessionIDs)
         }

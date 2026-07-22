@@ -67,6 +67,142 @@ final class SynchronizeConnectionSessionsUseCaseTests: XCTestCase {
         XCTAssertEqual(local.markedReceipts.first?.1, newest)
     }
 
+    /// iPhoneはCloudKit上の検証済みセッションをローカル履歴へ取り込みます。
+    ///
+    /// 責務: Macなど別端末で保存されたセッションがiPhone側へ復元されることを確認します。
+    func testIPhoneImportsVerifiedTransferWithoutPublishingMacReceipt() async throws {
+        var session = ConnectionSession(
+            accountIdentifier: "account",
+            startedAt: Date(timeIntervalSince1970: 100),
+            vehicle: ConnectionSessionVehicle(profile: VehicleProfile(vin: "ZD8VIN", name: "BRZ"))
+        )
+        session.endedAt = Date(timeIntervalSince1970: 110)
+        session.endReason = .userDisconnected
+        let transfer = VerifiedConnectionSessionTransfer(
+            package: ConnectionSessionTransferPackage(session: session, entries: []),
+            manifestDigest: "manifest"
+        )
+        let local = SynchronizationLocalRepository(sessions: [])
+        let cloud = SynchronizationTransferRepository(transfers: [transfer], receipts: [])
+        let useCase = SynchronizeConnectionSessionsUseCase(
+            sessionRepository: local,
+            rawLogRepository: local,
+            sessionErasureRepository: local,
+            transferRepository: cloud,
+            role: .iPhone
+        )
+
+        try await useCase.execute(accountIdentifier: "account")
+
+        XCTAssertEqual(local.importedTransfers, [transfer])
+        XCTAssertTrue(local.markedReceipts.isEmpty)
+        XCTAssertTrue(cloud.publishedReceipts.isEmpty)
+    }
+
+    /// Raw応答がないMacセッションも履歴としてCloudKitへ保存しiPhoneへ取り込みます。
+    ///
+    /// 責務: macOSで終了したメタデータのみのセッションがiPhone履歴へ届く双方向経路を確認します。
+    func testMacMetadataOnlySessionUploadsAndIPhoneImports() async throws {
+        var session = ConnectionSession(
+            accountIdentifier: "account",
+            startedAt: Date(timeIntervalSince1970: 100),
+            vehicle: ConnectionSessionVehicle(profile: VehicleProfile(vin: "ZD8VIN", name: "BRZ"))
+        )
+        session.endedAt = Date(timeIntervalSince1970: 110)
+        session.endReason = .userDisconnected
+        let macLocal = SynchronizationLocalRepository(sessions: [session])
+        let iPhoneLocal = SynchronizationLocalRepository(sessions: [])
+        let cloud = SynchronizationTransferRepository(transfers: [], receipts: [])
+        let macUseCase = SynchronizeConnectionSessionsUseCase(
+            sessionRepository: macLocal,
+            rawLogRepository: macLocal,
+            sessionErasureRepository: macLocal,
+            transferRepository: cloud,
+            role: .macOS,
+            installationIdentity: LocalInstallationIdentity(id: "mac-installation", displayName: "Garage Mac")
+        )
+        let iPhoneUseCase = SynchronizeConnectionSessionsUseCase(
+            sessionRepository: iPhoneLocal,
+            rawLogRepository: iPhoneLocal,
+            sessionErasureRepository: iPhoneLocal,
+            transferRepository: cloud,
+            role: .iPhone
+        )
+
+        try await macUseCase.execute(accountIdentifier: "account")
+        try await iPhoneUseCase.execute(accountIdentifier: "account")
+
+        XCTAssertEqual(cloud.uploadedSessionIDs, [session.id])
+        XCTAssertEqual(iPhoneLocal.importedTransfers.map(\.package.session.id), [session.id])
+        XCTAssertEqual(iPhoneLocal.importedTransfers.first?.package.entries, [])
+    }
+
+    /// ローカルが送信済みでもCloudKitレコードが欠けていれば既存セッションを再公開します。
+    ///
+    /// 責務: 過去の送信済み状態だけが残ったMacセッションをCloudKitへ自己修復することを確認します。
+    func testUploadedLocalSessionIsReuploadedWhenRemoteTransferIsMissing() async throws {
+        var session = ConnectionSession(accountIdentifier: "account")
+        session.endedAt = Date(timeIntervalSince1970: 110)
+        session.endReason = .userDisconnected
+        session.rawLogSummary = ConnectionSessionRawLogSummary(
+            recordCount: 0,
+            byteCount: 0,
+            localState: .empty,
+            cloudState: .uploaded,
+            manifestDigest: "missing-remote-manifest",
+            macImportReceipt: nil
+        )
+        let local = SynchronizationLocalRepository(sessions: [session])
+        let cloud = SynchronizationTransferRepository(transfers: [], receipts: [])
+        let useCase = SynchronizeConnectionSessionsUseCase(
+            sessionRepository: local,
+            rawLogRepository: local,
+            sessionErasureRepository: local,
+            transferRepository: cloud,
+            role: .iPhone
+        )
+
+        try await useCase.execute(accountIdentifier: "account")
+
+        XCTAssertEqual(cloud.uploadedSessionIDs, [session.id])
+        XCTAssertEqual(local.importedTransfers.map(\.package.session.id), [session.id])
+    }
+
+    /// CloudKitに同じManifestが実在する送信済みセッションは再公開しません。
+    ///
+    /// 責務: 既存セッション救済が正常なCloudKitレコードを不要に上書きしないことを確認します。
+    func testUploadedLocalSessionIsNotReuploadedWhenRemoteManifestMatches() async throws {
+        var session = ConnectionSession(accountIdentifier: "account")
+        session.endedAt = Date(timeIntervalSince1970: 110)
+        session.endReason = .userDisconnected
+        session.rawLogSummary = ConnectionSessionRawLogSummary(
+            recordCount: 0,
+            byteCount: 0,
+            localState: .empty,
+            cloudState: .uploaded,
+            manifestDigest: "remote-manifest",
+            macImportReceipt: nil
+        )
+        let transfer = VerifiedConnectionSessionTransfer(
+            package: ConnectionSessionTransferPackage(session: session, entries: []),
+            manifestDigest: "remote-manifest"
+        )
+        let local = SynchronizationLocalRepository(sessions: [session])
+        let cloud = SynchronizationTransferRepository(transfers: [transfer], receipts: [])
+        let useCase = SynchronizeConnectionSessionsUseCase(
+            sessionRepository: local,
+            rawLogRepository: local,
+            sessionErasureRepository: local,
+            transferRepository: cloud,
+            role: .iPhone
+        )
+
+        try await useCase.execute(accountIdentifier: "account")
+
+        XCTAssertTrue(cloud.uploadedSessionIDs.isEmpty)
+        XCTAssertEqual(local.importedTransfers, [transfer])
+    }
+
     /// Macは検証済みPayloadをローカルへ取り込んでから同じManifestの受領証を公開します。
     ///
     /// 責務: Mac同期が車両付きセッション取込、ローカル証跡、CloudKit受領証の順で完了することを確認します。
@@ -232,7 +368,7 @@ private final class SynchronizationLocalRepository: ConnectionSessionRepository,
 @MainActor
 private final class SynchronizationTransferRepository: ConnectionSessionTransferRepository {
     /// 取得で返す検証済み転送です。
-    private let transfers: [VerifiedConnectionSessionTransfer]
+    private var transfers: [VerifiedConnectionSessionTransfer]
     /// 取得で返すMac受領証です。
     private let receipts: [(ConnectionSessionID, ConnectionSessionMacImportReceipt)]
     /// 取得で返す削除済みセッションIDです。
@@ -258,15 +394,17 @@ private final class SynchronizationTransferRepository: ConnectionSessionTransfer
         self.deletedIDs = deletedIDs
     }
 
-    /// このテストでは固定Digestを返します。
+    /// 送信Payloadを後続端末が取得できる転送として記録します。
     ///
-    /// 責務: テスト対象外のCloudKit送信要求を満たします。
+    /// 責務: 1件のCloudKit送信要求を検証済み転送と送信履歴へ変換します。
     /// - Parameters:
-    ///   - package: 使用しない転送Payload。
+    ///   - package: 後続の取得へ保存する転送Payload。
     ///   - accountIdentifier: 使用しないアカウント識別子。
     /// - Returns: 固定Digest。
     func upload(_ package: ConnectionSessionTransferPackage, for accountIdentifier: String) async throws -> String {
         uploadedSessionIDs.append(package.session.id)
+        transfers.removeAll { $0.package.session.id == package.session.id }
+        transfers.append(VerifiedConnectionSessionTransfer(package: package, manifestDigest: "uploaded"))
         return "uploaded"
     }
 

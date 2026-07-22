@@ -44,6 +44,7 @@ struct IOSConnectionHistoryView: View {
                 }
             }
             .refreshable { send(.refreshRequested) }
+            .onAppear { send(.refreshRequested) }
             .accessibilityIdentifier("ios-connection-history")
         }
         .alert(

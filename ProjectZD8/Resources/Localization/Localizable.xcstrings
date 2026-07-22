@@ -3328,6 +3328,9 @@
         }
       }
     },
+    "BRZ" : {
+
+    },
     "common.close" : {
       "localizations" : {
         "en" : {
@@ -17245,6 +17248,72 @@
         }
       }
     },
+    "telemetry.section.all" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All live values"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Todos los valores en vivo"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "すべての現在値"
+          }
+        }
+      }
+    },
+    "telemetry.section.brz" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "BRZ-specific telemetry"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Telemetría específica del BRZ"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "BRZ専用テレメトリ"
+          }
+        }
+      }
+    },
+    "telemetry.section.now" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Driving now"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conducción actual"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "いまの走行"
+          }
+        }
+      }
+    },
     "telemetry.status.brz_beta_periodic" : {
       "localizations" : {
         "en" : {
@@ -17285,6 +17354,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "対応PIDを確認中…"
+          }
+        }
+      }
+    },
+    "telemetry.status.responding_count" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "responding PIDs"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PID con respuesta"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "応答中のPID"
           }
         }
       }

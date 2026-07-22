@@ -117,9 +117,9 @@ enum IOSApplicationComposition {
 
     /// iPhone向けセッション同期ユースケースを生成します。
     ///
-    /// 責務: iPhoneのローカルセッション正本をCloudKit送信とMac受領証取得へ結び付けます。
+    /// 責務: iPhoneのローカルセッション正本をCloudKit双方向転送とMac受領証取得へ結び付けます。
     /// - Parameter storage: 接続履歴とRawログを保持する共通ローカル保存先。
-    /// - Returns: iPhone送信元として動作するセッション同期ユースケース。
+    /// - Returns: iPhoneで送受信するセッション同期ユースケース。
     static func makeConnectionSessionSynchronization(
         storage: any ConnectionSessionRepository & ConnectionSessionRawLogRepository & ConnectionSessionErasureRepository
     ) -> SynchronizeConnectionSessionsUseCase {

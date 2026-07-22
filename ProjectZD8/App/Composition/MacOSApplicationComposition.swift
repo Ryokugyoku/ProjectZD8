@@ -121,9 +121,9 @@ enum MacOSApplicationComposition {
 
     /// Mac向けセッション同期ユースケースを生成します。
     ///
-    /// 責務: Macのローカルセッション正本をCloudKit受信と永続取込受領証へ結び付けます。
+    /// 責務: Macのローカルセッション正本をCloudKit双方向転送と永続取込受領証へ結び付けます。
     /// - Parameter storage: 接続履歴とRawログを保持する共通ローカル保存先。
-    /// - Returns: Mac取込先として動作するセッション同期ユースケース。
+    /// - Returns: Macで送受信と取込証明を行うセッション同期ユースケース。
     static func makeConnectionSessionSynchronization(
         storage: any ConnectionSessionRepository & ConnectionSessionRawLogRepository & ConnectionSessionErasureRepository
     ) -> SynchronizeConnectionSessionsUseCase {

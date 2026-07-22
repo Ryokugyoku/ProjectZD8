@@ -310,11 +310,13 @@ final class GRDBConnectionSessionRepository: ConnectionSessionRepository, Connec
                    digest != transfer.manifestDigest {
                     throw ConnectionSessionRepositoryError.integrityConflict
                 }
-                let currentEntries = try rawLogRecords(for: package.session.id, database: database)
-                    .compactMap { $0.makeDomainEntry() }
-                if existing.rawLogSummary.localState == .available,
-                   currentEntries == package.entries {
-                    return
+                if existing.rawLogSummary.manifestDigest == transfer.manifestDigest {
+                    guard existing.rawLogSummary.localState != .removed else { return }
+                    let currentEntries = try rawLogRecords(for: package.session.id, database: database)
+                        .compactMap { $0.makeDomainEntry() }
+                    if currentEntries == package.entries {
+                        return
+                    }
                 }
             }
             var imported = package.session

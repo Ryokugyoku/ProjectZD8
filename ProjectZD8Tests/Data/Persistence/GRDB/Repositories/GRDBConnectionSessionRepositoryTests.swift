@@ -206,6 +206,79 @@ final class GRDBConnectionSessionRepositoryTests: XCTestCase {
         XCTAssertTrue(try repository.entries(for: session.id).isEmpty)
     }
 
+    /// 同一Manifestの再受信では明示的に除去したローカルRawログを復元しません。
+    ///
+    /// 責務: iPhoneのローカル除去状態とMac受領証が後続同期でも保持されることを確認します。
+    func testRepeatedTransferImportPreservesRemovedLocalPayloadState() throws {
+        let repository = try GRDBConnectionSessionRepository(databaseQueue: DatabaseQueue())
+        var session = ConnectionSession(accountIdentifier: "account", startedAt: Date(timeIntervalSince1970: 100))
+        try repository.save(session)
+        try repository.append(
+            OBDRawResponseObservation(
+                observedAt: Date(timeIntervalSince1970: 101),
+                batchElapsedNanoseconds: 2_000_000,
+                request: OBDPIDRequest(service: 0x01, pid: 0x0D),
+                payload: [0x32]
+            ),
+            to: session.id
+        )
+        session.endedAt = Date(timeIntervalSince1970: 102)
+        session.endReason = .userDisconnected
+        try repository.save(session)
+        let uploadedSession = try XCTUnwrap(repository.sessions(for: "account").first)
+        let uploadedEntries = try repository.entries(for: session.id)
+        let transfer = VerifiedConnectionSessionTransfer(
+            package: ConnectionSessionTransferPackage(session: uploadedSession, entries: uploadedEntries),
+            manifestDigest: "digest"
+        )
+        try repository.markCloudUploaded(sessionID: session.id, manifestDigest: "digest")
+        let receipt = ConnectionSessionMacImportReceipt(
+            deviceID: "mac-installation",
+            deviceName: "Garage Mac",
+            importedAt: Date(timeIntervalSince1970: 103),
+            manifestDigest: "digest"
+        )
+        try repository.markMacImported(receipt, sessionID: session.id)
+        try repository.removeLocalEntries(for: session.id)
+
+        try repository.importVerifiedTransfer(transfer)
+
+        let loaded = try XCTUnwrap(repository.sessions(for: "account").first)
+        XCTAssertEqual(loaded.rawLogSummary.localState, .removed)
+        XCTAssertEqual(loaded.rawLogSummary.macImportReceipt, receipt)
+        XCTAssertTrue(try repository.entries(for: session.id).isEmpty)
+    }
+
+    /// 同一Manifestの空ログセッション再受信では既存のMac受領証を保持します。
+    ///
+    /// 責務: メタデータのみのセッション取込が冪等で受領証を再生成不要にすることを確認します。
+    func testRepeatedMetadataOnlyTransferImportPreservesMacReceipt() throws {
+        let repository = try GRDBConnectionSessionRepository(databaseQueue: DatabaseQueue())
+        var session = ConnectionSession(accountIdentifier: "account", startedAt: Date(timeIntervalSince1970: 100))
+        session.endedAt = Date(timeIntervalSince1970: 102)
+        session.endReason = .userDisconnected
+        try repository.save(session)
+        let transfer = VerifiedConnectionSessionTransfer(
+            package: ConnectionSessionTransferPackage(session: session, entries: []),
+            manifestDigest: "digest"
+        )
+        try repository.markCloudUploaded(sessionID: session.id, manifestDigest: "digest")
+        let receipt = ConnectionSessionMacImportReceipt(
+            deviceID: "mac-installation",
+            deviceName: "Garage Mac",
+            importedAt: Date(timeIntervalSince1970: 103),
+            manifestDigest: "digest"
+        )
+        try repository.markMacImported(receipt, sessionID: session.id)
+
+        try repository.importVerifiedTransfer(transfer)
+
+        let loaded = try XCTUnwrap(repository.sessions(for: "account").first)
+        XCTAssertEqual(loaded.rawLogSummary.localState, .empty)
+        XCTAssertEqual(loaded.rawLogSummary.macImportReceipt, receipt)
+        XCTAssertTrue(try repository.entries(for: session.id).isEmpty)
+    }
+
     /// 同じアカウントのRawログを登録車両IDごとにセッション境界付きで抽出します。
     ///
     /// 責務: 将来の学習入力が別車両のRawレコードを混在させず取得できることを確認します。

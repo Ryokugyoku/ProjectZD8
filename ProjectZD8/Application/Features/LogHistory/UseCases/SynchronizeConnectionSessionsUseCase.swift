@@ -2,13 +2,13 @@ import Foundation
 
 /// 接続セッション同期で現在端末が担う役割です。
 enum ConnectionSessionSyncDeviceRole: Equatable, Sendable {
-    /// Rawログを取得しMac受領証を待つiPhoneです。
+    /// セッションを送受信しMac受領証を表示するiPhoneです。
     case iPhone
-    /// Rawログを取り込み学習元として保持するMacです。
+    /// セッションを送受信し取込受領証を発行するMacです。
     case macOS
 }
 
-/// 終了済みセッションをCloudKitへ送り、Mac取込受領証を反映します。
+/// 終了済みセッションをCloudKit経由で双方向同期し、Mac取込受領証を反映します。
 @MainActor
 struct SynchronizeConnectionSessionsUseCase {
     /// 接続履歴のローカル保存先です。
@@ -62,12 +62,15 @@ struct SynchronizeConnectionSessionsUseCase {
     /// - Throws: ローカル保存、CloudKit転送、検証、またはMac取込に失敗した場合のエラー。
     func execute(accountIdentifier: String) async throws {
         try await applySessionDeletions(accountIdentifier: accountIdentifier)
-        try await uploadPendingSessions(accountIdentifier: accountIdentifier)
-        switch role {
-        case .iPhone:
+        let remoteTransfers = try await transferRepository.downloadTransfers(for: accountIdentifier)
+        let remoteManifestDigests = try manifestDigestsBySessionID(remoteTransfers)
+        let uploadedTransfers = try await uploadPendingSessions(
+            accountIdentifier: accountIdentifier,
+            remoteManifestDigests: remoteManifestDigests
+        )
+        try await importTransfers(remoteTransfers + uploadedTransfers, accountIdentifier: accountIdentifier)
+        if role == .iPhone {
             try await applyMacReceipts(accountIdentifier: accountIdentifier)
-        case .macOS:
-            try await importTransfersOnMac(accountIdentifier: accountIdentifier)
         }
     }
 
@@ -87,35 +90,82 @@ struct SynchronizeConnectionSessionsUseCase {
     /// ローカルの終了済み送信待ちセッションをCloudKitへ保存します。
     ///
     /// 責務: 送信可能な全ローカルセッションをCloudKit Assetと保存済みManifestへ変換します。
-    /// - Parameter accountIdentifier: 同期対象のAppleアカウント識別子。
+    /// - Parameters:
+    ///   - accountIdentifier: 同期対象のAppleアカウント識別子。
+    ///   - remoteManifestDigests: CloudKitで実在確認できたセッション別Manifest。
+    /// - Returns: 今回CloudKitへ保存した検証可能な転送Payload。
     /// - Throws: 履歴読込、Rawログ読込、またはCloudKit保存に失敗した場合のエラー。
-    private func uploadPendingSessions(accountIdentifier: String) async throws {
+    private func uploadPendingSessions(
+        accountIdentifier: String,
+        remoteManifestDigests: [ConnectionSessionID: String]
+    ) async throws -> [VerifiedConnectionSessionTransfer] {
         let sessions = try sessionRepository.sessions(for: accountIdentifier)
-        for session in sessions where shouldUpload(session) {
+        var uploadedTransfers: [VerifiedConnectionSessionTransfer] = []
+        for session in sessions where try shouldUpload(
+            session,
+            remoteManifestDigest: remoteManifestDigests[session.id]
+        ) {
             do {
                 let entries = try rawLogRepository.entries(for: session.id)
+                let package = ConnectionSessionTransferPackage(session: session, entries: entries)
                 let digest = try await transferRepository.upload(
-                    ConnectionSessionTransferPackage(session: session, entries: entries),
+                    package,
                     for: accountIdentifier
                 )
                 try rawLogRepository.markCloudUploaded(sessionID: session.id, manifestDigest: digest)
+                uploadedTransfers.append(
+                    VerifiedConnectionSessionTransfer(package: package, manifestDigest: digest)
+                )
             } catch {
                 try? rawLogRepository.markCloudUploadFailed(sessionID: session.id)
                 throw error
             }
         }
+        return uploadedTransfers
     }
 
-    /// セッションが現在CloudKit送信対象かを返します。
+    /// セッション履歴が現在CloudKit送信対象かを返します。
     ///
-    /// 責務: 1件の接続セッションを終了、Raw保有、転送状態で送信対象判定します。
-    /// - Parameter session: 判定する接続セッション。
+    /// 責務: 1件の接続セッションを終了、ローカル除去、CloudKit実在状態で送信対象判定します。
+    /// - Parameters:
+    ///   - session: 判定する接続セッション。
+    ///   - remoteManifestDigest: CloudKitで実在確認できたManifest。
     /// - Returns: CloudKitへ新規送信または再送する場合は `true`。
-    private func shouldUpload(_ session: ConnectionSession) -> Bool {
-        session.endedAt != nil
-            && session.rawLogSummary.localState == .available
-            && session.rawLogSummary.recordCount > 0
-            && session.rawLogSummary.cloudState != .uploaded
+    /// - Throws: 同じセッションIDでローカルとCloudKitのManifestが競合する場合のエラー。
+    private func shouldUpload(
+        _ session: ConnectionSession,
+        remoteManifestDigest: String?
+    ) throws -> Bool {
+        guard session.endedAt != nil,
+              session.rawLogSummary.localState != .removed else { return false }
+        if let remoteManifestDigest {
+            if let localManifestDigest = session.rawLogSummary.manifestDigest,
+               localManifestDigest != remoteManifestDigest {
+                throw ConnectionSessionRepositoryError.integrityConflict
+            }
+            return false
+        }
+        return true
+    }
+
+    /// CloudKit転送群をセッション別Manifest辞書へ変換します。
+    ///
+    /// 責務: 全検証済み転送を重複競合のないセッションID別Manifestへ変換します。
+    /// - Parameter transfers: CloudKitから取得した検証済み転送群。
+    /// - Returns: セッションIDをキーとするManifest辞書。
+    /// - Throws: 同じセッションIDに異なるManifestが含まれる場合のエラー。
+    private func manifestDigestsBySessionID(
+        _ transfers: [VerifiedConnectionSessionTransfer]
+    ) throws -> [ConnectionSessionID: String] {
+        var output: [ConnectionSessionID: String] = [:]
+        for transfer in transfers {
+            let sessionID = transfer.package.session.id
+            if let existing = output[sessionID], existing != transfer.manifestDigest {
+                throw ConnectionSessionRepositoryError.integrityConflict
+            }
+            output[sessionID] = transfer.manifestDigest
+        }
+        return output
     }
 
     /// CloudKit上のMac受領証をiPhone側セッションへ反映します。
@@ -132,18 +182,23 @@ struct SynchronizeConnectionSessionsUseCase {
         }
     }
 
-    /// CloudKitセッションをMacへ取り込み受領証を発行します。
+    /// CloudKitセッションを現在端末へ取り込み、Macでは受領証を発行します。
     ///
-    /// 責務: 全検証済み転送をMacローカル正本とCloudKit受領証へ変換します。
-    /// - Parameter accountIdentifier: 同期対象のAppleアカウント識別子。
-    /// - Throws: Mac識別情報不在、CloudKit取得、ローカル取込、または受領証保存に失敗した場合のエラー。
-    private func importTransfersOnMac(accountIdentifier: String) async throws {
-        guard let installationIdentity else {
-            throw ConnectionSessionRepositoryError.invalidState
-        }
-        let transfers = try await transferRepository.downloadTransfers(for: accountIdentifier)
+    /// 責務: 全検証済み転送を端末ローカル正本と役割に応じたMac受領証へ変換します。
+    /// - Parameters:
+    ///   - transfers: ローカルへ取り込む検証済み転送群。
+    ///   - accountIdentifier: 同期対象のAppleアカウント識別子。
+    /// - Throws: CloudKit取得、ローカル取込、Mac識別情報不在、または受領証保存に失敗した場合のエラー。
+    private func importTransfers(
+        _ transfers: [VerifiedConnectionSessionTransfer],
+        accountIdentifier: String
+    ) async throws {
         for transfer in transfers {
             try rawLogRepository.importVerifiedTransfer(transfer)
+            guard role == .macOS else { continue }
+            guard let installationIdentity else {
+                throw ConnectionSessionRepositoryError.invalidState
+            }
             let receipt = ConnectionSessionMacImportReceipt(
                 deviceID: installationIdentity.id,
                 deviceName: installationIdentity.displayName,
