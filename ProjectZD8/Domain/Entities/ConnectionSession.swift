@@ -26,6 +26,8 @@ struct ConnectionSession: Identifiable, Equatable, Codable, Sendable {
     var stopReviewDecision: ConnectionSessionStopReviewDecision?
     /// 接続時点の登録車両表示情報です。
     var vehicle: ConnectionSessionVehicle?
+    /// ログ取得を開始した端末の表示情報です。
+    var acquisitionDevice: ConnectionSessionAcquisitionDevice?
     /// セッション内で最初に取得できた累積走行距離です。
     var startingOdometerKilometers: Double?
     /// セッション内で最後に取得できた累積走行距離です。
@@ -67,11 +69,13 @@ struct ConnectionSession: Identifiable, Equatable, Codable, Sendable {
     ///   - accountIdentifier: セッションを所有するAppleアカウント識別子。
     ///   - startedAt: HOMEで接続開始を押した日時。
     ///   - vehicle: 開始時点で確定済みの場合に保持する車両情報。
+    ///   - acquisitionDevice: ログ取得を開始した端末の表示情報。
     init(
         id: ConnectionSessionID = ConnectionSessionID(),
         accountIdentifier: String,
         startedAt: Date = Date(),
-        vehicle: ConnectionSessionVehicle? = nil
+        vehicle: ConnectionSessionVehicle? = nil,
+        acquisitionDevice: ConnectionSessionAcquisitionDevice? = nil
     ) {
         self.id = id
         self.accountIdentifier = accountIdentifier
@@ -80,6 +84,7 @@ struct ConnectionSession: Identifiable, Equatable, Codable, Sendable {
         endReason = nil
         stopReviewDecision = nil
         self.vehicle = vehicle
+        self.acquisitionDevice = acquisitionDevice
         startingOdometerKilometers = nil
         endingOdometerKilometers = nil
         distanceSourceModelCode = nil

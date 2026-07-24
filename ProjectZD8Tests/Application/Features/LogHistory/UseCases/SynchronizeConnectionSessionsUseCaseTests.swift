@@ -1,4 +1,5 @@
 import Foundation
+import GRDB
 import XCTest
 @testable import ProjectZD8
 
@@ -47,7 +48,16 @@ final class SynchronizeConnectionSessionsUseCaseTests: XCTestCase {
         let sessionID = ConnectionSessionID()
         let newest = makeReceipt(deviceID: "new", importedAt: 200)
         let older = makeReceipt(deviceID: "old", importedAt: 100)
-        let local = SynchronizationLocalRepository(sessions: [])
+        var session = ConnectionSession(id: sessionID, accountIdentifier: "account")
+        session.rawLogSummary = ConnectionSessionRawLogSummary(
+            recordCount: 0,
+            byteCount: 0,
+            localState: .empty,
+            cloudState: .uploaded,
+            manifestDigest: "manifest",
+            macImportReceipt: nil
+        )
+        let local = SynchronizationLocalRepository(sessions: [session])
         let cloud = SynchronizationTransferRepository(
             transfers: [],
             receipts: [(sessionID, newest), (sessionID, older)]
@@ -166,6 +176,10 @@ final class SynchronizeConnectionSessionsUseCaseTests: XCTestCase {
 
         XCTAssertEqual(cloud.uploadedSessionIDs, [session.id])
         XCTAssertEqual(local.importedTransfers.map(\.package.session.id), [session.id])
+        let transferredSummary = try XCTUnwrap(local.importedTransfers.first?.package.session.rawLogSummary)
+        XCTAssertEqual(transferredSummary.cloudState, .notUploaded)
+        XCTAssertNil(transferredSummary.manifestDigest)
+        XCTAssertNil(transferredSummary.macImportReceipt)
     }
 
     /// CloudKitに同じManifestが実在する送信済みセッションは再公開しません。
@@ -203,6 +217,45 @@ final class SynchronizeConnectionSessionsUseCaseTests: XCTestCase {
         XCTAssertEqual(local.importedTransfers, [transfer])
     }
 
+    /// 失敗状態のローカルセッションは同じ旧Manifestがリモートに残っていても再公開します。
+    ///
+    /// 責務: 保存後に内容が進んだセッションが古いCloudKit転送を置換し、自身の旧Payloadを再取込しないことを確認します。
+    func testFailedLocalSessionReplacesStaleRemoteTransferBeforeImport() async throws {
+        var localSession = ConnectionSession(accountIdentifier: "account")
+        localSession.endedAt = Date(timeIntervalSince1970: 120)
+        localSession.endReason = .userDisconnected
+        localSession.rawLogSummary = ConnectionSessionRawLogSummary(
+            recordCount: 0,
+            byteCount: 0,
+            localState: .empty,
+            cloudState: .failed,
+            manifestDigest: "stale-manifest",
+            macImportReceipt: nil
+        )
+        var staleRemoteSession = localSession
+        staleRemoteSession.endedAt = Date(timeIntervalSince1970: 110)
+        let staleTransfer = VerifiedConnectionSessionTransfer(
+            package: ConnectionSessionTransferPackage(session: staleRemoteSession, entries: []),
+            manifestDigest: "stale-manifest"
+        )
+        let local = SynchronizationLocalRepository(sessions: [localSession])
+        let cloud = SynchronizationTransferRepository(transfers: [staleTransfer], receipts: [])
+        let useCase = SynchronizeConnectionSessionsUseCase(
+            sessionRepository: local,
+            rawLogRepository: local,
+            sessionErasureRepository: local,
+            transferRepository: cloud,
+            role: .iPhone
+        )
+
+        try await useCase.execute(accountIdentifier: "account")
+
+        XCTAssertEqual(cloud.uploadedSessionIDs, [localSession.id])
+        XCTAssertEqual(local.importedTransfers.count, 1)
+        XCTAssertEqual(local.importedTransfers.first?.manifestDigest, "uploaded")
+        XCTAssertEqual(local.importedTransfers.first?.package.session.endedAt, localSession.endedAt)
+    }
+
     /// Macは検証済みPayloadをローカルへ取り込んでから同じManifestの受領証を公開します。
     ///
     /// 責務: Mac同期が車両付きセッション取込、ローカル証跡、CloudKit受領証の順で完了することを確認します。
@@ -238,6 +291,55 @@ final class SynchronizeConnectionSessionsUseCaseTests: XCTestCase {
         XCTAssertEqual(local.markedReceipts.first?.1.deviceID, "mac-installation")
         XCTAssertEqual(cloud.publishedReceipts.first?.0, session.id)
         XCTAssertEqual(cloud.publishedReceipts.first?.1, local.markedReceipts.first?.1)
+    }
+
+    /// iPhoneからMacへの取込と受領証返送で車両、端末、保管状態を維持します。
+    ///
+    /// 責務: 2つの実GRDB保存先を跨ぐ往復同期が履歴カード情報と各保管完了状態を確定することを確認します。
+    func testRoundTripBetweenIPhoneAndMacPreservesArchiveMetadataAndReceipts() async throws {
+        let iPhone = try GRDBConnectionSessionRepository(databaseQueue: DatabaseQueue())
+        let mac = try GRDBConnectionSessionRepository(databaseQueue: DatabaseQueue())
+        let cloud = SynchronizationTransferRepository(transfers: [], receipts: [])
+        let vehicle = ConnectionSessionVehicle(id: VehicleID(), name: "BRZ", displayIdentifier: "ZD8")
+        let sourceDevice = ConnectionSessionAcquisitionDevice(platform: .iPhone, name: "iPhone 17 Pro")
+        var session = ConnectionSession(
+            accountIdentifier: "account",
+            startedAt: Date(timeIntervalSince1970: 100),
+            vehicle: vehicle,
+            acquisitionDevice: sourceDevice
+        )
+        session.endedAt = Date(timeIntervalSince1970: 110)
+        session.endReason = .userDisconnected
+        try iPhone.save(session)
+        let iPhoneSync = SynchronizeConnectionSessionsUseCase(
+            sessionRepository: iPhone,
+            rawLogRepository: iPhone,
+            sessionErasureRepository: iPhone,
+            transferRepository: cloud,
+            role: .iPhone
+        )
+        let macSync = SynchronizeConnectionSessionsUseCase(
+            sessionRepository: mac,
+            rawLogRepository: mac,
+            sessionErasureRepository: mac,
+            transferRepository: cloud,
+            role: .macOS,
+            installationIdentity: LocalInstallationIdentity(id: "mac-installation", displayName: "MacBook Pro")
+        )
+
+        try await iPhoneSync.execute(accountIdentifier: "account")
+        try await macSync.execute(accountIdentifier: "account")
+        try await iPhoneSync.execute(accountIdentifier: "account")
+
+        let iPhoneResult = try XCTUnwrap(iPhone.sessions(for: "account").first)
+        let macResult = try XCTUnwrap(mac.sessions(for: "account").first)
+        XCTAssertEqual(macResult.vehicle, vehicle)
+        XCTAssertEqual(macResult.acquisitionDevice, sourceDevice)
+        XCTAssertEqual(macResult.rawLogSummary.cloudState, .uploaded)
+        XCTAssertTrue(macResult.rawLogSummary.isDurablyImportedByMac)
+        XCTAssertEqual(iPhoneResult.rawLogSummary.cloudState, .uploaded)
+        XCTAssertEqual(iPhoneResult.rawLogSummary.macImportReceipt?.deviceName, "MacBook Pro")
+        XCTAssertTrue(iPhoneResult.rawLogSummary.isDurablyImportedByMac)
     }
 
     /// 指定情報を持つMac取込受領証を生成します。
@@ -370,7 +472,7 @@ private final class SynchronizationTransferRepository: ConnectionSessionTransfer
     /// 取得で返す検証済み転送です。
     private var transfers: [VerifiedConnectionSessionTransfer]
     /// 取得で返すMac受領証です。
-    private let receipts: [(ConnectionSessionID, ConnectionSessionMacImportReceipt)]
+    private var receipts: [(ConnectionSessionID, ConnectionSessionMacImportReceipt)]
     /// 取得で返す削除済みセッションIDです。
     private let deletedIDs: Set<ConnectionSessionID>
     /// 公開されたMac受領証です。
@@ -430,6 +532,9 @@ private final class SynchronizationTransferRepository: ConnectionSessionTransfer
         for accountIdentifier: String
     ) async throws {
         publishedReceipts.append((sessionID, receipt))
+        receipts.removeAll { $0.0 == sessionID && $0.1.deviceID == receipt.deviceID }
+        receipts.append((sessionID, receipt))
+        receipts.sort { $0.1.importedAt > $1.1.importedAt }
     }
 
     /// 固定のMac受領証を返します。

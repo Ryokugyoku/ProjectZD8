@@ -25,7 +25,8 @@ final class GRDBConnectionSessionRepositoryTests: XCTestCase {
         var session = ConnectionSession(
             accountIdentifier: "account",
             startedAt: Date(timeIntervalSince1970: 100),
-            vehicle: ConnectionSessionVehicle(profile: vehicle)
+            vehicle: ConnectionSessionVehicle(profile: vehicle),
+            acquisitionDevice: ConnectionSessionAcquisitionDevice(platform: .macOS, name: "MacBook Pro")
         )
         session.endedAt = Date(timeIntervalSince1970: 200)
         session.endReason = .userDisconnected
@@ -38,6 +39,7 @@ final class GRDBConnectionSessionRepositoryTests: XCTestCase {
 
         XCTAssertEqual(loaded, session)
         XCTAssertEqual(loaded.status, .completed)
+        XCTAssertEqual(loaded.acquisitionDevice, session.acquisitionDevice)
         XCTAssertEqual(loaded.distanceSourceModelCode, "ZD8")
         XCTAssertEqual(try XCTUnwrap(loaded.recordedDistanceKilometers), 2.5, accuracy: 0.000_1)
         XCTAssertTrue(try repository.sessions(for: "different-account").isEmpty)
@@ -277,6 +279,151 @@ final class GRDBConnectionSessionRepositoryTests: XCTestCase {
         XCTAssertEqual(loaded.rawLogSummary.localState, .empty)
         XCTAssertEqual(loaded.rawLogSummary.macImportReceipt, receipt)
         XCTAssertTrue(try repository.entries(for: session.id).isEmpty)
+    }
+
+    /// 同一Manifestの再受信ではJSON日時精度差があってもローカルRawログを保持します。
+    ///
+    /// 責務: 検証済みManifestが同じ転送のミリ秒丸め差を内容競合として扱わないことを確認します。
+    func testRepeatedTransferWithSameManifestPreservesHigherPrecisionLocalContent() throws {
+        let repository = try GRDBConnectionSessionRepository(databaseQueue: DatabaseQueue())
+        var session = ConnectionSession(
+            accountIdentifier: "account",
+            startedAt: Date(timeIntervalSince1970: 100.123_456)
+        )
+        try repository.save(session)
+        try repository.append(
+            OBDRawResponseObservation(
+                observedAt: Date(timeIntervalSince1970: 101.123_456),
+                batchElapsedNanoseconds: 2_000_000,
+                request: OBDPIDRequest(service: 0x01, pid: 0x0D),
+                payload: [0x32]
+            ),
+            to: session.id
+        )
+        session.endedAt = Date(timeIntervalSince1970: 102.123_456)
+        session.endReason = .userDisconnected
+        try repository.save(session)
+        let localSession = try XCTUnwrap(repository.sessions(for: "account").first)
+        let localEntries = try repository.entries(for: session.id)
+        try repository.markCloudUploaded(sessionID: session.id, manifestDigest: "same-manifest")
+        var roundedSession = localSession
+        roundedSession.endedAt = Date(timeIntervalSince1970: 102.123)
+        var roundedEntry = try XCTUnwrap(localEntries.first)
+        roundedEntry = ConnectionSessionRawLogEntry(
+            sequence: roundedEntry.sequence,
+            observedAt: Date(timeIntervalSince1970: 101.123),
+            batchElapsedNanoseconds: roundedEntry.batchElapsedNanoseconds,
+            service: roundedEntry.service,
+            pid: roundedEntry.pid,
+            payload: roundedEntry.payload
+        )
+        let transfer = VerifiedConnectionSessionTransfer(
+            package: ConnectionSessionTransferPackage(session: roundedSession, entries: [roundedEntry]),
+            manifestDigest: "same-manifest"
+        )
+
+        try repository.importVerifiedTransfer(transfer)
+
+        XCTAssertEqual(try repository.entries(for: session.id), localEntries)
+        XCTAssertEqual(try XCTUnwrap(repository.sessions(for: "account").first).endedAt, localSession.endedAt)
+    }
+
+    /// 同一Manifest再取込時に欠落した車両と取得端末メタデータを復旧します。
+    ///
+    /// 責務: ローカル列だけが欠落した同期済みセッションを検証済みPayloadから非破壊で自己修復できることを確認します。
+    func testRepeatedTransferImportRepairsMissingVehicleAndAcquisitionDevice() throws {
+        let queue = try DatabaseQueue()
+        let repository = try GRDBConnectionSessionRepository(databaseQueue: queue)
+        let vehicle = ConnectionSessionVehicle(
+            id: VehicleID(),
+            name: "BRZ",
+            displayIdentifier: "ZD8"
+        )
+        let acquisitionDevice = ConnectionSessionAcquisitionDevice(platform: .iPhone, name: "iPhone 17 Pro")
+        var session = ConnectionSession(
+            accountIdentifier: "account",
+            startedAt: Date(timeIntervalSince1970: 100),
+            vehicle: vehicle,
+            acquisitionDevice: acquisitionDevice
+        )
+        session.endedAt = Date(timeIntervalSince1970: 110)
+        session.endReason = .userDisconnected
+        let transfer = VerifiedConnectionSessionTransfer(
+            package: ConnectionSessionTransferPackage(session: session, entries: []),
+            manifestDigest: "digest"
+        )
+        try repository.importVerifiedTransfer(transfer)
+        try queue.write { database in
+            try database.execute(
+                sql: "UPDATE connection_sessions SET vehicleID = NULL, vehicleName = NULL, vehicleDisplayIdentifier = NULL, acquisitionPlatform = NULL, acquisitionDeviceName = NULL WHERE id = ?",
+                arguments: [session.id.rawValue.uuidString.lowercased()]
+            )
+        }
+
+        try repository.importVerifiedTransfer(transfer)
+
+        let repaired = try XCTUnwrap(repository.sessions(for: "account").first)
+        XCTAssertEqual(repaired.vehicle, vehicle)
+        XCTAssertEqual(repaired.acquisitionDevice, acquisitionDevice)
+        XCTAssertEqual(repaired.rawLogSummary.cloudState, .uploaded)
+        XCTAssertEqual(repaired.rawLogSummary.manifestDigest, "digest")
+    }
+
+    /// 同じRawログを持つ旧形式Manifestを検証済み転送Manifestへ整合させます。
+    ///
+    /// 責務: 端末固有同期状態だけでDigestが変わった既存セッションを内容競合として拒否しないことを確認します。
+    func testEquivalentTransferReconcilesStaleManifestWithoutReplacingRawEntries() throws {
+        let repository = try GRDBConnectionSessionRepository(databaseQueue: DatabaseQueue())
+        var session = ConnectionSession(accountIdentifier: "account", startedAt: Date(timeIntervalSince1970: 100))
+        try repository.save(session)
+        try repository.append(
+            OBDRawResponseObservation(
+                observedAt: Date(timeIntervalSince1970: 101),
+                batchElapsedNanoseconds: 2_000_000,
+                request: OBDPIDRequest(service: 0x01, pid: 0x0D),
+                payload: [0x32]
+            ),
+            to: session.id
+        )
+        session.endedAt = Date(timeIntervalSince1970: 102)
+        session.endReason = .userDisconnected
+        try repository.save(session)
+        let transferredSession = try XCTUnwrap(repository.sessions(for: "account").first)
+        let entries = try repository.entries(for: session.id)
+        try repository.markCloudUploaded(sessionID: session.id, manifestDigest: "stale-local-manifest")
+        let transfer = VerifiedConnectionSessionTransfer(
+            package: ConnectionSessionTransferPackage(session: transferredSession, entries: entries),
+            manifestDigest: "verified-remote-manifest"
+        )
+
+        try repository.importVerifiedTransfer(transfer)
+
+        let reconciled = try XCTUnwrap(repository.sessions(for: "account").first)
+        XCTAssertEqual(reconciled.rawLogSummary.manifestDigest, "verified-remote-manifest")
+        XCTAssertEqual(reconciled.rawLogSummary.cloudState, .uploaded)
+        XCTAssertEqual(try repository.entries(for: session.id), entries)
+    }
+
+    /// Rawログが同じでも終了情報が異なる転送を整合性競合として拒否します。
+    ///
+    /// 責務: Manifest救済が実際の保存済みセッション内容差を上書きしないことを確認します。
+    func testEquivalentRawEntriesDoNotHideArchivedMetadataConflict() throws {
+        let repository = try GRDBConnectionSessionRepository(databaseQueue: DatabaseQueue())
+        var session = ConnectionSession(accountIdentifier: "account", startedAt: Date(timeIntervalSince1970: 100))
+        session.endedAt = Date(timeIntervalSince1970: 102)
+        session.endReason = .userDisconnected
+        try repository.save(session)
+        try repository.markCloudUploaded(sessionID: session.id, manifestDigest: "local-manifest")
+        var conflicting = session
+        conflicting.endReason = .connectionLost
+        let transfer = VerifiedConnectionSessionTransfer(
+            package: ConnectionSessionTransferPackage(session: conflicting, entries: []),
+            manifestDigest: "remote-manifest"
+        )
+
+        XCTAssertThrowsError(try repository.importVerifiedTransfer(transfer)) { error in
+            XCTAssertEqual(error as? ConnectionSessionRepositoryError, .integrityConflict)
+        }
     }
 
     /// 同じアカウントのRawログを登録車両IDごとにセッション境界付きで抽出します。

@@ -80,6 +80,12 @@ enum ConnectionSessionDatabaseMigrator {
                 table.add(column: "distanceSourceModelCode", .text)
             }
         }
+        migrator.registerMigration("v7_add_connection_session_acquisition_device") { database in
+            try database.alter(table: ConnectionSessionRecord.databaseTableName) { table in
+                table.add(column: "acquisitionPlatform", .text)
+                table.add(column: "acquisitionDeviceName", .text)
+            }
+        }
         return migrator
     }
 }

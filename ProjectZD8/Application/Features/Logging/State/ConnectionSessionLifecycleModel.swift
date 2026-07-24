@@ -15,6 +15,8 @@ final class ConnectionSessionLifecycleModel {
     @ObservationIgnored private let now: () -> Date
     /// 新規セッションIDを生成する注入済み処理です。
     @ObservationIgnored private let makeID: () -> ConnectionSessionID
+    /// 新しいセッションへ固定する現在端末情報です。
+    @ObservationIgnored private let acquisitionDevice: ConnectionSessionAcquisitionDevice?
     /// 履歴の再読込が必要になったことを通知する処理です。
     @ObservationIgnored private let historyDidChange: @MainActor () -> Void
     /// 現在のAppleアカウント識別子です。
@@ -30,18 +32,21 @@ final class ConnectionSessionLifecycleModel {
     ///   - rawLogRepository: 数値化前のOBD応答を追記する境界。
     ///   - now: 開始日時と終了日時を生成する処理。
     ///   - makeID: 新しいセッションIDを生成する処理。省略時はUUIDを生成します。
+    ///   - acquisitionDevice: 新しいセッションへ固定する現在端末情報。
     ///   - historyDidChange: 保存後に履歴再読込を通知する処理。
     init(
         repository: any ConnectionSessionRepository,
         rawLogRepository: (any ConnectionSessionRawLogRepository)? = nil,
         now: @escaping () -> Date = Date.init,
         makeID: (() -> ConnectionSessionID)? = nil,
+        acquisitionDevice: ConnectionSessionAcquisitionDevice? = nil,
         historyDidChange: @escaping @MainActor () -> Void = {}
     ) {
         self.repository = repository
         self.rawLogRepository = rawLogRepository
         self.now = now
         self.makeID = makeID ?? { ConnectionSessionID() }
+        self.acquisitionDevice = acquisitionDevice
         self.historyDidChange = historyDidChange
     }
 
@@ -103,7 +108,8 @@ final class ConnectionSessionLifecycleModel {
         let session = ConnectionSession(
             id: makeID(),
             accountIdentifier: accountIdentifier,
-            startedAt: now()
+            startedAt: now(),
+            acquisitionDevice: acquisitionDevice
         )
         do {
             try repository.save(session)

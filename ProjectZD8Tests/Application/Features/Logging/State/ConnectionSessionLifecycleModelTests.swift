@@ -15,10 +15,12 @@ final class ConnectionSessionLifecycleModelTests: XCTestCase {
         let endedAt = Date(timeIntervalSince1970: 200)
         var dates = [startedAt, endedAt].makeIterator()
         var historyChangeCount = 0
+        let acquisitionDevice = ConnectionSessionAcquisitionDevice(platform: .iPad, name: "iPad Pro")
         let model = ConnectionSessionLifecycleModel(
             repository: repository,
             now: { dates.next()! },
             makeID: { sessionID },
+            acquisitionDevice: acquisitionDevice,
             historyDidChange: { historyChangeCount += 1 }
         )
         let vehicle = VehicleProfile(
@@ -40,6 +42,7 @@ final class ConnectionSessionLifecycleModelTests: XCTestCase {
         XCTAssertEqual(saved.startedAt, startedAt)
         XCTAssertEqual(saved.endedAt, endedAt)
         XCTAssertEqual(saved.endReason, .vehicleNoResponse)
+        XCTAssertEqual(saved.acquisitionDevice, acquisitionDevice)
         XCTAssertEqual(saved.startingOdometerKilometers, 12_345.6)
         XCTAssertEqual(saved.endingOdometerKilometers, 12_346.8)
         XCTAssertEqual(try XCTUnwrap(saved.recordedDistanceKilometers), 1.2, accuracy: 0.000_1)

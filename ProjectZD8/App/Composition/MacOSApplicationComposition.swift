@@ -119,6 +119,20 @@ enum MacOSApplicationComposition {
             ?? UnavailableConnectionSessionRepository()
     }
 
+    /// 現在のMacを新規セッションの取得元表示へ変換します。
+    ///
+    /// 責務: 現在のMacホスト名を1件のmacOS取得元端末スナップショットとして生成します。
+    /// - Returns: macOS種別と現在Macのユーザー向けホスト名。
+    static func makeConnectionSessionAcquisitionDevice() -> ConnectionSessionAcquisitionDevice {
+        let localizedName = Host.current().localizedName?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let hostName = ProcessInfo.processInfo.hostName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let name = localizedName.flatMap { $0.isEmpty ? nil : $0 } ?? hostName
+        return ConnectionSessionAcquisitionDevice(
+            platform: .macOS,
+            name: name.isEmpty ? "Mac" : name
+        )
+    }
+
     /// Mac向けセッション同期ユースケースを生成します。
     ///
     /// 責務: Macのローカルセッション正本をCloudKit双方向転送と永続取込受領証へ結び付けます。

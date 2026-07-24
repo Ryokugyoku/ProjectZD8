@@ -159,6 +159,9 @@ struct MacOSConnectionSessionDetailView: View {
                 Text(session.startedAt, format: .dateTime.year().month().day().hour().minute())
                     .font(.system(size: 12 * metrics.scale, weight: .semibold, design: .monospaced))
                     .foregroundStyle(.secondary)
+                Label(acquisitionDeviceText, systemImage: "laptopcomputer.and.iphone")
+                    .font(.system(size: 10.5 * metrics.scale, weight: .semibold))
+                    .foregroundStyle(.secondary)
             }
             Spacer(minLength: 20 * metrics.scale)
             VStack(alignment: .trailing, spacing: 7 * metrics.scale) {
@@ -307,6 +310,14 @@ struct MacOSConnectionSessionDetailView: View {
         ByteCountFormatter.string(fromByteCount: max(0, bytes), countStyle: .file)
     }
 
+    /// 表示中セッションの取得元端末をプラットフォーム付き表示名へ変換します。
+    private var acquisitionDeviceText: String {
+        guard let device = session.acquisitionDevice else {
+            return String(localized: "history.device.unknown")
+        }
+        return "\(device.name) (\(device.platform.rawValue))"
+    }
+
     /// 解析対象Rawログ件数をカード補足へ変換します。
     private var analysisCardCaption: String {
         String(
@@ -331,7 +342,7 @@ struct MacOSConnectionSessionDetailView: View {
     /// アプリが観測した終了理由を保持した表示文字列です。
     private var observedEndReason: String {
         guard let reason = session.endReason else { return "—" }
-        return String(localized: String.LocalizationValue("history.reason.\(reason.rawValue)"))
+        return String(localized: String.LocalizationValue(reason.historyLocalizationKey))
     }
 
     /// 履歴表示用の現在状態に対応するローカライズキーです。

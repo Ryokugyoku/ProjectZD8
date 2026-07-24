@@ -5890,6 +5890,28 @@
         }
       }
     },
+    "history.device.unknown" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Acquisition device unknown"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dispositivo de adquisición desconocido"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "取得端末不明"
+          }
+        }
+      }
+    },
     "history.detail.back" : {
       "localizations" : {
         "en" : {
@@ -7105,9 +7127,6 @@
         }
       }
     },
-    "history.reason.%@" : {
-
-    },
     "history.reason.accountSignedOut" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -7337,9 +7356,6 @@
           }
         }
       }
-    },
-    "history.sort.%@" : {
-
     },
     "history.sort.longestDuration" : {
       "extractionState" : "stale",

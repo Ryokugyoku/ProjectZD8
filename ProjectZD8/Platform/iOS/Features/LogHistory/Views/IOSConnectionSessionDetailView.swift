@@ -114,6 +114,9 @@ struct IOSConnectionSessionDetailView: View {
                     Text(session.startedAt, format: .dateTime.year().month().day().hour().minute())
                         .font(.subheadline.monospaced().weight(.semibold))
                         .foregroundStyle(.secondary)
+                    Label(acquisitionDeviceText, systemImage: "laptopcomputer.and.iphone")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
                 }
                 Spacer(minLength: 16)
                 VStack(spacing: 8) {
@@ -313,6 +316,14 @@ struct IOSConnectionSessionDetailView: View {
     /// - Returns: 現在Localeへ整形した容量文字列。
     private func byteCountText(_ bytes: Int64) -> String {
         ByteCountFormatter.string(fromByteCount: max(0, bytes), countStyle: .file)
+    }
+
+    /// 表示中セッションの取得元端末をプラットフォーム付き表示名へ変換します。
+    private var acquisitionDeviceText: String {
+        guard let device = session.acquisitionDevice else {
+            return String(localized: "history.device.unknown")
+        }
+        return "\(device.name) (\(device.platform.rawValue))"
     }
 
     /// 現在端末のRaw保管状態に対応するローカライズキーです。

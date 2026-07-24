@@ -65,6 +65,7 @@ struct ProjectZD8App: App {
         let connectionSessionLifecycleModel = ConnectionSessionLifecycleModel(
             repository: connectionSessionRepository,
             rawLogRepository: connectionSessionRepository,
+            acquisitionDevice: IOSApplicationComposition.makeConnectionSessionAcquisitionDevice(),
             historyDidChange: { connectionHistoryModel.send(.refreshRequested) }
         )
         let liveTelemetryModel = IOSApplicationComposition.makeLiveTelemetryModel(
@@ -138,6 +139,7 @@ struct ProjectZD8App: App {
         let connectionSessionLifecycleModel = ConnectionSessionLifecycleModel(
             repository: connectionSessionRepository,
             rawLogRepository: connectionSessionRepository,
+            acquisitionDevice: MacOSApplicationComposition.makeConnectionSessionAcquisitionDevice(),
             historyDidChange: { connectionHistoryModel.send(.refreshRequested) }
         )
         let liveTelemetryModel = MacOSApplicationComposition.makeLiveTelemetryModel(

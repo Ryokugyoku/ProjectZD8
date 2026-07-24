@@ -24,6 +24,10 @@ struct ConnectionSessionRecord: Codable, FetchableRecord, PersistableRecord {
     let vehicleName: String?
     /// 接続時点の車両代表識別値です。
     let vehicleDisplayIdentifier: String?
+    /// ログ取得元Appleプラットフォームの安定文字列表現です。
+    let acquisitionPlatform: String?
+    /// ログ取得時のユーザー向け端末名です。
+    let acquisitionDeviceName: String?
     /// セッション内で最初に取得した累積走行距離です。
     let startingOdometerKilometers: Double?
     /// セッション内で最後に取得した累積走行距離です。
@@ -63,6 +67,8 @@ struct ConnectionSessionRecord: Codable, FetchableRecord, PersistableRecord {
         vehicleID = session.vehicle?.id.rawValue.uuidString.lowercased()
         vehicleName = session.vehicle?.name
         vehicleDisplayIdentifier = session.vehicle?.displayIdentifier
+        acquisitionPlatform = session.acquisitionDevice?.platform.rawValue
+        acquisitionDeviceName = session.acquisitionDevice?.name
         startingOdometerKilometers = session.startingOdometerKilometers
         endingOdometerKilometers = session.endingOdometerKilometers
         distanceSourceModelCode = session.distanceSourceModelCode
@@ -107,7 +113,8 @@ struct ConnectionSessionRecord: Codable, FetchableRecord, PersistableRecord {
             id: ConnectionSessionID(rawValue: sessionUUID),
             accountIdentifier: accountIdentifier,
             startedAt: startedAt,
-            vehicle: vehicle
+            vehicle: vehicle,
+            acquisitionDevice: acquisitionDevice
         )
         session.endedAt = endedAt
         session.endReason = reason
@@ -141,5 +148,17 @@ struct ConnectionSessionRecord: Codable, FetchableRecord, PersistableRecord {
             macImportReceipt: receipt
         )
         return session
+    }
+
+    /// 保存済み列から取得元端末スナップショットを復元します。
+    ///
+    /// 責務: 取得元端末の任意列を有効なプラットフォームと端末名の組へ変換します。
+    /// - Returns: 両方の列が有効な場合の取得元端末。旧レコードまたは不完全な列では `nil`。
+    private var acquisitionDevice: ConnectionSessionAcquisitionDevice? {
+        guard let acquisitionPlatform,
+              let platform = ConnectionSessionAcquisitionPlatform(rawValue: acquisitionPlatform),
+              let acquisitionDeviceName,
+              !acquisitionDeviceName.isEmpty else { return nil }
+        return ConnectionSessionAcquisitionDevice(platform: platform, name: acquisitionDeviceName)
     }
 }

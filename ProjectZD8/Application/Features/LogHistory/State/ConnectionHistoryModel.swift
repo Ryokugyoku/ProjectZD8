@@ -218,7 +218,7 @@ final class ConnectionHistoryModel {
     private func refreshSessions() {
         loadSessions()
         guard let accountIdentifier, let synchronizeSessions else { return }
-        syncTask?.cancel()
+        guard syncTask == nil else { return }
         syncGeneration &+= 1
         let generation = syncGeneration
         state.syncPhase = .syncing
@@ -226,12 +226,14 @@ final class ConnectionHistoryModel {
             do {
                 try await synchronizeSessions.execute(accountIdentifier: accountIdentifier)
                 guard let self, self.syncGeneration == generation, self.accountIdentifier == accountIdentifier else { return }
+                self.syncTask = nil
                 self.loadSessions()
                 self.state.syncPhase = .synchronized
             } catch is CancellationError {
                 return
             } catch {
                 guard let self, self.syncGeneration == generation, self.accountIdentifier == accountIdentifier else { return }
+                self.syncTask = nil
                 self.state.syncPhase = .failed
             }
         }

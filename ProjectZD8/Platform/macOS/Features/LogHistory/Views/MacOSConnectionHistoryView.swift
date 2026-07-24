@@ -465,8 +465,14 @@ struct MacOSConnectionHistoryView: View {
             } else {
                 WarningTriangleIcon(size: 18 * metrics.scale)
             }
-            Text(session.startedAt, format: .dateTime.year().month().day().hour().minute())
-                .font(.system(size: 12 * metrics.scale, weight: .semibold, design: .monospaced)).frame(minWidth: 170 * metrics.scale, alignment: .leading)
+            VStack(alignment: .leading, spacing: 4 * metrics.scale) {
+                Text(session.startedAt, format: .dateTime.year().month().day().hour().minute())
+                    .font(.system(size: 12 * metrics.scale, weight: .semibold, design: .monospaced))
+                Label(acquisitionDeviceText(session), systemImage: "laptopcomputer.and.iphone")
+                    .font(.system(size: 9.5 * metrics.scale, weight: .semibold))
+                    .foregroundStyle(.secondary)
+            }
+            .frame(minWidth: 190 * metrics.scale, alignment: .leading)
             Text(endReasonKey(session.endReason)).font(.system(size: 11 * metrics.scale, weight: .semibold)).foregroundStyle(session.status == .completed ? Color.secondary : Color.orange)
             Spacer()
             VStack(alignment: .trailing, spacing: 3 * metrics.scale) {
@@ -600,6 +606,18 @@ struct MacOSConnectionHistoryView: View {
     /// - Returns: 短縮UUID表記。
     private func shortID(_ id: ConnectionSessionID) -> String { String(id.rawValue.uuidString.prefix(8)).uppercased() }
 
+    /// セッションの取得元端末をプラットフォーム付き表示名へ変換します。
+    ///
+    /// 責務: 1件の任意取得元端末を一覧表示用文字列または旧履歴向け不明表示へ変換します。
+    /// - Parameter session: 取得元端末を表示するセッション。
+    /// - Returns: 端末名とプラットフォーム、または取得元不明の文言。
+    private func acquisitionDeviceText(_ session: ConnectionSession) -> String {
+        guard let device = session.acquisitionDevice else {
+            return String(localized: "history.device.unknown")
+        }
+        return "\(device.name) (\(device.platform.rawValue))"
+    }
+
     /// 車両グループ識別子をアクセシビリティ識別用文字列へ変換します。
     ///
     /// 責務: 1件の車両グループ識別子を安定したUI識別文字列へ変換します。
@@ -613,7 +631,7 @@ struct MacOSConnectionHistoryView: View {
     /// - Parameter filter: 表示する終了理由条件。
     /// - Returns: 条件名のローカライズキー。
     private func endReasonFilterKey(_ filter: ConnectionHistoryEndReasonFilter) -> LocalizedStringKey {
-        LocalizedStringKey("history.reason." + filter.rawValue)
+        LocalizedStringKey(filter.historyLocalizationKey)
     }
 
     /// 並び順の表示キーを返します。
@@ -622,7 +640,7 @@ struct MacOSConnectionHistoryView: View {
     /// - Parameter order: 表示する並び順。
     /// - Returns: 並び順名のローカライズキー。
     private func sortOrderKey(_ order: ConnectionHistorySortOrder) -> LocalizedStringKey {
-        LocalizedStringKey("history.sort." + order.rawValue)
+        LocalizedStringKey(order.historyLocalizationKey)
     }
 
     /// 終了理由の表示キーを返します。
@@ -631,7 +649,7 @@ struct MacOSConnectionHistoryView: View {
     /// - Parameter reason: 表示する終了理由。
     /// - Returns: 終了理由名のローカライズキー。
     private func endReasonKey(_ reason: ConnectionSessionEndReason?) -> LocalizedStringKey {
-        LocalizedStringKey("history.reason." + (reason?.rawValue ?? "all"))
+        LocalizedStringKey(reason?.historyLocalizationKey ?? ConnectionHistoryEndReasonFilter.all.historyLocalizationKey)
     }
 }
 

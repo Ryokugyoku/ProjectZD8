@@ -68,7 +68,11 @@ struct SynchronizeConnectionSessionsUseCase {
             accountIdentifier: accountIdentifier,
             remoteManifestDigests: remoteManifestDigests
         )
-        try await importTransfers(remoteTransfers + uploadedTransfers, accountIdentifier: accountIdentifier)
+        let transfersToImport = transfersByReplacingRemoteWithUploads(
+            remoteTransfers,
+            uploads: uploadedTransfers
+        )
+        try await importTransfers(transfersToImport, accountIdentifier: accountIdentifier)
         if role == .iPhone {
             try await applyMacReceipts(accountIdentifier: accountIdentifier)
         }
@@ -107,7 +111,10 @@ struct SynchronizeConnectionSessionsUseCase {
         ) {
             do {
                 let entries = try rawLogRepository.entries(for: session.id)
-                let package = ConnectionSessionTransferPackage(session: session, entries: entries)
+                let package = ConnectionSessionTransferPackage(
+                    session: sessionForTransfer(session, entries: entries),
+                    entries: entries
+                )
                 let digest = try await transferRepository.upload(
                     package,
                     for: accountIdentifier
@@ -122,6 +129,44 @@ struct SynchronizeConnectionSessionsUseCase {
             }
         }
         return uploadedTransfers
+    }
+
+    /// 今回再公開したセッションについて取得時点の古い転送を置き換えます。
+    ///
+    /// 責務: リモート取得結果と同一実行内の再公開結果をセッションIDごとの最新転送へ統合します。
+    /// - Parameters:
+    ///   - remoteTransfers: 同期開始時にCloudKitから取得した転送群。
+    ///   - uploads: 現在端末が今回CloudKitへ再公開した転送群。
+    /// - Returns: 再公開したセッションでは今回の転送だけを保持する取込対象群。
+    private func transfersByReplacingRemoteWithUploads(
+        _ remoteTransfers: [VerifiedConnectionSessionTransfer],
+        uploads: [VerifiedConnectionSessionTransfer]
+    ) -> [VerifiedConnectionSessionTransfer] {
+        let uploadedSessionIDs = Set(uploads.map(\.package.session.id))
+        return remoteTransfers.filter { !uploadedSessionIDs.contains($0.package.session.id) } + uploads
+    }
+
+    /// 端末固有の同期証跡を除いたセッション転送表現を生成します。
+    ///
+    /// 責務: 1件のローカルセッションとRawログを再送しても変化しない転送用セッションへ正規化します。
+    /// - Parameters:
+    ///   - session: 転送する終了済みセッション。
+    ///   - entries: 転送する未デコードRawログ。
+    /// - Returns: Raw件数を保持し、端末別CloudKit状態と受領証を除いたセッション。
+    private func sessionForTransfer(
+        _ session: ConnectionSession,
+        entries: [ConnectionSessionRawLogEntry]
+    ) -> ConnectionSession {
+        var transferable = session
+        transferable.rawLogSummary = ConnectionSessionRawLogSummary(
+            recordCount: Int64(entries.count),
+            byteCount: entries.reduce(0) { $0 + Int64($1.payload.count) },
+            localState: entries.isEmpty ? .empty : .available,
+            cloudState: .notUploaded,
+            manifestDigest: nil,
+            macImportReceipt: nil
+        )
+        return transferable
     }
 
     /// セッション履歴が現在CloudKit送信対象かを返します。
@@ -139,6 +184,10 @@ struct SynchronizeConnectionSessionsUseCase {
         guard session.endedAt != nil,
               session.rawLogSummary.localState != .removed else { return false }
         if let remoteManifestDigest {
+            if session.rawLogSummary.cloudState == .pending
+                || session.rawLogSummary.cloudState == .failed {
+                return true
+            }
             if let localManifestDigest = session.rawLogSummary.manifestDigest,
                localManifestDigest != remoteManifestDigest {
                 throw ConnectionSessionRepositoryError.integrityConflict
@@ -175,10 +224,11 @@ struct SynchronizeConnectionSessionsUseCase {
     /// - Throws: CloudKit受領証取得に失敗した場合のエラー。
     private func applyMacReceipts(accountIdentifier: String) async throws {
         let receipts = try await transferRepository.downloadMacReceipts(for: accountIdentifier)
+        let localSessionIDs = Set(try sessionRepository.sessions(for: accountIdentifier).map(\.id))
         var appliedSessionIDs = Set<ConnectionSessionID>()
-        for (sessionID, receipt) in receipts {
+        for (sessionID, receipt) in receipts where localSessionIDs.contains(sessionID) {
             guard appliedSessionIDs.insert(sessionID).inserted else { continue }
-            try? rawLogRepository.markMacImported(receipt, sessionID: sessionID)
+            try rawLogRepository.markMacImported(receipt, sessionID: sessionID)
         }
     }
 

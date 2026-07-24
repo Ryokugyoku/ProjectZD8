@@ -14,11 +14,13 @@ final class ConnectionSessionCodableTests: XCTestCase {
         let encoded = try JSONEncoder().encode(session)
         var object = try XCTUnwrap(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
         object.removeValue(forKey: "stopReviewDecision")
+        object.removeValue(forKey: "acquisitionDevice")
         let legacyData = try JSONSerialization.data(withJSONObject: object)
 
         let decoded = try JSONDecoder().decode(ConnectionSession.self, from: legacyData)
 
         XCTAssertNil(decoded.stopReviewDecision)
+        XCTAssertNil(decoded.acquisitionDevice)
         XCTAssertTrue(decoded.needsStopReview)
         XCTAssertEqual(decoded.status, .interrupted)
     }

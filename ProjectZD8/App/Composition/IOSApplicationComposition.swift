@@ -115,6 +115,20 @@ enum IOSApplicationComposition {
             ?? UnavailableConnectionSessionRepository()
     }
 
+    /// 現在のiOS端末を新規セッションの取得元表示へ変換します。
+    ///
+    /// 責務: 現在の端末種別とユーザー設定名を1件の取得元端末スナップショットとして生成します。
+    /// - Returns: iPhoneまたはiPadの種別と現在端末名。
+    static func makeConnectionSessionAcquisitionDevice() -> ConnectionSessionAcquisitionDevice {
+        let device = UIDevice.current
+        let platform: ConnectionSessionAcquisitionPlatform = device.userInterfaceIdiom == .pad ? .iPad : .iPhone
+        let name = device.name.trimmingCharacters(in: .whitespacesAndNewlines)
+        return ConnectionSessionAcquisitionDevice(
+            platform: platform,
+            name: name.isEmpty ? device.model : name
+        )
+    }
+
     /// iPhone向けセッション同期ユースケースを生成します。
     ///
     /// 責務: iPhoneのローカルセッション正本をCloudKit双方向転送とMac受領証取得へ結び付けます。

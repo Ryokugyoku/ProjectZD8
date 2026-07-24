@@ -306,17 +306,34 @@ final class GRDBConnectionSessionRepository: ConnectionSessionRepository, Connec
                 throw ConnectionSessionRepositoryError.integrityConflict
             }
             if let existing = try fetchSession(package.session.id, database: database) {
+                let currentEntries = try rawLogRecords(for: package.session.id, database: database)
+                    .compactMap { $0.makeDomainEntry() }
+                if currentEntries == package.entries,
+                   sessionsHaveCompatibleArchivedMetadata(existing, package.session) {
+                    let reconciled = sessionByAcceptingEquivalentTransfer(
+                        existing: existing,
+                        transferred: package.session,
+                        manifestDigest: transfer.manifestDigest,
+                        entries: currentEntries
+                    )
+                    if reconciled != existing {
+                        try ConnectionSessionRecord(session: reconciled).save(database)
+                    }
+                    return
+                }
                 if let digest = existing.rawLogSummary.manifestDigest,
                    digest != transfer.manifestDigest {
                     throw ConnectionSessionRepositoryError.integrityConflict
                 }
                 if existing.rawLogSummary.manifestDigest == transfer.manifestDigest {
-                    guard existing.rawLogSummary.localState != .removed else { return }
-                    let currentEntries = try rawLogRecords(for: package.session.id, database: database)
-                        .compactMap { $0.makeDomainEntry() }
-                    if currentEntries == package.entries {
-                        return
+                    let reconciled = sessionByFillingMissingTransferredMetadata(
+                        existing: existing,
+                        transferred: package.session
+                    )
+                    if reconciled != existing {
+                        try ConnectionSessionRecord(session: reconciled).save(database)
                     }
+                    return
                 }
             }
             var imported = package.session
@@ -344,6 +361,99 @@ final class GRDBConnectionSessionRepository: ConnectionSessionRepository, Connec
                 throw ConnectionSessionRepositoryError.integrityConflict
             }
         }
+    }
+
+    /// Manifestだけが異なる同内容転送を現在端末の検証済み状態へ反映します。
+    ///
+    /// 責務: 同じRawログと互換メタデータを持つ既存セッションを受信Manifestへ非破壊で整合させます。
+    /// - Parameters:
+    ///   - existing: 現在端末に保存済みのセッション。
+    ///   - transferred: CloudKitから復元した同内容セッション。
+    ///   - manifestDigest: 検証済み転送PayloadのSHA-256。
+    ///   - entries: 両者で一致した未デコードRawログ。
+    /// - Returns: ローカル表示情報を保持し、転送Manifestと集計を反映したセッション。
+    private func sessionByAcceptingEquivalentTransfer(
+        existing: ConnectionSession,
+        transferred: ConnectionSession,
+        manifestDigest: String,
+        entries: [ConnectionSessionRawLogEntry]
+    ) -> ConnectionSession {
+        var reconciled = sessionByFillingMissingTransferredMetadata(
+            existing: existing,
+            transferred: transferred
+        )
+        reconciled.rawLogSummary.recordCount = Int64(entries.count)
+        reconciled.rawLogSummary.byteCount = entries.reduce(0) { $0 + Int64($1.payload.count) }
+        reconciled.rawLogSummary.cloudState = .uploaded
+        reconciled.rawLogSummary.manifestDigest = manifestDigest
+        if reconciled.rawLogSummary.macImportReceipt?.manifestDigest != manifestDigest {
+            reconciled.rawLogSummary.macImportReceipt = nil
+        }
+        return reconciled
+    }
+
+    /// 2件のセッションが同じ保存済み運転を表現できるかを確認します。
+    ///
+    /// 責務: セッション識別情報と両側に存在する取得メタデータを同内容転送判定へ変換します。
+    /// - Parameters:
+    ///   - existing: 現在端末に保存済みのセッション。
+    ///   - transferred: CloudKitから復元したセッション。
+    /// - Returns: 必須情報が一致し、任意情報に矛盾がない場合は `true`。
+    private func sessionsHaveCompatibleArchivedMetadata(
+        _ existing: ConnectionSession,
+        _ transferred: ConnectionSession
+    ) -> Bool {
+        existing.id == transferred.id
+            && existing.accountIdentifier == transferred.accountIdentifier
+            && existing.startedAt == transferred.startedAt
+            && existing.endedAt == transferred.endedAt
+            && existing.endReason == transferred.endReason
+            && valuesAreCompatible(existing.vehicle, transferred.vehicle)
+            && valuesAreCompatible(existing.acquisitionDevice, transferred.acquisitionDevice)
+            && valuesAreCompatible(existing.startingOdometerKilometers, transferred.startingOdometerKilometers)
+            && valuesAreCompatible(existing.endingOdometerKilometers, transferred.endingOdometerKilometers)
+            && valuesAreCompatible(existing.distanceSourceModelCode, transferred.distanceSourceModelCode)
+    }
+
+    /// 2件の任意値が欠落補完可能または同値かを返します。
+    ///
+    /// 責務: 任意の同型値2件を非破壊なメタデータ補完可否へ変換します。
+    /// - Parameters:
+    ///   - lhs: 現在端末の任意値。
+    ///   - rhs: 転送Payloadの任意値。
+    /// - Returns: 片方が欠落しているか両方が同値の場合は `true`。
+    private func valuesAreCompatible<Value: Equatable>(_ lhs: Value?, _ rhs: Value?) -> Bool {
+        lhs == nil || rhs == nil || lhs == rhs
+    }
+
+    /// 同じManifestの転送情報でローカル欠落メタデータだけを補完します。
+    ///
+    /// 責務: 1件の既存セッションへ同一転送Payloadが保持する欠落中の表示情報を非破壊で反映します。
+    /// - Parameters:
+    ///   - existing: 端末固有の保管状態と後続確認結果を保持する既存セッション。
+    ///   - transferred: 同じManifestから復元した転送時点のセッション。
+    /// - Returns: ローカル値を優先し、欠落項目だけを転送値で補完したセッション。
+    private func sessionByFillingMissingTransferredMetadata(
+        existing: ConnectionSession,
+        transferred: ConnectionSession
+    ) -> ConnectionSession {
+        var reconciled = existing
+        if reconciled.vehicle == nil {
+            reconciled.vehicle = transferred.vehicle
+        }
+        if reconciled.acquisitionDevice == nil {
+            reconciled.acquisitionDevice = transferred.acquisitionDevice
+        }
+        if reconciled.startingOdometerKilometers == nil {
+            reconciled.startingOdometerKilometers = transferred.startingOdometerKilometers
+        }
+        if reconciled.endingOdometerKilometers == nil {
+            reconciled.endingOdometerKilometers = transferred.endingOdometerKilometers
+        }
+        if reconciled.distanceSourceModelCode == nil {
+            reconciled.distanceSourceModelCode = transferred.distanceSourceModelCode
+        }
+        return reconciled
     }
 
     /// セッション概要を残して現在端末のRawログだけを除去します。
