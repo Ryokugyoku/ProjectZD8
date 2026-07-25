@@ -54,9 +54,8 @@ struct PrepareConnectionSessionRawLogUseCase {
                 for: currentSession.accountIdentifier,
                 progress: downloadProgress
             )
-            guard transfer.package.session.id == currentSession.id,
-                  transfer.package.session.accountIdentifier == currentSession.accountIdentifier,
-                  transfer.manifestDigest == currentSession.rawLogSummary.manifestDigest else {
+            guard transfer.package.sessionID == currentSession.id,
+                  transfer.package.accountIdentifier == currentSession.accountIdentifier else {
                 throw ConnectionSessionRepositoryError.integrityConflict
             }
             try rawLogRepository.restoreVerifiedTransfer(transfer)

@@ -6,10 +6,10 @@ import XCTest
 /// GRDB接続セッション保存先の往復変換とアカウント分離を検証します。
 @MainActor
 final class GRDBConnectionSessionRepositoryTests: XCTestCase {
-    /// 製品DBでPID定義Migrationと接続履歴Migrationを同時に利用できます。
+    /// 製品DBでPID定義と接続履歴を同じ初期Migrationから利用できます。
     ///
-    /// 責務: 接続履歴を先に移行してもPID定義スキーマを同じDBへ追加できることを確認します。
-    func testSharedProductDatabaseAcceptsBothMigrators() throws {
+    /// 責務: 異なるRepositoryが同じ製品版初期スキーマを再適用せず共有できることを確認します。
+    func testSharedProductDatabaseAcceptsAllRepositories() throws {
         let queue = try DatabaseQueue()
 
         _ = try GRDBConnectionSessionRepository(databaseQueue: queue)
@@ -208,10 +208,10 @@ final class GRDBConnectionSessionRepositoryTests: XCTestCase {
         XCTAssertTrue(try repository.entries(for: session.id).isEmpty)
     }
 
-    /// 同一Manifestの再受信では明示的に除去したローカルRawログを復元しません。
+    /// 明示ダウンロードした同一セッションIDのRawログを繰り返しローカルへ復元します。
     ///
-    /// 責務: iPhoneのローカル除去状態とMac受領証が後続同期でも保持されることを確認します。
-    func testRepeatedTransferImportPreservesRemovedLocalPayloadState() throws {
+    /// 責務: ローカル除去とRaw再取込を繰り返してもPayloadと一致するMac受領証を保持することを確認します。
+    func testRawTransferImportRestoresRemovedPayloadBySessionID() throws {
         let repository = try GRDBConnectionSessionRepository(databaseQueue: DatabaseQueue())
         var session = ConnectionSession(accountIdentifier: "account", startedAt: Date(timeIntervalSince1970: 100))
         try repository.save(session)
@@ -246,9 +246,17 @@ final class GRDBConnectionSessionRepositoryTests: XCTestCase {
         try repository.importVerifiedTransfer(transfer)
 
         let loaded = try XCTUnwrap(repository.sessions(for: "account").first)
-        XCTAssertEqual(loaded.rawLogSummary.localState, .removed)
+        XCTAssertEqual(loaded.rawLogSummary.localState, .available)
         XCTAssertEqual(loaded.rawLogSummary.macImportReceipt, receipt)
-        XCTAssertTrue(try repository.entries(for: session.id).isEmpty)
+        XCTAssertEqual(try repository.entries(for: session.id), uploadedEntries)
+
+        try repository.removeLocalEntries(for: session.id)
+        try repository.importVerifiedTransfer(transfer)
+
+        let repeatedlyLoaded = try XCTUnwrap(repository.sessions(for: "account").first)
+        XCTAssertEqual(repeatedlyLoaded.rawLogSummary.localState, .available)
+        XCTAssertEqual(repeatedlyLoaded.rawLogSummary.macImportReceipt, receipt)
+        XCTAssertEqual(try repository.entries(for: session.id), uploadedEntries)
     }
 
     /// 同一Manifestの空ログセッション再受信では既存のMac受領証を保持します。
@@ -281,10 +289,10 @@ final class GRDBConnectionSessionRepositoryTests: XCTestCase {
         XCTAssertTrue(try repository.entries(for: session.id).isEmpty)
     }
 
-    /// 同一Manifestの再受信ではJSON日時精度差があってもローカルRawログを保持します。
+    /// Raw転送にセッション日時を含めずローカル概要を保持します。
     ///
-    /// 責務: 検証済みManifestが同じ転送のミリ秒丸め差を内容競合として扱わないことを確認します。
-    func testRepeatedTransferWithSameManifestPreservesHigherPrecisionLocalContent() throws {
+    /// 責務: セッションID基準のRaw取込がローカルの高精度日時を変更しないことを確認します。
+    func testRawTransferPreservesHigherPrecisionLocalSessionMetadata() throws {
         let repository = try GRDBConnectionSessionRepository(databaseQueue: DatabaseQueue())
         var session = ConnectionSession(
             accountIdentifier: "account",
@@ -324,8 +332,48 @@ final class GRDBConnectionSessionRepositoryTests: XCTestCase {
 
         try repository.importVerifiedTransfer(transfer)
 
-        XCTAssertEqual(try repository.entries(for: session.id), localEntries)
+        XCTAssertEqual(try repository.entries(for: session.id), [roundedEntry])
         XCTAssertEqual(try XCTUnwrap(repository.sessions(for: "account").first).endedAt, localSession.endedAt)
+    }
+
+    /// JSONのミリ秒日時を含むRaw転送をGRDBの日時表現差で拒否しません。
+    ///
+    /// 責務: CloudKit Codec往復後のRawログを永続化精度内の日時差として復元できることを確認します。
+    func testRawTransferAcceptsDateRepresentationAfterCloudCodecRoundTrip() throws {
+        let repository = try GRDBConnectionSessionRepository(databaseQueue: DatabaseQueue())
+        var session = ConnectionSession(
+            accountIdentifier: "account",
+            startedAt: Date(timeIntervalSince1970: 1_784_982_574.817)
+        )
+        session.endedAt = Date(timeIntervalSince1970: 1_784_982_588.797)
+        session.endReason = .userDisconnected
+        try repository.save(session)
+        let entry = ConnectionSessionRawLogEntry(
+            sequence: 0,
+            observedAt: Date(timeIntervalSince1970: 1_784_982_575.123),
+            batchElapsedNanoseconds: 22_000,
+            service: 0x01,
+            pid: 0x04,
+            payload: [0x45]
+        )
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .millisecondsSince1970
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .millisecondsSince1970
+        let encoded = try encoder.encode(ConnectionSessionTransferPackage(session: session, entries: [entry]))
+        let downloadedPackage = try decoder.decode(ConnectionSessionTransferPackage.self, from: encoded)
+
+        try repository.restoreVerifiedTransfer(
+            VerifiedConnectionSessionTransfer(package: downloadedPackage, manifestDigest: "digest")
+        )
+
+        let stored = try XCTUnwrap(repository.entries(for: session.id).first)
+        XCTAssertEqual(stored.sequence, entry.sequence)
+        XCTAssertEqual(stored.observedAt.timeIntervalSince1970, entry.observedAt.timeIntervalSince1970, accuracy: 0.001)
+        XCTAssertEqual(stored.batchElapsedNanoseconds, entry.batchElapsedNanoseconds)
+        XCTAssertEqual(stored.service, entry.service)
+        XCTAssertEqual(stored.pid, entry.pid)
+        XCTAssertEqual(stored.payload, entry.payload)
     }
 
     /// 同一Manifest再取込時に欠落した車両と取得端末メタデータを復旧します。
@@ -348,11 +396,8 @@ final class GRDBConnectionSessionRepositoryTests: XCTestCase {
         )
         session.endedAt = Date(timeIntervalSince1970: 110)
         session.endReason = .userDisconnected
-        let transfer = VerifiedConnectionSessionTransfer(
-            package: ConnectionSessionTransferPackage(session: session, entries: []),
-            manifestDigest: "digest"
-        )
-        try repository.importVerifiedTransfer(transfer)
+        let metadata = ConnectionSessionCloudMetadata(session: session, manifestDigest: "digest")
+        try repository.importCloudMetadata(metadata)
         try queue.write { database in
             try database.execute(
                 sql: "UPDATE connection_sessions SET vehicleID = NULL, vehicleName = NULL, vehicleDisplayIdentifier = NULL, acquisitionPlatform = NULL, acquisitionDeviceName = NULL WHERE id = ?",
@@ -360,7 +405,7 @@ final class GRDBConnectionSessionRepositoryTests: XCTestCase {
             )
         }
 
-        try repository.importVerifiedTransfer(transfer)
+        try repository.importCloudMetadata(metadata)
 
         let repaired = try XCTUnwrap(repository.sessions(for: "account").first)
         XCTAssertEqual(repaired.vehicle, vehicle)
@@ -404,10 +449,10 @@ final class GRDBConnectionSessionRepositoryTests: XCTestCase {
         XCTAssertEqual(try repository.entries(for: session.id), entries)
     }
 
-    /// Rawログが同じでも終了情報が異なる転送を整合性競合として拒否します。
+    /// Raw転送は同じセッションIDの表示メタデータを変更しません。
     ///
-    /// 責務: Manifest救済が実際の保存済みセッション内容差を上書きしないことを確認します。
-    func testEquivalentRawEntriesDoNotHideArchivedMetadataConflict() throws {
+    /// 責務: Raw Payload取込とセッション概要更新が独立した所有境界であることを確認します。
+    func testRawTransferDoesNotOverwriteSessionMetadata() throws {
         let repository = try GRDBConnectionSessionRepository(databaseQueue: DatabaseQueue())
         var session = ConnectionSession(accountIdentifier: "account", startedAt: Date(timeIntervalSince1970: 100))
         session.endedAt = Date(timeIntervalSince1970: 102)
@@ -421,9 +466,11 @@ final class GRDBConnectionSessionRepositoryTests: XCTestCase {
             manifestDigest: "remote-manifest"
         )
 
-        XCTAssertThrowsError(try repository.importVerifiedTransfer(transfer)) { error in
-            XCTAssertEqual(error as? ConnectionSessionRepositoryError, .integrityConflict)
-        }
+        try repository.importVerifiedTransfer(transfer)
+
+        let restored = try XCTUnwrap(repository.sessions(for: "account").first)
+        XCTAssertEqual(restored.endReason, .userDisconnected)
+        XCTAssertEqual(restored.rawLogSummary.manifestDigest, "remote-manifest")
     }
 
     /// 同じアカウントのRawログを登録車両IDごとにセッション境界付きで抽出します。

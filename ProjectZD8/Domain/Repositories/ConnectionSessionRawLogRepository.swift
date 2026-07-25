@@ -80,11 +80,11 @@ protocol ConnectionSessionRawLogRepository {
     /// - Throws: セッション更新を完了できない場合の保存先エラー。
     func markMacImported(_ receipt: ConnectionSessionMacImportReceipt, sessionID: ConnectionSessionID) throws
 
-    /// 検証済み転送Payloadを現在端末へ冪等に取り込みます。
+    /// 検証済みRaw転送Payloadを既存セッションへ冪等に取り込みます。
     ///
-    /// 責務: 1件の検証済みセッションPayloadをローカル接続履歴とRawログへ復元します。
+    /// 責務: 1件の検証済みRaw Payloadを同じ安定セッションIDのRawログへ復元します。
     /// - Parameter transfer: CloudKitから取得した検証済み転送Payload。
-    /// - Throws: 既存内容との不一致、制約違反、または永続化失敗。
+    /// - Throws: セッション不在、所有者不一致、制約違反、または永続化失敗。
     func importVerifiedTransfer(_ transfer: VerifiedConnectionSessionTransfer) throws
 
     /// 検証済みセッション概要をRaw Payloadなしで取り込みます。
@@ -94,11 +94,11 @@ protocol ConnectionSessionRawLogRepository {
     /// - Throws: 既存内容との不一致または永続化失敗。
     func importCloudMetadata(_ metadata: ConnectionSessionCloudMetadata) throws
 
-    /// 明示要求された検証済みRaw Payloadを現在端末へ復元します。
+    /// 明示要求された検証済みRaw Payloadを既存セッションへ復元します。
     ///
-    /// 責務: 1件のオンデマンド転送をローカルRawキャッシュへ復元します。
+    /// 責務: 1件のオンデマンド転送を同じ安定セッションIDのローカルRawキャッシュへ復元します。
     /// - Parameter transfer: CloudKitから取得した検証済み転送Payload。
-    /// - Throws: 既存概要との不一致、制約違反、または永続化失敗。
+    /// - Throws: セッション不在、所有者不一致、制約違反、または永続化失敗。
     func restoreVerifiedTransfer(_ transfer: VerifiedConnectionSessionTransfer) throws
 
     /// Rawログの最終閲覧日時を現在端末だけへ記録します。

@@ -6,14 +6,14 @@ final class GRDBOBDPIDDefinitionRepository: OBDPIDDefinitionRepository {
     /// SQLiteの直列化された読書き境界です。
     private let databaseQueue: DatabaseQueue
 
-    /// 指定DB QueueへMigrationを適用して生成します。
+    /// 指定DB Queueへ製品版初期Migrationを適用して生成します。
     ///
-    /// 責務: 1件のSQLite接続をPID専用スキーマ利用可能状態へ移行します。
+    /// 責務: 1件のSQLite接続を製品版スキーマ利用可能状態へ移行してPID定義Repositoryを生成します。
     /// - Parameter databaseQueue: PID定義を保存するDB Queue。
     /// - Throws: Migrationを完了できない場合のGRDBエラー。
     init(databaseQueue: DatabaseQueue) throws {
         self.databaseQueue = databaseQueue
-        try OBDPIDDatabaseMigrator.migrator.migrate(databaseQueue)
+        try ProjectZD8DatabaseMigrator.migrator.migrate(databaseQueue)
     }
 
     /// Application Support内の製品DBを開いて生成します。

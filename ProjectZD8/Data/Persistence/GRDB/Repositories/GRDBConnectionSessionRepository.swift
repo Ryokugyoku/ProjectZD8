@@ -6,14 +6,14 @@ final class GRDBConnectionSessionRepository: ConnectionSessionRepository, Connec
     /// SQLiteの直列化された読書き境界です。
     private let databaseQueue: DatabaseQueue
 
-    /// 指定DB QueueへMigrationを適用して生成します。
+    /// 指定DB Queueへ製品版初期Migrationを適用して生成します。
     ///
-    /// 責務: 1件のSQLite接続をセッション履歴スキーマ利用可能状態へ移行します。
+    /// 責務: 1件のSQLite接続を製品版スキーマ利用可能状態へ移行してセッションRepositoryを生成します。
     /// - Parameter databaseQueue: 接続セッションを保存するDB Queue。
     /// - Throws: Migrationを完了できない場合のGRDBエラー。
     init(databaseQueue: DatabaseQueue) throws {
         self.databaseQueue = databaseQueue
-        try ConnectionSessionDatabaseMigrator.migrator.migrate(databaseQueue)
+        try ProjectZD8DatabaseMigrator.migrator.migrate(databaseQueue)
     }
 
     /// Application Support内の製品DBを開いて生成します。
@@ -294,75 +294,13 @@ final class GRDBConnectionSessionRepository: ConnectionSessionRepository, Connec
         }
     }
 
-    /// 検証済み転送Payloadをローカル接続履歴へ取り込みます。
+    /// 検証済みRaw転送Payloadを既存ローカル接続履歴へ取り込みます。
     ///
-    /// 責務: 1件の検証済みセッションと全RawログをSQLiteへ冪等に復元します。
+    /// 責務: 1件の検証済みRaw Payloadを同じ安定セッションIDへ冪等に再結合します。
     /// - Parameter transfer: CloudKitから取得した検証済み転送Payload。
-    /// - Throws: 順序欠損、既存Manifest不一致、またはSQLite書込み失敗。
+    /// - Throws: セッション不在、アカウント不一致、順序欠損、またはSQLite書込み失敗。
     func importVerifiedTransfer(_ transfer: VerifiedConnectionSessionTransfer) throws {
-        try databaseQueue.write { database in
-            let package = transfer.package
-            guard package.session.endedAt != nil,
-                  package.entries.enumerated().allSatisfy({ Int64($0.offset) == $0.element.sequence }) else {
-                throw ConnectionSessionRepositoryError.integrityConflict
-            }
-            if let existing = try fetchSession(package.session.id, database: database) {
-                let currentEntries = try rawLogRecords(for: package.session.id, database: database)
-                    .compactMap { $0.makeDomainEntry() }
-                if currentEntries == package.entries,
-                   sessionsHaveCompatibleArchivedMetadata(existing, package.session) {
-                    let reconciled = sessionByAcceptingEquivalentTransfer(
-                        existing: existing,
-                        transferred: package.session,
-                        manifestDigest: transfer.manifestDigest,
-                        entries: currentEntries
-                    )
-                    if reconciled != existing {
-                        try ConnectionSessionRecord(session: reconciled).save(database)
-                    }
-                    return
-                }
-                if let digest = existing.rawLogSummary.manifestDigest,
-                   digest != transfer.manifestDigest {
-                    throw ConnectionSessionRepositoryError.integrityConflict
-                }
-                if existing.rawLogSummary.manifestDigest == transfer.manifestDigest {
-                    let reconciled = sessionByFillingMissingTransferredMetadata(
-                        existing: existing,
-                        transferred: package.session
-                    )
-                    if reconciled != existing {
-                        try ConnectionSessionRecord(session: reconciled).save(database)
-                    }
-                    return
-                }
-            }
-            var imported = package.session
-            imported.rawLogSummary = ConnectionSessionRawLogSummary(
-                recordCount: Int64(package.entries.count),
-                byteCount: package.entries.reduce(0) { $0 + Int64($1.payload.count) },
-                localState: package.entries.isEmpty ? .empty : .available,
-                cloudState: .uploaded,
-                manifestDigest: transfer.manifestDigest,
-                macImportReceipt: nil,
-                lastAccessedAt: nil
-            )
-            try ConnectionSessionRecord(session: imported).save(database)
-            try ConnectionSessionRawLogRecord
-                .filter(Column("sessionID") == imported.id.rawValue.uuidString.lowercased())
-                .deleteAll(database)
-            for entry in package.entries {
-                try ConnectionSessionRawLogRecord(entry: entry, sessionID: imported.id).insert(database)
-            }
-            guard try fetchSession(imported.id, database: database) == imported else {
-                throw ConnectionSessionRepositoryError.integrityConflict
-            }
-            let readBackEntries = try rawLogRecords(for: imported.id, database: database)
-                .compactMap { $0.makeDomainEntry() }
-            guard readBackEntries == package.entries else {
-                throw ConnectionSessionRepositoryError.integrityConflict
-            }
-        }
+        try restoreVerifiedTransfer(transfer)
     }
 
     /// CloudKitセッション概要をRaw Payloadなしでローカル履歴へ取り込みます。
@@ -415,40 +353,31 @@ final class GRDBConnectionSessionRepository: ConnectionSessionRepository, Connec
         }
     }
 
-    /// 明示要求された検証済みRaw Payloadをローカルキャッシュへ復元します。
+    /// 明示要求されたセッションID検証済みRaw Payloadをローカルキャッシュへ復元します。
     ///
-    /// 責務: 1件のオンデマンド転送を既存概要と照合してRaw子行へ原子的に復元します。
+    /// 責務: 1件のオンデマンド転送を安定セッションIDへRaw子行として原子的に再結合します。
     /// - Parameter transfer: CloudKitから取得した検証済みセッション転送。
-    /// - Throws: 既存概要との不一致、順序欠損、またはSQLite書込み失敗。
+    /// - Throws: アカウント不一致、順序欠損、またはSQLite書込み失敗。
     func restoreVerifiedTransfer(_ transfer: VerifiedConnectionSessionTransfer) throws {
         try databaseQueue.write { database in
             let package = transfer.package
-            guard package.session.endedAt != nil,
-                  package.entries.enumerated().allSatisfy({ Int64($0.offset) == $0.element.sequence }) else {
+            guard package.entries.enumerated().allSatisfy({ Int64($0.offset) == $0.element.sequence }),
+                  var restored = try fetchSession(package.sessionID, database: database),
+                  restored.accountIdentifier == package.accountIdentifier,
+                  restored.endedAt != nil else {
                 throw ConnectionSessionRepositoryError.integrityConflict
             }
-            if let existing = try fetchSession(package.session.id, database: database) {
-                guard sessionsHaveCompatibleArchivedMetadata(existing, package.session),
-                      existing.rawLogSummary.manifestDigest == transfer.manifestDigest else {
-                    throw ConnectionSessionRepositoryError.integrityConflict
-                }
-            }
-            var restored = package.session
-            let existing = try fetchSession(package.session.id, database: database)
-            if let existing {
-                restored = sessionByFillingMissingTransferredMetadata(
-                    existing: existing,
-                    transferred: package.session
-                )
-            }
+            let existingSummary = restored.rawLogSummary
             restored.rawLogSummary = ConnectionSessionRawLogSummary(
                 recordCount: Int64(package.entries.count),
                 byteCount: package.entries.reduce(0) { $0 + Int64($1.payload.count) },
                 localState: package.entries.isEmpty ? .empty : .available,
                 cloudState: .uploaded,
                 manifestDigest: transfer.manifestDigest,
-                macImportReceipt: existing?.rawLogSummary.macImportReceipt,
-                lastAccessedAt: existing?.rawLogSummary.lastAccessedAt
+                macImportReceipt: existingSummary.macImportReceipt?.manifestDigest == transfer.manifestDigest
+                    ? existingSummary.macImportReceipt
+                    : nil,
+                lastAccessedAt: existingSummary.lastAccessedAt
             )
             try ConnectionSessionRecord(session: restored).save(database)
             try ConnectionSessionRawLogRecord
@@ -459,9 +388,34 @@ final class GRDBConnectionSessionRepository: ConnectionSessionRepository, Connec
             }
             let readBackEntries = try rawLogRecords(for: restored.id, database: database)
                 .compactMap { $0.makeDomainEntry() }
-            guard readBackEntries == package.entries else {
+            guard rawEntriesMatchPersistence(readBackEntries, package.entries) else {
                 throw ConnectionSessionRepositoryError.integrityConflict
             }
+        }
+    }
+
+    /// GRDB読み戻し結果が転送Rawログと永続化精度で一致するかを返します。
+    ///
+    /// 責務: 2つのRawログ配列を日時の1ミリ秒許容差とその他フィールドの完全一致で検証します。
+    /// - Parameters:
+    ///   - stored: GRDBから読み戻したRawログ。
+    ///   - transferred: Digest検証済みPayloadのRawログ。
+    /// - Returns: 件数、順序、Raw内容が一致し日時差が1ミリ秒以内なら `true`。
+    private func rawEntriesMatchPersistence(
+        _ stored: [ConnectionSessionRawLogEntry],
+        _ transferred: [ConnectionSessionRawLogEntry]
+    ) -> Bool {
+        guard stored.count == transferred.count else { return false }
+        return zip(stored, transferred).allSatisfy { storedEntry, transferredEntry in
+            storedEntry.sequence == transferredEntry.sequence
+                && abs(
+                    storedEntry.observedAt.timeIntervalSinceReferenceDate
+                        - transferredEntry.observedAt.timeIntervalSinceReferenceDate
+                ) <= 0.001
+                && storedEntry.batchElapsedNanoseconds == transferredEntry.batchElapsedNanoseconds
+                && storedEntry.service == transferredEntry.service
+                && storedEntry.pid == transferredEntry.pid
+                && storedEntry.payload == transferredEntry.payload
         }
     }
 
@@ -479,35 +433,6 @@ final class GRDBConnectionSessionRepository: ConnectionSessionRepository, Connec
             }
             session.rawLogSummary.lastAccessedAt = date
         }
-    }
-
-    /// Manifestだけが異なる同内容転送を現在端末の検証済み状態へ反映します。
-    ///
-    /// 責務: 同じRawログと互換メタデータを持つ既存セッションを受信Manifestへ非破壊で整合させます。
-    /// - Parameters:
-    ///   - existing: 現在端末に保存済みのセッション。
-    ///   - transferred: CloudKitから復元した同内容セッション。
-    ///   - manifestDigest: 検証済み転送PayloadのSHA-256。
-    ///   - entries: 両者で一致した未デコードRawログ。
-    /// - Returns: ローカル表示情報を保持し、転送Manifestと集計を反映したセッション。
-    private func sessionByAcceptingEquivalentTransfer(
-        existing: ConnectionSession,
-        transferred: ConnectionSession,
-        manifestDigest: String,
-        entries: [ConnectionSessionRawLogEntry]
-    ) -> ConnectionSession {
-        var reconciled = sessionByFillingMissingTransferredMetadata(
-            existing: existing,
-            transferred: transferred
-        )
-        reconciled.rawLogSummary.recordCount = Int64(entries.count)
-        reconciled.rawLogSummary.byteCount = entries.reduce(0) { $0 + Int64($1.payload.count) }
-        reconciled.rawLogSummary.cloudState = .uploaded
-        reconciled.rawLogSummary.manifestDigest = manifestDigest
-        if reconciled.rawLogSummary.macImportReceipt?.manifestDigest != manifestDigest {
-            reconciled.rawLogSummary.macImportReceipt = nil
-        }
-        return reconciled
     }
 
     /// 2件のセッションが同じ保存済み運転を表現できるかを確認します。

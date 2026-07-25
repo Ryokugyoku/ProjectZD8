@@ -1,19 +1,41 @@
-/// CloudKitを介して端末間を移動する1セッション分の未デコードログです。
+/// CloudKitを介してセッションID単位で移動する未デコードログです。
 struct ConnectionSessionTransferPackage: Codable, Equatable, Sendable {
-    /// 接続履歴と車両関連付けを保持するセッションです。
-    let session: ConnectionSession
+    /// Rawログを所有する安定セッションIDです。
+    let sessionID: ConnectionSessionID
+    /// Rawログを所有するAppleアカウント識別子です。
+    let accountIdentifier: String
     /// セッション順序を保持する全Raw応答です。
     let entries: [ConnectionSessionRawLogEntry]
 
-    /// セッションと全Raw応答を1件の転送単位として生成します。
+    /// セッション識別情報と全Raw応答を1件の転送単位として生成します。
     ///
-    /// 責務: 1件の終了済みセッションを端末間で完全復元できるPayloadへまとめます。
+    /// 責務: 1件の安定セッションIDを端末間で再結合できるRaw Payloadへまとめます。
     /// - Parameters:
-    ///   - session: 車両関連付けを含む接続セッション。
+    ///   - sessionID: Rawログを所有する安定セッションID。
+    ///   - accountIdentifier: Rawログを所有するAppleアカウント識別子。
+    ///   - entries: セッション順に並ぶ未デコードRaw応答。
+    init(
+        sessionID: ConnectionSessionID,
+        accountIdentifier: String,
+        entries: [ConnectionSessionRawLogEntry]
+    ) {
+        self.sessionID = sessionID
+        self.accountIdentifier = accountIdentifier
+        self.entries = entries
+    }
+
+    /// 接続セッションから安定識別情報だけを取り出してRaw転送単位を生成します。
+    ///
+    /// 責務: 1件の接続セッションを表示メタデータ非包含のRaw Payloadへ変換します。
+    /// - Parameters:
+    ///   - session: 安定IDと所有アカウントを提供する接続セッション。
     ///   - entries: セッション順に並ぶ未デコードRaw応答。
     init(session: ConnectionSession, entries: [ConnectionSessionRawLogEntry]) {
-        self.session = session
-        self.entries = entries
+        self.init(
+            sessionID: session.id,
+            accountIdentifier: session.accountIdentifier,
+            entries: entries
+        )
     }
 }
 

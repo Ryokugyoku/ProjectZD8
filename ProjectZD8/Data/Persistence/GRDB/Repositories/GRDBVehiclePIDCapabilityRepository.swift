@@ -6,14 +6,14 @@ final class GRDBVehiclePIDCapabilityRepository: VehiclePIDCapabilityRepository, 
     /// SQLiteの直列化された読書き境界です。
     private let databaseQueue: DatabaseQueue
 
-    /// 指定DB Queueを現行PIDスキーマへ移行して生成します。
+    /// 指定DB Queueへ製品版初期Migrationを適用して生成します。
     ///
-    /// 責務: 1件のSQLite接続を車両別対応PID保存に利用可能な状態へします。
+    /// 責務: 1件のSQLite接続を製品版スキーマ利用可能状態へ移行して車両別PID Repositoryを生成します。
     /// - Parameter databaseQueue: 車両別PID設定を保存するDB Queue。
     /// - Throws: Migrationに失敗した場合のGRDBエラー。
     init(databaseQueue: DatabaseQueue) throws {
         self.databaseQueue = databaseQueue
-        try OBDPIDDatabaseMigrator.migrator.migrate(databaseQueue)
+        try ProjectZD8DatabaseMigrator.migrator.migrate(databaseQueue)
     }
 
     /// Application Support内の製品DBを開きます。

@@ -120,10 +120,10 @@ final class PrepareConnectionSessionRawLogUseCaseTests: XCTestCase {
         XCTAssertEqual(restored.endedAt, persistedBeforeRestore.endedAt)
     }
 
-    /// 詳細画面が削除前の状態を保持していても最新DB状態に従ってRawログを復元します。
+    /// 詳細画面と一覧概要が古くてもセッションIDに紐づく検証済みRawログを復元します。
     ///
-    /// 責務: アップロード後のローカル削除と古い画面スナップショットをオンデマンド復元成功へ変換できることを確認します。
-    func testDownloadsRawUsingCurrentRepositoryStateWhenSelectedSessionIsStale() async throws {
+    /// 責務: ローカル削除後の古い画面状態とManifestをセッションID基準のオンデマンド復元成功へ変換できることを確認します。
+    func testDownloadsRawBySessionIDWhenLocalSnapshotAndManifestAreStale() async throws {
         let local = try GRDBConnectionSessionRepository(databaseQueue: DatabaseQueue())
         var session = ConnectionSession(accountIdentifier: "account", startedAt: Date(timeIntervalSince1970: 100))
         session.endedAt = Date(timeIntervalSince1970: 110)
@@ -136,17 +136,25 @@ final class PrepareConnectionSessionRawLogUseCaseTests: XCTestCase {
             pid: 0x0C,
             payload: [0x1A, 0xF8]
         )
-        let transfer = VerifiedConnectionSessionTransfer(
+        let uploadedTransfer = VerifiedConnectionSessionTransfer(
             package: ConnectionSessionTransferPackage(session: session, entries: [entry]),
-            manifestDigest: "manifest"
+            manifestDigest: "stale-local-manifest"
         )
-        try local.importVerifiedTransfer(transfer)
+        try local.save(session)
+        try local.importVerifiedTransfer(uploadedTransfer)
         let staleSession = try XCTUnwrap(local.sessions(for: "account").first)
         try local.removeLocalEntries(for: session.id)
         let removedSession = try XCTUnwrap(local.sessions(for: "account").first)
         XCTAssertEqual(staleSession.rawLogSummary.localState, .available)
         XCTAssertEqual(removedSession.rawLogSummary.localState, .removed)
-        let cloud = RawDownloadTransferRepository(transfer: transfer)
+        var archivedSession = session
+        archivedSession.endedAt = Date(timeIntervalSince1970: 111)
+        archivedSession.endReason = .connectionLost
+        let currentCloudTransfer = VerifiedConnectionSessionTransfer(
+            package: ConnectionSessionTransferPackage(session: archivedSession, entries: [entry]),
+            manifestDigest: "current-cloud-manifest"
+        )
+        let cloud = RawDownloadTransferRepository(transfer: currentCloudTransfer)
         let useCase = PrepareConnectionSessionRawLogUseCase(
             sessionRepository: local,
             rawLogRepository: local,
@@ -157,7 +165,11 @@ final class PrepareConnectionSessionRawLogUseCaseTests: XCTestCase {
 
         XCTAssertEqual(cloud.downloadedSessionIDs, [session.id])
         XCTAssertEqual(try local.entries(for: session.id), [entry])
-        XCTAssertEqual(try XCTUnwrap(local.sessions(for: "account").first).rawLogSummary.localState, .available)
+        let restored = try XCTUnwrap(local.sessions(for: "account").first)
+        XCTAssertEqual(restored.rawLogSummary.localState, .available)
+        XCTAssertEqual(restored.rawLogSummary.manifestDigest, "current-cloud-manifest")
+        XCTAssertEqual(restored.endedAt, session.endedAt)
+        XCTAssertEqual(restored.endReason, session.endReason)
     }
 
     /// 未ダウンロードセッションの選択時は容量付き確認を公開しCloudKitへ接続しません。
@@ -319,7 +331,7 @@ private final class RawDownloadTransferRepository: ConnectionSessionTransferRepo
         sessionID: ConnectionSessionID,
         for accountIdentifier: String
     ) async throws -> VerifiedConnectionSessionTransfer {
-        guard sessionID == transfer.package.session.id else {
+        guard sessionID == transfer.package.sessionID else {
             throw ConnectionSessionRepositoryError.invalidState
         }
         downloadedSessionIDs.append(sessionID)

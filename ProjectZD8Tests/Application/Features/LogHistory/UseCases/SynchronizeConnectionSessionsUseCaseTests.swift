@@ -126,7 +126,11 @@ final class SynchronizeConnectionSessionsUseCaseTests: XCTestCase {
             manifestDigest: "manifest"
         )
         let local = SynchronizationLocalRepository(sessions: [])
-        let cloud = SynchronizationTransferRepository(transfers: [transfer], receipts: [])
+        let cloud = SynchronizationTransferRepository(
+            transfers: [transfer],
+            metadata: [ConnectionSessionCloudMetadata(session: session, manifestDigest: "manifest")],
+            receipts: []
+        )
         let useCase = SynchronizeConnectionSessionsUseCase(
             sessionRepository: local,
             rawLogRepository: local,
@@ -235,7 +239,11 @@ final class SynchronizeConnectionSessionsUseCaseTests: XCTestCase {
             manifestDigest: "remote-manifest"
         )
         let local = SynchronizationLocalRepository(sessions: [session])
-        let cloud = SynchronizationTransferRepository(transfers: [transfer], receipts: [])
+        let cloud = SynchronizationTransferRepository(
+            transfers: [transfer],
+            metadata: [ConnectionSessionCloudMetadata(session: session, manifestDigest: "remote-manifest")],
+            receipts: []
+        )
         let useCase = SynchronizeConnectionSessionsUseCase(
             sessionRepository: local,
             rawLogRepository: local,
@@ -273,7 +281,11 @@ final class SynchronizeConnectionSessionsUseCaseTests: XCTestCase {
             manifestDigest: "stale-manifest"
         )
         let local = SynchronizationLocalRepository(sessions: [localSession])
-        let cloud = SynchronizationTransferRepository(transfers: [staleTransfer], receipts: [])
+        let cloud = SynchronizationTransferRepository(
+            transfers: [staleTransfer],
+            metadata: [ConnectionSessionCloudMetadata(session: staleRemoteSession, manifestDigest: "stale-manifest")],
+            receipts: []
+        )
         let useCase = SynchronizeConnectionSessionsUseCase(
             sessionRepository: local,
             rawLogRepository: local,
@@ -306,7 +318,11 @@ final class SynchronizeConnectionSessionsUseCaseTests: XCTestCase {
             manifestDigest: "manifest"
         )
         let local = SynchronizationLocalRepository(sessions: [])
-        let cloud = SynchronizationTransferRepository(transfers: [transfer], receipts: [])
+        let cloud = SynchronizationTransferRepository(
+            transfers: [transfer],
+            metadata: [ConnectionSessionCloudMetadata(session: session, manifestDigest: "manifest")],
+            receipts: []
+        )
         let useCase = SynchronizeConnectionSessionsUseCase(
             sessionRepository: local,
             rawLogRepository: local,
@@ -513,6 +529,8 @@ private final class SynchronizationLocalRepository: ConnectionSessionRepository,
 private final class SynchronizationTransferRepository: ConnectionSessionTransferRepository {
     /// 取得で返す検証済み転送です。
     private var transfers: [VerifiedConnectionSessionTransfer]
+    /// 取得で返すRaw非包含セッション概要です。
+    private var metadata: [ConnectionSessionCloudMetadata]
     /// 取得で返すMac受領証です。
     private var receipts: [(ConnectionSessionID, ConnectionSessionMacImportReceipt)]
     /// 取得で返す削除済みセッションIDです。
@@ -527,13 +545,16 @@ private final class SynchronizationTransferRepository: ConnectionSessionTransfer
     /// 責務: CloudKit取得結果として返す同期データを初期化します。
     /// - Parameters:
     ///   - transfers: 取得で返す検証済み転送。
+    ///   - metadata: 取得で返すRaw非包含セッション概要。
     ///   - receipts: 取得で返すMac受領証。
     init(
         transfers: [VerifiedConnectionSessionTransfer],
+        metadata: [ConnectionSessionCloudMetadata] = [],
         receipts: [(ConnectionSessionID, ConnectionSessionMacImportReceipt)],
         deletedIDs: Set<ConnectionSessionID> = []
     ) {
         self.transfers = transfers
+        self.metadata = metadata
         self.receipts = receipts
         self.deletedIDs = deletedIDs
     }
@@ -546,8 +567,8 @@ private final class SynchronizationTransferRepository: ConnectionSessionTransfer
     ///   - accountIdentifier: 使用しないアカウント識別子。
     /// - Returns: 固定Digest。
     func upload(_ package: ConnectionSessionTransferPackage, for accountIdentifier: String) async throws -> String {
-        uploadedSessionIDs.append(package.session.id)
-        transfers.removeAll { $0.package.session.id == package.session.id }
+        uploadedSessionIDs.append(package.sessionID)
+        transfers.removeAll { $0.package.sessionID == package.sessionID }
         transfers.append(VerifiedConnectionSessionTransfer(package: package, manifestDigest: "uploaded"))
         return "uploaded"
     }
@@ -559,6 +580,29 @@ private final class SynchronizationTransferRepository: ConnectionSessionTransfer
     /// - Returns: 初期化時に保持した検証済み転送。
     func downloadTransfers(for accountIdentifier: String) async throws -> [VerifiedConnectionSessionTransfer] {
         transfers
+    }
+
+    /// 公開されたRaw非包含概要を後続端末が取得できる状態へ保存します。
+    ///
+    /// 責務: 1件の概要公開要求をセッションID単位のメモリ上Metadataレコードへ変換します。
+    /// - Parameters:
+    ///   - item: 保存するRaw非包含セッション概要。
+    ///   - accountIdentifier: 使用しないアカウント識別子。
+    func publishMetadata(
+        _ item: ConnectionSessionCloudMetadata,
+        for accountIdentifier: String
+    ) async throws {
+        metadata.removeAll { $0.session.id == item.session.id }
+        metadata.append(item)
+    }
+
+    /// メモリ上に保存したRaw非包含概要を返します。
+    ///
+    /// 責務: 概要取得要求を現在保存中のMetadata配列へ変換します。
+    /// - Parameter accountIdentifier: 使用しないアカウント識別子。
+    /// - Returns: 現在保存中のRaw非包含概要。
+    func downloadMetadata(for accountIdentifier: String) async throws -> [ConnectionSessionCloudMetadata] {
+        metadata
     }
 
     /// 公開されたMac受領証を記録します。

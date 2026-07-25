@@ -59,11 +59,11 @@ protocol ConnectionSessionTransferRepository {
         progress: @escaping @MainActor (Double) -> Void
     ) async throws -> VerifiedConnectionSessionTransfer
 
-    /// 終了済みセッションPayloadをCloudKitへ保存します。
+    /// セッションIDに紐づくRaw PayloadをCloudKitへ保存します。
     ///
-    /// 責務: 1件のセッションPayloadを検証可能なCloudKit Assetへ変換します。
+    /// 責務: 1件のセッションID付きRaw Payloadを検証可能なCloudKit Assetへ変換します。
     /// - Parameters:
-    ///   - package: 保存するセッションと未デコードRawログ。
+    ///   - package: 保存するセッション識別情報と未デコードRawログ。
     ///   - accountIdentifier: 同期対象のAppleアカウント識別子。
     /// - Returns: 保存したAssetバイトのSHA-256。
     /// - Throws: 符号化、一時ファイル、またはCloudKit保存に失敗した場合のエラー。
@@ -72,11 +72,11 @@ protocol ConnectionSessionTransferRepository {
         for accountIdentifier: String
     ) async throws -> String
 
-    /// 終了済みセッションPayloadを進捗通知付きでCloudKitへ保存します。
+    /// セッションIDに紐づくRaw Payloadを進捗通知付きでCloudKitへ保存します。
     ///
-    /// 責務: 1件のセッションPayloadを保存進捗と検証可能なCloudKit Assetへ変換します。
+    /// 責務: 1件のセッションID付きRaw Payloadを保存進捗と検証可能なCloudKit Assetへ変換します。
     /// - Parameters:
-    ///   - package: 保存するセッションと未デコードRawログ。
+    ///   - package: 保存するセッション識別情報と未デコードRawログ。
     ///   - accountIdentifier: 同期対象のAppleアカウント識別子。
     ///   - progress: `0.0...1.0` の範囲で通知するAsset保存進捗。
     /// - Returns: 保存したAssetバイトのSHA-256。
@@ -190,27 +190,24 @@ extension ConnectionSessionTransferRepository {
         return transfer
     }
 
-    /// 互換実装では既存Payloadが概要も保持するため追加保存を省略します。
+    /// 概要専用実装を持たない転送先では追加保存を省略します。
     ///
-    /// 責務: 既存テスト実装の概要公開要求を副作用なしで受け付けます。
+    /// 責務: 概要専用実装を持たないテスト境界の公開要求を副作用なしで受け付けます。
     /// - Parameters:
-    ///   - metadata: 既存Payload内に含まれるため使用しない概要。
+    ///   - metadata: 使用しない概要。
     ///   - accountIdentifier: 使用しないアカウント識別子。
     func publishMetadata(
         _ metadata: ConnectionSessionCloudMetadata,
         for accountIdentifier: String
     ) async throws {}
 
-    /// 既存の全転送取得結果から概要を復元します。
+    /// 概要専用実装を持たない転送先から空の概要一覧を返します。
     ///
-    /// 責務: 既存Payload配列を互換的なセッション概要配列へ変換します。
+    /// 責務: Raw専用Payloadと概要同期を混在させない空結果を提供します。
     /// - Parameter accountIdentifier: 同期対象のAppleアカウント識別子。
-    /// - Returns: 既存転送が保持するセッション概要。
-    /// - Throws: 既存転送取得に失敗した場合のエラー。
+    /// - Returns: 空のセッション概要。
     func downloadMetadata(for accountIdentifier: String) async throws -> [ConnectionSessionCloudMetadata] {
-        try await downloadTransfers(for: accountIdentifier).map {
-            ConnectionSessionCloudMetadata(session: $0.package.session, manifestDigest: $0.manifestDigest)
-        }
+        []
     }
 
     /// 既存の全転送取得結果からManifest辞書を復元します。
@@ -224,7 +221,7 @@ extension ConnectionSessionTransferRepository {
     ) async throws -> [ConnectionSessionID: String] {
         var manifests: [ConnectionSessionID: String] = [:]
         for transfer in try await downloadTransfers(for: accountIdentifier) {
-            let id = transfer.package.session.id
+            let id = transfer.package.sessionID
             if let existing = manifests[id], existing != transfer.manifestDigest {
                 throw ConnectionSessionRepositoryError.integrityConflict
             }
@@ -246,7 +243,7 @@ extension ConnectionSessionTransferRepository {
         for accountIdentifier: String
     ) async throws -> VerifiedConnectionSessionTransfer {
         guard let transfer = try await downloadTransfers(for: accountIdentifier).first(where: {
-            $0.package.session.id == sessionID
+            $0.package.sessionID == sessionID
         }) else {
             throw ConnectionSessionRepositoryError.invalidState
         }

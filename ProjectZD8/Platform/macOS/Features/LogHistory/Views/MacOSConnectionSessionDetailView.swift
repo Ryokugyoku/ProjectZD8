@@ -44,6 +44,10 @@ struct MacOSConnectionSessionDetailView: View {
         .navigationDestination(isPresented: $isAnalysisPresented) {
             MacOSSessionLogAnalysisView(session: session, state: analysisState, send: sendAnalysis, metrics: metrics)
         }
+        .onChange(of: isAnalysisPresented) { wasPresented, isPresented in
+            guard wasPresented, !isPresented else { return }
+            send(.localDataChanged)
+        }
         .alert(
             "analysis.download.confirm.title",
             isPresented: Binding(

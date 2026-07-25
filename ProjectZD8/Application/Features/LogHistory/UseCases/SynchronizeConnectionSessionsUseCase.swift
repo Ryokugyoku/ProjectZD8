@@ -68,7 +68,7 @@ struct SynchronizeConnectionSessionsUseCase {
             : []
         let currentManifestDigests = remoteManifestDigests.merging(
             uploadedTransfers.reduce(into: [:]) { output, transfer in
-                output[transfer.package.session.id] = transfer.manifestDigest
+                output[transfer.package.sessionID] = transfer.manifestDigest
             },
             uniquingKeysWith: { _, uploaded in uploaded }
         )
@@ -76,13 +76,18 @@ struct SynchronizeConnectionSessionsUseCase {
             accountIdentifier: accountIdentifier,
             remoteManifestDigests: currentManifestDigests,
             existingRemoteSessionIDs: Set(remoteMetadata.map(\.session.id))
-                .union(uploadedTransfers.map(\.package.session.id))
+                .union(uploadedTransfers.map(\.package.sessionID))
         )
-        let uploadedMetadata = uploadedTransfers.map {
-            ConnectionSessionCloudMetadata(
-                session: metadataSession($0.package.session, manifestDigest: $0.manifestDigest),
-                manifestDigest: $0.manifestDigest
-            )
+        let localSessionsByID = Dictionary(
+            uniqueKeysWithValues: try sessionRepository.sessions(for: accountIdentifier).map { ($0.id, $0) }
+        )
+        let uploadedMetadata = uploadedTransfers.compactMap { transfer in
+            localSessionsByID[transfer.package.sessionID].map {
+                ConnectionSessionCloudMetadata(
+                    session: metadataSession($0, manifestDigest: transfer.manifestDigest),
+                    manifestDigest: transfer.manifestDigest
+                )
+            }
         }
         try importMetadata(
             metadataByReplacingRemoteWithUploads(remoteMetadata, uploads: uploadedMetadata)
