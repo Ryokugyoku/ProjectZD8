@@ -30,13 +30,19 @@ struct PrepareConnectionSessionRawLogUseCase {
     /// 指定セッションのRawログを必要時だけCloudKitから復元します。
     ///
     /// 責務: 1件の解析対象セッションをオンデマンド取得と最終閲覧記録へ変換します。
-    /// - Parameter session: 解析対象の接続セッション概要。
+    /// - Parameters:
+    ///   - session: 解析対象の接続セッション概要。
+    ///   - downloadProgress: CloudKit取得時に `0.0...1.0` で通知する進捗。
     /// - Throws: CloudKit取得、整合性検証、ローカル復元、または閲覧日時保存に失敗した場合のエラー。
-    func execute(session: ConnectionSession) async throws {
+    func execute(
+        session: ConnectionSession,
+        downloadProgress: @escaping @MainActor (Double) -> Void = { _ in }
+    ) async throws {
         if session.rawLogSummary.localState == .removed {
             let transfer = try await transferRepository.downloadTransfer(
                 sessionID: session.id,
-                for: session.accountIdentifier
+                for: session.accountIdentifier,
+                progress: downloadProgress
             )
             guard transfer.package.session.id == session.id,
                   transfer.package.session.accountIdentifier == session.accountIdentifier,

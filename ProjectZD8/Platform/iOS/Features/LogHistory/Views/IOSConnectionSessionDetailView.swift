@@ -13,6 +13,8 @@ struct IOSConnectionSessionDetailView: View {
     let sendAnalysis: (SessionLogAnalysisAction) -> Void
     /// 表示対象をiCloudを含めて削除している途中かを示します。
     let isDeleting: Bool
+    /// PID時系列解析画面を表示しているかを示す一時的なナビゲーション状態です。
+    @State private var isAnalysisPresented = false
 
     /// Rawログの来歴と安全なローカル除去導線を提供します。
     ///
@@ -33,6 +35,27 @@ struct IOSConnectionSessionDetailView: View {
         .background(background)
         .navigationTitle("history.detail.title")
         .navigationBarTitleDisplayMode(.inline)
+        .navigationDestination(isPresented: $isAnalysisPresented) {
+            IOSSessionLogAnalysisView(session: session, state: analysisState, send: sendAnalysis)
+        }
+        .alert(
+            "analysis.download.confirm.title",
+            isPresented: Binding(
+                get: { analysisState.downloadPrompt?.sessionID == session.id },
+                set: { if !$0 { sendAnalysis(.downloadCancelled) } }
+            ),
+            presenting: analysisState.downloadPrompt
+        ) { _ in
+            Button("analysis.download.cancel", role: .cancel) {
+                sendAnalysis(.downloadCancelled)
+            }
+            Button("analysis.download.confirm") {
+                sendAnalysis(.downloadConfirmed)
+                isAnalysisPresented = true
+            }
+        } message: { prompt in
+            Text(downloadConfirmationMessage(prompt))
+        }
         .accessibilityIdentifier("ios-connection-session-detail")
     }
 
@@ -99,8 +122,11 @@ struct IOSConnectionSessionDetailView: View {
 
     /// 静的性能解析画面への遷移操作を表示します。
     private var analysisAction: some View {
-        NavigationLink {
-            IOSSessionLogAnalysisView(session: session, state: analysisState, send: sendAnalysis)
+        Button {
+            sendAnalysis(.sessionSelected(session))
+            if session.rawLogSummary.localState != .removed {
+                isAnalysisPresented = true
+            }
         } label: {
             HStack(spacing: 13) {
                 Image(systemName: "chart.xyaxis.line")
@@ -121,6 +147,18 @@ struct IOSConnectionSessionDetailView: View {
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier("ios-history-open-analysis")
+    }
+
+    /// iCloud取得確認用に予定容量を含む本文を返します。
+    ///
+    /// 責務: 1件のRaw取得確認情報をローカライズ済み容量付き本文へ変換します。
+    /// - Parameter prompt: 取得対象IDと予定バイト数を保持する確認情報。
+    /// - Returns: 現在Locale向けの容量を含む確認本文。
+    private func downloadConfirmationMessage(_ prompt: SessionLogAnalysisState.DownloadPrompt) -> String {
+        String(
+            format: String(localized: "analysis.download.confirm.message"),
+            byteCountText(prompt.byteCount)
+        )
     }
 
     /// セッションの車両、日時、Rawログ概念を示す主カードです。

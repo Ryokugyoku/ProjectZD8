@@ -44,6 +44,21 @@ protocol ConnectionSessionTransferRepository {
         for accountIdentifier: String
     ) async throws -> VerifiedConnectionSessionTransfer
 
+    /// 指定セッションのRaw Payloadを進捗通知付きでオンデマンド取得します。
+    ///
+    /// 責務: 1件のセッションIDを取得進捗とDigest検証済みRaw転送Payloadへ変換します。
+    /// - Parameters:
+    ///   - sessionID: Raw Payloadを取得するセッションID。
+    ///   - accountIdentifier: 同期対象のAppleアカウント識別子。
+    ///   - progress: `0.0...1.0` の範囲で通知するAsset取得進捗。
+    /// - Returns: Asset整合性を検証したセッション転送Payload。
+    /// - Throws: CloudKit取得、Asset読込、Digest検証、または復号に失敗した場合のエラー。
+    func downloadTransfer(
+        sessionID: ConnectionSessionID,
+        for accountIdentifier: String,
+        progress: @escaping @MainActor (Double) -> Void
+    ) async throws -> VerifiedConnectionSessionTransfer
+
     /// 終了済みセッションPayloadをCloudKitへ保存します。
     ///
     /// 責務: 1件のセッションPayloadを検証可能なCloudKit Assetへ変換します。
@@ -120,6 +135,26 @@ protocol ConnectionSessionTransferRepository {
 /// 既存の転送Repository実装へ互換的な軽量同期能力を提供します。
 @MainActor
 extension ConnectionSessionTransferRepository {
+    /// 進捗専用実装を持たない転送先を開始・完了通知付きの既存取得へ委譲します。
+    ///
+    /// 責務: 既存の単一セッション取得を最小限の進捗通知付き取得へ適合します。
+    /// - Parameters:
+    ///   - sessionID: Raw Payloadを取得するセッションID。
+    ///   - accountIdentifier: 同期対象のAppleアカウント識別子。
+    ///   - progress: 開始時と完了時に通知する取得進捗。
+    /// - Returns: Asset整合性を検証したセッション転送Payload。
+    /// - Throws: 既存の単一セッション取得に失敗した場合のエラー。
+    func downloadTransfer(
+        sessionID: ConnectionSessionID,
+        for accountIdentifier: String,
+        progress: @escaping @MainActor (Double) -> Void
+    ) async throws -> VerifiedConnectionSessionTransfer {
+        progress(0)
+        let transfer = try await downloadTransfer(sessionID: sessionID, for: accountIdentifier)
+        progress(1)
+        return transfer
+    }
+
     /// 互換実装では既存Payloadが概要も保持するため追加保存を省略します。
     ///
     /// 責務: 既存テスト実装の概要公開要求を副作用なしで受け付けます。

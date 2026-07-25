@@ -44,15 +44,128 @@ final class PrepareConnectionSessionRawLogUseCaseTests: XCTestCase {
             transferRepository: cloud,
             now: { accessedAt }
         )
+        var reportedProgress: [Double] = []
 
-        try await useCase.execute(session: session)
+        try await useCase.execute(session: session) { reportedProgress.append($0) }
 
         XCTAssertEqual(cloud.downloadedSessionIDs, [session.id])
+        XCTAssertEqual(reportedProgress, [0, 1])
         XCTAssertEqual(try local.entries(for: session.id), [entry])
         let restored = try XCTUnwrap(local.sessions(for: "account").first)
         XCTAssertEqual(restored.rawLogSummary.localState, .available)
         XCTAssertEqual(restored.rawLogSummary.lastAccessedAt, accessedAt)
     }
+
+    /// 未ダウンロードセッションの選択時は容量付き確認を公開しCloudKitへ接続しません。
+    ///
+    /// 責務: PID時系列操作を副作用前のRaw取得確認状態へ変換することを確認します。
+    func testSelectionWaitsForDownloadConfirmationAndCancellationStaysLocal() throws {
+        let local = try GRDBConnectionSessionRepository(databaseQueue: DatabaseQueue())
+        var session = ConnectionSession(accountIdentifier: "account", startedAt: Date(timeIntervalSince1970: 100))
+        session.endedAt = Date(timeIntervalSince1970: 110)
+        session.endReason = .userDisconnected
+        session.rawLogSummary = ConnectionSessionRawLogSummary(
+            recordCount: 10,
+            byteCount: 2_048,
+            localState: .removed,
+            cloudState: .uploaded,
+            manifestDigest: "manifest",
+            macImportReceipt: nil
+        )
+        let transfer = VerifiedConnectionSessionTransfer(
+            package: ConnectionSessionTransferPackage(session: session, entries: []),
+            manifestDigest: "manifest"
+        )
+        let cloud = RawDownloadTransferRepository(transfer: transfer)
+        let model = SessionLogAnalysisModel(
+            state: .init(),
+            decodeTimeline: DecodeSessionLogTimelineUseCase(
+                rawLogRepository: local,
+                definitionRepository: EmptyDefinitionRepository()
+            ),
+            prepareRawLog: PrepareConnectionSessionRawLogUseCase(
+                rawLogRepository: local,
+                transferRepository: cloud
+            )
+        )
+
+        model.send(.sessionSelected(session))
+
+        XCTAssertEqual(model.state.phase, .awaitingDownloadConfirmation)
+        XCTAssertEqual(model.state.downloadPrompt?.sessionID, session.id)
+        XCTAssertEqual(model.state.downloadPrompt?.byteCount, 2_048)
+        XCTAssertTrue(cloud.downloadedSessionIDs.isEmpty)
+
+        model.send(.downloadCancelled)
+
+        XCTAssertEqual(model.state, .init())
+        XCTAssertTrue(cloud.downloadedSessionIDs.isEmpty)
+    }
+
+    /// ユーザー確認後はiCloud取得進捗段階へ遷移します。
+    ///
+    /// 責務: Raw取得確認操作を0パーセントから始まるダウンロード状態へ変換することを確認します。
+    func testConfirmationStartsDownloadProgress() throws {
+        let local = try GRDBConnectionSessionRepository(databaseQueue: DatabaseQueue())
+        var session = ConnectionSession(accountIdentifier: "account", startedAt: Date(timeIntervalSince1970: 100))
+        session.endedAt = Date(timeIntervalSince1970: 110)
+        session.endReason = .userDisconnected
+        session.rawLogSummary = ConnectionSessionRawLogSummary(
+            recordCount: 1,
+            byteCount: 512,
+            localState: .removed,
+            cloudState: .uploaded,
+            manifestDigest: "manifest",
+            macImportReceipt: nil
+        )
+        let transfer = VerifiedConnectionSessionTransfer(
+            package: ConnectionSessionTransferPackage(session: session, entries: []),
+            manifestDigest: "manifest"
+        )
+        let cloud = RawDownloadTransferRepository(transfer: transfer)
+        let model = SessionLogAnalysisModel(
+            state: .init(),
+            decodeTimeline: DecodeSessionLogTimelineUseCase(
+                rawLogRepository: local,
+                definitionRepository: EmptyDefinitionRepository()
+            ),
+            prepareRawLog: PrepareConnectionSessionRawLogUseCase(
+                rawLogRepository: local,
+                transferRepository: cloud
+            )
+        )
+        model.send(.sessionSelected(session))
+
+        model.send(.downloadConfirmed)
+
+        XCTAssertEqual(model.state.phase, .downloading)
+        XCTAssertEqual(model.state.downloadProgress, 0)
+        XCTAssertNil(model.state.downloadPrompt)
+    }
+}
+
+/// 解析状態テストへ空のPID定義一覧を提供します。
+private struct EmptyDefinitionRepository: OBDPIDDefinitionRepository {
+    /// 空のPID定義一覧を返します。
+    ///
+    /// 責務: PID定義読込要求を空配列へ変換します。
+    /// - Returns: 空のPID定義配列。
+    func definitions() throws -> [OBDPIDDefinition] { [] }
+
+    /// このテストではPID定義保存を変更なしで受け付けます。
+    ///
+    /// 責務: テスト対象外のPID定義保存要求を満たします。
+    /// - Parameter definition: 使用しないPID定義。
+    func upsert(_ definition: OBDPIDDefinition) throws {}
+
+    /// このテストでは一致するPID定義を返しません。
+    ///
+    /// 責務: 任意のService/PID検索を定義なしへ変換します。
+    /// - Parameters:
+    ///   - service: 使用しないOBD Service番号。
+    ///   - pid: 使用しないPID番号。
+    /// - Returns: 常に `nil`。
+    func definition(service: UInt8, pid: UInt8) throws -> OBDPIDDefinition? { nil }
 }
 
 /// 単一セッションのCloudKit Raw取得をメモリ上で再現します。

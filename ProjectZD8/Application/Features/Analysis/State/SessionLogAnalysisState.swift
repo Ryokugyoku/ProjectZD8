@@ -6,12 +6,35 @@ struct SessionLogAnalysisState: Equatable {
     enum Phase: Equatable {
         /// セッション選択前または表示を閉じた状態です。
         case idle
+        /// iCloudからRawログを取得するユーザー確認を待っています。
+        case awaitingDownloadConfirmation
+        /// iCloudからRawログを取得しています。
+        case downloading
         /// RawログとPID定義を読込中です。
         case loading
         /// 時系列サンプルの生成が完了した状態です。
         case loaded
         /// 保存先または定義を読めなかった状態です。
         case failed
+    }
+
+    /// iCloud Rawログ取得前に表示する確認情報です。
+    struct DownloadPrompt: Equatable {
+        /// 取得対象のセッションIDです。
+        let sessionID: ConnectionSessionID
+        /// iCloudから取得するRaw Payloadの予定バイト数です。
+        let byteCount: Int64
+
+        /// 取得対象と予定容量を固定して確認情報を生成します。
+        ///
+        /// 責務: 1件のセッションIDと予定バイト数をRaw取得確認情報へ固定します。
+        /// - Parameters:
+        ///   - sessionID: 取得対象のセッションID。
+        ///   - byteCount: iCloudから取得するRaw Payloadの予定バイト数。
+        init(sessionID: ConnectionSessionID, byteCount: Int64) {
+            self.sessionID = sessionID
+            self.byteCount = byteCount
+        }
     }
 
     /// 1件の時系列PID表示値です。
@@ -82,6 +105,10 @@ struct SessionLogAnalysisState: Equatable {
     var phase: Phase = .idle
     /// 現在表示しているセッションIDです。
     var sessionID: ConnectionSessionID?
+    /// ユーザー確認待ちのiCloud取得情報です。
+    var downloadPrompt: DownloadPrompt?
+    /// iCloud Asset取得率です。取得前は `nil` です。
+    var downloadProgress: Double?
     /// セッション内の取得順序で昇順にしたPID時系列です。
     var timeline: [TimelineSample] = []
     /// 数式変換を完了した時系列サンプル件数です。

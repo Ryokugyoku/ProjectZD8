@@ -108,7 +108,9 @@ struct IOSSessionLogAnalysisView: View {
 
     /// 現在の読込段階または選択モードを描画します。
     @ViewBuilder private var selectedContent: some View {
-        if state.phase == .loading && state.timeline.isEmpty {
+        if state.phase == .downloading {
+            downloadProgressView
+        } else if state.phase == .loading && state.timeline.isEmpty {
             ProgressView("analysis.loading").frame(maxWidth: .infinity).padding(28)
         } else if state.phase == .failed && state.timeline.isEmpty {
             HStack(spacing: 9) {
@@ -127,6 +129,25 @@ struct IOSSessionLogAnalysisView: View {
             case .relationships: relationships
             }
         }
+    }
+
+    /// iCloud Rawログの取得率をパーセントで表示します。
+    private var downloadProgressView: some View {
+        let progress = state.downloadProgress ?? 0
+        return VStack(spacing: 12) {
+            ProgressView(value: progress, total: 1)
+                .progressViewStyle(.linear)
+            HStack {
+                Label("analysis.download.progress", systemImage: "icloud.and.arrow.down")
+                Spacer()
+                Text(progress, format: .percent.precision(.fractionLength(0)))
+                    .monospacedDigit()
+            }
+            .font(.subheadline.weight(.semibold))
+        }
+        .padding(24)
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .accessibilityIdentifier("ios-analysis-download-progress")
     }
 
     /// セッション時間、距離、速度帯、回転域、部品・系統を一覧化します。

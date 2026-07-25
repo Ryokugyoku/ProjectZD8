@@ -17,6 +17,8 @@ struct MacOSConnectionSessionDetailView: View {
     let isDeleting: Bool
     /// 車両セッション一覧へ戻る一時的な画面遷移操作です。
     let back: () -> Void
+    /// PID時系列解析画面を表示しているかを示す一時的なナビゲーション状態です。
+    @State private var isAnalysisPresented = false
 
     /// 車両別学習データの来歴と保管状態を提供します。
     ///
@@ -39,6 +41,27 @@ struct MacOSConnectionSessionDetailView: View {
         }
         .background(background)
         .navigationTitle("history.detail.title")
+        .navigationDestination(isPresented: $isAnalysisPresented) {
+            MacOSSessionLogAnalysisView(session: session, state: analysisState, send: sendAnalysis, metrics: metrics)
+        }
+        .alert(
+            "analysis.download.confirm.title",
+            isPresented: Binding(
+                get: { analysisState.downloadPrompt?.sessionID == session.id },
+                set: { if !$0 { sendAnalysis(.downloadCancelled) } }
+            ),
+            presenting: analysisState.downloadPrompt
+        ) { _ in
+            Button("analysis.download.cancel", role: .cancel) {
+                sendAnalysis(.downloadCancelled)
+            }
+            Button("analysis.download.confirm") {
+                sendAnalysis(.downloadConfirmed)
+                isAnalysisPresented = true
+            }
+        } message: { prompt in
+            Text(downloadConfirmationMessage(prompt))
+        }
         .accessibilityIdentifier("macos-connection-session-detail")
     }
 
@@ -83,8 +106,11 @@ struct MacOSConnectionSessionDetailView: View {
 
     /// 車両スコープ枠を置き換える静的性能解析カードです。
     private var analysisCard: some View {
-        NavigationLink {
-            MacOSSessionLogAnalysisView(session: session, state: analysisState, send: sendAnalysis, metrics: metrics)
+        Button {
+            sendAnalysis(.sessionSelected(session))
+            if session.rawLogSummary.localState != .removed {
+                isAnalysisPresented = true
+            }
         } label: {
             VStack(spacing: 8 * metrics.scale) {
                 statusCard(
@@ -106,6 +132,18 @@ struct MacOSConnectionSessionDetailView: View {
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier("macos-history-open-analysis")
+    }
+
+    /// iCloud取得確認用に予定容量を含む本文を返します。
+    ///
+    /// 責務: 1件のRaw取得確認情報をローカライズ済み容量付き本文へ変換します。
+    /// - Parameter prompt: 取得対象IDと予定バイト数を保持する確認情報。
+    /// - Returns: 現在Locale向けの容量を含む確認本文。
+    private func downloadConfirmationMessage(_ prompt: SessionLogAnalysisState.DownloadPrompt) -> String {
+        String(
+            format: String(localized: "analysis.download.confirm.message"),
+            byteCountText(prompt.byteCount)
+        )
     }
 
     /// 車両セッション一覧へ戻る操作と全端末削除操作を表示します。

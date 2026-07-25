@@ -177,6 +177,30 @@ final class CloudKitConnectionSessionTransferRepository: ConnectionSessionTransf
         return try verifiedTransfer(from: record, accountIdentifier: accountIdentifier)
     }
 
+    /// 指定セッションのRaw AssetをCloudKit進捗通知付きで取得してDigestを検証します。
+    ///
+    /// 責務: 1件のCloudKit Raw転送レコードをAsset取得率と検証済みセッションPayloadへ変換します。
+    /// - Parameters:
+    ///   - sessionID: Raw Payloadを取得するセッションID。
+    ///   - accountIdentifier: 同期対象のAppleアカウント識別子。
+    ///   - progress: `0.0...1.0` の範囲で通知するAsset取得進捗。
+    /// - Returns: Asset SHA-256が保存済みManifestと一致した転送Payload。
+    /// - Throws: CloudKit取得、Asset読込、Digest検証、または復号に失敗した場合のエラー。
+    func downloadTransfer(
+        sessionID: ConnectionSessionID,
+        for accountIdentifier: String,
+        progress: @escaping @MainActor (Double) -> Void
+    ) async throws -> VerifiedConnectionSessionTransfer {
+        progress(0)
+        let record = try await record(
+            for: transferRecordID(sessionID: sessionID, accountIdentifier: accountIdentifier),
+            progress: progress
+        )
+        let transfer = try verifiedTransfer(from: record, accountIdentifier: accountIdentifier)
+        progress(1)
+        return transfer
+    }
+
     /// 終了済みセッションPayloadをCloudKit Assetへ保存します。
     ///
     /// 責務: 1件のセッションPayloadをSHA-256付きCloudKitレコードへ変換します。
@@ -467,6 +491,49 @@ final class CloudKitConnectionSessionTransferRepository: ConnectionSessionTransf
             output.append(contentsOf: try result.matchResults.map { try $0.1.get() })
         }
         return output
+    }
+
+    /// 1件のCloudKitレコードとAssetを取得率通知付きで取得します。
+    ///
+    /// 責務: 1件のレコードIDをCloudKit取得操作の進捗と完了レコードへ変換します。
+    /// - Parameters:
+    ///   - recordID: 取得するCloudKitレコードID。
+    ///   - progress: `0.0...1.0` の範囲で通知するAsset取得進捗。
+    /// - Returns: Assetを含めて取得したCloudKitレコード。
+    /// - Throws: CloudKitがレコードまたはAssetを取得できない場合のエラー。
+    private func record(
+        for recordID: CKRecord.ID,
+        progress: @escaping @MainActor (Double) -> Void
+    ) async throws -> CKRecord {
+        let operation = CKFetchRecordsOperation(recordIDs: [recordID])
+        return try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { continuation in
+                var fetchedResult: Result<CKRecord, Error>?
+                operation.perRecordProgressBlock = { fetchedRecordID, value in
+                    guard fetchedRecordID == recordID else { return }
+                    Task { @MainActor in progress(value) }
+                }
+                operation.perRecordResultBlock = { fetchedRecordID, result in
+                    guard fetchedRecordID == recordID else { return }
+                    fetchedResult = result
+                }
+                operation.fetchRecordsResultBlock = { result in
+                    switch result {
+                    case .success:
+                        guard let fetchedResult else {
+                            continuation.resume(throwing: ConnectionSessionRepositoryError.invalidState)
+                            return
+                        }
+                        continuation.resume(with: fetchedResult)
+                    case let .failure(error):
+                        continuation.resume(throwing: error)
+                    }
+                }
+                privateDatabase.add(operation)
+            }
+        } onCancel: {
+            operation.cancel()
+        }
     }
 
     /// 利用時点で解決するCloudKit private databaseです。
