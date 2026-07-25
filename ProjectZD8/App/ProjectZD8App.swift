@@ -74,6 +74,7 @@ struct ProjectZD8App: App {
                 definitionRepository: IOSApplicationComposition.makeOBDPIDDefinitionRepository()
             ),
             prepareRawLog: PrepareConnectionSessionRawLogUseCase(
+                sessionRepository: connectionSessionRepository,
                 rawLogRepository: connectionSessionRepository,
                 transferRepository: CloudKitConnectionSessionTransferRepository()
             )
@@ -163,6 +164,7 @@ struct ProjectZD8App: App {
                 definitionRepository: MacOSApplicationComposition.makeOBDPIDDefinitionRepository()
             ),
             prepareRawLog: PrepareConnectionSessionRawLogUseCase(
+                sessionRepository: connectionSessionRepository,
                 rawLogRepository: connectionSessionRepository,
                 transferRepository: CloudKitConnectionSessionTransferRepository()
             )

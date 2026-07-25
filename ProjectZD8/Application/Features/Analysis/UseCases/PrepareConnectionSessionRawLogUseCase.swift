@@ -3,6 +3,8 @@ import Foundation
 /// セッション解析前にRawログをローカルで利用可能にします。
 @MainActor
 struct PrepareConnectionSessionRawLogUseCase {
+    /// 解析対象セッションの最新ローカル状態を取得する保存先です。
+    private let sessionRepository: any ConnectionSessionRepository
     /// Rawログのローカル保存先です。
     private let rawLogRepository: any ConnectionSessionRawLogRepository
     /// CloudKitのオンデマンド転送境界です。
@@ -10,18 +12,21 @@ struct PrepareConnectionSessionRawLogUseCase {
     /// 最終閲覧日時を生成するクロックです。
     private let now: () -> Date
 
-    /// ローカル保存先、CloudKit境界、クロックを固定して生成します。
+    /// セッション保存先、Raw保存先、CloudKit境界、クロックを固定して生成します。
     ///
     /// 責務: 解析対象セッションをRawログ利用可能状態へする依存関係を固定します。
     /// - Parameters:
+    ///   - sessionRepository: 解析対象セッションの最新ローカル状態を取得する保存先。
     ///   - rawLogRepository: Rawログのローカル保存先。
     ///   - transferRepository: CloudKitのオンデマンド転送境界。
     ///   - now: 最終閲覧日時を生成するクロック。
     init(
+        sessionRepository: any ConnectionSessionRepository,
         rawLogRepository: any ConnectionSessionRawLogRepository,
         transferRepository: any ConnectionSessionTransferRepository,
         now: @escaping () -> Date = Date.init
     ) {
+        self.sessionRepository = sessionRepository
         self.rawLogRepository = rawLogRepository
         self.transferRepository = transferRepository
         self.now = now
@@ -38,19 +43,24 @@ struct PrepareConnectionSessionRawLogUseCase {
         session: ConnectionSession,
         downloadProgress: @escaping @MainActor (Double) -> Void = { _ in }
     ) async throws {
-        if session.rawLogSummary.localState == .removed {
+        guard let currentSession = try sessionRepository
+            .sessions(for: session.accountIdentifier)
+            .first(where: { $0.id == session.id }) else {
+            throw ConnectionSessionRepositoryError.invalidState
+        }
+        if currentSession.rawLogSummary.localState == .removed {
             let transfer = try await transferRepository.downloadTransfer(
-                sessionID: session.id,
-                for: session.accountIdentifier,
+                sessionID: currentSession.id,
+                for: currentSession.accountIdentifier,
                 progress: downloadProgress
             )
-            guard transfer.package.session.id == session.id,
-                  transfer.package.session.accountIdentifier == session.accountIdentifier,
-                  transfer.manifestDigest == session.rawLogSummary.manifestDigest else {
+            guard transfer.package.session.id == currentSession.id,
+                  transfer.package.session.accountIdentifier == currentSession.accountIdentifier,
+                  transfer.manifestDigest == currentSession.rawLogSummary.manifestDigest else {
                 throw ConnectionSessionRepositoryError.integrityConflict
             }
             try rawLogRepository.restoreVerifiedTransfer(transfer)
         }
-        try rawLogRepository.markRawLogAccessed(at: now(), sessionID: session.id)
+        try rawLogRepository.markRawLogAccessed(at: now(), sessionID: currentSession.id)
     }
 }

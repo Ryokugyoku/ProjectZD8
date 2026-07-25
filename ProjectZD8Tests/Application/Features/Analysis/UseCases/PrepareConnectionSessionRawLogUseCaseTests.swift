@@ -40,6 +40,7 @@ final class PrepareConnectionSessionRawLogUseCaseTests: XCTestCase {
         let cloud = RawDownloadTransferRepository(transfer: transfer)
         let accessedAt = Date(timeIntervalSince1970: 120)
         let useCase = PrepareConnectionSessionRawLogUseCase(
+            sessionRepository: local,
             rawLogRepository: local,
             transferRepository: cloud,
             now: { accessedAt }
@@ -99,6 +100,7 @@ final class PrepareConnectionSessionRawLogUseCaseTests: XCTestCase {
             manifestDigest: "manifest"
         )
         let useCase = PrepareConnectionSessionRawLogUseCase(
+            sessionRepository: local,
             rawLogRepository: local,
             transferRepository: RawDownloadTransferRepository(transfer: transfer)
         )
@@ -116,6 +118,46 @@ final class PrepareConnectionSessionRawLogUseCaseTests: XCTestCase {
         XCTAssertEqual(restored.rawLogSummary.localState, .available)
         XCTAssertEqual(restored.startedAt, persistedBeforeRestore.startedAt)
         XCTAssertEqual(restored.endedAt, persistedBeforeRestore.endedAt)
+    }
+
+    /// 詳細画面が削除前の状態を保持していても最新DB状態に従ってRawログを復元します。
+    ///
+    /// 責務: アップロード後のローカル削除と古い画面スナップショットをオンデマンド復元成功へ変換できることを確認します。
+    func testDownloadsRawUsingCurrentRepositoryStateWhenSelectedSessionIsStale() async throws {
+        let local = try GRDBConnectionSessionRepository(databaseQueue: DatabaseQueue())
+        var session = ConnectionSession(accountIdentifier: "account", startedAt: Date(timeIntervalSince1970: 100))
+        session.endedAt = Date(timeIntervalSince1970: 110)
+        session.endReason = .userDisconnected
+        let entry = ConnectionSessionRawLogEntry(
+            sequence: 0,
+            observedAt: Date(timeIntervalSince1970: 105),
+            batchElapsedNanoseconds: 1,
+            service: 0x01,
+            pid: 0x0C,
+            payload: [0x1A, 0xF8]
+        )
+        let transfer = VerifiedConnectionSessionTransfer(
+            package: ConnectionSessionTransferPackage(session: session, entries: [entry]),
+            manifestDigest: "manifest"
+        )
+        try local.importVerifiedTransfer(transfer)
+        let staleSession = try XCTUnwrap(local.sessions(for: "account").first)
+        try local.removeLocalEntries(for: session.id)
+        let removedSession = try XCTUnwrap(local.sessions(for: "account").first)
+        XCTAssertEqual(staleSession.rawLogSummary.localState, .available)
+        XCTAssertEqual(removedSession.rawLogSummary.localState, .removed)
+        let cloud = RawDownloadTransferRepository(transfer: transfer)
+        let useCase = PrepareConnectionSessionRawLogUseCase(
+            sessionRepository: local,
+            rawLogRepository: local,
+            transferRepository: cloud
+        )
+
+        try await useCase.execute(session: staleSession)
+
+        XCTAssertEqual(cloud.downloadedSessionIDs, [session.id])
+        XCTAssertEqual(try local.entries(for: session.id), [entry])
+        XCTAssertEqual(try XCTUnwrap(local.sessions(for: "account").first).rawLogSummary.localState, .available)
     }
 
     /// 未ダウンロードセッションの選択時は容量付き確認を公開しCloudKitへ接続しません。
@@ -146,6 +188,7 @@ final class PrepareConnectionSessionRawLogUseCaseTests: XCTestCase {
                 definitionRepository: EmptyDefinitionRepository()
             ),
             prepareRawLog: PrepareConnectionSessionRawLogUseCase(
+                sessionRepository: local,
                 rawLogRepository: local,
                 transferRepository: cloud
             )
@@ -192,6 +235,7 @@ final class PrepareConnectionSessionRawLogUseCaseTests: XCTestCase {
                 definitionRepository: EmptyDefinitionRepository()
             ),
             prepareRawLog: PrepareConnectionSessionRawLogUseCase(
+                sessionRepository: local,
                 rawLogRepository: local,
                 transferRepository: cloud
             )
