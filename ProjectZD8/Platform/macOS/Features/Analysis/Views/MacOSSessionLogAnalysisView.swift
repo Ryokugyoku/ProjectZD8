@@ -62,7 +62,7 @@ struct MacOSSessionLogAnalysisView: View {
         .navigationTitle("analysis.title")
         .navigationBarBackButtonHidden(true)
         .onAppear {
-            if state.sessionID != session.id { send(.sessionSelected(session.id)) }
+            if state.sessionID != session.id { send(.sessionSelected(session)) }
             selectDefaults()
         }
         .onChange(of: state.pidSeries.map(\.id)) { _, _ in selectDefaults() }

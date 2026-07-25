@@ -62,6 +62,19 @@ struct MacOSConnectionHistoryView: View {
             navigationState.returnFromDeletedSession(availableSessionIDs: availableSessionIDs)
         }
         .alert(
+            removalAlertTitle,
+            isPresented: Binding(
+                get: { state.rawRemovalPrompt != nil },
+                set: { if !$0 { send(.localRawRemovalCancelled) } }
+            ),
+            presenting: state.rawRemovalPrompt
+        ) { _ in
+            Button("history.raw.remove.cancel", role: .cancel) { send(.localRawRemovalCancelled) }
+            Button("history.raw.remove.confirm", role: .destructive) { send(.localRawRemovalConfirmed) }
+        } message: { prompt in
+            Text(removalAlertMessage(prompt))
+        }
+        .alert(
             "history.delete.warning.title",
             isPresented: Binding(
                 get: { state.sessionDeletionPrompt != nil },
@@ -126,6 +139,26 @@ struct MacOSConnectionHistoryView: View {
         reason == .vehicleNoResponse
             ? "history.stop_review.message.no_response"
             : "history.stop_review.message.connection_lost"
+    }
+
+    /// 現在の容量解放判断に対応する警告タイトルです。
+    private var removalAlertTitle: LocalizedStringKey {
+        state.rawRemovalPrompt?.decision == .safe
+            ? "history.raw.remove.safe.title"
+            : "history.raw.remove.warning.title"
+    }
+
+    /// Rawログ容量解放確認の件数と容量を含む本文を返します。
+    ///
+    /// 責務: 1件のローカル除去確認状態をiCloud保管有無に対応した警告文へ変換します。
+    /// - Parameter prompt: Applicationが準備したローカル除去確認内容。
+    /// - Returns: Raw件数と容量を含むユーザー向け警告本文。
+    private func removalAlertMessage(_ prompt: ConnectionSessionRawRemovalPrompt) -> String {
+        let format = String(localized: prompt.decision == .safe
+            ? "history.raw.remove.safe.message"
+            : "history.raw.remove.warning.message")
+        let bytes = ByteCountFormatter.string(fromByteCount: max(0, prompt.byteCount), countStyle: .file)
+        return String(format: format, locale: .autoupdatingCurrent, prompt.recordCount, bytes)
     }
 
     /// 履歴画面へ抑制された奥行きを与える背景です。
@@ -267,11 +300,7 @@ struct MacOSConnectionHistoryView: View {
                 filterPanel
                 if sessions.isEmpty { noFilterResults } else {
                     LazyVStack(spacing: 10 * metrics.scale) {
-                        ForEach(sessions) { session in
-                            NavigationLink(value: MacOSConnectionHistoryRoute.sessionDetail(session.id)) { sessionRow(session) }
-                                .buttonStyle(.plain)
-                                .accessibilityIdentifier("macos-history-session-\(session.id.rawValue.uuidString)")
-                        }
+                        ForEach(sessions) { session in sessionListItem(session) }
                     }
                 }
             }
@@ -471,6 +500,10 @@ struct MacOSConnectionHistoryView: View {
                 Label(acquisitionDeviceText(session), systemImage: "laptopcomputer.and.iphone")
                     .font(.system(size: 9.5 * metrics.scale, weight: .semibold))
                     .foregroundStyle(.secondary)
+                HStack(spacing: 7 * metrics.scale) {
+                    cloudStatusBadge(session)
+                    localStatusBadge(session)
+                }
             }
             .frame(minWidth: 190 * metrics.scale, alignment: .leading)
             Text(endReasonKey(session.endReason)).font(.system(size: 11 * metrics.scale, weight: .semibold)).foregroundStyle(session.status == .completed ? Color.secondary : Color.orange)
@@ -486,6 +519,100 @@ struct MacOSConnectionHistoryView: View {
         }
         .padding(15 * metrics.scale)
         .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 15 * metrics.scale, style: .continuous))
+    }
+
+    /// 1件のセッション行へ詳細導線と端末容量解放操作を配置します。
+    ///
+    /// 責務: 1件の終了済みセッションを詳細遷移と安全なローカルRaw除去操作へ変換します。
+    /// - Parameter session: 表示する終了済みセッション。
+    /// - Returns: 状態表示、詳細導線、必要に応じた容量解放ボタンを含むカード。
+    private func sessionListItem(_ session: ConnectionSession) -> some View {
+        HStack(spacing: 8 * metrics.scale) {
+            NavigationLink(value: MacOSConnectionHistoryRoute.sessionDetail(session.id)) { sessionRow(session) }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("macos-history-session-\(session.id.rawValue.uuidString)")
+            if canReleaseRawCache(session) {
+                Button {
+                    send(.localRawRemovalRequested(session.id))
+                } label: {
+                    Label("history.raw.remove.button", systemImage: "externaldrive.badge.minus")
+                }
+                .buttonStyle(.bordered)
+                .tint(.orange)
+                .accessibilityIdentifier("macos-history-release-raw-\(session.id.rawValue.uuidString)")
+            }
+        }
+    }
+
+    /// 1件のセッションで安全な端末容量解放を選択できるかを返します。
+    ///
+    /// 責務: セッションの終了、ローカル保存、iCloud保管状態を容量解放可否へ変換します。
+    /// - Parameter session: 判定対象の接続セッション。
+    /// - Returns: iCloudに保管済みのローカルRawがある場合は`true`。
+    private func canReleaseRawCache(_ session: ConnectionSession) -> Bool {
+        session.endedAt != nil
+            && session.rawLogSummary.localState == .available
+            && session.rawLogSummary.recordCount > 0
+            && session.rawLogSummary.cloudState == .uploaded
+            && session.rawLogSummary.manifestDigest?.isEmpty == false
+    }
+
+    /// セッションのiCloud転送状態を一覧用バッジとして描画します。
+    ///
+    /// 責務: 1件のCloudKit転送状態をアイコン、文言、色を持つバッジへ変換します。
+    /// - Parameter session: 表示対象の接続セッション。
+    /// - Returns: iCloud転送状態バッジ。
+    private func cloudStatusBadge(_ session: ConnectionSession) -> some View {
+        let state = session.rawLogSummary.cloudState
+        return Label(cloudStatusKey(state), systemImage: cloudStatusImage(state))
+            .font(.system(size: 8.5 * metrics.scale, weight: .bold))
+            .foregroundStyle(cloudStatusColor(state))
+    }
+
+    /// セッションのRaw取得状態を一覧用バッジとして描画します。
+    ///
+    /// 責務: 1件のローカルRaw状態をダウンロード状態のアイコンと文言へ変換します。
+    /// - Parameter session: 表示対象の接続セッション。
+    /// - Returns: Rawダウンロード状態バッジ。
+    private func localStatusBadge(_ session: ConnectionSession) -> some View {
+        let available = session.rawLogSummary.localState == .available
+        let empty = session.rawLogSummary.localState == .empty
+        return Label(
+            empty ? "history.raw.local.empty" : (available ? "history.raw.local.available" : "history.raw.local.removed"),
+            systemImage: empty ? "minus.circle" : (available ? "checkmark.circle.fill" : "icloud.and.arrow.down")
+        )
+        .font(.system(size: 8.5 * metrics.scale, weight: .bold))
+        .foregroundStyle(available ? Color.blue : Color.secondary)
+    }
+
+    /// CloudKit転送状態に対応する一覧文言を返します。
+    private func cloudStatusKey(_ state: ConnectionSessionCloudSyncState) -> LocalizedStringKey {
+        switch state {
+        case .notUploaded: "history.raw.cloud.not_uploaded"
+        case .pending: "history.raw.cloud.pending"
+        case .uploaded: "history.raw.cloud.uploaded"
+        case .failed: "history.raw.cloud.failed"
+        }
+    }
+
+    /// CloudKit転送状態に対応する一覧アイコンを返します。
+    private func cloudStatusImage(_ state: ConnectionSessionCloudSyncState) -> String {
+        switch state {
+        case .notUploaded: "icloud.slash"
+        case .pending: "icloud.and.arrow.up"
+        case .uploaded: "checkmark.icloud.fill"
+        case .failed: "exclamationmark.icloud.fill"
+        }
+    }
+
+    /// CloudKit転送状態に対応する一覧色を返します。
+    private func cloudStatusColor(_ state: ConnectionSessionCloudSyncState) -> Color {
+        switch state {
+        case .notUploaded: .secondary
+        case .pending: .orange
+        case .uploaded: .green
+        case .failed: .red
+        }
     }
 
     /// 絞り込み結果が空であることを表示します。

@@ -52,6 +52,8 @@ struct ConnectionSessionRecord: Codable, FetchableRecord, PersistableRecord {
     let macImportedAt: Date?
     /// Macが検証したManifestのSHA-256です。
     let macImportedManifestDigest: String?
+    /// 現在端末でRawログを最後に閲覧可能状態へした日時です。
+    let rawLastAccessedAt: Date?
 
     /// DomainセッションをGRDB保存値へ変換します。
     ///
@@ -81,6 +83,7 @@ struct ConnectionSessionRecord: Codable, FetchableRecord, PersistableRecord {
         macImportedDeviceName = session.rawLogSummary.macImportReceipt?.deviceName
         macImportedAt = session.rawLogSummary.macImportReceipt?.importedAt
         macImportedManifestDigest = session.rawLogSummary.macImportReceipt?.manifestDigest
+        rawLastAccessedAt = session.rawLogSummary.lastAccessedAt
     }
 
     /// 永続化済み列からDomainセッションを復元します。
@@ -145,7 +148,8 @@ struct ConnectionSessionRecord: Codable, FetchableRecord, PersistableRecord {
             localState: localState,
             cloudState: cloudState,
             manifestDigest: manifestDigest,
-            macImportReceipt: receipt
+            macImportReceipt: receipt,
+            lastAccessedAt: rawLastAccessedAt
         )
         return session
     }

@@ -40,7 +40,13 @@ struct IOSConnectionHistoryView: View {
             }
             .navigationDestination(for: ConnectionSessionID.self) { id in
                 if let session = state.sessions.first(where: { $0.id == id }) {
-                    IOSConnectionSessionDetailView(session: session, send: send, analysisState: analysisState, sendAnalysis: sendAnalysis)
+                    IOSConnectionSessionDetailView(
+                        session: session,
+                        send: send,
+                        analysisState: analysisState,
+                        sendAnalysis: sendAnalysis,
+                        isDeleting: state.deletingSessionID == session.id
+                    )
                 }
             }
             .refreshable { send(.refreshRequested) }
@@ -63,6 +69,30 @@ struct IOSConnectionHistoryView: View {
             }
         } message: { prompt in
             Text(removalAlertMessage(prompt))
+        }
+        .alert(
+            "history.delete.warning.title",
+            isPresented: Binding(
+                get: { state.sessionDeletionPrompt != nil },
+                set: { if !$0 { send(.sessionDeletionCancelled) } }
+            ),
+            presenting: state.sessionDeletionPrompt
+        ) { _ in
+            Button("history.delete.cancel", role: .cancel) { send(.sessionDeletionCancelled) }
+            Button("history.delete.confirm", role: .destructive) { send(.sessionDeletionConfirmed) }
+        } message: { prompt in
+            Text(sessionDeletionMessage(prompt))
+        }
+        .alert(
+            "history.delete.error.title",
+            isPresented: Binding(
+                get: { state.sessionDeletionFailureKey != nil },
+                set: { if !$0 { send(.sessionDeletionFailureDismissed) } }
+            )
+        ) {
+            Button("history.delete.error.dismiss") { send(.sessionDeletionFailureDismissed) }
+        } message: {
+            Text("history.delete.error")
         }
         .alert(
             "history.stop_review.title",
@@ -117,6 +147,17 @@ struct IOSConnectionHistoryView: View {
         let format = String(localized: prompt.decision == .safe
             ? "history.raw.remove.safe.message"
             : "history.raw.remove.warning.message")
+        let bytes = ByteCountFormatter.string(fromByteCount: max(0, prompt.byteCount), countStyle: .file)
+        return String(format: format, locale: .autoupdatingCurrent, prompt.recordCount, bytes)
+    }
+
+    /// 全端末削除警告の件数と容量を含む本文を返します。
+    ///
+    /// 責務: 1件の削除確認状態をiCloudを含む不可逆な削除警告へ変換します。
+    /// - Parameter prompt: Applicationが準備した全端末削除確認内容。
+    /// - Returns: Raw件数と容量を含むユーザー向け警告本文。
+    private func sessionDeletionMessage(_ prompt: ConnectionSessionDeletionPrompt) -> String {
+        let format = String(localized: "history.delete.warning.message")
         let bytes = ByteCountFormatter.string(fromByteCount: max(0, prompt.byteCount), countStyle: .file)
         return String(format: format, locale: .autoupdatingCurrent, prompt.recordCount, bytes)
     }
@@ -265,11 +306,7 @@ struct IOSConnectionHistoryView: View {
                 vehicleListHeader(group)
                 filterPanel
                 if sessions.isEmpty { noFilterResults } else {
-                    ForEach(sessions) { session in
-                        NavigationLink(value: session.id) { sessionRow(session) }
-                            .buttonStyle(.plain)
-                            .accessibilityIdentifier("ios-history-session-\(session.id.rawValue.uuidString)")
-                    }
+                    ForEach(sessions) { session in sessionListItem(session) }
                 }
             }
             .padding(20)
@@ -383,6 +420,10 @@ struct IOSConnectionHistoryView: View {
                 Label(acquisitionDeviceText(session), systemImage: "laptopcomputer.and.iphone")
                     .font(.caption2.weight(.semibold))
                     .foregroundStyle(.secondary)
+                HStack(spacing: 6) {
+                    cloudStatusBadge(session)
+                    localStatusBadge(session)
+                }
             }
             Spacer()
             VStack(alignment: .trailing, spacing: 4) {
@@ -395,6 +436,105 @@ struct IOSConnectionHistoryView: View {
         }
         .padding(15)
         .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+    }
+
+    /// 1件のセッション行へ詳細導線と端末容量解放操作を配置します。
+    ///
+    /// 責務: 1件の終了済みセッションを詳細遷移と安全なローカルRaw除去操作へ変換します。
+    /// - Parameter session: 表示する終了済みセッション。
+    /// - Returns: 状態表示、詳細導線、必要に応じた容量解放ボタンを含むカード。
+    private func sessionListItem(_ session: ConnectionSession) -> some View {
+        VStack(spacing: 0) {
+            NavigationLink(value: session.id) { sessionRow(session) }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("ios-history-session-\(session.id.rawValue.uuidString)")
+            if canReleaseRawCache(session) {
+                Divider().padding(.horizontal, 15)
+                Button {
+                    send(.localRawRemovalRequested(session.id))
+                } label: {
+                    Label("history.raw.remove.button", systemImage: "externaldrive.badge.minus")
+                        .font(.subheadline.weight(.semibold))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 11)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.orange)
+                .accessibilityIdentifier("ios-history-release-raw-\(session.id.rawValue.uuidString)")
+            }
+        }
+        .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+    }
+
+    /// 1件のセッションで安全な端末容量解放を選択できるかを返します。
+    ///
+    /// 責務: セッションの終了、ローカル保存、iCloud保管状態を容量解放可否へ変換します。
+    /// - Parameter session: 判定対象の接続セッション。
+    /// - Returns: iCloudに保管済みのローカルRawがある場合は`true`。
+    private func canReleaseRawCache(_ session: ConnectionSession) -> Bool {
+        session.endedAt != nil
+            && session.rawLogSummary.localState == .available
+            && session.rawLogSummary.recordCount > 0
+            && session.rawLogSummary.cloudState == .uploaded
+            && session.rawLogSummary.manifestDigest?.isEmpty == false
+    }
+
+    /// セッションのiCloud転送状態を一覧用バッジとして描画します。
+    ///
+    /// 責務: 1件のCloudKit転送状態をアイコン、文言、色を持つバッジへ変換します。
+    /// - Parameter session: 表示対象の接続セッション。
+    /// - Returns: iCloud転送状態バッジ。
+    private func cloudStatusBadge(_ session: ConnectionSession) -> some View {
+        let state = session.rawLogSummary.cloudState
+        return Label(cloudStatusKey(state), systemImage: cloudStatusImage(state))
+            .font(.caption2.weight(.bold))
+            .foregroundStyle(cloudStatusColor(state))
+    }
+
+    /// セッションのRaw取得状態を一覧用バッジとして描画します。
+    ///
+    /// 責務: 1件のローカルRaw状態をダウンロード状態のアイコンと文言へ変換します。
+    /// - Parameter session: 表示対象の接続セッション。
+    /// - Returns: Rawダウンロード状態バッジ。
+    private func localStatusBadge(_ session: ConnectionSession) -> some View {
+        let available = session.rawLogSummary.localState == .available
+        let empty = session.rawLogSummary.localState == .empty
+        return Label(
+            empty ? "history.raw.local.empty" : (available ? "history.raw.local.available" : "history.raw.local.removed"),
+            systemImage: empty ? "minus.circle" : (available ? "checkmark.circle.fill" : "icloud.and.arrow.down")
+        )
+        .font(.caption2.weight(.bold))
+        .foregroundStyle(available ? Color.blue : Color.secondary)
+    }
+
+    /// CloudKit転送状態に対応する一覧文言を返します。
+    private func cloudStatusKey(_ state: ConnectionSessionCloudSyncState) -> LocalizedStringKey {
+        switch state {
+        case .notUploaded: "history.raw.cloud.not_uploaded"
+        case .pending: "history.raw.cloud.pending"
+        case .uploaded: "history.raw.cloud.uploaded"
+        case .failed: "history.raw.cloud.failed"
+        }
+    }
+
+    /// CloudKit転送状態に対応する一覧アイコンを返します。
+    private func cloudStatusImage(_ state: ConnectionSessionCloudSyncState) -> String {
+        switch state {
+        case .notUploaded: "icloud.slash"
+        case .pending: "icloud.and.arrow.up"
+        case .uploaded: "checkmark.icloud.fill"
+        case .failed: "exclamationmark.icloud.fill"
+        }
+    }
+
+    /// CloudKit転送状態に対応する一覧色を返します。
+    private func cloudStatusColor(_ state: ConnectionSessionCloudSyncState) -> Color {
+        switch state {
+        case .notUploaded: .secondary
+        case .pending: .orange
+        case .uploaded: .green
+        case .failed: .red
+        }
     }
 
     /// 絞り込み結果が空であることを表示します。

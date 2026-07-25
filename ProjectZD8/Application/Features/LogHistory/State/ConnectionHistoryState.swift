@@ -35,7 +35,7 @@ struct ConnectionSessionStopReviewPrompt: Equatable, Sendable {
 struct ConnectionSessionRawRemovalPrompt: Equatable, Sendable {
     /// 除去候補の接続セッションIDです。
     let sessionID: ConnectionSessionID
-    /// Mac取込証跡に基づく除去判断です。
+    /// CloudKit保管証跡に基づく除去判断です。
     let decision: ConnectionSessionLocalRemovalDecision
     /// 除去対象のRaw応答件数です。
     let recordCount: Int64
@@ -47,7 +47,7 @@ struct ConnectionSessionRawRemovalPrompt: Equatable, Sendable {
     /// 責務: 1件のローカル除去候補を警告に必要な件数と容量へまとめます。
     /// - Parameters:
     ///   - sessionID: 除去候補の接続セッションID。
-    ///   - decision: Mac取込証跡に基づく除去判断。
+    ///   - decision: CloudKit保管証跡に基づく除去判断。
     ///   - recordCount: 除去対象のRaw応答件数。
     ///   - byteCount: 除去対象のRaw Payload合計バイト数。
     init(

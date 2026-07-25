@@ -1,3 +1,5 @@
+import Foundation
+
 /// 製品用セッションDBを準備できない場合に明示的失敗を返します。
 struct UnavailableConnectionSessionRepository: ConnectionSessionRepository, ConnectionSessionRawLogRepository, ConnectionSessionErasureRepository, AccountConnectionSessionErasureRepository {
     /// 保存先利用不能を返します。
@@ -115,6 +117,35 @@ struct UnavailableConnectionSessionRepository: ConnectionSessionRepository, Conn
     /// - Parameter transfer: 取り込めない検証済み転送Payload。
     /// - Throws: 常に `ConnectionSessionRepositoryError.unavailable`。
     func importVerifiedTransfer(_ transfer: VerifiedConnectionSessionTransfer) throws {
+        throw ConnectionSessionRepositoryError.unavailable
+    }
+
+    /// セッション概要取込を利用不能として失敗させます。
+    ///
+    /// 責務: 1件のCloudKit概要取込要求を明示的な保存先利用不能へ変換します。
+    /// - Parameter metadata: 取り込めないセッション概要。
+    /// - Throws: 常に `ConnectionSessionRepositoryError.unavailable`。
+    func importCloudMetadata(_ metadata: ConnectionSessionCloudMetadata) throws {
+        throw ConnectionSessionRepositoryError.unavailable
+    }
+
+    /// オンデマンドRaw復元を利用不能として失敗させます。
+    ///
+    /// 責務: 1件の検証済みRaw復元要求を明示的な保存先利用不能へ変換します。
+    /// - Parameter transfer: 復元できない転送Payload。
+    /// - Throws: 常に `ConnectionSessionRepositoryError.unavailable`。
+    func restoreVerifiedTransfer(_ transfer: VerifiedConnectionSessionTransfer) throws {
+        throw ConnectionSessionRepositoryError.unavailable
+    }
+
+    /// Raw最終閲覧日時更新を利用不能として失敗させます。
+    ///
+    /// 責務: 1件のRaw閲覧記録要求を明示的な保存先利用不能へ変換します。
+    /// - Parameters:
+    ///   - date: 保存できない閲覧日時。
+    ///   - sessionID: 更新できないセッションID。
+    /// - Throws: 常に `ConnectionSessionRepositoryError.unavailable`。
+    func markRawLogAccessed(at date: Date, sessionID: ConnectionSessionID) throws {
         throw ConnectionSessionRepositoryError.unavailable
     }
 

@@ -1,7 +1,7 @@
 #if os(iOS)
 import SwiftUI
 
-/// iPhone向けに選択セッションのRawログ保管とMac連携状態を描画します。
+/// iPhone向けに選択セッションのRawログ端末・CloudKit保管状態を描画します。
 struct IOSConnectionSessionDetailView: View {
     /// 表示対象の接続セッションです。
     let session: ConnectionSession
@@ -11,20 +11,21 @@ struct IOSConnectionSessionDetailView: View {
     let analysisState: SessionLogAnalysisState
     /// PID時系列解析操作をApplicationへ通知します。
     let sendAnalysis: (SessionLogAnalysisAction) -> Void
+    /// 表示対象をiCloudを含めて削除している途中かを示します。
+    let isDeleting: Bool
 
     /// Rawログの来歴と安全なローカル除去導線を提供します。
     ///
-    /// 責務: 1件の接続セッションをiPhone、Cloud、Macの保管状態へ分けて描画します。
+    /// 責務: 1件の接続セッションをiPhoneとCloudKitの保管状態へ分けて描画します。
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
+                detailActions
                 hero
                 stopReviewCard
                 rawMetrics
                 storageJourney
-                macReceiptCard
                 analysisAction
-                localRemovalAction
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 18)
@@ -33,6 +34,28 @@ struct IOSConnectionSessionDetailView: View {
         .navigationTitle("history.detail.title")
         .navigationBarTitleDisplayMode(.inline)
         .accessibilityIdentifier("ios-connection-session-detail")
+    }
+
+    /// iCloudを含む完全削除操作を詳細画面だけに表示します。
+    private var detailActions: some View {
+        HStack {
+            Spacer()
+            if session.endedAt != nil {
+                Button(role: .destructive) {
+                    send(.sessionDeletionRequested(session.id))
+                } label: {
+                    if isDeleting {
+                        ProgressView().frame(minWidth: 120)
+                    } else {
+                        Label("history.delete.button", systemImage: "trash")
+                    }
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(.red.opacity(0.88))
+                .disabled(isDeleting)
+                .accessibilityIdentifier("ios-history-delete-session")
+            }
+        }
     }
 
     /// 観測済み停止理由とユーザー確認状態を表示します。
@@ -167,7 +190,7 @@ struct IOSConnectionSessionDetailView: View {
         }
     }
 
-    /// iPhone、Cloud、Macの保管状態を順序付きで表示します。
+    /// iPhoneとCloudKitの保管状態を順序付きで表示します。
     private var storageJourney: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("history.raw.storage.title")
@@ -184,76 +207,10 @@ struct IOSConnectionSessionDetailView: View {
                 systemImage: "icloud.fill",
                 color: cloudStateColor
             )
-            journeyRow(
-                titleKey: "history.raw.storage.mac",
-                statusKey: session.rawLogSummary.isDurablyImportedByMac
-                    ? "history.raw.mac.verified"
-                    : "history.raw.mac.pending",
-                systemImage: "desktopcomputer",
-                color: session.rawLogSummary.isDurablyImportedByMac ? .green : .orange
-            )
         }
         .padding(20)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
         .overlay { RoundedRectangle(cornerRadius: 24, style: .continuous).stroke(Color.primary.opacity(0.08)) }
-    }
-
-    /// Mac取込受領証または未確認状態を表示します。
-    private var macReceiptCard: some View {
-        HStack(spacing: 15) {
-            Image(systemName: session.rawLogSummary.isDurablyImportedByMac ? "checkmark.shield.fill" : "exclamationmark.shield.fill")
-                .font(.system(size: 25, weight: .semibold))
-                .foregroundStyle(session.rawLogSummary.isDurablyImportedByMac ? Color.green : Color.orange)
-                .frame(width: 52, height: 52)
-                .background(
-                    (session.rawLogSummary.isDurablyImportedByMac ? Color.green : Color.orange).opacity(0.12),
-                    in: RoundedRectangle(cornerRadius: 17, style: .continuous)
-                )
-            VStack(alignment: .leading, spacing: 4) {
-                Text("history.raw.mac.receipt")
-                    .font(.headline)
-                if let receipt = session.rawLogSummary.macImportReceipt,
-                   session.rawLogSummary.isDurablyImportedByMac {
-                    Text(receipt.deviceName)
-                        .font(.subheadline.weight(.semibold))
-                    Text(receipt.importedAt, format: .dateTime.year().month().day().hour().minute())
-                        .font(.caption.monospaced())
-                        .foregroundStyle(.secondary)
-                } else {
-                    Text("history.raw.mac.receipt_missing")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            Spacer(minLength: 0)
-        }
-        .padding(18)
-        .background(Color.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
-    }
-
-    /// iPhoneにRawログがある終了済みセッションへローカル除去操作を表示します。
-    @ViewBuilder private var localRemovalAction: some View {
-        if session.endedAt != nil, session.rawLogSummary.localState == .available {
-            Button(role: .destructive) {
-                send(.localRawRemovalRequested(session.id))
-            } label: {
-                Label("history.raw.remove.button", systemImage: "iphone.slash")
-                    .font(.headline)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 6)
-            }
-            .buttonStyle(.borderedProminent)
-            .tint(.red.opacity(0.88))
-            .controlSize(.large)
-            .accessibilityIdentifier("ios-history-remove-local-raw")
-        } else if session.rawLogSummary.localState == .removed {
-            Label("history.raw.remove.completed", systemImage: "checkmark.circle.fill")
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.secondary)
-                .frame(maxWidth: .infinity)
-                .padding(18)
-                .background(Color.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-        }
     }
 
     /// 1件のRawログ集計値をコンパクトなカードとして描画します。

@@ -86,6 +86,11 @@ enum ConnectionSessionDatabaseMigrator {
                 table.add(column: "acquisitionDeviceName", .text)
             }
         }
+        migrator.registerMigration("v8_add_connection_session_raw_last_accessed_at") { database in
+            try database.alter(table: ConnectionSessionRecord.databaseTableName) { table in
+                table.add(column: "rawLastAccessedAt", .datetime)
+            }
+        }
         return migrator
     }
 }

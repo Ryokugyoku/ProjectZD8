@@ -8,6 +8,8 @@ final class SessionLogAnalysisModel {
     private(set) var state: SessionLogAnalysisState
     /// 保存済みログを時系列表示へ変換するユースケースです。
     private let decodeTimeline: DecodeSessionLogTimelineUseCase
+    /// 解析前にRawログをオンデマンドで利用可能にするユースケースです。
+    private let prepareRawLog: PrepareConnectionSessionRawLogUseCase?
     /// 現在実行中の逐次解析処理です。
     @ObservationIgnored private var loadTask: Task<Void, Never>?
 
@@ -17,9 +19,15 @@ final class SessionLogAnalysisModel {
     /// - Parameters:
     ///   - state: 初期表示状態。
     ///   - decodeTimeline: 保存済みRawログを変換するユースケース。
-    init(state: SessionLogAnalysisState, decodeTimeline: DecodeSessionLogTimelineUseCase) {
+    ///   - prepareRawLog: 必要時にCloudKitからRawログを復元するユースケース。
+    init(
+        state: SessionLogAnalysisState,
+        decodeTimeline: DecodeSessionLogTimelineUseCase,
+        prepareRawLog: PrepareConnectionSessionRawLogUseCase? = nil
+    ) {
         self.state = state
         self.decodeTimeline = decodeTimeline
+        self.prepareRawLog = prepareRawLog
     }
 
     /// 画面操作を解析状態遷移へ適用します。
@@ -28,7 +36,7 @@ final class SessionLogAnalysisModel {
     /// - Parameter action: 適用する型付き解析操作。
     func send(_ action: SessionLogAnalysisAction) {
         switch action {
-        case let .sessionSelected(sessionID): beginLoading(sessionID: sessionID)
+        case let .sessionSelected(session): beginLoading(session: session)
         case .dismissed: dismiss()
         }
     }
@@ -36,8 +44,9 @@ final class SessionLogAnalysisModel {
     /// 指定セッションの逐次解析を開始します。
     ///
     /// 責務: 1件のセッションIDを画面遷移後に開始するキャンセル可能な解析処理へ変換します。
-    /// - Parameter sessionID: 解析する保存済みセッションID。
-    private func beginLoading(sessionID: ConnectionSessionID) {
+    /// - Parameter session: 解析する保存済みセッション概要。
+    private func beginLoading(session: ConnectionSession) {
+        let sessionID = session.id
         guard state.sessionID != sessionID || state.phase == .failed else { return }
         loadTask?.cancel()
         state = .init(phase: .loading, sessionID: sessionID)
@@ -45,6 +54,7 @@ final class SessionLogAnalysisModel {
             await Task.yield()
             guard let self else { return }
             do {
+                try await prepareRawLog?.execute(session: session)
                 try await decodeTimeline.execute(
                     sessionID: sessionID,
                     prepared: { [weak self] count in

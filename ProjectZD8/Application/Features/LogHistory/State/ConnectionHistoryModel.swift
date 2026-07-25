@@ -10,12 +10,14 @@ final class ConnectionHistoryModel {
     @ObservationIgnored private let repository: any ConnectionSessionRepository
     /// セッション単位のCloudKit同期ユースケースです。
     @ObservationIgnored private let synchronizeSessions: SynchronizeConnectionSessionsUseCase?
-    /// iPhoneローカルRawログ除去ユースケースです。
-    @ObservationIgnored private let removeIPhoneRawLog: RemoveIPhoneSessionRawLogUseCase?
-    /// macOSの全端末セッション削除ユースケースです。
+    /// 現在端末のRawログ容量解放ユースケースです。
+    @ObservationIgnored private let releaseRawCache: ReleaseConnectionSessionRawCacheUseCase?
+    /// iCloudを含む全端末セッション削除ユースケースです。
     @ObservationIgnored private let deleteSessionEverywhere: DeleteConnectionSessionEverywhereUseCase?
     /// 自動判別できない停止をユーザー確認済みとして保存するユースケースです。
     @ObservationIgnored private let reviewInterruptedSession: ReviewInterruptedConnectionSessionUseCase?
+    /// 期限切れRawログをCloudKit保管へ退避するユースケースです。
+    @ObservationIgnored private let evictStaleRawLogs: EvictStaleConnectionSessionRawLogsUseCase?
     /// 現在のAppleアカウント識別子です。
     @ObservationIgnored private var accountIdentifier: String?
     /// 古いアカウント同期完了を現在状態へ反映しないための世代です。
@@ -32,23 +34,26 @@ final class ConnectionHistoryModel {
     ///   - state: Platformへ公開する初期状態。
     ///   - repository: アカウント単位のセッション取得先。
     ///   - synchronizeSessions: セッション単位のCloudKit同期ユースケース。
-    ///   - removeIPhoneRawLog: iPhoneローカルRawログ除去ユースケース。
-    ///   - deleteSessionEverywhere: macOSの全端末セッション削除ユースケース。
+    ///   - releaseRawCache: 現在端末のRawログ容量解放ユースケース。
+    ///   - deleteSessionEverywhere: iCloudを含む全端末セッション削除ユースケース。
     ///   - reviewInterruptedSession: ユーザー操作による停止の確認結果を保存するユースケース。
+    ///   - evictStaleRawLogs: 3日以上未閲覧のRawログを端末から退避するユースケース。
     init(
         state: ConnectionHistoryState,
         repository: any ConnectionSessionRepository,
         synchronizeSessions: SynchronizeConnectionSessionsUseCase? = nil,
-        removeIPhoneRawLog: RemoveIPhoneSessionRawLogUseCase? = nil,
+        releaseRawCache: ReleaseConnectionSessionRawCacheUseCase? = nil,
         deleteSessionEverywhere: DeleteConnectionSessionEverywhereUseCase? = nil,
-        reviewInterruptedSession: ReviewInterruptedConnectionSessionUseCase? = nil
+        reviewInterruptedSession: ReviewInterruptedConnectionSessionUseCase? = nil,
+        evictStaleRawLogs: EvictStaleConnectionSessionRawLogsUseCase? = nil
     ) {
         self.state = state
         self.repository = repository
         self.synchronizeSessions = synchronizeSessions
-        self.removeIPhoneRawLog = removeIPhoneRawLog
+        self.releaseRawCache = releaseRawCache
         self.deleteSessionEverywhere = deleteSessionEverywhere
         self.reviewInterruptedSession = reviewInterruptedSession
+        self.evictStaleRawLogs = evictStaleRawLogs
     }
 
     /// 空の履歴状態と指定セッション照会先を使って生成します。
@@ -57,23 +62,26 @@ final class ConnectionHistoryModel {
     /// - Parameters:
     ///   - repository: アカウント単位のセッション取得先。
     ///   - synchronizeSessions: セッション単位のCloudKit同期ユースケース。
-    ///   - removeIPhoneRawLog: iPhoneローカルRawログ除去ユースケース。
-    ///   - deleteSessionEverywhere: macOSの全端末セッション削除ユースケース。
+    ///   - releaseRawCache: 現在端末のRawログ容量解放ユースケース。
+    ///   - deleteSessionEverywhere: iCloudを含む全端末セッション削除ユースケース。
     ///   - reviewInterruptedSession: ユーザー操作による停止の確認結果を保存するユースケース。
+    ///   - evictStaleRawLogs: 3日以上未閲覧のRawログを端末から退避するユースケース。
     convenience init(
         repository: any ConnectionSessionRepository,
         synchronizeSessions: SynchronizeConnectionSessionsUseCase? = nil,
-        removeIPhoneRawLog: RemoveIPhoneSessionRawLogUseCase? = nil,
+        releaseRawCache: ReleaseConnectionSessionRawCacheUseCase? = nil,
         deleteSessionEverywhere: DeleteConnectionSessionEverywhereUseCase? = nil,
-        reviewInterruptedSession: ReviewInterruptedConnectionSessionUseCase? = nil
+        reviewInterruptedSession: ReviewInterruptedConnectionSessionUseCase? = nil,
+        evictStaleRawLogs: EvictStaleConnectionSessionRawLogsUseCase? = nil
     ) {
         self.init(
             state: ConnectionHistoryState(),
             repository: repository,
             synchronizeSessions: synchronizeSessions,
-            removeIPhoneRawLog: removeIPhoneRawLog,
+            releaseRawCache: releaseRawCache,
             deleteSessionEverywhere: deleteSessionEverywhere,
-            reviewInterruptedSession: reviewInterruptedSession
+            reviewInterruptedSession: reviewInterruptedSession,
+            evictStaleRawLogs: evictStaleRawLogs
         )
     }
 
@@ -221,10 +229,12 @@ final class ConnectionHistoryModel {
         guard syncTask == nil else { return }
         syncGeneration &+= 1
         let generation = syncGeneration
+        let evictStaleRawLogs = evictStaleRawLogs
         state.syncPhase = .syncing
         syncTask = Task { [weak self] in
             do {
                 try await synchronizeSessions.execute(accountIdentifier: accountIdentifier)
+                try evictStaleRawLogs?.execute(accountIdentifier: accountIdentifier)
                 guard let self, self.syncGeneration == generation, self.accountIdentifier == accountIdentifier else { return }
                 self.syncTask = nil
                 self.loadSessions()
@@ -241,12 +251,12 @@ final class ConnectionHistoryModel {
 
     /// 指定セッションのローカルRawログ除去確認を準備します。
     ///
-    /// 責務: 1件のセッションIDをMac取込証跡付きのiPhone除去確認状態へ変換します。
+    /// 責務: 1件のセッションIDをiCloud保管証跡付きの端末容量解放確認状態へ変換します。
     /// - Parameter sessionID: 除去候補の接続セッションID。
     private func prepareRawRemoval(sessionID: ConnectionSessionID) {
-        guard let removeIPhoneRawLog,
+        guard let releaseRawCache,
               let session = state.sessions.first(where: { $0.id == sessionID }) else { return }
-        let decision = removeIPhoneRawLog.decision(for: session)
+        let decision = releaseRawCache.decision(for: session)
         guard decision != .unavailable else { return }
         state.rawRemovalPrompt = ConnectionSessionRawRemovalPrompt(
             sessionID: sessionID,
@@ -256,15 +266,15 @@ final class ConnectionHistoryModel {
         )
     }
 
-    /// ユーザー確認済みのRawログをiPhoneから除去します。
+    /// ユーザー確認済みのRawログを現在端末から除去します。
     ///
     /// 責務: 現在の除去確認状態をローカルRawログ削除と履歴再読込へ変換します。
     private func confirmRawRemoval() {
         guard let prompt = state.rawRemovalPrompt,
               let session = state.sessions.first(where: { $0.id == prompt.sessionID }),
-              let removeIPhoneRawLog else { return }
+              let releaseRawCache else { return }
         do {
-            try removeIPhoneRawLog.execute(session: session)
+            try releaseRawCache.execute(session: session)
             state.rawRemovalPrompt = nil
             loadSessions()
         } catch {

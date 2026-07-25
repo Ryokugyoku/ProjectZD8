@@ -5851,19 +5851,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%lld Raw records (%@) and this session will be permanently deleted from this Mac, CloudKit, and every synced device. This cannot be undone."
+            "value" : "%lld Raw records (%@) and this session will be permanently deleted from this device, iCloud, and every synced device. It cannot be restored."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Se eliminarán permanentemente %lld registros raw (%@) y esta sesión de este Mac, CloudKit y todos los dispositivos sincronizados. Esta acción no se puede deshacer."
+            "value" : "Se eliminarán permanentemente %lld registros raw (%@) y esta sesión de este dispositivo, iCloud y todos los dispositivos sincronizados. No se podrán restaurar."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "このセッションとRawログ%lld件（%@）を、このMac、CloudKit、および同期するすべてのデバイスから完全に削除します。この操作は取り消せません。"
+            "value" : "このセッションとRawログ%lld件（%@）を、この端末、iCloud、および同期するすべての端末から完全に削除します。削除後は復元できません。"
           }
         }
       }
@@ -5886,28 +5886,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "このセッションを完全に削除しますか？"
-          }
-        }
-      }
-    },
-    "history.device.unknown" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Acquisition device unknown"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Dispositivo de adquisición desconocido"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "取得端末不明"
           }
         }
       }
@@ -6109,6 +6087,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "セッション詳細"
+          }
+        }
+      }
+    },
+    "history.device.unknown" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Acquisition device unknown"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dispositivo de adquisición desconocido"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "取得端末不明"
           }
         }
       }
@@ -6604,19 +6604,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Waiting"
+            "value" : "Uploading"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "En espera"
+            "value" : "Subiendo"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "同期待ち"
+            "value" : "アップロード中"
           }
         }
       }
@@ -6626,19 +6626,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Uploaded"
+            "value" : "Upload complete"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Subido"
+            "value" : "Carga completada"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "保存済み"
+            "value" : "アップロード完了"
           }
         }
       }
@@ -6648,19 +6648,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "On this iPhone"
+            "value" : "Downloaded"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "En este iPhone"
+            "value" : "Descargado"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "このiPhoneに保存"
+            "value" : "ダウンロード済み"
           }
         }
       }
@@ -6692,24 +6692,25 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Removed"
+            "value" : "Not downloaded"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Eliminado"
+            "value" : "Sin descargar"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "端末から除去済み"
+            "value" : "未ダウンロード"
           }
         }
       }
     },
     "history.raw.mac.pending" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -6732,6 +6733,7 @@
       }
     },
     "history.raw.mac.receipt" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -6754,6 +6756,7 @@
       }
     },
     "history.raw.mac.receipt_missing" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -6776,6 +6779,7 @@
       }
     },
     "history.raw.mac.verified" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -6846,19 +6850,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Remove raw log from this iPhone"
+            "value" : "Free up device storage"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Eliminar el registro raw de este iPhone"
+            "value" : "Liberar espacio del dispositivo"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "このiPhoneからRawログを取り除く"
+            "value" : "容量を解放"
           }
         }
       }
@@ -6912,19 +6916,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Remove from iPhone"
+            "value" : "Free up storage"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Eliminar del iPhone"
+            "value" : "Liberar espacio"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "iPhoneから取り除く"
+            "value" : "端末から取り除く"
           }
         }
       }
@@ -6934,19 +6938,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Mac import is verified. Remove %lld raw records (%@) from this iPhone? Session history remains."
+            "value" : "The raw log is stored in iCloud. Remove %lld raw records (%@) from this device? Nothing is deleted from iCloud; the session remains and the raw log downloads again when needed."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "La importación en el Mac está verificada. ¿Eliminar %lld registros raw (%@) de este iPhone? El historial de la sesión se conserva."
+            "value" : "El registro raw está guardado en iCloud. ¿Eliminar %lld registros raw (%@) de este dispositivo? No se elimina nada de iCloud; la sesión se conserva y los datos se descargarán de nuevo cuando sean necesarios."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Macへの取込を確認済みです。このiPhoneからRawログ%lld件（%@）を取り除きますか？セッション履歴は残ります。"
+            "value" : "RawログはiCloudに保管済みです。この端末から%lld件（%@）を取り除きますか？iCloudからは削除せず、セッション履歴は残り、必要時に再ダウンロードします。"
           }
         }
       }
@@ -6978,19 +6982,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Mac import has not been confirmed. Removing %lld raw records (%@) may permanently lose training data."
+            "value" : "iCloud storage has not been confirmed. Removing %lld raw records (%@) may permanently lose source data."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "No se confirmó la importación en el Mac. Eliminar %lld registros raw (%@) puede perder permanentemente datos de entrenamiento."
+            "value" : "No se confirmó el almacenamiento en iCloud. Eliminar %lld registros raw (%@) puede perder permanentemente los datos de origen."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Macへの取込完了を確認できません。Rawログ%lld件（%@）を取り除くと、学習用データを失う可能性があります。"
+            "value" : "iCloudへの保管を確認できません。Rawログ%lld件（%@）を取り除くと、元データを失う可能性があります。"
           }
         }
       }
@@ -7000,19 +7004,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Not imported by Mac"
+            "value" : "Not stored in iCloud"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "No importado por el Mac"
+            "value" : "No guardado en iCloud"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Macへの取込が未確認です"
+            "value" : "iCloudへの保管が未確認です"
           }
         }
       }
@@ -7062,6 +7066,7 @@
       }
     },
     "history.raw.storage.mac" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {

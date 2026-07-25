@@ -63,6 +63,8 @@ struct ConnectionSessionRawLogSummary: Codable, Equatable, Sendable {
     var manifestDigest: String?
     /// Macによる永続取込を確認できた場合の受領証です。
     var macImportReceipt: ConnectionSessionMacImportReceipt?
+    /// 現在端末でRawログを最後に閲覧可能状態へした日時です。
+    var lastAccessedAt: Date?
 
     /// Raw応答未記録の標準状態です。
     static let empty = ConnectionSessionRawLogSummary(
@@ -71,7 +73,8 @@ struct ConnectionSessionRawLogSummary: Codable, Equatable, Sendable {
         localState: .empty,
         cloudState: .notUploaded,
         manifestDigest: nil,
-        macImportReceipt: nil
+        macImportReceipt: nil,
+        lastAccessedAt: nil
     )
 
     /// セッションのRawログ件数と保管状態を生成します。
@@ -84,13 +87,15 @@ struct ConnectionSessionRawLogSummary: Codable, Equatable, Sendable {
     ///   - cloudState: CloudKit転送状態。
     ///   - manifestDigest: 転送PayloadのSHA-256。
     ///   - macImportReceipt: Mac取込済みの場合の受領証。
+    ///   - lastAccessedAt: 現在端末でRawログを最後に閲覧可能状態へした日時。
     init(
         recordCount: Int64,
         byteCount: Int64,
         localState: ConnectionSessionLocalRawState,
         cloudState: ConnectionSessionCloudSyncState,
         manifestDigest: String?,
-        macImportReceipt: ConnectionSessionMacImportReceipt?
+        macImportReceipt: ConnectionSessionMacImportReceipt?,
+        lastAccessedAt: Date? = nil
     ) {
         self.recordCount = recordCount
         self.byteCount = byteCount
@@ -98,6 +103,7 @@ struct ConnectionSessionRawLogSummary: Codable, Equatable, Sendable {
         self.cloudState = cloudState
         self.manifestDigest = manifestDigest
         self.macImportReceipt = macImportReceipt
+        self.lastAccessedAt = lastAccessedAt
     }
 
     /// 現在のManifestと一致するMac受領証があるかを返します。

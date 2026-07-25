@@ -7,12 +7,16 @@ import Foundation
 final class CloudKitConnectionSessionTransferRepository: ConnectionSessionTransferRepository {
     /// セッションPayloadを保持するCloudKitレコード種別です。
     private static let transferRecordType = "ConnectionSessionRawLog"
+    /// Raw Payloadを含まないセッション概要のCloudKitレコード種別です。
+    private static let metadataRecordType = "ConnectionSessionMetadata"
     /// Mac取込受領証を保持するCloudKitレコード種別です。
     private static let receiptRecordType = "ConnectionSessionMacReceipt"
     /// 全端末へセッション物理削除を伝えるCloudKitレコード種別です。
     private static let deletionRecordType = "ConnectionSessionDeletion"
     /// セッションPayload Assetのフィールド名です。
     private static let payloadAssetKey = "payloadAsset"
+    /// 符号化済みセッション概要のフィールド名です。
+    private static let metadataDataKey = "metadataData"
     /// 同期アカウントの不可逆識別値フィールドです。
     private static let accountFingerprintKey = "accountFingerprint"
     /// セッションUUIDフィールドです。
@@ -45,6 +49,132 @@ final class CloudKitConnectionSessionTransferRepository: ConnectionSessionTransf
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .millisecondsSince1970
         self.decoder = decoder
+    }
+
+    /// Raw Payloadを含まないセッション概要をCloudKitへ保存します。
+    ///
+    /// 責務: 1件のセッション概要を決定的JSON付きCloudKitレコードへ変換します。
+    /// - Parameters:
+    ///   - metadata: 一覧共有に必要なセッション概要とRaw Manifest。
+    ///   - accountIdentifier: 同期対象のAppleアカウント識別子。
+    /// - Throws: 状態検証、符号化、またはCloudKit保存に失敗した場合のエラー。
+    func publishMetadata(
+        _ metadata: ConnectionSessionCloudMetadata,
+        for accountIdentifier: String
+    ) async throws {
+        guard metadata.session.endedAt != nil,
+              metadata.session.accountIdentifier == accountIdentifier,
+              metadata.manifestDigest.isEmpty == false else {
+            throw ConnectionSessionRepositoryError.invalidState
+        }
+        let id = metadataRecordID(
+            sessionID: metadata.session.id,
+            accountIdentifier: accountIdentifier
+        )
+        let record: CKRecord
+        do {
+            record = try await privateDatabase.record(for: id)
+        } catch let error as CKError where error.code == .unknownItem {
+            record = CKRecord(recordType: Self.metadataRecordType, recordID: id)
+        }
+        record[Self.accountFingerprintKey] = fingerprint(for: accountIdentifier) as CKRecordValue
+        record[Self.sessionIDKey] = metadata.session.id.rawValue.uuidString.lowercased() as CKRecordValue
+        record[Self.manifestDigestKey] = metadata.manifestDigest as CKRecordValue
+        record[Self.metadataDataKey] = try encoder.encode(metadata) as CKRecordValue
+        record["endedAt"] = metadata.session.endedAt as CKRecordValue?
+        _ = try await privateDatabase.save(record)
+    }
+
+    /// 指定アカウントの軽量概要を取得し旧Rawレコードだけのセッションを一度だけ移行します。
+    ///
+    /// 責務: CloudKit概要レコードと未移行旧PayloadをRaw非包含セッション一覧へ変換します。
+    /// - Parameter accountIdentifier: 同期対象のAppleアカウント識別子。
+    /// - Returns: Raw Payloadを含まないセッション概要。
+    /// - Throws: CloudKit取得、旧Payload移行、復号、または整合性検証に失敗した場合のエラー。
+    func downloadMetadata(for accountIdentifier: String) async throws -> [ConnectionSessionCloudMetadata] {
+        let metadataRecords = try await records(
+            recordType: Self.metadataRecordType,
+            accountIdentifier: accountIdentifier,
+            desiredKeys: [Self.sessionIDKey, Self.manifestDigestKey, Self.metadataDataKey]
+        )
+        var metadataByID: [ConnectionSessionID: ConnectionSessionCloudMetadata] = [:]
+        for record in metadataRecords {
+            guard let data = record[Self.metadataDataKey] as? Data else {
+                throw ConnectionSessionRepositoryError.integrityConflict
+            }
+            let metadata = try decoder.decode(ConnectionSessionCloudMetadata.self, from: data)
+            guard metadata.session.accountIdentifier == accountIdentifier,
+                  metadata.manifestDigest == record[Self.manifestDigestKey] as? String,
+                  metadata.session.id.rawValue.uuidString.caseInsensitiveCompare(
+                    record[Self.sessionIDKey] as? String ?? ""
+                  ) == .orderedSame else {
+                throw ConnectionSessionRepositoryError.integrityConflict
+            }
+            if let existing = metadataByID[metadata.session.id], existing != metadata {
+                throw ConnectionSessionRepositoryError.integrityConflict
+            }
+            metadataByID[metadata.session.id] = metadata
+        }
+
+        let manifests = try await downloadTransferManifests(for: accountIdentifier)
+        for sessionID in manifests.keys where metadataByID[sessionID] == nil {
+            let transfer = try await downloadTransfer(sessionID: sessionID, for: accountIdentifier)
+            let metadata = ConnectionSessionCloudMetadata(
+                session: transfer.package.session,
+                manifestDigest: transfer.manifestDigest
+            )
+            try await publishMetadata(metadata, for: accountIdentifier)
+            metadataByID[sessionID] = metadata
+        }
+        return Array(metadataByID.values)
+    }
+
+    /// Raw Assetを取得せずCloudKit上のセッション別Manifestを復元します。
+    ///
+    /// 責務: 指定アカウントのRaw転送レコードをセッション別Manifest辞書へ変換します。
+    /// - Parameter accountIdentifier: 同期対象のAppleアカウント識別子。
+    /// - Returns: セッションIDをキーとするRaw Payload Manifest。
+    /// - Throws: CloudKit取得、必須フィールド復元、または重複競合に失敗した場合のエラー。
+    func downloadTransferManifests(
+        for accountIdentifier: String
+    ) async throws -> [ConnectionSessionID: String] {
+        let transferRecords = try await records(
+            recordType: Self.transferRecordType,
+            accountIdentifier: accountIdentifier,
+            desiredKeys: [Self.sessionIDKey, Self.manifestDigestKey]
+        )
+        var manifests: [ConnectionSessionID: String] = [:]
+        for record in transferRecords {
+            guard let sessionIDString = record[Self.sessionIDKey] as? String,
+                  let uuid = UUID(uuidString: sessionIDString),
+                  let digest = record[Self.manifestDigestKey] as? String else {
+                throw ConnectionSessionRepositoryError.integrityConflict
+            }
+            let sessionID = ConnectionSessionID(rawValue: uuid)
+            if let existing = manifests[sessionID], existing != digest {
+                throw ConnectionSessionRepositoryError.integrityConflict
+            }
+            manifests[sessionID] = digest
+        }
+        return manifests
+    }
+
+    /// 指定セッションのRaw Assetを取得してDigestを検証します。
+    ///
+    /// 責務: 1件のCloudKit Raw転送レコードを検証済みセッションPayloadへ変換します。
+    /// - Parameters:
+    ///   - sessionID: Raw Payloadを取得するセッションID。
+    ///   - accountIdentifier: 同期対象のAppleアカウント識別子。
+    /// - Returns: Asset SHA-256が保存済みManifestと一致した転送Payload。
+    /// - Throws: CloudKit取得、Asset読込、Digest検証、または復号に失敗した場合のエラー。
+    func downloadTransfer(
+        sessionID: ConnectionSessionID,
+        for accountIdentifier: String
+    ) async throws -> VerifiedConnectionSessionTransfer {
+        let record = try await privateDatabase.record(
+            for: transferRecordID(sessionID: sessionID, accountIdentifier: accountIdentifier)
+        )
+        return try verifiedTransfer(from: record, accountIdentifier: accountIdentifier)
     }
 
     /// 終了済みセッションPayloadをCloudKit Assetへ保存します。
@@ -84,6 +214,10 @@ final class CloudKitConnectionSessionTransferRepository: ConnectionSessionTransf
         record["endedAt"] = package.session.endedAt as CKRecordValue?
         record[Self.payloadAssetKey] = CKAsset(fileURL: temporaryURL)
         _ = try await privateDatabase.save(record)
+        try await publishMetadata(
+            ConnectionSessionCloudMetadata(session: package.session, manifestDigest: digest),
+            for: accountIdentifier
+        )
         return digest
     }
 
@@ -98,28 +232,38 @@ final class CloudKitConnectionSessionTransferRepository: ConnectionSessionTransf
             recordType: Self.transferRecordType,
             accountIdentifier: accountIdentifier
         )
-        return try records.map { record in
-            guard let asset = record[Self.payloadAssetKey] as? CKAsset,
-                  let url = asset.fileURL,
-                  let expectedDigest = record[Self.manifestDigestKey] as? String else {
-                throw ConnectionSessionRepositoryError.integrityConflict
-            }
-            let data = try Data(contentsOf: url)
-            guard sha256(data) == expectedDigest else {
-                throw ConnectionSessionRepositoryError.integrityConflict
-            }
-            let package = try decoder.decode(ConnectionSessionTransferPackage.self, from: data)
-            guard package.session.accountIdentifier == accountIdentifier,
-                  package.session.id.rawValue.uuidString.caseInsensitiveCompare(
-                    record[Self.sessionIDKey] as? String ?? ""
-                  ) == .orderedSame else {
-                throw ConnectionSessionRepositoryError.integrityConflict
-            }
-            return VerifiedConnectionSessionTransfer(
-                package: package,
-                manifestDigest: expectedDigest
-            )
+        return try records.map { try verifiedTransfer(from: $0, accountIdentifier: accountIdentifier) }
+    }
+
+    /// CloudKitレコードのAsset、Digest、所有関係を検証して転送Payloadを返します。
+    ///
+    /// 責務: 1件のRaw転送レコードを整合性検証済みDomain転送へ変換します。
+    /// - Parameters:
+    ///   - record: 検証するCloudKit Raw転送レコード。
+    ///   - accountIdentifier: 期待するAppleアカウント識別子。
+    /// - Returns: Assetと識別情報を検証したセッション転送。
+    /// - Throws: Asset不在、Digest不一致、復号失敗、または所有関係不一致。
+    private func verifiedTransfer(
+        from record: CKRecord,
+        accountIdentifier: String
+    ) throws -> VerifiedConnectionSessionTransfer {
+        guard let asset = record[Self.payloadAssetKey] as? CKAsset,
+              let url = asset.fileURL,
+              let expectedDigest = record[Self.manifestDigestKey] as? String else {
+            throw ConnectionSessionRepositoryError.integrityConflict
         }
+        let data = try Data(contentsOf: url)
+        guard sha256(data) == expectedDigest else {
+            throw ConnectionSessionRepositoryError.integrityConflict
+        }
+        let package = try decoder.decode(ConnectionSessionTransferPackage.self, from: data)
+        guard package.session.accountIdentifier == accountIdentifier,
+              package.session.id.rawValue.uuidString.caseInsensitiveCompare(
+                record[Self.sessionIDKey] as? String ?? ""
+              ) == .orderedSame else {
+            throw ConnectionSessionRepositoryError.integrityConflict
+        }
+        return VerifiedConnectionSessionTransfer(package: package, manifestDigest: expectedDigest)
     }
 
     /// Macの永続取込受領証をCloudKitへ保存します。
@@ -238,6 +382,9 @@ final class CloudKitConnectionSessionTransferRepository: ConnectionSessionTransf
         try await deleteRecordIfPresent(
             transferRecordID(sessionID: sessionID, accountIdentifier: accountIdentifier)
         )
+        try await deleteRecordIfPresent(
+            metadataRecordID(sessionID: sessionID, accountIdentifier: accountIdentifier)
+        )
         let receiptRecords = try await records(
             recordType: Self.receiptRecordType,
             accountIdentifier: accountIdentifier
@@ -267,7 +414,11 @@ final class CloudKitConnectionSessionTransferRepository: ConnectionSessionTransf
             recordType: Self.deletionRecordType,
             accountIdentifier: accountIdentifier
         )
-        for record in transferRecords + receiptRecords + deletionRecords {
+        let metadataRecords = try await records(
+            recordType: Self.metadataRecordType,
+            accountIdentifier: accountIdentifier
+        )
+        for record in transferRecords + metadataRecords + receiptRecords + deletionRecords {
             try await deleteRecordIfPresent(record.recordID)
         }
     }
@@ -291,9 +442,14 @@ final class CloudKitConnectionSessionTransferRepository: ConnectionSessionTransf
     /// - Parameters:
     ///   - recordType: 取得するCloudKitレコード種別。
     ///   - accountIdentifier: 絞り込むAppleアカウント識別子。
+    ///   - desiredKeys: Asset取得を避ける場合に限定するフィールド名。
     /// - Returns: 全ページから取得したCloudKitレコード。
     /// - Throws: CloudKit Queryまたはページ継続取得に失敗した場合のエラー。
-    private func records(recordType: String, accountIdentifier: String) async throws -> [CKRecord] {
+    private func records(
+        recordType: String,
+        accountIdentifier: String,
+        desiredKeys: [CKRecord.FieldKey]? = nil
+    ) async throws -> [CKRecord] {
         let predicate = NSPredicate(
             format: "%K == %@",
             Self.accountFingerprintKey,
@@ -301,7 +457,10 @@ final class CloudKitConnectionSessionTransferRepository: ConnectionSessionTransf
         )
         let query = CKQuery(recordType: recordType, predicate: predicate)
         var output: [CKRecord] = []
-        var result = try await privateDatabase.records(matching: query)
+        var result = try await privateDatabase.records(
+            matching: query,
+            desiredKeys: desiredKeys
+        )
         output.append(contentsOf: try result.matchResults.map { try $0.1.get() })
         while let cursor = result.queryCursor {
             result = try await privateDatabase.records(continuingMatchFrom: cursor)
@@ -328,6 +487,22 @@ final class CloudKitConnectionSessionTransferRepository: ConnectionSessionTransf
     ) -> CKRecord.ID {
         CKRecord.ID(
             recordName: "raw-session-\(fingerprint(for: accountIdentifier))-\(sessionID.rawValue.uuidString.lowercased())"
+        )
+    }
+
+    /// セッション概要用の安定CloudKitレコードIDを生成します。
+    ///
+    /// 責務: アカウントとセッションIDを衝突しない概要レコードIDへ変換します。
+    /// - Parameters:
+    ///   - sessionID: 概要を共有する接続セッションID。
+    ///   - accountIdentifier: 同期対象のAppleアカウント識別子。
+    /// - Returns: private database内で安定する概要レコードID。
+    private func metadataRecordID(
+        sessionID: ConnectionSessionID,
+        accountIdentifier: String
+    ) -> CKRecord.ID {
+        CKRecord.ID(
+            recordName: "session-metadata-\(fingerprint(for: accountIdentifier))-\(sessionID.rawValue.uuidString.lowercased())"
         )
     }
 

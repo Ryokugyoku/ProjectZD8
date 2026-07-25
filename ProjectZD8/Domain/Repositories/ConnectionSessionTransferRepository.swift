@@ -1,6 +1,49 @@
 /// 接続セッションPayloadとMac受領証をCloudKit経由で交換します。
 @MainActor
 protocol ConnectionSessionTransferRepository {
+    /// Raw Payloadを含まないセッション概要をCloudKitへ保存します。
+    ///
+    /// 責務: 1件のセッション概要をRaw Assetから独立したCloudKitレコードへ変換します。
+    /// - Parameters:
+    ///   - metadata: 一覧共有に必要なセッション概要とRaw Manifest。
+    ///   - accountIdentifier: 同期対象のAppleアカウント識別子。
+    /// - Throws: 概要の符号化またはCloudKit保存に失敗した場合のエラー。
+    func publishMetadata(
+        _ metadata: ConnectionSessionCloudMetadata,
+        for accountIdentifier: String
+    ) async throws
+
+    /// 指定アカウントのセッション概要だけを取得します。
+    ///
+    /// 責務: CloudKit上の軽量概要レコードをRaw Asset非取得のセッション一覧へ変換します。
+    /// - Parameter accountIdentifier: 同期対象のAppleアカウント識別子。
+    /// - Returns: Raw Payloadを含まないセッション概要。
+    /// - Throws: CloudKit取得、復号、または整合性検証に失敗した場合のエラー。
+    func downloadMetadata(for accountIdentifier: String) async throws -> [ConnectionSessionCloudMetadata]
+
+    /// CloudKitに実在するRaw PayloadのManifestを取得します。
+    ///
+    /// 責務: Raw Assetを読み込まずにセッション別Manifestを復元します。
+    /// - Parameter accountIdentifier: 同期対象のAppleアカウント識別子。
+    /// - Returns: セッションIDをキーとするRaw Payload Manifest。
+    /// - Throws: CloudKit取得または必須フィールド復元に失敗した場合のエラー。
+    func downloadTransferManifests(
+        for accountIdentifier: String
+    ) async throws -> [ConnectionSessionID: String]
+
+    /// 指定セッションのRaw Payloadだけをオンデマンド取得します。
+    ///
+    /// 責務: 1件のセッションIDをDigest検証済みRaw転送Payloadへ変換します。
+    /// - Parameters:
+    ///   - sessionID: Raw Payloadを取得するセッションID。
+    ///   - accountIdentifier: 同期対象のAppleアカウント識別子。
+    /// - Returns: Asset整合性を検証したセッション転送Payload。
+    /// - Throws: CloudKit取得、Asset読込、Digest検証、または復号に失敗した場合のエラー。
+    func downloadTransfer(
+        sessionID: ConnectionSessionID,
+        for accountIdentifier: String
+    ) async throws -> VerifiedConnectionSessionTransfer
+
     /// 終了済みセッションPayloadをCloudKitへ保存します。
     ///
     /// 責務: 1件のセッションPayloadを検証可能なCloudKit Assetへ変換します。
@@ -72,4 +115,71 @@ protocol ConnectionSessionTransferRepository {
     /// - Parameter accountIdentifier: 削除対象のAppleアカウント識別子。
     /// - Throws: CloudKit上のセッションAssetまたはMac受領証を削除できない場合のエラー。
     func deleteAll(for accountIdentifier: String) async throws
+}
+
+/// 既存の転送Repository実装へ互換的な軽量同期能力を提供します。
+@MainActor
+extension ConnectionSessionTransferRepository {
+    /// 互換実装では既存Payloadが概要も保持するため追加保存を省略します。
+    ///
+    /// 責務: 既存テスト実装の概要公開要求を副作用なしで受け付けます。
+    /// - Parameters:
+    ///   - metadata: 既存Payload内に含まれるため使用しない概要。
+    ///   - accountIdentifier: 使用しないアカウント識別子。
+    func publishMetadata(
+        _ metadata: ConnectionSessionCloudMetadata,
+        for accountIdentifier: String
+    ) async throws {}
+
+    /// 既存の全転送取得結果から概要を復元します。
+    ///
+    /// 責務: 既存Payload配列を互換的なセッション概要配列へ変換します。
+    /// - Parameter accountIdentifier: 同期対象のAppleアカウント識別子。
+    /// - Returns: 既存転送が保持するセッション概要。
+    /// - Throws: 既存転送取得に失敗した場合のエラー。
+    func downloadMetadata(for accountIdentifier: String) async throws -> [ConnectionSessionCloudMetadata] {
+        try await downloadTransfers(for: accountIdentifier).map {
+            ConnectionSessionCloudMetadata(session: $0.package.session, manifestDigest: $0.manifestDigest)
+        }
+    }
+
+    /// 既存の全転送取得結果からManifest辞書を復元します。
+    ///
+    /// 責務: 既存Payload配列を互換的なセッション別Manifestへ変換します。
+    /// - Parameter accountIdentifier: 同期対象のAppleアカウント識別子。
+    /// - Returns: セッションIDをキーとするManifest。
+    /// - Throws: 既存転送取得または重複Manifest検証に失敗した場合のエラー。
+    func downloadTransferManifests(
+        for accountIdentifier: String
+    ) async throws -> [ConnectionSessionID: String] {
+        var manifests: [ConnectionSessionID: String] = [:]
+        for transfer in try await downloadTransfers(for: accountIdentifier) {
+            let id = transfer.package.session.id
+            if let existing = manifests[id], existing != transfer.manifestDigest {
+                throw ConnectionSessionRepositoryError.integrityConflict
+            }
+            manifests[id] = transfer.manifestDigest
+        }
+        return manifests
+    }
+
+    /// 既存の全転送取得結果から指定セッションを選択します。
+    ///
+    /// 責務: 既存Payload配列を互換的な単一セッションRaw取得結果へ変換します。
+    /// - Parameters:
+    ///   - sessionID: 取得するセッションID。
+    ///   - accountIdentifier: 同期対象のAppleアカウント識別子。
+    /// - Returns: 指定セッションの検証済み転送Payload。
+    /// - Throws: 転送不在または既存転送取得に失敗した場合のエラー。
+    func downloadTransfer(
+        sessionID: ConnectionSessionID,
+        for accountIdentifier: String
+    ) async throws -> VerifiedConnectionSessionTransfer {
+        guard let transfer = try await downloadTransfers(for: accountIdentifier).first(where: {
+            $0.package.session.id == sessionID
+        }) else {
+            throw ConnectionSessionRepositoryError.invalidState
+        }
+        return transfer
+    }
 }

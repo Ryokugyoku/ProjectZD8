@@ -54,7 +54,7 @@ struct IOSSessionLogAnalysisView: View {
         .navigationTitle("analysis.title")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
-            if state.sessionID != session.id { send(.sessionSelected(session.id)) }
+            if state.sessionID != session.id { send(.sessionSelected(session)) }
             selectDefaults()
         }
         .onDisappear { send(.dismissed) }

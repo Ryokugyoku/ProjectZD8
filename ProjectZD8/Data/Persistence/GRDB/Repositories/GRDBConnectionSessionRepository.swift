@@ -139,6 +139,7 @@ final class GRDBConnectionSessionRepository: ConnectionSessionRepository, Connec
             session.rawLogSummary.cloudState = .pending
             session.rawLogSummary.manifestDigest = nil
             session.rawLogSummary.macImportReceipt = nil
+            session.rawLogSummary.lastAccessedAt = nil
             try ConnectionSessionRecord(session: session).update(database)
         }
     }
@@ -343,7 +344,8 @@ final class GRDBConnectionSessionRepository: ConnectionSessionRepository, Connec
                 localState: package.entries.isEmpty ? .empty : .available,
                 cloudState: .uploaded,
                 manifestDigest: transfer.manifestDigest,
-                macImportReceipt: nil
+                macImportReceipt: nil,
+                lastAccessedAt: nil
             )
             try ConnectionSessionRecord(session: imported).save(database)
             try ConnectionSessionRawLogRecord
@@ -360,6 +362,122 @@ final class GRDBConnectionSessionRepository: ConnectionSessionRepository, Connec
             guard readBackEntries == package.entries else {
                 throw ConnectionSessionRepositoryError.integrityConflict
             }
+        }
+    }
+
+    /// CloudKitセッション概要をRaw Payloadなしでローカル履歴へ取り込みます。
+    ///
+    /// 責務: 1件の検証済み概要を端末固有Raw状態を保持したセッション一覧へ反映します。
+    /// - Parameter metadata: Raw Payloadを含まないセッション概要とManifest。
+    /// - Throws: 既存内容との不一致、状態不正、またはSQLite書込み失敗。
+    func importCloudMetadata(_ metadata: ConnectionSessionCloudMetadata) throws {
+        try databaseQueue.write { database in
+            let transferred = metadata.session
+            guard transferred.endedAt != nil,
+                  transferred.accountIdentifier.isEmpty == false,
+                  metadata.manifestDigest.isEmpty == false else {
+                throw ConnectionSessionRepositoryError.integrityConflict
+            }
+            if let existing = try fetchSession(transferred.id, database: database) {
+                guard sessionsHaveCompatibleArchivedMetadata(existing, transferred) else {
+                    throw ConnectionSessionRepositoryError.integrityConflict
+                }
+                if let digest = existing.rawLogSummary.manifestDigest,
+                   digest != metadata.manifestDigest,
+                   existing.rawLogSummary.cloudState == .uploaded {
+                    throw ConnectionSessionRepositoryError.integrityConflict
+                }
+                var reconciled = sessionByFillingMissingTransferredMetadata(
+                    existing: existing,
+                    transferred: transferred
+                )
+                reconciled.rawLogSummary.recordCount = transferred.rawLogSummary.recordCount
+                reconciled.rawLogSummary.byteCount = transferred.rawLogSummary.byteCount
+                reconciled.rawLogSummary.cloudState = .uploaded
+                reconciled.rawLogSummary.manifestDigest = metadata.manifestDigest
+                if reconciled.rawLogSummary.macImportReceipt?.manifestDigest != metadata.manifestDigest {
+                    reconciled.rawLogSummary.macImportReceipt = nil
+                }
+                try ConnectionSessionRecord(session: reconciled).save(database)
+                return
+            }
+            var imported = transferred
+            imported.rawLogSummary = ConnectionSessionRawLogSummary(
+                recordCount: transferred.rawLogSummary.recordCount,
+                byteCount: transferred.rawLogSummary.byteCount,
+                localState: transferred.rawLogSummary.recordCount == 0 ? .empty : .removed,
+                cloudState: .uploaded,
+                manifestDigest: metadata.manifestDigest,
+                macImportReceipt: nil,
+                lastAccessedAt: nil
+            )
+            try ConnectionSessionRecord(session: imported).insert(database)
+        }
+    }
+
+    /// 明示要求された検証済みRaw Payloadをローカルキャッシュへ復元します。
+    ///
+    /// 責務: 1件のオンデマンド転送を既存概要と照合してRaw子行へ原子的に復元します。
+    /// - Parameter transfer: CloudKitから取得した検証済みセッション転送。
+    /// - Throws: 既存概要との不一致、順序欠損、またはSQLite書込み失敗。
+    func restoreVerifiedTransfer(_ transfer: VerifiedConnectionSessionTransfer) throws {
+        try databaseQueue.write { database in
+            let package = transfer.package
+            guard package.session.endedAt != nil,
+                  package.entries.enumerated().allSatisfy({ Int64($0.offset) == $0.element.sequence }) else {
+                throw ConnectionSessionRepositoryError.integrityConflict
+            }
+            if let existing = try fetchSession(package.session.id, database: database) {
+                guard sessionsHaveCompatibleArchivedMetadata(existing, package.session),
+                      existing.rawLogSummary.manifestDigest == transfer.manifestDigest else {
+                    throw ConnectionSessionRepositoryError.integrityConflict
+                }
+            }
+            var restored = package.session
+            let existing = try fetchSession(package.session.id, database: database)
+            if let existing {
+                restored = sessionByFillingMissingTransferredMetadata(
+                    existing: existing,
+                    transferred: package.session
+                )
+            }
+            restored.rawLogSummary = ConnectionSessionRawLogSummary(
+                recordCount: Int64(package.entries.count),
+                byteCount: package.entries.reduce(0) { $0 + Int64($1.payload.count) },
+                localState: package.entries.isEmpty ? .empty : .available,
+                cloudState: .uploaded,
+                manifestDigest: transfer.manifestDigest,
+                macImportReceipt: existing?.rawLogSummary.macImportReceipt,
+                lastAccessedAt: existing?.rawLogSummary.lastAccessedAt
+            )
+            try ConnectionSessionRecord(session: restored).save(database)
+            try ConnectionSessionRawLogRecord
+                .filter(Column("sessionID") == restored.id.rawValue.uuidString.lowercased())
+                .deleteAll(database)
+            for entry in package.entries {
+                try ConnectionSessionRawLogRecord(entry: entry, sessionID: restored.id).insert(database)
+            }
+            let readBackEntries = try rawLogRecords(for: restored.id, database: database)
+                .compactMap { $0.makeDomainEntry() }
+            guard readBackEntries == package.entries else {
+                throw ConnectionSessionRepositoryError.integrityConflict
+            }
+        }
+    }
+
+    /// Rawログの最終閲覧日時を現在端末へ保存します。
+    ///
+    /// 責務: 1件のローカルRawキャッシュを指定閲覧日時へ更新します。
+    /// - Parameters:
+    ///   - date: Rawログを閲覧可能状態へした日時。
+    ///   - sessionID: 更新するセッションID。
+    /// - Throws: Raw不在、セッション不在、またはSQLite更新失敗。
+    func markRawLogAccessed(at date: Date, sessionID: ConnectionSessionID) throws {
+        try updateSession(sessionID) { session in
+            guard session.rawLogSummary.localState != .removed else {
+                throw ConnectionSessionRepositoryError.invalidState
+            }
+            session.rawLogSummary.lastAccessedAt = date
         }
     }
 

@@ -3,7 +3,7 @@ import GRDB
 import XCTest
 @testable import ProjectZD8
 
-/// セッション転送とMac取込受領証の端末役割別処理を検証します。
+/// Raw非包含セッション概要とCloudKit Raw保管の端末間同期を検証します。
 @MainActor
 final class SynchronizeConnectionSessionsUseCaseTests: XCTestCase {
     /// CloudKit削除マーカーを送信判定より先にローカル物理削除へ反映します。
@@ -80,7 +80,7 @@ final class SynchronizeConnectionSessionsUseCaseTests: XCTestCase {
     /// iPhoneはCloudKit上の検証済みセッションをローカル履歴へ取り込みます。
     ///
     /// 責務: Macなど別端末で保存されたセッションがiPhone側へ復元されることを確認します。
-    func testIPhoneImportsVerifiedTransferWithoutPublishingMacReceipt() async throws {
+    func testIPhoneImportsMetadataWithoutDownloadingRawPayload() async throws {
         var session = ConnectionSession(
             accountIdentifier: "account",
             startedAt: Date(timeIntervalSince1970: 100),
@@ -104,7 +104,8 @@ final class SynchronizeConnectionSessionsUseCaseTests: XCTestCase {
 
         try await useCase.execute(accountIdentifier: "account")
 
-        XCTAssertEqual(local.importedTransfers, [transfer])
+        XCTAssertEqual(local.importedMetadata.map(\.session.id), [session.id])
+        XCTAssertTrue(local.importedTransfers.isEmpty)
         XCTAssertTrue(local.markedReceipts.isEmpty)
         XCTAssertTrue(cloud.publishedReceipts.isEmpty)
     }
@@ -128,8 +129,7 @@ final class SynchronizeConnectionSessionsUseCaseTests: XCTestCase {
             rawLogRepository: macLocal,
             sessionErasureRepository: macLocal,
             transferRepository: cloud,
-            role: .macOS,
-            installationIdentity: LocalInstallationIdentity(id: "mac-installation", displayName: "Garage Mac")
+            role: .macOS
         )
         let iPhoneUseCase = SynchronizeConnectionSessionsUseCase(
             sessionRepository: iPhoneLocal,
@@ -143,8 +143,8 @@ final class SynchronizeConnectionSessionsUseCaseTests: XCTestCase {
         try await iPhoneUseCase.execute(accountIdentifier: "account")
 
         XCTAssertEqual(cloud.uploadedSessionIDs, [session.id])
-        XCTAssertEqual(iPhoneLocal.importedTransfers.map(\.package.session.id), [session.id])
-        XCTAssertEqual(iPhoneLocal.importedTransfers.first?.package.entries, [])
+        XCTAssertEqual(iPhoneLocal.importedMetadata.map(\.session.id), [session.id])
+        XCTAssertTrue(iPhoneLocal.importedTransfers.isEmpty)
     }
 
     /// ローカルが送信済みでもCloudKitレコードが欠けていれば既存セッションを再公開します。
@@ -175,10 +175,10 @@ final class SynchronizeConnectionSessionsUseCaseTests: XCTestCase {
         try await useCase.execute(accountIdentifier: "account")
 
         XCTAssertEqual(cloud.uploadedSessionIDs, [session.id])
-        XCTAssertEqual(local.importedTransfers.map(\.package.session.id), [session.id])
-        let transferredSummary = try XCTUnwrap(local.importedTransfers.first?.package.session.rawLogSummary)
-        XCTAssertEqual(transferredSummary.cloudState, .notUploaded)
-        XCTAssertNil(transferredSummary.manifestDigest)
+        XCTAssertEqual(local.importedMetadata.map(\.session.id), [session.id])
+        let transferredSummary = try XCTUnwrap(local.importedMetadata.first?.session.rawLogSummary)
+        XCTAssertEqual(transferredSummary.cloudState, .uploaded)
+        XCTAssertEqual(transferredSummary.manifestDigest, "uploaded")
         XCTAssertNil(transferredSummary.macImportReceipt)
     }
 
@@ -214,7 +214,8 @@ final class SynchronizeConnectionSessionsUseCaseTests: XCTestCase {
         try await useCase.execute(accountIdentifier: "account")
 
         XCTAssertTrue(cloud.uploadedSessionIDs.isEmpty)
-        XCTAssertEqual(local.importedTransfers, [transfer])
+        XCTAssertEqual(local.importedMetadata.map(\.session.id), [session.id])
+        XCTAssertTrue(local.importedTransfers.isEmpty)
     }
 
     /// 失敗状態のローカルセッションは同じ旧Manifestがリモートに残っていても再公開します。
@@ -251,15 +252,15 @@ final class SynchronizeConnectionSessionsUseCaseTests: XCTestCase {
         try await useCase.execute(accountIdentifier: "account")
 
         XCTAssertEqual(cloud.uploadedSessionIDs, [localSession.id])
-        XCTAssertEqual(local.importedTransfers.count, 1)
-        XCTAssertEqual(local.importedTransfers.first?.manifestDigest, "uploaded")
-        XCTAssertEqual(local.importedTransfers.first?.package.session.endedAt, localSession.endedAt)
+        XCTAssertEqual(local.importedMetadata.count, 1)
+        XCTAssertEqual(local.importedMetadata.first?.manifestDigest, "uploaded")
+        XCTAssertEqual(local.importedMetadata.first?.session.endedAt, localSession.endedAt)
     }
 
     /// Macは検証済みPayloadをローカルへ取り込んでから同じManifestの受領証を公開します。
     ///
     /// 責務: Mac同期が車両付きセッション取込、ローカル証跡、CloudKit受領証の順で完了することを確認します。
-    func testMacImportsTransferAndPublishesMatchingReceipt() async throws {
+    func testMacImportsMetadataWithoutDownloadingRawOrPublishingReceipt() async throws {
         var session = ConnectionSession(
             accountIdentifier: "account",
             startedAt: Date(timeIntervalSince1970: 100),
@@ -278,25 +279,21 @@ final class SynchronizeConnectionSessionsUseCaseTests: XCTestCase {
             rawLogRepository: local,
             sessionErasureRepository: local,
             transferRepository: cloud,
-            role: .macOS,
-            installationIdentity: LocalInstallationIdentity(id: "mac-installation", displayName: "Garage Mac"),
-            now: { Date(timeIntervalSince1970: 120) }
+            role: .macOS
         )
 
         try await useCase.execute(accountIdentifier: "account")
 
-        XCTAssertEqual(local.importedTransfers, [transfer])
-        XCTAssertEqual(local.markedReceipts.first?.0, session.id)
-        XCTAssertEqual(local.markedReceipts.first?.1.manifestDigest, "manifest")
-        XCTAssertEqual(local.markedReceipts.first?.1.deviceID, "mac-installation")
-        XCTAssertEqual(cloud.publishedReceipts.first?.0, session.id)
-        XCTAssertEqual(cloud.publishedReceipts.first?.1, local.markedReceipts.first?.1)
+        XCTAssertEqual(local.importedMetadata.map(\.session.id), [session.id])
+        XCTAssertTrue(local.importedTransfers.isEmpty)
+        XCTAssertTrue(local.markedReceipts.isEmpty)
+        XCTAssertTrue(cloud.publishedReceipts.isEmpty)
     }
 
-    /// iPhoneからMacへの取込と受領証返送で車両、端末、保管状態を維持します。
+    /// iPhoneとMacの概要同期で車両、取得端末、CloudKit保管状態を維持します。
     ///
-    /// 責務: 2つの実GRDB保存先を跨ぐ往復同期が履歴カード情報と各保管完了状態を確定することを確認します。
-    func testRoundTripBetweenIPhoneAndMacPreservesArchiveMetadataAndReceipts() async throws {
+    /// 責務: 2つの実GRDB保存先を跨ぐ同期がRawを自動取得せず履歴カード情報を共有することを確認します。
+    func testRoundTripBetweenIPhoneAndMacPreservesSharedArchiveMetadata() async throws {
         let iPhone = try GRDBConnectionSessionRepository(databaseQueue: DatabaseQueue())
         let mac = try GRDBConnectionSessionRepository(databaseQueue: DatabaseQueue())
         let cloud = SynchronizationTransferRepository(transfers: [], receipts: [])
@@ -323,8 +320,7 @@ final class SynchronizeConnectionSessionsUseCaseTests: XCTestCase {
             rawLogRepository: mac,
             sessionErasureRepository: mac,
             transferRepository: cloud,
-            role: .macOS,
-            installationIdentity: LocalInstallationIdentity(id: "mac-installation", displayName: "MacBook Pro")
+            role: .macOS
         )
 
         try await iPhoneSync.execute(accountIdentifier: "account")
@@ -336,10 +332,9 @@ final class SynchronizeConnectionSessionsUseCaseTests: XCTestCase {
         XCTAssertEqual(macResult.vehicle, vehicle)
         XCTAssertEqual(macResult.acquisitionDevice, sourceDevice)
         XCTAssertEqual(macResult.rawLogSummary.cloudState, .uploaded)
-        XCTAssertTrue(macResult.rawLogSummary.isDurablyImportedByMac)
+        XCTAssertEqual(macResult.rawLogSummary.localState, .empty)
         XCTAssertEqual(iPhoneResult.rawLogSummary.cloudState, .uploaded)
-        XCTAssertEqual(iPhoneResult.rawLogSummary.macImportReceipt?.deviceName, "MacBook Pro")
-        XCTAssertTrue(iPhoneResult.rawLogSummary.isDurablyImportedByMac)
+        XCTAssertNil(iPhoneResult.rawLogSummary.macImportReceipt)
     }
 
     /// 指定情報を持つMac取込受領証を生成します。
@@ -365,6 +360,8 @@ private final class SynchronizationLocalRepository: ConnectionSessionRepository,
     private var storedSessions: [ConnectionSession]
     /// 取り込まれた検証済み転送です。
     private(set) var importedTransfers: [VerifiedConnectionSessionTransfer] = []
+    /// 取り込まれたRaw非包含セッション概要です。
+    private(set) var importedMetadata: [ConnectionSessionCloudMetadata] = []
     /// 反映されたセッションIDとMac受領証です。
     private(set) var markedReceipts: [(ConnectionSessionID, ConnectionSessionMacImportReceipt)] = []
     /// 物理削除された接続セッションIDです。
@@ -416,13 +413,17 @@ private final class SynchronizationLocalRepository: ConnectionSessionRepository,
         accountIdentifier: String
     ) throws -> [VehicleConnectionSessionRawLogEntry] { [] }
 
-    /// このテストではCloudKit保存済み更新を変更なしで受け付けます。
+    /// CloudKit保存済みManifestをテスト用セッションへ反映します。
     ///
-    /// 責務: テスト対象外のManifest更新要求を満たします。
+    /// 責務: 1件のアップロード結果を後続の概要公開で参照できる状態へ更新します。
     /// - Parameters:
-    ///   - sessionID: 使用しないセッションID。
-    ///   - manifestDigest: 使用しないDigest。
-    func markCloudUploaded(sessionID: ConnectionSessionID, manifestDigest: String) throws {}
+    ///   - sessionID: 更新するセッションID。
+    ///   - manifestDigest: 保存済みRaw PayloadのManifest。
+    func markCloudUploaded(sessionID: ConnectionSessionID, manifestDigest: String) throws {
+        guard let index = storedSessions.firstIndex(where: { $0.id == sessionID }) else { return }
+        storedSessions[index].rawLogSummary.cloudState = .uploaded
+        storedSessions[index].rawLogSummary.manifestDigest = manifestDigest
+    }
 
     /// このテストではCloudKit失敗更新を変更なしで受け付けます。
     ///
@@ -446,6 +447,14 @@ private final class SynchronizationLocalRepository: ConnectionSessionRepository,
     /// - Parameter transfer: 取り込まれた転送Payload。
     func importVerifiedTransfer(_ transfer: VerifiedConnectionSessionTransfer) throws {
         importedTransfers.append(transfer)
+    }
+
+    /// セッション概要をRaw Payloadとは別に記録します。
+    ///
+    /// 責務: 同期ユースケースが取り込んだ軽量概要を検査可能にします。
+    /// - Parameter metadata: 取り込まれたセッション概要。
+    func importCloudMetadata(_ metadata: ConnectionSessionCloudMetadata) throws {
+        importedMetadata.append(metadata)
     }
 
     /// このテストではローカル除去を変更なしで受け付けます。

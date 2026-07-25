@@ -3,6 +3,9 @@ import SwiftUI
 /// ProjectZD8のプロセスエントリーポイントとプラットフォーム別ルート画面を構築します。
 @main
 struct ProjectZD8App: App {
+    /// ウインドウが再び操作可能になったことを同期開始へ利用するScene状態です。
+    @Environment(\.scenePhase) private var scenePhase
+
     /// ルート画面の表示可否を決定する認証セッションモデルです。
     @State private var authenticationModel: AuthenticationSessionModel
 
@@ -48,11 +51,19 @@ struct ProjectZD8App: App {
             synchronizeSessions: IOSApplicationComposition.makeConnectionSessionSynchronization(
                 storage: connectionSessionRepository
             ),
-            removeIPhoneRawLog: RemoveIPhoneSessionRawLogUseCase(
+            releaseRawCache: ReleaseConnectionSessionRawCacheUseCase(
                 repository: connectionSessionRepository
+            ),
+            deleteSessionEverywhere: DeleteConnectionSessionEverywhereUseCase(
+                localRepository: connectionSessionRepository,
+                transferRepository: CloudKitConnectionSessionTransferRepository()
             ),
             reviewInterruptedSession: ReviewInterruptedConnectionSessionUseCase(
                 repository: connectionSessionRepository
+            ),
+            evictStaleRawLogs: EvictStaleConnectionSessionRawLogsUseCase(
+                sessionRepository: connectionSessionRepository,
+                rawLogRepository: connectionSessionRepository
             )
         )
         let sessionLogAnalysisModel = SessionLogAnalysisModel(
@@ -60,6 +71,10 @@ struct ProjectZD8App: App {
             decodeTimeline: DecodeSessionLogTimelineUseCase(
                 rawLogRepository: connectionSessionRepository,
                 definitionRepository: IOSApplicationComposition.makeOBDPIDDefinitionRepository()
+            ),
+            prepareRawLog: PrepareConnectionSessionRawLogUseCase(
+                rawLogRepository: connectionSessionRepository,
+                transferRepository: CloudKitConnectionSessionTransferRepository()
             )
         )
         let connectionSessionLifecycleModel = ConnectionSessionLifecycleModel(
@@ -121,12 +136,19 @@ struct ProjectZD8App: App {
             synchronizeSessions: MacOSApplicationComposition.makeConnectionSessionSynchronization(
                 storage: connectionSessionRepository
             ),
+            releaseRawCache: ReleaseConnectionSessionRawCacheUseCase(
+                repository: connectionSessionRepository
+            ),
             deleteSessionEverywhere: DeleteConnectionSessionEverywhereUseCase(
                 localRepository: connectionSessionRepository,
                 transferRepository: CloudKitConnectionSessionTransferRepository()
             ),
             reviewInterruptedSession: ReviewInterruptedConnectionSessionUseCase(
                 repository: connectionSessionRepository
+            ),
+            evictStaleRawLogs: EvictStaleConnectionSessionRawLogsUseCase(
+                sessionRepository: connectionSessionRepository,
+                rawLogRepository: connectionSessionRepository
             )
         )
         let sessionLogAnalysisModel = SessionLogAnalysisModel(
@@ -134,6 +156,10 @@ struct ProjectZD8App: App {
             decodeTimeline: DecodeSessionLogTimelineUseCase(
                 rawLogRepository: connectionSessionRepository,
                 definitionRepository: MacOSApplicationComposition.makeOBDPIDDefinitionRepository()
+            ),
+            prepareRawLog: PrepareConnectionSessionRawLogUseCase(
+                rawLogRepository: connectionSessionRepository,
+                transferRepository: CloudKitConnectionSessionTransferRepository()
             )
         )
         let connectionSessionLifecycleModel = ConnectionSessionLifecycleModel(
@@ -246,7 +272,19 @@ struct ProjectZD8App: App {
             .onChange(of: authenticationModel.state.phase) { _, phase in
                 handleAuthenticationPhaseChange(phase)
             }
+            .onChange(of: scenePhase) { _, phase in
+                handleScenePhaseChange(phase)
+            }
         }
+    }
+
+    /// アプリが操作可能へ戻ったとき認証済みセッション概要を再同期します。
+    ///
+    /// 責務: 1件のScene段階変更を認証済み接続履歴の更新要求へ変換します。
+    /// - Parameter phase: 現在のScene段階。
+    private func handleScenePhaseChange(_ phase: ScenePhase) {
+        guard phase == .active, authenticationModel.state.phase == .signedIn else { return }
+        connectionHistoryModel.send(.refreshRequested)
     }
 
     /// 認証済みAppleユーザーをConnection以外の設定保存スコープへ反映します。

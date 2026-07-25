@@ -1,3 +1,5 @@
+import Foundation
+
 /// 未デコードOBD応答を接続セッション単位で永続化します。
 protocol ConnectionSessionRawLogRepository {
     /// Raw応答を現在セッションの次の順序へ追記します。
@@ -85,6 +87,29 @@ protocol ConnectionSessionRawLogRepository {
     /// - Throws: 既存内容との不一致、制約違反、または永続化失敗。
     func importVerifiedTransfer(_ transfer: VerifiedConnectionSessionTransfer) throws
 
+    /// 検証済みセッション概要をRaw Payloadなしで取り込みます。
+    ///
+    /// 責務: 1件のCloudKit概要をローカル一覧表示用セッションへ反映します。
+    /// - Parameter metadata: Raw Payloadを含まない検証対象セッション概要。
+    /// - Throws: 既存内容との不一致または永続化失敗。
+    func importCloudMetadata(_ metadata: ConnectionSessionCloudMetadata) throws
+
+    /// 明示要求された検証済みRaw Payloadを現在端末へ復元します。
+    ///
+    /// 責務: 1件のオンデマンド転送をローカルRawキャッシュへ復元します。
+    /// - Parameter transfer: CloudKitから取得した検証済み転送Payload。
+    /// - Throws: 既存概要との不一致、制約違反、または永続化失敗。
+    func restoreVerifiedTransfer(_ transfer: VerifiedConnectionSessionTransfer) throws
+
+    /// Rawログの最終閲覧日時を現在端末だけへ記録します。
+    ///
+    /// 責務: 1件のローカルRawキャッシュへ最終閲覧日時を関連付けます。
+    /// - Parameters:
+    ///   - date: 閲覧可能状態へした日時。
+    ///   - sessionID: 更新する接続セッションID。
+    /// - Throws: セッション不在、Raw不在、または永続化失敗。
+    func markRawLogAccessed(at date: Date, sessionID: ConnectionSessionID) throws
+
     /// セッション概要を残して現在端末のRaw応答だけを除去します。
     ///
     /// 責務: 1件の終了済みセッションから端末内RawログPayloadだけを削除します。
@@ -92,6 +117,33 @@ protocol ConnectionSessionRawLogRepository {
     /// - Throws: セッション状態不正または永続化失敗。
     func removeLocalEntries(for sessionID: ConnectionSessionID) throws
 }
+
+/// 既存のRawログRepository実装へ新しいキャッシュ操作の互換動作を提供します。
+extension ConnectionSessionRawLogRepository {
+    /// 互換実装では概要取込を変更なしで受け付けます。
+    ///
+    /// 責務: 既存テスト実装の概要取込要求を副作用なしで満たします。
+    /// - Parameter metadata: 使用しないセッション概要。
+    func importCloudMetadata(_ metadata: ConnectionSessionCloudMetadata) throws {}
+
+    /// 互換実装では従来の検証済み転送取込を使用します。
+    ///
+    /// 責務: オンデマンドRaw復元要求を既存の転送取込能力へ委譲します。
+    /// - Parameter transfer: 復元する検証済み転送Payload。
+    /// - Throws: 既存転送取込に失敗した場合のエラー。
+    func restoreVerifiedTransfer(_ transfer: VerifiedConnectionSessionTransfer) throws {
+        try importVerifiedTransfer(transfer)
+    }
+
+    /// 互換実装では閲覧日時記録を変更なしで受け付けます。
+    ///
+    /// 責務: 既存テスト実装の閲覧日時更新要求を副作用なしで満たします。
+    /// - Parameters:
+    ///   - date: 使用しない閲覧日時。
+    ///   - sessionID: 使用しないセッションID。
+    func markRawLogAccessed(at date: Date, sessionID: ConnectionSessionID) throws {}
+}
+
 
 /// ページ読取を専用実装しないリポジトリへ互換動作を提供します。
 extension ConnectionSessionRawLogRepository {
