@@ -24,6 +24,10 @@ final class ConnectionHistoryModel {
     @ObservationIgnored private var syncGeneration: UInt = 0
     /// 現在進行中のCloudKit同期タスクです。
     @ObservationIgnored private var syncTask: Task<Void, Never>?
+    /// 現在進行中の単一セッションアップロードタスクです。
+    @ObservationIgnored private var uploadTask: Task<Void, Never>?
+    /// 古いアカウントのアップロード完了を現在状態へ反映しないための世代です。
+    @ObservationIgnored private var uploadGeneration: UInt = 0
     /// 現在進行中の全端末削除タスクです。
     @ObservationIgnored private var deletionTask: Task<Void, Never>?
 
@@ -93,6 +97,10 @@ final class ConnectionHistoryModel {
         switch action {
         case let .accountIdentifierChanged(identifier): activateAccount(identifier)
         case .refreshRequested: refreshSessions()
+        case .localDataChanged: loadSessions()
+        case let .automaticUploadChanged(isEnabled): state.automaticUploadEnabled = isEnabled
+        case let .sessionUploadRequested(sessionID): uploadSession(sessionID)
+        case .sessionUploadFailureDismissed: state.uploadFailureSessionID = nil
         case let .filterStartDateChanged(date): state.filterStartDate = date
         case let .filterEndDateChanged(date): state.filterEndDate = date
         case let .endReasonFilterChanged(filter): state.endReasonFilter = filter
@@ -163,9 +171,12 @@ final class ConnectionHistoryModel {
         accountIdentifier = identifier
         syncTask?.cancel()
         syncTask = nil
+        uploadTask?.cancel()
+        uploadTask = nil
         deletionTask?.cancel()
         deletionTask = nil
         syncGeneration &+= 1
+        uploadGeneration &+= 1
         state = ConnectionHistoryState()
         guard identifier?.isEmpty == false else { return }
         refreshSessions()
@@ -199,12 +210,19 @@ final class ConnectionHistoryModel {
         state.sessionDeletionFailureKey = nil
         state.deletingSessionID = session.id
         let precedingSyncTask = syncTask
+        let precedingUploadTask = uploadTask
         syncTask?.cancel()
         syncTask = nil
+        uploadTask?.cancel()
+        uploadTask = nil
         syncGeneration &+= 1
+        uploadGeneration &+= 1
         state.syncPhase = .idle
+        state.uploadingSessionID = nil
+        state.uploadProgress = nil
         deletionTask = Task { [weak self] in
             await precedingSyncTask?.value
+            await precedingUploadTask?.value
             do {
                 try await deleteSessionEverywhere.execute(session: session)
                 guard let self else { return }
@@ -233,7 +251,10 @@ final class ConnectionHistoryModel {
         state.syncPhase = .syncing
         syncTask = Task { [weak self] in
             do {
-                try await synchronizeSessions.execute(accountIdentifier: accountIdentifier)
+                try await synchronizeSessions.execute(
+                    accountIdentifier: accountIdentifier,
+                    uploadsPendingSessions: false
+                )
                 try evictStaleRawLogs?.execute(accountIdentifier: accountIdentifier)
                 guard let self, self.syncGeneration == generation, self.accountIdentifier == accountIdentifier else { return }
                 self.syncTask = nil
@@ -245,6 +266,57 @@ final class ConnectionHistoryModel {
                 guard let self, self.syncGeneration == generation, self.accountIdentifier == accountIdentifier else { return }
                 self.syncTask = nil
                 self.state.syncPhase = .failed
+            }
+        }
+    }
+
+    /// 指定された未送信セッションのiCloudアップロードを開始します。
+    ///
+    /// 責務: 1件の送信可能な終了済みセッションIDを重複しない個別CloudKit転送へ変換します。
+    /// - Parameter sessionID: アップロード対象の接続セッションID。
+    private func uploadSession(_ sessionID: ConnectionSessionID) {
+        guard let accountIdentifier,
+              let synchronizeSessions,
+              uploadTask == nil,
+              let session = state.sessions.first(where: { $0.id == sessionID }),
+              session.endedAt != nil,
+              session.rawLogSummary.localState != .removed,
+              session.rawLogSummary.cloudState != .uploaded else { return }
+        uploadGeneration &+= 1
+        let generation = uploadGeneration
+        state.uploadingSessionID = sessionID
+        state.uploadProgress = 0
+        state.uploadFailureSessionID = nil
+        uploadTask = Task { [weak self] in
+            do {
+                try await synchronizeSessions.upload(
+                    sessionID: sessionID,
+                    accountIdentifier: accountIdentifier,
+                    progress: { [weak self] progress in
+                        guard let self,
+                              self.uploadGeneration == generation,
+                              self.accountIdentifier == accountIdentifier else { return }
+                        self.state.uploadProgress = min(max(progress, 0), 1)
+                    }
+                )
+                guard let self,
+                      self.uploadGeneration == generation,
+                      self.accountIdentifier == accountIdentifier else { return }
+                self.uploadTask = nil
+                self.state.uploadingSessionID = nil
+                self.state.uploadProgress = nil
+                self.loadSessions()
+            } catch is CancellationError {
+                return
+            } catch {
+                guard let self,
+                      self.uploadGeneration == generation,
+                      self.accountIdentifier == accountIdentifier else { return }
+                self.uploadTask = nil
+                self.state.uploadingSessionID = nil
+                self.state.uploadProgress = nil
+                self.state.uploadFailureSessionID = sessionID
+                self.loadSessions()
             }
         }
     }

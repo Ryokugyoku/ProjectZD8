@@ -72,6 +72,21 @@ protocol ConnectionSessionTransferRepository {
         for accountIdentifier: String
     ) async throws -> String
 
+    /// 終了済みセッションPayloadを進捗通知付きでCloudKitへ保存します。
+    ///
+    /// 責務: 1件のセッションPayloadを保存進捗と検証可能なCloudKit Assetへ変換します。
+    /// - Parameters:
+    ///   - package: 保存するセッションと未デコードRawログ。
+    ///   - accountIdentifier: 同期対象のAppleアカウント識別子。
+    ///   - progress: `0.0...1.0` の範囲で通知するAsset保存進捗。
+    /// - Returns: 保存したAssetバイトのSHA-256。
+    /// - Throws: 符号化、一時ファイル、またはCloudKit保存に失敗した場合のエラー。
+    func upload(
+        _ package: ConnectionSessionTransferPackage,
+        for accountIdentifier: String,
+        progress: @escaping @MainActor (Double) -> Void
+    ) async throws -> String
+
     /// 指定アカウントの検証済みセッションPayloadを取得します。
     ///
     /// 責務: CloudKit上のセッションAsset群をDigest検証済みPayloadへ変換します。
@@ -135,6 +150,26 @@ protocol ConnectionSessionTransferRepository {
 /// 既存の転送Repository実装へ互換的な軽量同期能力を提供します。
 @MainActor
 extension ConnectionSessionTransferRepository {
+    /// 進捗専用実装を持たない転送先を開始・完了通知付きの既存保存へ委譲します。
+    ///
+    /// 責務: 既存の単一セッション保存を最小限の進捗通知付き保存へ適合します。
+    /// - Parameters:
+    ///   - package: 保存するセッションと未デコードRawログ。
+    ///   - accountIdentifier: 同期対象のAppleアカウント識別子。
+    ///   - progress: 開始時と完了時に通知する保存進捗。
+    /// - Returns: 保存したAssetバイトのSHA-256。
+    /// - Throws: 既存の単一セッション保存に失敗した場合のエラー。
+    func upload(
+        _ package: ConnectionSessionTransferPackage,
+        for accountIdentifier: String,
+        progress: @escaping @MainActor (Double) -> Void
+    ) async throws -> String {
+        progress(0)
+        let digest = try await upload(package, for: accountIdentifier)
+        progress(1)
+        return digest
+    }
+
     /// 進捗専用実装を持たない転送先を開始・完了通知付きの既存取得へ委譲します。
     ///
     /// 責務: 既存の単一セッション取得を最小限の進捗通知付き取得へ適合します。

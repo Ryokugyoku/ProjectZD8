@@ -223,19 +223,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Registered vehicle profiles, photos, and offline vehicle cache"
+            "value" : "Registered vehicle profiles and photos stored on your devices and in CloudKit"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Perfiles de vehículos registrados, fotos y caché de vehículos sin conexión"
+            "value" : "Perfiles y fotos de vehículos registrados guardados en tus dispositivos y en CloudKit"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "登録車両プロフィール、写真、およびオフライン車両キャッシュ"
+            "value" : "各端末およびCloudKitに保存された登録車両プロフィールと写真"
           }
         }
       }
@@ -6714,19 +6714,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Uploading"
+            "value" : "Waiting to upload"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Subiendo"
+            "value" : "Pendiente de subir"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "アップロード中"
+            "value" : "アップロード待ち"
           }
         }
       }
@@ -6758,19 +6758,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Downloaded"
+            "value" : "Saved on this device"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Descargado"
+            "value" : "Guardado en este dispositivo"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ダウンロード済み"
+            "value" : "この端末に保存済み"
           }
         }
       }
@@ -6802,19 +6802,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Not downloaded"
+            "value" : "Not saved on this device"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Sin descargar"
+            "value" : "No guardado en este dispositivo"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "未ダウンロード"
+            "value" : "この端末に未保存"
           }
         }
       }
@@ -8427,6 +8427,116 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "未割当て"
+          }
+        }
+      }
+    },
+    "history.upload.button" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Upload to iCloud"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Subir a iCloud"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iCloudにアップロード"
+          }
+        }
+      }
+    },
+    "history.upload.error.dismiss" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Close"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cerrar"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "閉じる"
+          }
+        }
+      }
+    },
+    "history.upload.error.message" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The session remains on this device. Check iCloud and try again from Connection History."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La sesión permanece en este dispositivo. Comprueba iCloud e inténtalo de nuevo desde el historial de conexiones."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "セッションはこの端末に残っています。iCloudを確認し、接続履歴からもう一度お試しください。"
+          }
+        }
+      }
+    },
+    "history.upload.error.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Could Not Upload"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo subir"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "アップロードできませんでした"
+          }
+        }
+      }
+    },
+    "history.upload.in_progress" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Uploading to iCloud"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Subiendo a iCloud"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iCloudにアップロード中"
           }
         }
       }
@@ -16362,6 +16472,7 @@
       }
     },
     "settings.more.caption" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -16384,6 +16495,7 @@
       }
     },
     "settings.storage.coming_soon" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -16406,6 +16518,7 @@
       }
     },
     "settings.storage.description" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -16428,6 +16541,7 @@
       }
     },
     "settings.storage.eyebrow" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -16450,6 +16564,7 @@
       }
     },
     "settings.storage.title" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -16511,6 +16626,94 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "設定"
+          }
+        }
+      }
+    },
+    "settings.upload.automatic" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Upload automatically when a session ends"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Subir automáticamente al finalizar una sesión"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "セッション終了時に自動アップロード"
+          }
+        }
+      }
+    },
+    "settings.upload.description" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "When off, only unsent sessions show an iCloud upload button in Connection History."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Si está desactivado, solo las sesiones sin enviar muestran un botón de subida a iCloud en el historial."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OFFの場合、未アップロードのセッションだけ接続履歴に手動アップロードボタンを表示します。"
+          }
+        }
+      }
+    },
+    "settings.upload.eyebrow" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iCLOUD"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iCLOUD"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iCLOUD"
+          }
+        }
+      }
+    },
+    "settings.upload.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Session Upload"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Subida de sesiones"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "セッションのアップロード"
           }
         }
       }

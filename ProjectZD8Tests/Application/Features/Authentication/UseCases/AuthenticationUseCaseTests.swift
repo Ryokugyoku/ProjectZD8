@@ -123,6 +123,33 @@ final class AuthenticationUseCaseTests: XCTestCase {
             "remove-session"
         ])
     }
+
+    /// CloudKit運転データを削除できない場合はローカルデータと資格情報を保持します。
+    ///
+    /// 責務: CloudKit全削除失敗が端末内削除を開始せずアカウント削除を再試行可能に保つことを確認します。
+    func testDeleteAccountRetainsLocalDataWhenCloudDeletionFails() async {
+        let recorder = AuthenticationDeletionOrderRecorder()
+        let useCase = DeleteAccountUseCase(
+            sessionRevocation: AuthenticationDeletionRevocationPortFake(recorder: recorder),
+            sessionTransfers: AuthenticationDeletionTransferRepositoryFake(
+                recorder: recorder,
+                deleteAllError: AuthenticationSessionStoreError.unavailable
+            ),
+            vehicleDataEraser: AuthenticationDeletionVehicleDataEraserFake(recorder: recorder),
+            dataEraser: AuthenticationDeletionDataEraserFake(recorder: recorder),
+            sessionStore: AuthenticationDeletionSessionStoreFake(recorder: recorder)
+        )
+
+        do {
+            try await useCase.execute(userIdentifier: "delete-user")
+            XCTFail("CloudKit削除失敗後もアカウント削除が成功しました。")
+        } catch {
+            XCTAssertEqual(recorder.events, [
+                "publish:delete-user",
+                "delete-cloud-driving-data:delete-user"
+            ])
+        }
+    }
 }
 
 /// 認証ユースケーステストでApple認証結果を制御します。
@@ -282,11 +309,22 @@ private final class AuthenticationDeletionTransferRepositoryFake: ConnectionSess
     /// 副作用順序の共有記録先です。
     private let recorder: AuthenticationDeletionOrderRecorder
 
-    /// 共有記録先を注入します。
+    /// CloudKit全削除時に返す任意エラーです。
+    private let deleteAllError: Error?
+
+    /// 共有記録先と任意のCloudKit削除エラーを注入します。
     ///
     /// 責務: CloudKit運転データ削除Fakeを1件の副作用順序記録先へ結び付けます。
-    /// - Parameter recorder: 副作用名を発生順に保持する記録先。
-    init(recorder: AuthenticationDeletionOrderRecorder) { self.recorder = recorder }
+    /// - Parameters:
+    ///   - recorder: 副作用名を発生順に保持する記録先。
+    ///   - deleteAllError: CloudKit全削除要求を失敗させる場合のエラー。
+    init(
+        recorder: AuthenticationDeletionOrderRecorder,
+        deleteAllError: Error? = nil
+    ) {
+        self.recorder = recorder
+        self.deleteAllError = deleteAllError
+    }
 
     /// このテストでは転送送信を使用しません。
     ///
@@ -347,6 +385,9 @@ private final class AuthenticationDeletionTransferRepositoryFake: ConnectionSess
     /// - Parameter accountIdentifier: 削除対象アカウント識別子。
     func deleteAll(for accountIdentifier: String) async throws {
         recorder.events.append("delete-cloud-driving-data:\(accountIdentifier)")
+        if let deleteAllError {
+            throw deleteAllError
+        }
     }
 }
 

@@ -8,4 +8,7 @@ enum AccountSettingsAction: Equatable {
 
     /// 外観モードの選択変更を通知します。
     case appearanceSelected(SettingsAppearance)
+
+    /// セッション終了時のiCloud自動送信設定変更を通知します。
+    case automaticSessionUploadChanged(Bool)
 }

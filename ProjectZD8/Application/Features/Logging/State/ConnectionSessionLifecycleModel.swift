@@ -19,8 +19,12 @@ final class ConnectionSessionLifecycleModel {
     @ObservationIgnored private let acquisitionDevice: ConnectionSessionAcquisitionDevice?
     /// 履歴の再読込が必要になったことを通知する処理です。
     @ObservationIgnored private let historyDidChange: @MainActor () -> Void
+    /// 終了済みセッションのiCloudアップロード要求を通知する処理です。
+    @ObservationIgnored private let endedSessionUploadRequested: @MainActor (ConnectionSession) -> Void
     /// 現在のAppleアカウント識別子です。
     @ObservationIgnored private var accountIdentifier: String?
+    /// セッション終了時にiCloudアップロードを要求するかを示します。
+    @ObservationIgnored private var automaticUploadEnabled: Bool
     /// 現在セッションの走行距離差分へ採用している累積距離取得元です。
     @ObservationIgnored private var selectedDistanceSource: ConnectionSessionDistanceSource?
 
@@ -34,13 +38,17 @@ final class ConnectionSessionLifecycleModel {
     ///   - makeID: 新しいセッションIDを生成する処理。省略時はUUIDを生成します。
     ///   - acquisitionDevice: 新しいセッションへ固定する現在端末情報。
     ///   - historyDidChange: 保存後に履歴再読込を通知する処理。
+    ///   - automaticUploadEnabled: 終了時のiCloud自動アップロード初期値。
+    ///   - endedSessionUploadRequested: 自動アップロード対象の終了済みセッション通知先。
     init(
         repository: any ConnectionSessionRepository,
         rawLogRepository: (any ConnectionSessionRawLogRepository)? = nil,
         now: @escaping () -> Date = Date.init,
         makeID: (() -> ConnectionSessionID)? = nil,
         acquisitionDevice: ConnectionSessionAcquisitionDevice? = nil,
-        historyDidChange: @escaping @MainActor () -> Void = {}
+        historyDidChange: @escaping @MainActor () -> Void = {},
+        automaticUploadEnabled: Bool = false,
+        endedSessionUploadRequested: @escaping @MainActor (ConnectionSession) -> Void = { _ in }
     ) {
         self.repository = repository
         self.rawLogRepository = rawLogRepository
@@ -48,6 +56,8 @@ final class ConnectionSessionLifecycleModel {
         self.makeID = makeID ?? { ConnectionSessionID() }
         self.acquisitionDevice = acquisitionDevice
         self.historyDidChange = historyDidChange
+        self.automaticUploadEnabled = automaticUploadEnabled
+        self.endedSessionUploadRequested = endedSessionUploadRequested
     }
 
     /// 型付き操作をセッション永続化へ変換します。
@@ -57,6 +67,7 @@ final class ConnectionSessionLifecycleModel {
     func send(_ action: ConnectionSessionLifecycleAction) {
         switch action {
         case let .accountIdentifierChanged(identifier): activateAccount(identifier)
+        case let .automaticUploadChanged(isEnabled): automaticUploadEnabled = isEnabled
         case .startRequested: startSession()
         case let .vehicleResolved(vehicle): bindVehicle(vehicle)
         case let .distanceObserved(observation): recordDistance(observation)
@@ -88,12 +99,17 @@ final class ConnectionSessionLifecycleModel {
         guard let identifier, !identifier.isEmpty else { return }
         do {
             let unfinished = try repository.sessions(for: identifier).filter { $0.endedAt == nil }
+            var endedSessions: [ConnectionSession] = []
             for var session in unfinished {
                 session.endedAt = now()
                 session.endReason = .unexpectedTermination
                 try repository.save(session)
+                endedSessions.append(session)
             }
             if !unfinished.isEmpty { historyDidChange() }
+            if automaticUploadEnabled {
+                endedSessions.forEach(endedSessionUploadRequested)
+            }
         } catch {
             return
         }
@@ -181,6 +197,9 @@ final class ConnectionSessionLifecycleModel {
             activeSession = nil
             selectedDistanceSource = nil
             historyDidChange()
+            if automaticUploadEnabled {
+                endedSessionUploadRequested(session)
+            }
         } catch {
             activeSession = session
         }

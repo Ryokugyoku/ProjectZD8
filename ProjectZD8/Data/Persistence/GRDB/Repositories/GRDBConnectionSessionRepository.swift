@@ -523,14 +523,43 @@ final class GRDBConnectionSessionRepository: ConnectionSessionRepository, Connec
     ) -> Bool {
         existing.id == transferred.id
             && existing.accountIdentifier == transferred.accountIdentifier
-            && existing.startedAt == transferred.startedAt
-            && existing.endedAt == transferred.endedAt
+            && datesMatchTransferPrecision(existing.startedAt, transferred.startedAt)
+            && optionalDatesMatchTransferPrecision(existing.endedAt, transferred.endedAt)
             && existing.endReason == transferred.endReason
             && valuesAreCompatible(existing.vehicle, transferred.vehicle)
             && valuesAreCompatible(existing.acquisitionDevice, transferred.acquisitionDevice)
             && valuesAreCompatible(existing.startingOdometerKilometers, transferred.startingOdometerKilometers)
             && valuesAreCompatible(existing.endingOdometerKilometers, transferred.endingOdometerKilometers)
             && valuesAreCompatible(existing.distanceSourceModelCode, transferred.distanceSourceModelCode)
+    }
+
+    /// 2件の日時がCloudKit転送Codecのミリ秒精度で一致するかを返します。
+    ///
+    /// 責務: ローカル日時と転送日時をミリ秒単位の同一時刻判定へ変換します。
+    /// - Parameters:
+    ///   - lhs: ローカル永続化から復元した日時。
+    ///   - rhs: CloudKit Assetから復号した日時。
+    /// - Returns: ミリ秒丸めの浮動小数点誤差を含めて差が1ミリ秒以内の場合は `true`。
+    private func datesMatchTransferPrecision(_ lhs: Date, _ rhs: Date) -> Bool {
+        abs(lhs.timeIntervalSince(rhs)) <= 0.001_001
+    }
+
+    /// 2件の任意日時が欠落状態を含めてCloudKit転送精度で一致するかを返します。
+    ///
+    /// 責務: 任意のローカル日時と転送日時をミリ秒単位の同一状態判定へ変換します。
+    /// - Parameters:
+    ///   - lhs: ローカル永続化から復元した任意日時。
+    ///   - rhs: CloudKit Assetから復号した任意日時。
+    /// - Returns: 両方欠落するか、両方の日時差がミリ秒精度の許容範囲内の場合は `true`。
+    private func optionalDatesMatchTransferPrecision(_ lhs: Date?, _ rhs: Date?) -> Bool {
+        switch (lhs, rhs) {
+        case let (.some(lhs), .some(rhs)):
+            datesMatchTransferPrecision(lhs, rhs)
+        case (.none, .none):
+            true
+        default:
+            false
+        }
     }
 
     /// 2件の任意値が欠落補完可能または同値かを返します。

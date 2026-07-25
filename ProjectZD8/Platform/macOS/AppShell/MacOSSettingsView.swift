@@ -20,13 +20,13 @@ struct MacOSSettingsView: View {
     /// 設定画面に表示する現在のConnection選択状態です。
     let state: MacOSSettingsState
 
-    /// 設定画面に表示するアカウント同期対象の言語と外観です。
+    /// 設定画面に表示するアカウント同期対象の表示設定と自動アップロード設定です。
     let accountSettings: AccountSettings
 
     /// 設定画面のConnection操作をAppShellへ通知するクロージャです。
     let send: (MacOSSettingsAction) -> Void
 
-    /// 言語と外観の選択操作をアカウント設定モデルへ通知するクロージャです。
+    /// 表示設定と自動アップロード設定の操作をアカウント設定モデルへ通知するクロージャです。
     let sendAccountSettingsAction: (AccountSettingsAction) -> Void
 
     /// Authenticationが管理するアカウント削除の現在段階です。
@@ -52,7 +52,6 @@ struct MacOSSettingsView: View {
                         header
                         settingsLayout(isWide: proxy.size.width >= 760)
                         accountDeletionCard
-                        additionNotice
                     }
                     .padding(.horizontal, 32 * metrics.scale)
                     .padding(.vertical, 30 * metrics.scale)
@@ -163,7 +162,7 @@ struct MacOSSettingsView: View {
 
                 VStack(spacing: 18 * metrics.scale) {
                     adapterCard
-                    storageCard
+                    uploadCard
                 }
             }
         } else {
@@ -171,7 +170,7 @@ struct MacOSSettingsView: View {
                 languageCard
                 appearanceCard
                 adapterCard
-                storageCard
+                uploadCard
             }
         }
     }
@@ -264,29 +263,26 @@ struct MacOSSettingsView: View {
         }
     }
 
-    /// 将来提供予定であることを示すストレージ設定カードです。
-    private var storageCard: some View {
+    /// セッション終了時のiCloud自動アップロードを切り替えるカードです。
+    private var uploadCard: some View {
         settingsCard(
-            eyebrow: "settings.storage.eyebrow",
-            title: "settings.storage.title",
-            description: "settings.storage.description",
-            systemImage: "internaldrive.fill"
+            eyebrow: "settings.upload.eyebrow",
+            title: "settings.upload.title",
+            description: "settings.upload.description",
+            systemImage: "icloud.and.arrow.up.fill"
         ) {
-            HStack(spacing: 10 * metrics.scale) {
-                Image(systemName: "clock.badge.checkmark")
-                    .font(.system(size: 15 * metrics.scale, weight: .semibold))
-                    .foregroundStyle(.secondary)
-
-                Text("settings.storage.coming_soon")
-                    .font(.system(size: 12 * metrics.scale, weight: .semibold, design: .rounded))
-                    .foregroundStyle(.secondary)
-
-                Spacer(minLength: 0)
-            }
+            Toggle(
+                "settings.upload.automatic",
+                isOn: Binding(
+                    get: { accountSettings.automaticSessionUploadEnabled },
+                    set: { sendAccountSettingsAction(.automaticSessionUploadChanged($0)) }
+                )
+            )
+            .font(.system(size: 12 * metrics.scale, weight: .semibold, design: .rounded))
             .padding(12 * metrics.scale)
             .background(Color.primary.opacity(0.045), in: RoundedRectangle(cornerRadius: 12 * metrics.scale, style: .continuous))
         }
-        .accessibilityIdentifier("macos-settings-storage-coming-soon")
+        .accessibilityIdentifier("macos-settings-automatic-upload")
     }
 
     /// 通常設定から視覚的に分離したアカウント削除カードです。
@@ -321,18 +317,6 @@ struct MacOSSettingsView: View {
             RoundedRectangle(cornerRadius: 20 * metrics.scale, style: .continuous)
                 .stroke(.red.opacity(0.2), lineWidth: 1)
         }
-    }
-
-    /// 今後の設定項目追加を予告する補足表示です。
-    private var additionNotice: some View {
-        Label {
-            Text("settings.more.caption")
-                .font(.system(size: 11 * metrics.scale, weight: .medium))
-        } icon: {
-            Image(systemName: "plus.circle.dashed")
-        }
-        .foregroundStyle(.tertiary)
-        .padding(.horizontal, 4 * metrics.scale)
     }
 
     /// 共通階層を持つ設定カードを生成します。

@@ -12,7 +12,7 @@ protocol AccountSettingsStorePort: AnyObject {
     ///
     /// 責務: 1件のアカウント設定をローカル保持と同期保存へ渡します。
     /// - Parameters:
-    ///   - settings: Connectionを含まない保存対象設定。
+    ///   - settings: 表示設定とセッション自動送信設定を含む保存対象。
     ///   - accountIdentifier: Appleがアプリへ割り当てた空でないユーザー識別子。
     func save(_ settings: AccountSettings, for accountIdentifier: String)
 

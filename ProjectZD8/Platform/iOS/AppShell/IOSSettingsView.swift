@@ -20,13 +20,13 @@ struct IOSSettingsView: View {
     /// 設定画面に表示する現在のConnection選択状態です。
     let state: IOSSettingsState
 
-    /// 設定画面に表示するアカウント同期対象の言語と外観です。
+    /// 設定画面に表示するアカウント同期対象の表示設定と自動アップロード設定です。
     let accountSettings: AccountSettings
 
     /// 設定画面のConnection操作をAppShellへ通知するクロージャです。
     let send: (IOSSettingsAction) -> Void
 
-    /// 言語と外観の選択操作をアカウント設定モデルへ通知するクロージャです。
+    /// 表示設定と自動アップロード設定の操作をアカウント設定モデルへ通知するクロージャです。
     let sendAccountSettingsAction: (AccountSettingsAction) -> Void
 
     /// Authenticationが管理するアカウント削除の現在段階です。
@@ -49,9 +49,8 @@ struct IOSSettingsView: View {
                     languageCard
                     appearanceCard
                     adapterCard
-                    storageCard
+                    uploadCard
                     accountDeletionCard
-                    additionNotice
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 18)
@@ -217,22 +216,27 @@ struct IOSSettingsView: View {
         }
     }
 
-    /// 将来提供予定であることを示すストレージ設定カードです。
-    private var storageCard: some View {
+    /// セッション終了時のiCloud自動アップロードを切り替えるカードです。
+    private var uploadCard: some View {
         settingsCard(
-            eyebrow: "settings.storage.eyebrow",
-            title: "settings.storage.title",
-            description: "settings.storage.description",
-            systemImage: "internaldrive.fill"
+            eyebrow: "settings.upload.eyebrow",
+            title: "settings.upload.title",
+            description: "settings.upload.description",
+            systemImage: "icloud.and.arrow.up.fill"
         ) {
-            Label("settings.storage.coming_soon", systemImage: "clock.badge.checkmark")
-                .font(.system(.footnote, design: .rounded, weight: .semibold))
-                .foregroundStyle(.secondary)
+            Toggle(
+                "settings.upload.automatic",
+                isOn: Binding(
+                    get: { accountSettings.automaticSessionUploadEnabled },
+                    set: { sendAccountSettingsAction(.automaticSessionUploadChanged($0)) }
+                )
+            )
+                .font(.system(.body, design: .rounded, weight: .semibold))
                 .frame(maxWidth: .infinity, minHeight: 48, alignment: .leading)
                 .padding(.horizontal, 14)
                 .background(Color.primary.opacity(0.045), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         }
-        .accessibilityIdentifier("ios-settings-storage-coming-soon")
+        .accessibilityIdentifier("ios-settings-automatic-upload")
     }
 
     /// 通常設定から視覚的に分離したアカウント削除カードです。
@@ -259,15 +263,6 @@ struct IOSSettingsView: View {
             RoundedRectangle(cornerRadius: 24, style: .continuous)
                 .stroke(.red.opacity(0.22), lineWidth: 1)
         }
-    }
-
-    /// 今後の設定項目追加を予告する補足表示です。
-    private var additionNotice: some View {
-        Label("settings.more.caption", systemImage: "plus.circle.dashed")
-            .font(.caption.weight(.medium))
-            .foregroundStyle(.tertiary)
-            .padding(.horizontal, 4)
-            .padding(.top, 4)
     }
 
     /// 共通階層を持つ設定カードを生成します。

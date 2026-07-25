@@ -118,6 +118,17 @@ struct IOSConnectionHistoryView: View {
         } message: {
             Text("history.stop_review.error")
         }
+        .alert(
+            "history.upload.error.title",
+            isPresented: Binding(
+                get: { state.uploadFailureSessionID != nil },
+                set: { if !$0 { send(.sessionUploadFailureDismissed) } }
+            )
+        ) {
+            Button("history.upload.error.dismiss") { send(.sessionUploadFailureDismissed) }
+        } message: {
+            Text("history.upload.error.message")
+        }
     }
 
     /// 観測済み終了理由に対応する停止確認本文を返します。
@@ -438,9 +449,9 @@ struct IOSConnectionHistoryView: View {
         .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
 
-    /// 1件のセッション行へ詳細導線と端末容量解放操作を配置します。
+    /// 1件のセッション行へ詳細導線、必要なアップロード、端末容量解放操作を配置します。
     ///
-    /// 責務: 1件の終了済みセッションを詳細遷移と安全なローカルRaw除去操作へ変換します。
+    /// 責務: 1件の終了済みセッションを詳細遷移と現在の保管状態に必要な単一操作へ変換します。
     /// - Parameter session: 表示する終了済みセッション。
     /// - Returns: 状態表示、詳細導線、必要に応じた容量解放ボタンを含むカード。
     private func sessionListItem(_ session: ConnectionSession) -> some View {
@@ -448,6 +459,37 @@ struct IOSConnectionHistoryView: View {
             NavigationLink(value: session.id) { sessionRow(session) }
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("ios-history-session-\(session.id.rawValue.uuidString)")
+            if canUpload(session) {
+                Divider().padding(.horizontal, 15)
+                Button {
+                    send(.sessionUploadRequested(session.id))
+                } label: {
+                    if state.uploadingSessionID == session.id {
+                        VStack(spacing: 6) {
+                            ProgressView(value: state.uploadProgress ?? 0, total: 1)
+                                .progressViewStyle(.linear)
+                            HStack {
+                                Text("history.upload.in_progress")
+                                Spacer()
+                                Text(state.uploadProgress ?? 0, format: .percent.precision(.fractionLength(0)))
+                                    .monospacedDigit()
+                            }
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.horizontal, 15)
+                        .padding(.vertical, 10)
+                    } else {
+                        Label("history.upload.button", systemImage: "icloud.and.arrow.up")
+                            .font(.subheadline.weight(.semibold))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 11)
+                    }
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.tint)
+                .disabled(state.uploadingSessionID != nil)
+                .accessibilityIdentifier("ios-history-upload-\(session.id.rawValue.uuidString)")
+            }
             if canReleaseRawCache(session) {
                 Divider().padding(.horizontal, 15)
                 Button {
@@ -464,6 +506,18 @@ struct IOSConnectionHistoryView: View {
             }
         }
         .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+    }
+
+    /// 1件のセッションへ手動iCloudアップロードを表示するかを返します。
+    ///
+    /// 責務: 1件の終了済みセッションを未アップロードかつ送信元Rawを失っていない条件で手動送信可否へ変換します。
+    /// - Parameter session: 判定対象の接続セッション。
+    /// - Returns: 一覧へアップロードボタンを表示する場合は `true`。
+    private func canUpload(_ session: ConnectionSession) -> Bool {
+        !state.automaticUploadEnabled
+            && session.endedAt != nil
+            && session.rawLogSummary.localState != .removed
+            && session.rawLogSummary.cloudState != .uploaded
     }
 
     /// 1件のセッションで安全な端末容量解放を選択できるかを返します。

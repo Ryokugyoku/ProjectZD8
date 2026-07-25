@@ -213,6 +213,23 @@ final class CloudKitConnectionSessionTransferRepository: ConnectionSessionTransf
         _ package: ConnectionSessionTransferPackage,
         for accountIdentifier: String
     ) async throws -> String {
+        try await upload(package, for: accountIdentifier, progress: { _ in })
+    }
+
+    /// 終了済みセッションPayloadを進捗通知付きCloudKit Assetへ保存します。
+    ///
+    /// 責務: 1件のセッションPayloadをCloudKit保存率とSHA-256付きレコードへ変換します。
+    /// - Parameters:
+    ///   - package: 保存するセッションと未デコードRawログ。
+    ///   - accountIdentifier: 同期対象のAppleアカウント識別子。
+    ///   - progress: `0.0...1.0` の範囲で通知するAsset保存進捗。
+    /// - Returns: 保存したAssetバイトのSHA-256。
+    /// - Throws: 状態検証、符号化、一時ファイル、またはCloudKit保存に失敗した場合のエラー。
+    func upload(
+        _ package: ConnectionSessionTransferPackage,
+        for accountIdentifier: String,
+        progress: @escaping @MainActor (Double) -> Void
+    ) async throws -> String {
         guard package.session.endedAt != nil,
               package.session.accountIdentifier == accountIdentifier else {
             throw ConnectionSessionRepositoryError.invalidState
@@ -237,7 +254,9 @@ final class CloudKitConnectionSessionTransferRepository: ConnectionSessionTransf
         record["vehicleID"] = package.session.vehicle?.id.rawValue.uuidString.lowercased() as CKRecordValue?
         record["endedAt"] = package.session.endedAt as CKRecordValue?
         record[Self.payloadAssetKey] = CKAsset(fileURL: temporaryURL)
-        _ = try await privateDatabase.save(record)
+        progress(0)
+        _ = try await save(record, progress: progress)
+        progress(1)
         try await publishMetadata(
             ConnectionSessionCloudMetadata(session: package.session, manifestDigest: digest),
             for: accountIdentifier
@@ -420,7 +439,7 @@ final class CloudKitConnectionSessionTransferRepository: ConnectionSessionTransf
         }
     }
 
-    /// 指定アカウントの全セッションAssetとMac受領証をCloudKitから削除します。
+    /// 指定アカウントの全セッション概要、Raw Asset、Mac受領証、および削除マーカーをCloudKitから削除します。
     ///
     /// 責務: 1件のアカウントFingerprintに属する全運転データレコードを再試行可能な削除へ変換します。
     /// - Parameter accountIdentifier: 削除対象のAppleアカウント識別子。
@@ -525,6 +544,50 @@ final class CloudKitConnectionSessionTransferRepository: ConnectionSessionTransf
                             return
                         }
                         continuation.resume(with: fetchedResult)
+                    case let .failure(error):
+                        continuation.resume(throwing: error)
+                    }
+                }
+                privateDatabase.add(operation)
+            }
+        } onCancel: {
+            operation.cancel()
+        }
+    }
+
+    /// 1件のCloudKitレコードをAsset保存率通知付きで保存します。
+    ///
+    /// 責務: 1件のCloudKitレコードを保存進捗と完了レコードへ変換します。
+    /// - Parameters:
+    ///   - record: Assetを含む保存対象レコード。
+    ///   - progress: `0.0...1.0` の範囲で通知するAsset保存進捗。
+    /// - Returns: CloudKitが保存したレコード。
+    /// - Throws: CloudKitがレコードまたはAssetを保存できない場合のエラー。
+    private func save(
+        _ record: CKRecord,
+        progress: @escaping @MainActor (Double) -> Void
+    ) async throws -> CKRecord {
+        let operation = CKModifyRecordsOperation(recordsToSave: [record])
+        operation.savePolicy = .changedKeys
+        return try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { continuation in
+                var savedResult: Result<CKRecord, Error>?
+                operation.perRecordProgressBlock = { recordID, value in
+                    guard recordID == record.recordID else { return }
+                    Task { @MainActor in progress(value) }
+                }
+                operation.perRecordSaveBlock = { recordID, result in
+                    guard recordID == record.recordID else { return }
+                    savedResult = result
+                }
+                operation.modifyRecordsResultBlock = { result in
+                    switch result {
+                    case .success:
+                        guard let savedResult else {
+                            continuation.resume(throwing: ConnectionSessionRepositoryError.invalidState)
+                            return
+                        }
+                        continuation.resume(with: savedResult)
                     case let .failure(error):
                         continuation.resume(throwing: error)
                     }

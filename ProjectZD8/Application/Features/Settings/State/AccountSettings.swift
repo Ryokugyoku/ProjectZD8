@@ -6,18 +6,24 @@ struct AccountSettings: Codable, Equatable, Sendable {
     /// アプリ全体へ適用する外観です。
     var appearance: SettingsAppearance
 
+    /// セッション終了時にRawログをiCloudへ自動送信するかを示します。
+    var automaticSessionUploadEnabled: Bool
+
     /// アカウント設定を構成する値を指定して生成します。
     ///
-    /// 責務: 同期対象である言語と外観を1件のアカウント設定へまとめます。
+    /// 責務: 同期対象である表示設定とセッション自動送信設定を1件のアカウント設定へまとめます。
     /// - Parameters:
     ///   - language: アプリ内表示に使用する言語。
     ///   - appearance: アプリ全体へ適用する外観。
+    ///   - automaticSessionUploadEnabled: セッション終了時にiCloudへ自動送信する場合は `true`。
     init(
         language: SettingsLanguage = .japanese,
-        appearance: SettingsAppearance = .system
+        appearance: SettingsAppearance = .system,
+        automaticSessionUploadEnabled: Bool = false
     ) {
         self.language = language
         self.appearance = appearance
+        self.automaticSessionUploadEnabled = automaticSessionUploadEnabled
     }
 }
 

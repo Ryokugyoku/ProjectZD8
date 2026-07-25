@@ -41,6 +41,39 @@ final class SynchronizeConnectionSessionsUseCaseTests: XCTestCase {
         XCTAssertTrue(cloud.uploadedSessionIDs.isEmpty)
     }
 
+    /// 通常の履歴更新では送信待ちセッションをアップロードせず、個別要求で対象だけを送信します。
+    ///
+    /// 責務: 受信中心の更新と明示的な単一セッションアップロードが混在しないことを確認します。
+    func testRefreshDoesNotUploadPendingSessionUntilExplicitRequest() async throws {
+        var session = ConnectionSession(accountIdentifier: "account")
+        session.endedAt = Date()
+        session.endReason = .userDisconnected
+        session.rawLogSummary = ConnectionSessionRawLogSummary(
+            recordCount: 1,
+            byteCount: 1,
+            localState: .available,
+            cloudState: .pending,
+            manifestDigest: nil,
+            macImportReceipt: nil
+        )
+        let local = SynchronizationLocalRepository(sessions: [session])
+        let cloud = SynchronizationTransferRepository(transfers: [], receipts: [])
+        let useCase = SynchronizeConnectionSessionsUseCase(
+            sessionRepository: local,
+            rawLogRepository: local,
+            sessionErasureRepository: local,
+            transferRepository: cloud,
+            role: .iPhone
+        )
+
+        try await useCase.execute(accountIdentifier: "account")
+        XCTAssertTrue(cloud.uploadedSessionIDs.isEmpty)
+
+        try await useCase.upload(sessionID: session.id, accountIdentifier: "account")
+        XCTAssertEqual(cloud.uploadedSessionIDs, [session.id])
+        XCTAssertEqual(try XCTUnwrap(local.sessions(for: "account").first).rawLogSummary.cloudState, .uploaded)
+    }
+
     /// 同じセッションの複数受領証ではCloudKitが返した最新1件だけを反映します。
     ///
     /// 責務: iPhoneが古いMac受領証で最新の取込証跡を上書きしないことを確認します。
@@ -139,7 +172,7 @@ final class SynchronizeConnectionSessionsUseCaseTests: XCTestCase {
             role: .iPhone
         )
 
-        try await macUseCase.execute(accountIdentifier: "account")
+        try await macUseCase.execute(accountIdentifier: "account", uploadsPendingSessions: true)
         try await iPhoneUseCase.execute(accountIdentifier: "account")
 
         XCTAssertEqual(cloud.uploadedSessionIDs, [session.id])
@@ -172,7 +205,7 @@ final class SynchronizeConnectionSessionsUseCaseTests: XCTestCase {
             role: .iPhone
         )
 
-        try await useCase.execute(accountIdentifier: "account")
+        try await useCase.execute(accountIdentifier: "account", uploadsPendingSessions: true)
 
         XCTAssertEqual(cloud.uploadedSessionIDs, [session.id])
         XCTAssertEqual(local.importedMetadata.map(\.session.id), [session.id])
@@ -211,7 +244,7 @@ final class SynchronizeConnectionSessionsUseCaseTests: XCTestCase {
             role: .iPhone
         )
 
-        try await useCase.execute(accountIdentifier: "account")
+        try await useCase.execute(accountIdentifier: "account", uploadsPendingSessions: true)
 
         XCTAssertTrue(cloud.uploadedSessionIDs.isEmpty)
         XCTAssertEqual(local.importedMetadata.map(\.session.id), [session.id])
@@ -249,7 +282,7 @@ final class SynchronizeConnectionSessionsUseCaseTests: XCTestCase {
             role: .iPhone
         )
 
-        try await useCase.execute(accountIdentifier: "account")
+        try await useCase.execute(accountIdentifier: "account", uploadsPendingSessions: true)
 
         XCTAssertEqual(cloud.uploadedSessionIDs, [localSession.id])
         XCTAssertEqual(local.importedMetadata.count, 1)
@@ -323,7 +356,7 @@ final class SynchronizeConnectionSessionsUseCaseTests: XCTestCase {
             role: .macOS
         )
 
-        try await iPhoneSync.execute(accountIdentifier: "account")
+        try await iPhoneSync.execute(accountIdentifier: "account", uploadsPendingSessions: true)
         try await macSync.execute(accountIdentifier: "account")
         try await iPhoneSync.execute(accountIdentifier: "account")
 

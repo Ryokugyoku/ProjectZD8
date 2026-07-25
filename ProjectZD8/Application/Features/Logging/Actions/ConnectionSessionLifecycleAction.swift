@@ -2,6 +2,8 @@
 enum ConnectionSessionLifecycleAction: Equatable {
     /// 現在の認証アカウントへ保存範囲を切り替えます。
     case accountIdentifierChanged(String?)
+    /// セッション終了時のiCloud自動アップロード設定を反映します。
+    case automaticUploadChanged(Bool)
     /// HOME接続開始を新規セッションとして記録します。
     case startRequested
     /// 接続対象として確定した登録車両を現在セッションへ関連付けます。

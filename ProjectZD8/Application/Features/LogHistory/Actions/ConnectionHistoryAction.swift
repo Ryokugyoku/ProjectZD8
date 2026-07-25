@@ -6,6 +6,14 @@ enum ConnectionHistoryAction: Equatable {
     case accountIdentifierChanged(String?)
     /// 現在アカウントの履歴再読込を要求します。
     case refreshRequested
+    /// 現在端末で保存内容が変わった履歴だけを再読込します。
+    case localDataChanged
+    /// セッション終了時のiCloud自動アップロード設定を一覧表示へ反映します。
+    case automaticUploadChanged(Bool)
+    /// 指定した未送信セッションだけをiCloudへアップロードします。
+    case sessionUploadRequested(ConnectionSessionID)
+    /// セッションアップロード失敗の通知を閉じます。
+    case sessionUploadFailureDismissed
     /// セッション一覧へ適用する開始日を変更します。
     case filterStartDateChanged(Date?)
     /// セッション一覧へ適用する終了日を変更します。

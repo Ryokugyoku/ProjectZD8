@@ -44,21 +44,28 @@ struct SynchronizeConnectionSessionsUseCase {
         self.role = role
     }
 
-    /// 現在アカウントの送信待ちと端末役割別受信処理を実行します。
+    /// 現在アカウントの受信処理と、明示された場合だけ送信待ち処理を実行します。
     ///
-    /// 責務: 1件のアカウントスコープを終了済みセッションの双方向同期結果へ変換します。
-    /// - Parameter accountIdentifier: 同期対象のAppleアカウント識別子。
+    /// 責務: 1件のアカウントスコープを指定された送信方針に従う端末間同期結果へ変換します。
+    /// - Parameters:
+    ///   - accountIdentifier: 同期対象のAppleアカウント識別子。
+    ///   - uploadsPendingSessions: 送信待ちセッションも同期する場合は `true`。通常の履歴更新では `false`。
     /// - Throws: ローカル保存、CloudKit概要・Raw転送、または整合性検証に失敗した場合のエラー。
-    func execute(accountIdentifier: String) async throws {
+    func execute(
+        accountIdentifier: String,
+        uploadsPendingSessions: Bool = false
+    ) async throws {
         try await applySessionDeletions(accountIdentifier: accountIdentifier)
         let remoteMetadata = try await transferRepository.downloadMetadata(for: accountIdentifier)
         let remoteManifestDigests = try await transferRepository.downloadTransferManifests(
             for: accountIdentifier
         )
-        let uploadedTransfers = try await uploadPendingSessions(
-            accountIdentifier: accountIdentifier,
-            remoteManifestDigests: remoteManifestDigests
-        )
+        let uploadedTransfers = uploadsPendingSessions
+            ? try await uploadPendingSessions(
+                accountIdentifier: accountIdentifier,
+                remoteManifestDigests: remoteManifestDigests
+            )
+            : []
         let currentManifestDigests = remoteManifestDigests.merging(
             uploadedTransfers.reduce(into: [:]) { output, transfer in
                 output[transfer.package.session.id] = transfer.manifestDigest
@@ -69,6 +76,7 @@ struct SynchronizeConnectionSessionsUseCase {
             accountIdentifier: accountIdentifier,
             remoteManifestDigests: currentManifestDigests,
             existingRemoteSessionIDs: Set(remoteMetadata.map(\.session.id))
+                .union(uploadedTransfers.map(\.package.session.id))
         )
         let uploadedMetadata = uploadedTransfers.map {
             ConnectionSessionCloudMetadata(
@@ -82,6 +90,34 @@ struct SynchronizeConnectionSessionsUseCase {
         if role == .iPhone {
             try await applyMacReceipts(accountIdentifier: accountIdentifier)
         }
+    }
+
+    /// 指定された終了済みセッションだけをiCloudへ送信します。
+    ///
+    /// 責務: 1件のローカル終了済みセッションを検証可能なCloudKit転送と同期済み概要へ変換します。
+    /// - Parameters:
+    ///   - sessionID: 送信対象の接続セッションID。
+    ///   - accountIdentifier: セッションを所有するAppleアカウント識別子。
+    ///   - progress: `0.0...1.0` の範囲で通知するAsset保存進捗。
+    /// - Throws: 対象不在、未終了、Rawログ読込、CloudKit保存、またはローカル状態更新に失敗した場合のエラー。
+    func upload(
+        sessionID: ConnectionSessionID,
+        accountIdentifier: String,
+        progress: @escaping @MainActor (Double) -> Void = { _ in }
+    ) async throws {
+        guard let session = try sessionRepository.sessions(for: accountIdentifier)
+            .first(where: { $0.id == sessionID }),
+              session.accountIdentifier == accountIdentifier,
+              session.endedAt != nil,
+              session.rawLogSummary.localState != .removed else {
+            throw ConnectionSessionRepositoryError.invalidState
+        }
+        guard session.rawLogSummary.cloudState != .uploaded else { return }
+        _ = try await uploadSession(
+            session,
+            accountIdentifier: accountIdentifier,
+            progress: progress
+        )
     }
 
     /// CloudKit上にRaw Payloadが実在するローカルセッション概要を公開します。
@@ -202,26 +238,51 @@ struct SynchronizeConnectionSessionsUseCase {
             session,
             remoteManifestDigest: remoteManifestDigests[session.id]
         ) {
-            do {
-                let entries = try rawLogRepository.entries(for: session.id)
-                let package = ConnectionSessionTransferPackage(
-                    session: sessionForTransfer(session, entries: entries),
-                    entries: entries
-                )
-                let digest = try await transferRepository.upload(
-                    package,
-                    for: accountIdentifier
-                )
-                try rawLogRepository.markCloudUploaded(sessionID: session.id, manifestDigest: digest)
-                uploadedTransfers.append(
-                    VerifiedConnectionSessionTransfer(package: package, manifestDigest: digest)
-                )
-            } catch {
-                try? rawLogRepository.markCloudUploadFailed(sessionID: session.id)
-                throw error
-            }
+            uploadedTransfers.append(
+                try await uploadSession(session, accountIdentifier: accountIdentifier)
+            )
         }
         return uploadedTransfers
+    }
+
+    /// 1件のセッションPayloadと概要をCloudKitへ保存してローカル状態を更新します。
+    ///
+    /// 責務: 1件の送信可能なセッションをCloudKit保存済み転送へ変換します。
+    /// - Parameters:
+    ///   - session: Rawログを現在端末に保持する終了済みセッション。
+    ///   - accountIdentifier: セッションを所有するAppleアカウント識別子。
+    ///   - progress: `0.0...1.0` の範囲で通知するAsset保存進捗。
+    /// - Returns: CloudKitが返したManifestで検証できる転送Payload。
+    /// - Throws: Rawログ読込、CloudKit保存、またはローカル同期状態更新に失敗した場合のエラー。
+    private func uploadSession(
+        _ session: ConnectionSession,
+        accountIdentifier: String,
+        progress: @escaping @MainActor (Double) -> Void = { _ in }
+    ) async throws -> VerifiedConnectionSessionTransfer {
+        do {
+            let entries = try rawLogRepository.entries(for: session.id)
+            let package = ConnectionSessionTransferPackage(
+                session: sessionForTransfer(session, entries: entries),
+                entries: entries
+            )
+            let digest = try await transferRepository.upload(
+                package,
+                for: accountIdentifier,
+                progress: progress
+            )
+            try await transferRepository.publishMetadata(
+                ConnectionSessionCloudMetadata(
+                    session: metadataSession(session, manifestDigest: digest),
+                    manifestDigest: digest
+                ),
+                for: accountIdentifier
+            )
+            try rawLogRepository.markCloudUploaded(sessionID: session.id, manifestDigest: digest)
+            return VerifiedConnectionSessionTransfer(package: package, manifestDigest: digest)
+        } catch {
+            try? rawLogRepository.markCloudUploadFailed(sessionID: session.id)
+            throw error
+        }
     }
 
     /// 端末固有の同期証跡を除いたセッション転送表現を生成します。

@@ -56,6 +56,68 @@ final class PrepareConnectionSessionRawLogUseCaseTests: XCTestCase {
         XCTAssertEqual(restored.rawLogSummary.lastAccessedAt, accessedAt)
     }
 
+    /// CloudKit転送でミリ秒未満が丸められた日時でも同じRawログを復元します。
+    ///
+    /// 責務: 実端末日時とAsset日時の小数ミリ秒差がオンデマンド復元を妨げないことを確認します。
+    func testDownloadsRawWhenTransferDatesAreRoundedToMilliseconds() async throws {
+        let local = try GRDBConnectionSessionRepository(databaseQueue: DatabaseQueue())
+        var localSession = ConnectionSession(
+            accountIdentifier: "account",
+            startedAt: Date(timeIntervalSince1970: 100.123_456)
+        )
+        localSession.endedAt = Date(timeIntervalSince1970: 110.987_654)
+        localSession.endReason = .userDisconnected
+        localSession.rawLogSummary = ConnectionSessionRawLogSummary(
+            recordCount: 1,
+            byteCount: 2,
+            localState: .removed,
+            cloudState: .uploaded,
+            manifestDigest: "manifest",
+            macImportReceipt: nil
+        )
+        try local.importCloudMetadata(
+            ConnectionSessionCloudMetadata(session: localSession, manifestDigest: "manifest")
+        )
+        var transferredSession = ConnectionSession(
+            id: localSession.id,
+            accountIdentifier: localSession.accountIdentifier,
+            startedAt: Date(timeIntervalSince1970: 100.123)
+        )
+        transferredSession.endedAt = Date(timeIntervalSince1970: 110.987)
+        transferredSession.endReason = localSession.endReason
+        transferredSession.rawLogSummary = localSession.rawLogSummary
+        let entry = ConnectionSessionRawLogEntry(
+            sequence: 0,
+            observedAt: Date(timeIntervalSince1970: 105.456),
+            batchElapsedNanoseconds: 1,
+            service: 0x01,
+            pid: 0x0C,
+            payload: [0x1A, 0xF8]
+        )
+        let transfer = VerifiedConnectionSessionTransfer(
+            package: ConnectionSessionTransferPackage(session: transferredSession, entries: [entry]),
+            manifestDigest: "manifest"
+        )
+        let useCase = PrepareConnectionSessionRawLogUseCase(
+            rawLogRepository: local,
+            transferRepository: RawDownloadTransferRepository(transfer: transfer)
+        )
+        let persistedBeforeRestore = try XCTUnwrap(local.sessions(for: "account").first)
+        XCTAssertLessThanOrEqual(abs(persistedBeforeRestore.startedAt.timeIntervalSince(transferredSession.startedAt)), 0.001_001)
+        XCTAssertLessThanOrEqual(
+            abs(try XCTUnwrap(persistedBeforeRestore.endedAt).timeIntervalSince(try XCTUnwrap(transferredSession.endedAt))),
+            0.001_001
+        )
+
+        try await useCase.execute(session: localSession)
+
+        XCTAssertEqual(try local.entries(for: localSession.id), [entry])
+        let restored = try XCTUnwrap(local.sessions(for: "account").first)
+        XCTAssertEqual(restored.rawLogSummary.localState, .available)
+        XCTAssertEqual(restored.startedAt, persistedBeforeRestore.startedAt)
+        XCTAssertEqual(restored.endedAt, persistedBeforeRestore.endedAt)
+    }
+
     /// 未ダウンロードセッションの選択時は容量付き確認を公開しCloudKitへ接続しません。
     ///
     /// 責務: PID時系列操作を副作用前のRaw取得確認状態へ変換することを確認します。

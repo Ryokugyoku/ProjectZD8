@@ -199,6 +199,14 @@ struct ConnectionHistoryState: Equatable {
     var sortOrder: ConnectionHistorySortOrder = .newest
     /// CloudKitセッション同期の現在段階です。
     var syncPhase: ConnectionHistorySyncPhase = .idle
+    /// セッション終了時のiCloud自動アップロードが有効かを示します。
+    var automaticUploadEnabled: Bool = false
+    /// iCloudへ個別アップロードしているセッションIDです。
+    var uploadingSessionID: ConnectionSessionID?
+    /// 個別アップロード中のCloudKit Asset保存進捗です。
+    var uploadProgress: Double?
+    /// 直近のiCloud個別アップロードに失敗したセッションIDです。
+    var uploadFailureSessionID: ConnectionSessionID?
     /// ユーザー操作による停止かを確認する表示内容です。
     var stopReviewPrompt: ConnectionSessionStopReviewPrompt?
     /// 直近の停止確認保存失敗を示すローカライズキーです。

@@ -144,6 +144,30 @@ final class ConnectionSessionLifecycleModelTests: XCTestCase {
         XCTAssertEqual(recovered.endReason, .unexpectedTermination)
         XCTAssertEqual(recovered.status, .interrupted)
     }
+
+    /// 自動アップロード設定がONの終了だけをアップロード要求として通知します。
+    ///
+    /// 責務: OFFとONで終了した2件のセッションからON時の1件だけを自動アップロード対象へ変換することを確認します。
+    func testSessionEndRequestsUploadOnlyWhileAutomaticSettingIsEnabled() {
+        let repository = RecordingConnectionSessionRepository()
+        var uploadRequests: [ConnectionSessionID] = []
+        let model = ConnectionSessionLifecycleModel(
+            repository: repository,
+            endedSessionUploadRequested: { uploadRequests.append($0.id) }
+        )
+        model.send(.accountIdentifierChanged("account"))
+
+        model.send(.startRequested)
+        model.send(.endRequested(.userDisconnected))
+        XCTAssertTrue(uploadRequests.isEmpty)
+
+        model.send(.automaticUploadChanged(true))
+        model.send(.startRequested)
+        let automaticallyUploadedID = model.activeSession?.id
+        model.send(.endRequested(.userDisconnected))
+
+        XCTAssertEqual(uploadRequests, [automaticallyUploadedID].compactMap { $0 })
+    }
 }
 
 /// テスト用に接続セッションをメモリへ記録します。

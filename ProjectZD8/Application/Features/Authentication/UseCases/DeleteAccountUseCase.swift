@@ -4,7 +4,7 @@ struct DeleteAccountUseCase {
     /// 他端末へ新しいセッション失効世代を発行する境界です。
     private let sessionRevocation: any AccountSessionRevocationPort
 
-    /// CloudKit上の接続セッションAssetとMac受領証を削除する境界です。
+    /// CloudKit上のセッション概要、Raw Asset、Mac受領証、および削除マーカーを削除する境界です。
     private let sessionTransfers: any ConnectionSessionTransferRepository
 
     /// CloudKitと端末キャッシュの車両カタログを削除する境界です。
@@ -39,7 +39,7 @@ struct DeleteAccountUseCase {
         self.sessionStore = sessionStore
     }
 
-    /// 指定アカウントを他端末へ失効通知してからCloudKit、ローカルデータ、ログイン識別子を削除します。
+    /// 指定アカウントを他端末へ失効通知してからCloudKit全データ、ローカルデータ、ログイン識別子を削除します。
     ///
     /// 責務: 1件の認証済みアカウントを再試行可能な順序で端末から削除します。
     /// - Parameter userIdentifier: Appleがこのアプリへ割り当てた空でないユーザー識別子。

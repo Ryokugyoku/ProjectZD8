@@ -81,6 +81,47 @@ final class ConnectionHistoryModelTests: XCTestCase {
         transferRepository.resumeDeletionRequest()
     }
 
+    /// 個別アップロード中はCloudKit Assetの実進捗を履歴状態へ反映します。
+    ///
+    /// 責務: 手動アップロードの中間進捗を百分率表示可能な履歴状態として保持することを確認します。
+    func testManualUploadPublishesTransferProgress() async {
+        var session = makeClosedSession(
+            startedAt: 100,
+            duration: 60,
+            reason: .userDisconnected,
+            vehicle: ConnectionSessionVehicle(id: VehicleID(), name: "BRZ", displayIdentifier: "ZD8")
+        )
+        session.rawLogSummary = ConnectionSessionRawLogSummary(
+            recordCount: 1,
+            byteCount: 1,
+            localState: .available,
+            cloudState: .pending,
+            manifestDigest: nil,
+            macImportReceipt: nil
+        )
+        let repository = MutableConnectionSessionRepository(sessions: [session])
+        let transferRepository = PausingConnectionSessionTransferRepository()
+        let synchronization = SynchronizeConnectionSessionsUseCase(
+            sessionRepository: repository,
+            rawLogRepository: EmptyConnectionSessionRawLogRepository(),
+            sessionErasureRepository: NoOpConnectionSessionErasureRepository(),
+            transferRepository: transferRepository,
+            role: .iPhone
+        )
+        let model = ConnectionHistoryModel(repository: repository, synchronizeSessions: synchronization)
+        model.send(.accountIdentifierChanged("account"))
+        await transferRepository.waitForDeletionRequest()
+
+        model.send(.sessionUploadRequested(session.id))
+        await transferRepository.waitForUploadProgress()
+
+        XCTAssertEqual(model.state.uploadingSessionID, session.id)
+        XCTAssertEqual(model.state.uploadProgress ?? -.infinity, 0.42, accuracy: 0.000_1)
+
+        transferRepository.resumeUpload()
+        transferRepository.resumeDeletionRequest()
+    }
+
     /// 終了済み履歴が登録車両単位に集約され、中断件数と総時間を保持することを検証します。
     ///
     /// 責務: 複数セッションを車両ID単位の履歴集計へ変換できることを確認します。
@@ -224,6 +265,10 @@ private final class PausingConnectionSessionTransferRepository: ConnectionSessio
     private(set) var deletionRequestCount = 0
     /// 停止中の削除マーカー取得を再開する継続です。
     private var deletionContinuation: CheckedContinuation<Set<ConnectionSessionID>, Never>?
+    /// 停止中のアップロードを再開する継続です。
+    private var uploadContinuation: CheckedContinuation<String, Never>?
+    /// 中間アップロード進捗を通知済みかを示します。
+    private var didPublishUploadProgress = false
 
     /// このテストではアップロードを固定Digestで受理します。
     ///
@@ -234,6 +279,24 @@ private final class PausingConnectionSessionTransferRepository: ConnectionSessio
     /// - Returns: 固定Digest。
     func upload(_ package: ConnectionSessionTransferPackage, for accountIdentifier: String) async throws -> String {
         "digest"
+    }
+
+    /// 中間進捗を通知してテストから再開されるまでアップロードを停止します。
+    ///
+    /// 責務: 1件の進捗付き保存要求を観測可能な中間進捗で停止します。
+    /// - Parameters:
+    ///   - package: 使用しない転送Payload。
+    ///   - accountIdentifier: 使用しないアカウント識別子。
+    ///   - progress: 中間進捗の通知先。
+    /// - Returns: 再開後の固定Digest。
+    func upload(
+        _ package: ConnectionSessionTransferPackage,
+        for accountIdentifier: String,
+        progress: @escaping @MainActor (Double) -> Void
+    ) async throws -> String {
+        progress(0.42)
+        didPublishUploadProgress = true
+        return await withCheckedContinuation { uploadContinuation = $0 }
     }
 
     /// このテストでは転送Payloadを返しません。
@@ -302,6 +365,22 @@ private final class PausingConnectionSessionTransferRepository: ConnectionSessio
     func resumeDeletionRequest() {
         deletionContinuation?.resume(returning: [])
         deletionContinuation = nil
+    }
+
+    /// 中間アップロード進捗が通知されるまで待機します。
+    ///
+    /// 責務: テスト実行をアップロード進捗が履歴状態へ届く時点まで進めます。
+    func waitForUploadProgress() async {
+        while !didPublishUploadProgress { await Task.yield() }
+        await Task.yield()
+    }
+
+    /// 停止中のアップロードへ固定Digestを返して再開します。
+    ///
+    /// 責務: 保持中の1件のアップロード継続を成功として完了します。
+    func resumeUpload() {
+        uploadContinuation?.resume(returning: "digest")
+        uploadContinuation = nil
     }
 }
 

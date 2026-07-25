@@ -46,11 +46,12 @@ struct ProjectZD8App: App {
     init() {
         #if os(iOS)
         let connectionSessionRepository = IOSApplicationComposition.makeConnectionSessionRepository()
+        let connectionSessionSynchronization = IOSApplicationComposition.makeConnectionSessionSynchronization(
+            storage: connectionSessionRepository
+        )
         let connectionHistoryModel = ConnectionHistoryModel(
             repository: connectionSessionRepository,
-            synchronizeSessions: IOSApplicationComposition.makeConnectionSessionSynchronization(
-                storage: connectionSessionRepository
-            ),
+            synchronizeSessions: connectionSessionSynchronization,
             releaseRawCache: ReleaseConnectionSessionRawCacheUseCase(
                 repository: connectionSessionRepository
             ),
@@ -81,7 +82,10 @@ struct ProjectZD8App: App {
             repository: connectionSessionRepository,
             rawLogRepository: connectionSessionRepository,
             acquisitionDevice: IOSApplicationComposition.makeConnectionSessionAcquisitionDevice(),
-            historyDidChange: { connectionHistoryModel.send(.refreshRequested) }
+            historyDidChange: { connectionHistoryModel.send(.localDataChanged) },
+            endedSessionUploadRequested: { session in
+                connectionHistoryModel.send(.sessionUploadRequested(session.id))
+            }
         )
         let liveTelemetryModel = IOSApplicationComposition.makeLiveTelemetryModel(
             sessionDidEnd: { connectionSessionLifecycleModel.send(.endRequested($0)) },
@@ -131,11 +135,12 @@ struct ProjectZD8App: App {
 
         #if os(macOS)
         let connectionSessionRepository = MacOSApplicationComposition.makeConnectionSessionRepository()
+        let connectionSessionSynchronization = MacOSApplicationComposition.makeConnectionSessionSynchronization(
+            storage: connectionSessionRepository
+        )
         let connectionHistoryModel = ConnectionHistoryModel(
             repository: connectionSessionRepository,
-            synchronizeSessions: MacOSApplicationComposition.makeConnectionSessionSynchronization(
-                storage: connectionSessionRepository
-            ),
+            synchronizeSessions: connectionSessionSynchronization,
             releaseRawCache: ReleaseConnectionSessionRawCacheUseCase(
                 repository: connectionSessionRepository
             ),
@@ -166,7 +171,10 @@ struct ProjectZD8App: App {
             repository: connectionSessionRepository,
             rawLogRepository: connectionSessionRepository,
             acquisitionDevice: MacOSApplicationComposition.makeConnectionSessionAcquisitionDevice(),
-            historyDidChange: { connectionHistoryModel.send(.refreshRequested) }
+            historyDidChange: { connectionHistoryModel.send(.localDataChanged) },
+            endedSessionUploadRequested: { session in
+                connectionHistoryModel.send(.sessionUploadRequested(session.id))
+            }
         )
         let liveTelemetryModel = MacOSApplicationComposition.makeLiveTelemetryModel(
             sessionDidEnd: { connectionSessionLifecycleModel.send(.endRequested($0)) },
@@ -275,6 +283,10 @@ struct ProjectZD8App: App {
             .onChange(of: scenePhase) { _, phase in
                 handleScenePhaseChange(phase)
             }
+            .onChange(of: accountSettingsModel.settings.automaticSessionUploadEnabled) { _, isEnabled in
+                connectionSessionLifecycleModel.send(.automaticUploadChanged(isEnabled))
+                connectionHistoryModel.send(.automaticUploadChanged(isEnabled))
+            }
         }
     }
 
@@ -294,6 +306,9 @@ struct ProjectZD8App: App {
         accountSettingsModel.send(
             .accountIdentifierChanged(authenticationModel.state.session?.userIdentifier)
         )
+        connectionSessionLifecycleModel.send(
+            .automaticUploadChanged(accountSettingsModel.settings.automaticSessionUploadEnabled)
+        )
         vehicleManagementModel.send(
             .accountIdentifierChanged(authenticationModel.state.session?.userIdentifier)
         )
@@ -302,6 +317,9 @@ struct ProjectZD8App: App {
         )
         connectionHistoryModel.send(
             .accountIdentifierChanged(authenticationModel.state.session?.userIdentifier)
+        )
+        connectionHistoryModel.send(
+            .automaticUploadChanged(accountSettingsModel.settings.automaticSessionUploadEnabled)
         )
     }
 

@@ -18,9 +18,9 @@ final class AccountSettingsModelTests: XCTestCase {
         XCTAssertEqual(store.observedAccountIdentifier, "user-a")
     }
 
-    /// 言語と外観の変更を現在のアカウントだけへ保存することを検証します。
+    /// 表示設定と自動アップロードの変更を現在のアカウントだけへ保存することを検証します。
     ///
-    /// 責務: 2件の設定操作をConnection情報を含まない1件のアカウント設定として保存します。
+    /// 責務: 3件の設定操作を1件のアカウント設定として保存します。
     func testSelectionChangesPersistForActiveAccount() {
         let store = AccountSettingsStorePortFake()
         let model = makeModel(store: store)
@@ -28,12 +28,17 @@ final class AccountSettingsModelTests: XCTestCase {
 
         model.send(.languageSelected(.spanish))
         model.send(.appearanceSelected(.light))
+        model.send(.automaticSessionUploadChanged(true))
 
         XCTAssertEqual(
             store.savedSettings["user-a"],
-            AccountSettings(language: .spanish, appearance: .light)
+            AccountSettings(
+                language: .spanish,
+                appearance: .light,
+                automaticSessionUploadEnabled: true
+            )
         )
-        XCTAssertEqual(store.saveCount, 2)
+        XCTAssertEqual(store.saveCount, 3)
     }
 
     /// 別アカウントへ切り替えた際に以前の設定を引き継がないことを検証します。

@@ -25,7 +25,7 @@ final class AccountSettingsUseCase {
     ///
     /// 責務: Connectionを含まない1件の設定をアカウント保存境界へ渡します。
     /// - Parameters:
-    ///   - settings: 保存する言語と外観。
+    ///   - settings: 保存する表示設定とセッション自動送信設定。
     ///   - accountIdentifier: Appleがアプリへ割り当てた空でないユーザー識別子。
     func save(_ settings: AccountSettings, for accountIdentifier: String) {
         store.save(settings, for: accountIdentifier)

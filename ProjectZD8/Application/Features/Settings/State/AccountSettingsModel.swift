@@ -43,6 +43,9 @@ final class AccountSettingsModel {
         case let .appearanceSelected(appearance):
             settings.appearance = appearance
             saveIfAccountIsActive()
+        case let .automaticSessionUploadChanged(isEnabled):
+            settings.automaticSessionUploadEnabled = isEnabled
+            saveIfAccountIsActive()
         }
     }
 
@@ -68,7 +71,7 @@ final class AccountSettingsModel {
 
     /// 認証済みアカウントが存在する場合だけ現在設定を保存します。
     ///
-    /// 責務: 現在の言語と外観を有効な1件のアカウントスコープへ保存します。
+    /// 責務: 現在の表示設定とセッション自動送信設定を有効な1件のアカウントスコープへ保存します。
     private func saveIfAccountIsActive() {
         guard let accountIdentifier else { return }
         useCase.save(settings, for: accountIdentifier)
