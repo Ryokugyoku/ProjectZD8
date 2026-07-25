@@ -321,6 +321,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = ProjectZD8/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "RevTorque Insight";
+				"INFOPLIST_KEY_LSApplicationCategoryType[sdk=macosx*]" = "public.app-category.utilities";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -367,6 +368,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = ProjectZD8/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "RevTorque Insight";
+				"INFOPLIST_KEY_LSApplicationCategoryType[sdk=macosx*]" = "public.app-category.utilities";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
