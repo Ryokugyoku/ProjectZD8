@@ -110,6 +110,25 @@ enum MacOSApplicationComposition {
         )
     }
 
+    /// GRDBとCloudKitを注入したmacOS向け整備モデルを生成します。
+    ///
+    /// 責務: Macの車両別整備保存、写真取込、端末間同期をMaintenanceへ結び付けます。
+    /// - Returns: オフライン保存とCloudKit双方向同期を使用する整備モデル。
+    static func makeMaintenanceModel() -> MaintenanceModel {
+        let repository: any MaintenanceRecordRepository =
+            (try? GRDBMaintenanceRecordRepository.openApplicationRepository())
+            ?? UnavailableMaintenanceRecordRepository()
+        return MaintenanceModel(
+            state: MaintenanceState(),
+            repository: repository,
+            synchronize: SynchronizeMaintenanceRecordsUseCase(
+                localRepository: repository,
+                remoteStore: CloudKitMaintenanceRemoteStore()
+            ),
+            photoImporter: MaintenancePhotoFileImporter()
+        )
+    }
+
     /// 製品用の接続セッション保存先を生成します。
     ///
     /// 責務: macOSの接続履歴を利用可能なGRDB実装または明示的利用不能境界へ変換します。

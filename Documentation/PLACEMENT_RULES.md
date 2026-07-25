@@ -66,6 +66,7 @@ ProjectZD8 uses the following approved product feature set. New production work 
 - `Authentication` owns Apple-account sign-in, credential-state restoration, and the application access gate.
 - `Settings` owns account-scoped persistence and cross-device synchronization for user preferences other than device Connection settings.
 - `VehicleManagement` owns account-scoped vehicle identity, registration, editable vehicle profiles, vehicle imagery, cross-device vehicle synchronization, and selection of a registered vehicle for a Connection workflow.
+- `Maintenance` owns vehicle-scoped light/heavy service records, consumable and major-component work details, photographic evidence, overhaul fastener traceability, and cross-device maintenance synchronization.
 
 The approved physical scaffold is:
 
@@ -83,6 +84,7 @@ ProjectZD8/
 │   ├── Settings/{Actions,State,UseCases,Ports}/
 │   ├── DeviceConnection/{Actions,State,UseCases,Ports}/
 │   ├── VehicleManagement/{Actions,State,UseCases,Ports}/
+│   ├── Maintenance/{Actions,State,UseCases,Ports}/
 │   ├── LiveTelemetry/{Actions,State,UseCases,Ports}/
 │   ├── Logging/{Actions,State,UseCases}/
 │   ├── LogHistory/{Actions,State,UseCases}/
@@ -96,10 +98,10 @@ ProjectZD8/
 ├── Platform/
 │   ├── iOS/
 │   │   ├── AppShell/
-│   │   └── Features/{Authentication,Settings,DeviceConnection,VehicleManagement,LiveTelemetry,LogHistory,Analysis}/{Views,Presentation}/
+│   │   └── Features/{Authentication,Settings,DeviceConnection,VehicleManagement,Maintenance,LiveTelemetry,LogHistory,Analysis}/{Views,Presentation}/
 │   └── macOS/
 │       ├── AppShell/
-│       └── Features/{Authentication,Settings,DeviceConnection,VehicleManagement,LiveTelemetry,LogHistory,Analysis}/{Views,Presentation}/
+│       └── Features/{Authentication,Settings,DeviceConnection,VehicleManagement,Maintenance,LiveTelemetry,LogHistory,Analysis}/{Views,Presentation}/
 ├── Shared/
 │   ├── Foundation/
 │   └── DesignSystem/{Colors,Typography,Components}/
@@ -200,7 +202,7 @@ Group Application and Platform code by product feature before technical subtype.
 
 A Feature is a stable product capability with one durable user or system outcome. A screen, button, framework, transport, database table, temporary workflow step, or implementation technique MUST NOT become a Feature merely to obtain a folder.
 
-The approved Feature names remain `Authentication`, `Settings`, `DeviceConnection`, `VehicleManagement`, `LiveTelemetry`, `Logging`, `LogHistory`, and `Analysis`. `Settings` excludes device Connection settings, which remain owned by `DeviceConnection`. `VehicleManagement` owns vehicle records and their account-scoped synchronization, while `DeviceConnection` continues to own adapter and transport lifecycle; a Connection workflow may cross that boundary only through Domain vehicle identity and narrow Application ports. Adding, renaming, merging, or splitting a Feature changes product ownership and MUST pass the new-folder approval gate before files or directories are changed.
+The approved Feature names remain `Authentication`, `Settings`, `DeviceConnection`, `VehicleManagement`, `Maintenance`, `LiveTelemetry`, `Logging`, `LogHistory`, and `Analysis`. `Settings` excludes device Connection settings, which remain owned by `DeviceConnection`. `VehicleManagement` owns vehicle records and their account-scoped synchronization, `Maintenance` owns vehicle-scoped service records and evidence, while `DeviceConnection` continues to own adapter and transport lifecycle; a Connection workflow may cross those boundaries only through Domain vehicle identity and narrow Application ports. Adding, renaming, merging, or splitting a Feature changes product ownership and MUST pass the new-folder approval gate before files or directories are changed.
 
 ### VehicleManagement ownership contract
 

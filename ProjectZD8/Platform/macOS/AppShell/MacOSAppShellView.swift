@@ -18,6 +18,9 @@ struct MacOSAppShellView: View {
     /// 車両一覧、登録、同期状態を提供するモデルです。
     let vehicleManagementModel: VehicleManagementModel
 
+    /// 車両別整備一覧、編集、同期状態を提供するモデルです。
+    let maintenanceModel: MaintenanceModel
+
     /// 主要PIDの読取状態を提供するモデルです。
     let liveTelemetryModel: LiveTelemetryModel
 
@@ -46,6 +49,7 @@ struct MacOSAppShellView: View {
     ///   - accountSettingsModel: 言語と外観を提供するアカウント設定モデル。
     ///   - settingsModel: アダプター選択状態を提供するモデル。
     ///   - vehicleManagementModel: 登録車両とVIN確認状態を提供するモデル。
+    ///   - maintenanceModel: 車両別の整備一覧、編集、同期状態を提供するモデル。
     ///   - liveTelemetryModel: 主要PID読取状態を提供するモデル。
     ///   - connectionHistoryModel: アカウント単位の接続履歴を提供するモデル。
     ///   - sessionLogAnalysisModel: 保存済みPID時系列解析を提供するモデル。
@@ -57,6 +61,7 @@ struct MacOSAppShellView: View {
         accountSettingsModel: AccountSettingsModel,
         settingsModel: MacOSSettingsPresentationModel,
         vehicleManagementModel: VehicleManagementModel,
+        maintenanceModel: MaintenanceModel,
         liveTelemetryModel: LiveTelemetryModel,
         connectionHistoryModel: ConnectionHistoryModel,
         sessionLogAnalysisModel: SessionLogAnalysisModel,
@@ -68,6 +73,7 @@ struct MacOSAppShellView: View {
         self.accountSettingsModel = accountSettingsModel
         self.settingsModel = settingsModel
         self.vehicleManagementModel = vehicleManagementModel
+        self.maintenanceModel = maintenanceModel
         self.liveTelemetryModel = liveTelemetryModel
         self.connectionHistoryModel = connectionHistoryModel
         self.sessionLogAnalysisModel = sessionLogAnalysisModel
@@ -119,6 +125,7 @@ struct MacOSAppShellView: View {
                     settingsState: settingsModel.state,
                     accountSettings: accountSettingsModel.settings,
                     vehicleManagementState: vehicleManagementModel.state,
+                    maintenanceState: maintenanceModel.state,
                     liveTelemetryState: liveTelemetryModel.state,
                     connectionHistoryState: connectionHistoryModel.state,
                     sessionLogAnalysisState: sessionLogAnalysisModel.state,
@@ -126,6 +133,7 @@ struct MacOSAppShellView: View {
                     sendSettingsAction: settingsModel.send,
                     sendAccountSettingsAction: accountSettingsModel.send,
                     sendVehicleManagementAction: vehicleManagementModel.send,
+                    sendMaintenanceAction: maintenanceModel.send,
                     sendLiveTelemetryAction: liveTelemetryModel.send,
                     sendConnectionHistoryAction: connectionHistoryModel.send,
                     sendSessionLogAnalysisAction: sessionLogAnalysisModel.send,

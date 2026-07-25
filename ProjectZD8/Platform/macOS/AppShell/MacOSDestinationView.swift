@@ -18,6 +18,9 @@ struct MacOSDestinationView: View {
     /// Garageへ渡す現在の車両管理状態です。
     let vehicleManagementState: VehicleManagementState
 
+    /// 整備画面へ渡す現在の車両別整備状態です。
+    let maintenanceState: MaintenanceState
+
     /// リアルタイムログ画面へ渡す主要PID読取状態です。
     let liveTelemetryState: LiveTelemetryState
 
@@ -38,6 +41,9 @@ struct MacOSDestinationView: View {
 
     /// Garageの型付き操作をVehicleManagementへ通知します。
     let sendVehicleManagementAction: (VehicleManagementAction) -> Void
+
+    /// 軽整備・重整備操作をMaintenanceへ通知します。
+    let sendMaintenanceAction: (MaintenanceAction) -> Void
 
     /// 主要PID読取操作をLiveTelemetryへ通知します。
     let sendLiveTelemetryAction: (LiveTelemetryAction) -> Void
@@ -83,6 +89,12 @@ struct MacOSDestinationView: View {
                 send: sendConnectionHistoryAction,
                 analysisState: sessionLogAnalysisState,
                 sendAnalysis: sendSessionLogAnalysisAction,
+                metrics: metrics
+            )
+        } else if destination == .maintenance {
+            MacOSMaintenanceView(
+                state: maintenanceState,
+                send: sendMaintenanceAction,
                 metrics: metrics
             )
         } else if destination == .garage {

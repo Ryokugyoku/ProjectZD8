@@ -15,6 +15,9 @@ struct ProjectZD8App: App {
     /// 登録車両、VIN確認、CloudKit同期を保持するモデルです。
     @State private var vehicleManagementModel: VehicleManagementModel
 
+    /// 車両別の軽整備・重整備とCloudKit同期を保持するモデルです。
+    @State private var maintenanceModel: MaintenanceModel
+
     /// 主要PIDの1回読取り状態を保持するモデルです。
     @State private var liveTelemetryModel: LiveTelemetryModel
 
@@ -109,6 +112,7 @@ struct ProjectZD8App: App {
                 : .standardPolling
             liveTelemetryModel.send(.startRequested(endpoint, vehicle.id, mode))
         }
+        let maintenanceModel = IOSApplicationComposition.makeMaintenanceModel()
         _authenticationModel = State(
             initialValue: IOSApplicationComposition.makeAuthenticationSessionModel(
                 connectionSessionStorage: connectionSessionRepository
@@ -123,6 +127,7 @@ struct ProjectZD8App: App {
         _vehicleManagementModel = State(
             initialValue: vehicleManagementModel
         )
+        _maintenanceModel = State(initialValue: maintenanceModel)
         _liveTelemetryModel = State(
             initialValue: liveTelemetryModel
         )
@@ -199,6 +204,7 @@ struct ProjectZD8App: App {
                 : .standardPolling
             liveTelemetryModel.send(.startRequested(endpoint, vehicle.id, mode))
         }
+        let maintenanceModel = MacOSApplicationComposition.makeMaintenanceModel()
         _authenticationModel = State(
             initialValue: MacOSApplicationComposition.makeAuthenticationSessionModel(
                 connectionSessionStorage: connectionSessionRepository
@@ -213,6 +219,7 @@ struct ProjectZD8App: App {
         _vehicleManagementModel = State(
             initialValue: vehicleManagementModel
         )
+        _maintenanceModel = State(initialValue: maintenanceModel)
         _liveTelemetryModel = State(
             initialValue: liveTelemetryModel
         )
@@ -237,6 +244,7 @@ struct ProjectZD8App: App {
                         accountSettingsModel: accountSettingsModel,
                         settingsModel: iOSSettingsModel,
                         vehicleManagementModel: vehicleManagementModel,
+                        maintenanceModel: maintenanceModel,
                         liveTelemetryModel: liveTelemetryModel,
                         connectionHistoryModel: connectionHistoryModel,
                         sessionLogAnalysisModel: sessionLogAnalysisModel,
@@ -260,6 +268,7 @@ struct ProjectZD8App: App {
                         accountSettingsModel: accountSettingsModel,
                         settingsModel: macOSSettingsModel,
                         vehicleManagementModel: vehicleManagementModel,
+                        maintenanceModel: maintenanceModel,
                         liveTelemetryModel: liveTelemetryModel,
                         connectionHistoryModel: connectionHistoryModel,
                         sessionLogAnalysisModel: sessionLogAnalysisModel,
@@ -289,21 +298,25 @@ struct ProjectZD8App: App {
                 connectionSessionLifecycleModel.send(.automaticUploadChanged(isEnabled))
                 connectionHistoryModel.send(.automaticUploadChanged(isEnabled))
             }
+            .onChange(of: vehicleManagementModel.state.vehicles) { _, vehicles in
+                maintenanceModel.send(.vehiclesChanged(vehicles))
+            }
         }
     }
 
-    /// アプリが操作可能へ戻ったとき認証済みセッション概要を再同期します。
+    /// アプリが操作可能へ戻ったとき認証済みセッション概要と整備記録を再同期します。
     ///
-    /// 責務: 1件のScene段階変更を認証済み接続履歴の更新要求へ変換します。
+    /// 責務: 1件のScene段階変更を認証済み接続履歴と整備記録の更新要求へ変換します。
     /// - Parameter phase: 現在のScene段階。
     private func handleScenePhaseChange(_ phase: ScenePhase) {
         guard phase == .active, authenticationModel.state.phase == .signedIn else { return }
         connectionHistoryModel.send(.refreshRequested)
+        maintenanceModel.send(.refreshRequested)
     }
 
-    /// 認証済みAppleユーザーをConnection以外の設定保存スコープへ反映します。
+    /// 認証済みAppleユーザーを設定、車両、整備、接続履歴の保存スコープへ反映します。
     ///
-    /// 責務: 現在の認証セッション識別子をSettings機能へ1回通知します。
+    /// 責務: 現在の認証セッション識別子を各アカウントスコープ付き機能へ通知します。
     private func activateAuthenticatedSettingsScope() {
         accountSettingsModel.send(
             .accountIdentifierChanged(authenticationModel.state.session?.userIdentifier)
@@ -312,6 +325,12 @@ struct ProjectZD8App: App {
             .automaticUploadChanged(accountSettingsModel.settings.automaticSessionUploadEnabled)
         )
         vehicleManagementModel.send(
+            .accountIdentifierChanged(authenticationModel.state.session?.userIdentifier)
+        )
+        maintenanceModel.send(
+            .vehiclesChanged(vehicleManagementModel.state.vehicles)
+        )
+        maintenanceModel.send(
             .accountIdentifierChanged(authenticationModel.state.session?.userIdentifier)
         )
         connectionSessionLifecycleModel.send(
@@ -336,6 +355,7 @@ struct ProjectZD8App: App {
         connectionHistoryModel.send(.accountIdentifierChanged(nil))
         accountSettingsModel.send(.accountIdentifierChanged(nil))
         vehicleManagementModel.send(.accountIdentifierChanged(nil))
+        maintenanceModel.send(.accountIdentifierChanged(nil))
         #if os(iOS)
         iOSSettingsModel = IOSApplicationComposition.makeSettingsPresentationModel()
         #elseif os(macOS)

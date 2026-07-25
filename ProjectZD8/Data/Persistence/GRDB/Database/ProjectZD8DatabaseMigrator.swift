@@ -1,15 +1,26 @@
 import GRDB
 
-/// 製品DBの初期SQLiteスキーマを一括して定義します。
+/// 製品DBの現行SQLiteスキーマと旧開発DBの非破壊移行を定義します。
 enum ProjectZD8DatabaseMigrator {
-    /// 製品版1.0の全テーブルを作成する単一Migrationです。
+    /// 製品版1.0の全テーブルを不足分だけ作成する単一Migrationです。
     static var migrator: DatabaseMigrator {
         var migrator = DatabaseMigrator()
         migrator.registerMigration("release_v1_create_schema") { database in
-            try createOBDPIDDefinitions(in: database)
-            try createVehiclePIDCapabilities(in: database)
-            try createConnectionSessions(in: database)
-            try createConnectionSessionRawLogs(in: database)
+            if try !database.tableExists(OBDPIDDefinitionRecord.databaseTableName) {
+                try createOBDPIDDefinitions(in: database)
+            }
+            if try !database.tableExists(VehiclePIDCapabilityRecord.databaseTableName) {
+                try createVehiclePIDCapabilities(in: database)
+            }
+            if try !database.tableExists(ConnectionSessionRecord.databaseTableName) {
+                try createConnectionSessions(in: database)
+            }
+            if try !database.tableExists(ConnectionSessionRawLogRecord.databaseTableName) {
+                try createConnectionSessionRawLogs(in: database)
+            }
+            if try !database.tableExists(MaintenanceRecordRecord.databaseTableName) {
+                try createMaintenanceRecords(in: database)
+            }
         }
         return migrator
     }
@@ -127,6 +138,34 @@ enum ProjectZD8DatabaseMigrator {
             index: "connection_session_raw_logs_session_observed_at",
             on: ConnectionSessionRawLogRecord.databaseTableName,
             columns: ["sessionID", "observedAt"]
+        )
+    }
+
+    /// 車両別整備記録と削除墓石を保持する表を作成します。
+    ///
+    /// 責務: 整備記録の検索列と完全JSONを1件のSQLiteテーブルへ固定します。
+    /// - Parameter database: テーブルを作成するSQLite接続。
+    /// - Throws: テーブルまたは索引の作成に失敗した場合のGRDBエラー。
+    nonisolated private static func createMaintenanceRecords(in database: Database) throws {
+        try database.create(table: MaintenanceRecordRecord.databaseTableName) { table in
+            table.column("id", .text).primaryKey().notNull().check { length($0) > 0 }
+            table.column("accountIdentifier", .text).notNull().check { length($0) > 0 }
+            table.column("vehicleID", .text).notNull().check { length($0) > 0 }
+            table.column("kind", .text).notNull().check { $0 == MaintenanceKind.light.rawValue || $0 == MaintenanceKind.heavy.rawValue }
+            table.column("performedAt", .datetime).notNull()
+            table.column("updatedAt", .datetime).notNull()
+            table.column("deletedAt", .datetime)
+            table.column("payload", .blob).notNull()
+        }
+        try database.create(
+            index: "maintenance_records_account_vehicle_performed_at",
+            on: MaintenanceRecordRecord.databaseTableName,
+            columns: ["accountIdentifier", "vehicleID", "performedAt"]
+        )
+        try database.create(
+            index: "maintenance_records_account_updated_at",
+            on: MaintenanceRecordRecord.databaseTableName,
+            columns: ["accountIdentifier", "updatedAt"]
         )
     }
 }

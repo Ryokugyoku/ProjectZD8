@@ -22,7 +22,7 @@ final class IOSAppShellUITests: XCTestCase {
 
     /// iOS下部ナビゲーションが要求されたすべての遷移先を公開することを検証します。
     ///
-    /// 責務: iOS AppShellが5件のタブ操作を表示することを確認します。
+    /// 責務: iOS AppShellが整備とGarageを含む6件のタブ操作を表示することを確認します。
     @MainActor
     func testTabBarShowsEveryRequestedDestination() {
         let application = XCUIApplication.authenticatedProjectZD8()
@@ -31,8 +31,28 @@ final class IOSAppShellUITests: XCTestCase {
         XCTAssertTrue(application.buttons["ios-tab-home"].waitForExistence(timeout: 5))
         XCTAssertTrue(application.buttons["ios-tab-liveLog"].exists)
         XCTAssertTrue(application.buttons["ios-tab-history"].exists)
+        XCTAssertTrue(application.buttons["ios-tab-maintenance"].exists)
         XCTAssertTrue(application.buttons["ios-tab-garage"].exists)
         XCTAssertTrue(application.buttons["ios-tab-settings"].exists)
+    }
+
+    /// 下部ナビゲーションの整備操作でiPhone専用整備画面へ切り替わることを検証します。
+    ///
+    /// 責務: 整備タブの選択がiPhone向け車両別整備画面を表示することを確認します。
+    @MainActor
+    func testMaintenanceTabShowsIOSMaintenanceScreen() {
+        let application = XCUIApplication.authenticatedProjectZD8()
+        application.launch()
+
+        let maintenanceButton = application.buttons["ios-tab-maintenance"]
+        XCTAssertTrue(maintenanceButton.waitForExistence(timeout: 5))
+        maintenanceButton.tap()
+
+        XCTAssertTrue(application.descendants(matching: .any)["ios-maintenance"].waitForExistence(timeout: 3))
+        let screenshot = XCTAttachment(screenshot: application.screenshot())
+        screenshot.name = "iPhone-Maintenance-Japanese"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
     }
 
     /// 下部ナビゲーションのGarage操作でiOS専用車両一覧へ切り替わることを検証します。

@@ -42,7 +42,7 @@ Platform ──▶ Application ──▶ Domain ◀── Data
 - Tests mirror the production path under `ProjectZD8Tests` or `ProjectZD8UITests`.
 
 Approved Features are `Authentication`, `Settings`, `DeviceConnection`,
-`VehicleManagement`, `LiveTelemetry`, `Logging`, `LogHistory`, and `Analysis`.
+`VehicleManagement`, `Maintenance`, `LiveTelemetry`, `Logging`, `LogHistory`, and `Analysis`.
 Their authoritative ownership definitions are in
 [`PLACEMENT_RULES.md` §1 and §6](PLACEMENT_RULES.md#projectzd8-product-scaffold).
 

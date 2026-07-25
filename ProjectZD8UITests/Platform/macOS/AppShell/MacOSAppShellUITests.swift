@@ -17,7 +17,7 @@ final class MacOSAppShellUITests: XCTestCase {
 
     /// macOSサイドバーが要求されたすべての遷移先を公開することを検証します。
     ///
-    /// 責務: macOS AppShellがGarageを含む5件のナビゲーション操作を表示することを確認します。
+    /// 責務: macOS AppShellが整備とGarageを含む6件のナビゲーション操作を表示することを確認します。
     @MainActor
     func testSidebarShowsEveryRequestedDestination() {
         let application = XCUIApplication.authenticatedProjectZD8()
@@ -28,6 +28,25 @@ final class MacOSAppShellUITests: XCTestCase {
         XCTAssertTrue(application.buttons["macos-sidebar-maintenance"].exists)
         XCTAssertTrue(application.buttons["macos-sidebar-garage"].exists)
         XCTAssertTrue(application.buttons["macos-sidebar-settings"].exists)
+    }
+
+    /// 整備のサイドバー操作が車両別整備画面へ遷移することを検証します。
+    ///
+    /// 責務: 整備選択がmacOS専用の一覧・専門編集画面を描画することを確認します。
+    @MainActor
+    func testMaintenanceSidebarShowsMaintenanceScreen() {
+        let application = XCUIApplication.authenticatedProjectZD8()
+        application.launch()
+
+        let maintenanceButton = application.buttons["macos-sidebar-maintenance"]
+        XCTAssertTrue(maintenanceButton.waitForExistence(timeout: 5))
+        maintenanceButton.click()
+
+        XCTAssertTrue(application.descendants(matching: .any)["macos-maintenance"].waitForExistence(timeout: 3))
+        let screenshot = XCTAttachment(screenshot: application.screenshot())
+        screenshot.name = "Mac-Maintenance-Japanese"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
     }
 
     /// Garageのサイドバー操作が複数車両カタログへ遷移することを検証します。

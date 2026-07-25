@@ -1,7 +1,7 @@
 import Foundation
 
 /// 登録車両をVINなどの外部識別値から独立して識別します。
-struct VehicleID: Hashable, Codable, Identifiable, Sendable {
+nonisolated struct VehicleID: Hashable, Codable, Identifiable, Sendable {
     /// アプリが生成した安定した車両識別値です。
     let rawValue: UUID
 

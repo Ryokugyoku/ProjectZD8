@@ -12,6 +12,9 @@ enum IOSAppShellDestination: String, CaseIterable, Identifiable {
     /// 接続セッション履歴画面を選択します。
     case history
 
+    /// 車両別の軽整備と重整備画面を選択します。
+    case maintenance
+
     /// 登録車両のGarage画面を選択します。
     case garage
 
@@ -30,6 +33,8 @@ enum IOSAppShellDestination: String, CaseIterable, Identifiable {
             "sidebar.live_log"
         case .history:
             "sidebar.connection_history"
+        case .maintenance:
+            "sidebar.maintenance"
         case .garage:
             "sidebar.garage"
         case .settings:
@@ -46,6 +51,8 @@ enum IOSAppShellDestination: String, CaseIterable, Identifiable {
             "ios.navigation.live_log"
         case .history:
             "ios.navigation.history"
+        case .maintenance:
+            "ios.navigation.maintenance"
         case .garage:
             "sidebar.garage"
         case .settings:
@@ -62,6 +69,8 @@ enum IOSAppShellDestination: String, CaseIterable, Identifiable {
             "sidebar.live_log.subtitle"
         case .history:
             "sidebar.connection_history.subtitle"
+        case .maintenance:
+            "sidebar.maintenance.subtitle"
         case .garage:
             "sidebar.garage.subtitle"
         case .settings:
@@ -78,6 +87,8 @@ enum IOSAppShellDestination: String, CaseIterable, Identifiable {
             "waveform.path.ecg"
         case .history:
             "clock.arrow.circlepath"
+        case .maintenance:
+            "wrench.and.screwdriver.fill"
         case .garage:
             "car.side.fill"
         case .settings:
