@@ -1,0 +1,116 @@
+name: TestFlight
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: testflight-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  upload:
+    name: Build and upload iPhone, iPad, and macOS apps
+    runs-on: macos-26
+    timeout-minutes: 90
+
+    env:
+      PROJECT_PATH: ProjectZD8.xcodeproj
+      SCHEME: ProjectZD8
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+
+      - name: Select Xcode 26.4
+        run: sudo xcode-select --switch /Applications/Xcode_26.4.app
+
+      - name: Validate App Store Connect credentials
+        env:
+          API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          API_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_API_PRIVATE_KEY }}
+        run: |
+          test -n "$API_KEY_ID"
+          test -n "$API_ISSUER_ID"
+          test -n "$API_PRIVATE_KEY"
+
+      - name: Install temporary App Store Connect key
+        env:
+          API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          API_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_API_PRIVATE_KEY }}
+        run: |
+          api_key_path="${RUNNER_TEMP}/private_keys/AuthKey_${API_KEY_ID}.p8"
+          mkdir -p "$(dirname "$api_key_path")"
+          printf '%s' "$API_PRIVATE_KEY" > "$api_key_path"
+          chmod 600 "$api_key_path"
+
+      - name: Archive iPhone and iPad app
+        env:
+          API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+        run: |
+          xcodebuild archive \
+            -project "$PROJECT_PATH" \
+            -scheme "$SCHEME" \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath "${RUNNER_TEMP}/ProjectZD8-iOS.xcarchive" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "${RUNNER_TEMP}/private_keys/AuthKey_${API_KEY_ID}.p8" \
+            -authenticationKeyID "$API_KEY_ID" \
+            -authenticationKeyIssuerID "$API_ISSUER_ID" \
+            CURRENT_PROJECT_VERSION="${GITHUB_RUN_NUMBER}"
+
+      - name: Upload iPhone and iPad app to TestFlight
+        env:
+          API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+        run: |
+          xcodebuild -exportArchive \
+            -archivePath "${RUNNER_TEMP}/ProjectZD8-iOS.xcarchive" \
+            -exportPath "${RUNNER_TEMP}/ProjectZD8-iOS-Export" \
+            -exportOptionsPlist .github/ExportOptions-TestFlight.plist \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "${RUNNER_TEMP}/private_keys/AuthKey_${API_KEY_ID}.p8" \
+            -authenticationKeyID "$API_KEY_ID" \
+            -authenticationKeyIssuerID "$API_ISSUER_ID"
+
+      - name: Archive macOS app
+        env:
+          API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+        run: |
+          xcodebuild archive \
+            -project "$PROJECT_PATH" \
+            -scheme "$SCHEME" \
+            -configuration Release \
+            -destination 'generic/platform=macOS' \
+            -archivePath "${RUNNER_TEMP}/ProjectZD8-macOS.xcarchive" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "${RUNNER_TEMP}/private_keys/AuthKey_${API_KEY_ID}.p8" \
+            -authenticationKeyID "$API_KEY_ID" \
+            -authenticationKeyIssuerID "$API_ISSUER_ID" \
+            CURRENT_PROJECT_VERSION="${GITHUB_RUN_NUMBER}"
+
+      - name: Upload macOS app to TestFlight
+        env:
+          API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+        run: |
+          xcodebuild -exportArchive \
+            -archivePath "${RUNNER_TEMP}/ProjectZD8-macOS.xcarchive" \
+            -exportPath "${RUNNER_TEMP}/ProjectZD8-macOS-Export" \
+            -exportOptionsPlist .github/ExportOptions-TestFlight.plist \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "${RUNNER_TEMP}/private_keys/AuthKey_${API_KEY_ID}.p8" \
+            -authenticationKeyID "$API_KEY_ID" \
+            -authenticationKeyIssuerID "$API_ISSUER_ID"
+
+      - name: Remove temporary private key
+        if: ${{ always() }}
+        env:
+          API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+        run: rm -f "${RUNNER_TEMP}/private_keys/AuthKey_${API_KEY_ID}.p8"
