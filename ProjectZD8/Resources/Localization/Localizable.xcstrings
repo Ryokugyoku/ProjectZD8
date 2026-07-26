@@ -9415,19 +9415,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "No connected Bluetooth Low Energy devices were found. Connect the adapter in Settings, then scan again."
+            "value" : "No nearby Bluetooth Low Energy adapters were found. Put the adapter in discovery mode, then scan again."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "No se encontraron dispositivos Bluetooth Low Energy conectados. Conecta el adaptador en Ajustes y vuelve a buscar."
+            "value" : "No se encontraron adaptadores Bluetooth Low Energy cercanos. Pon el adaptador en modo de detección y vuelve a buscar."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "接続済みのBluetooth Low Energy機器が見つかりませんでした。設定でアダプターを接続してから再探索してください。"
+            "value" : "周辺のBluetooth Low Energyアダプターが見つかりませんでした。アダプターを探索可能な状態にして再探索してください。"
           }
         }
       }
@@ -9481,19 +9481,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Looking for connected Bluetooth Low Energy devices…"
+            "value" : "Looking for nearby Bluetooth Low Energy adapters…"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Buscando dispositivos Bluetooth Low Energy conectados…"
+            "value" : "Buscando adaptadores Bluetooth Low Energy cercanos…"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "接続済みのBluetooth Low Energy機器を確認中…"
+            "value" : "周辺のBluetooth Low Energyアダプターを探索中…"
           }
         }
       }

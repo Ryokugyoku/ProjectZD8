@@ -1,6 +1,6 @@
 import Foundation
 
-/// 選択された接続方式で利用可能な接続済みアダプター候補を読み込むユースケースです。
+/// 選択された接続方式で利用可能なアダプター候補を読み込むユースケースです。
 @MainActor
 struct DiscoverAdaptersUseCase {
     /// システム固有の探索処理を隠蔽するポートです。
@@ -16,17 +16,14 @@ struct DiscoverAdaptersUseCase {
 
     /// 指定された接続方式で現在選択できる候補を取得します。
     ///
-    /// 責務: 1件の接続方式指定を重複のない接続済み候補一覧へ変換します。
+    /// 責務: 1件の接続方式指定を重複のない選択前候補一覧へ変換します。
     /// - Parameter mode: 探索対象の物理接続方式。
-    /// - Returns: Bluetoothでは接続済みに限定し、表示名順に整列した重複のないアダプター候補。
+    /// - Returns: 表示名順に整列した重複のないアダプター候補。
     /// - Throws: システムのデバイス情報へアクセスできない場合の探索エラー。
     func execute(for mode: AdapterTransportMode) async throws -> [DiscoveredAdapter] {
         let adapters = try await discoveryPort.discoverAdapters(for: mode)
-        let selectableAdapters = mode == .bluetooth
-            ? adapters.filter(\.isConnected)
-            : adapters
         let uniqueAdapters = Dictionary(
-            selectableAdapters.map { ($0.id, $0) },
+            adapters.map { ($0.id, $0) },
             uniquingKeysWith: { first, _ in first }
         )
         return uniqueAdapters.values.sorted {

@@ -48,6 +48,7 @@ final class IOSCoreBluetoothAdapterDiscovery: NSObject, AdapterDiscoveryPort, CB
     /// 責務: 1回のキャンセル可能なBLE探索を開始し、終了条件に達した候補一覧を返します。
     /// - Returns: Peripheral UUIDごとに重複を除いたBLE候補。
     /// - Throws: Bluetooth利用不可またはタスクキャンセルの場合のエラー。
+    /// - Side Effects: Bluetoothがオフの場合はシステムの電源確認アラートを表示できます。
     private func scan() async throws -> [DiscoveredAdapter] {
         try Task.checkCancellation()
 
@@ -59,7 +60,7 @@ final class IOSCoreBluetoothAdapterDiscovery: NSObject, AdapterDiscoveryPort, CB
                 centralManager = CBCentralManager(
                     delegate: self,
                     queue: .main,
-                    options: [CBCentralManagerOptionShowPowerAlertKey: false]
+                    options: [CBCentralManagerOptionShowPowerAlertKey: true]
                 )
                 stateTimeoutTask = Task { [weak self] in
                     try? await Task.sleep(for: .seconds(2))
@@ -135,7 +136,7 @@ final class IOSCoreBluetoothAdapterDiscovery: NSObject, AdapterDiscoveryPort, CB
 
     /// 中央マネージャーで期限付きBLEスキャンを開始します。
     ///
-    /// 責務: Bluetooth利用可能状態から1回の3秒間スキャンへ遷移します。
+    /// 責務: Bluetooth利用可能状態からSwiftOBD2と同じ1回の10秒間スキャンへ遷移します。
     /// - Parameter central: Bluetooth利用可能状態の中央マネージャー。
     private func startScanning(with central: CBCentralManager) {
         guard !central.isScanning else { return }
@@ -146,7 +147,7 @@ final class IOSCoreBluetoothAdapterDiscovery: NSObject, AdapterDiscoveryPort, CB
             options: [CBCentralManagerScanOptionAllowDuplicatesKey: false]
         )
         scanTimeoutTask = Task { [weak self] in
-            try? await Task.sleep(for: .seconds(3))
+            try? await Task.sleep(for: .seconds(10))
             guard !Task.isCancelled, let self else { return }
             finishDiscovery(with: .success(Array(discoveredAdapters.values)))
         }

@@ -82,6 +82,13 @@ The current trial build may scan all BLE advertisements so the selected physical
 unit can settle the transport question. This is diagnostic evidence, not a claim
 that the retail MX+ supports BLE.
 
+The iPhone trial follows the Bluetooth setup and connect-after-selection flow in
+[`kkonteh97/SwiftOBD2`](https://github.com/kkonteh97/SwiftOBD2/tree/fe6def4e8599671dfc1b9597dbcdbc6a7c078b96):
+`NSBluetoothAlwaysUsageDescription`, the `bluetooth-central` background mode, a
+10-second CoreBluetooth scan, and explicit `FFE0`, `FFF0`, and `18F0` UART
+profiles. ProjectZD8 keeps its typed Application/Data boundaries and does not
+adopt SwiftOBD2's arbitrary-characteristic fallback.
+
 1. In ProjectZD8 Settings, refresh the primary adapter list and select only the
    candidate whose displayed name and physical device state you can correlate.
 2. Open its detail sheet and record the Peripheral UUID and advertised Service

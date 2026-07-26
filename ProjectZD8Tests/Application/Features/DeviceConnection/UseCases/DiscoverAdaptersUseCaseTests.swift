@@ -47,10 +47,10 @@ final class DiscoverAdaptersUseCaseTests: XCTestCase {
         XCTAssertEqual(port.requestedModes, [.bluetooth])
     }
 
-    /// Bluetooth探索結果から未接続候補を除外することを検証します。
+    /// Bluetooth探索結果の未接続候補を選択前の候補として保持することを検証します。
     ///
-    /// 責務: Bluetooth選択一覧が接続済みと確認できた候補だけを返すことを確認します。
-    func testExecuteExcludesDisconnectedBluetoothCandidates() async throws {
+    /// 責務: SwiftOBD2方式で検出した未接続Peripheralが選択一覧から失われないことを確認します。
+    func testExecuteIncludesDiscoveredBluetoothCandidatesBeforeConnection() async throws {
         let connected = DiscoveredAdapter(
             id: "connected",
             transportMode: .bluetooth,
@@ -70,7 +70,7 @@ final class DiscoverAdaptersUseCaseTests: XCTestCase {
 
         let result = try await useCase.execute(for: .bluetooth)
 
-        XCTAssertEqual(result, [connected])
+        XCTAssertEqual(result, [connected, disconnected])
         XCTAssertEqual(port.requestedModes, [.bluetooth])
     }
 

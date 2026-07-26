@@ -57,6 +57,7 @@ final class IOSCoreBluetoothOBDTransport: NSObject, OBDCommandTransport, CBCentr
     ///
     /// 責務: 1件の選択済みBLE PeripheralをNotify／Write可能な既知UARTセッションへ遷移させます。
     /// - Throws: Bluetooth利用不可、Peripheral不在、接続失敗、未知UUID構成、または期限切れの場合の識別エラー。
+    /// - Side Effects: Bluetoothがオフの場合はシステムの電源確認アラートを表示できます。
     func open() async throws {
         if peripheral?.state == .connected,
            writeCharacteristic != nil,
@@ -74,7 +75,7 @@ final class IOSCoreBluetoothOBDTransport: NSObject, OBDCommandTransport, CBCentr
                 centralManager = CBCentralManager(
                     delegate: self,
                     queue: .main,
-                    options: [CBCentralManagerOptionShowPowerAlertKey: false]
+                    options: [CBCentralManagerOptionShowPowerAlertKey: true]
                 )
                 openTimeoutTask = Task { [weak self] in
                     try? await Task.sleep(for: .seconds(12))

@@ -4,5 +4,9 @@
 <dict>
 	<key>NSBluetoothAlwaysUsageDescription</key>
 	<string>プライマリーアダプター候補を検出するためにBluetoothを使用します。</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>bluetooth-central</string>
+	</array>
 </dict>
 </plist>
