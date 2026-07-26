@@ -79,8 +79,10 @@ cause for the first observed failure.
 ### Experimental BLE inspection
 
 The current trial build may scan all BLE advertisements so the selected physical
-unit can settle the transport question. This is diagnostic evidence, not a claim
-that the retail MX+ supports BLE.
+unit can settle the transport question. User-facing results are filtered after
+scanning so only known OBD names (`OBDLink`, `VEEPEAK`, `Vgate`, `IOS-Vlink`) or
+the explicitly supported UART Service UUIDs are shown. This is diagnostic
+evidence, not a claim that the retail MX+ supports BLE.
 
 The iPhone trial follows the Bluetooth setup and connect-after-selection flow in
 [`kkonteh97/SwiftOBD2`](https://github.com/kkonteh97/SwiftOBD2/tree/fe6def4e8599671dfc1b9597dbcdbc6a7c078b96):
@@ -112,25 +114,33 @@ adopt SwiftOBD2's arbitrary-characteristic fallback.
    the result as an observed trial failure. Do not add a guessed UUID or infer
    BLE support from iPhone Settings pairing alone.
 
-### ExternalAccessory stop condition
+### Experimental ExternalAccessory trial
 
-1. Do not add a guessed External Accessory protocol to ProjectZD8. Before the
-   dormant iPhone transport can be activated, obtain from OBD Solutions:
+The project owner explicitly authorized a device-list trial using `com.obdlink`
+on 2026-07-26. This value is configured in `ProjectZD8/Info.plist` for that
+trial, but it has not been verified against manufacturer documentation. Its
+presence is not evidence of third-party authorization or a working stream
+contract.
+
+1. Before this experimental value can be treated as production-ready, obtain
+   from OBD Solutions:
    - the exact reverse-DNS External Accessory protocol string;
    - confirmation that this app and development team may communicate with MX+;
    - the supported stream framing or SDK contract;
    - connection, authentication, and reconnection requirements.
 2. The iOS-only `ExternalAccessory` discovery, `EASession` byte stream, and
-   Composition injection are present but intentionally dormant. Add the exact
-   manufacturer-provided value to `UISupportedExternalAccessoryProtocols` in
-   `ProjectZD8/Info.plist`; do not substitute a product name, bundle identifier,
-   BLE service UUID, or inferred reverse-DNS string.
+   Composition injection read the experimental `com.obdlink` value from
+   `UISupportedExternalAccessoryProtocols`. Do not add a product name, bundle
+   identifier, BLE service UUID, or another inferred reverse-DNS string.
 3. Rebuild and install on the approved iPhone. In Settings, refresh the
    Bluetooth adapter list. ProjectZD8 may show only accessories that iOS exposes
    to this app, whose `protocolStrings` intersect the Info.plist allowlist, and
    which are currently connected. System pairing alone does not satisfy these
    conditions.
-4. Add and run an opt-in iPhone adapter-only hardware test before approving VIN
+4. For this trial, stop after confirming whether the exact accessory name is
+   present in the ProjectZD8 list. Do not press HOME Connect as part of the
+   device-list trial.
+5. Add and run an opt-in iPhone adapter-only hardware test before approving VIN
    or PID acquisition. The first adapter test must stop after a documented `ATI`
    response; real-vehicle commands still require separate explicit approval.
 

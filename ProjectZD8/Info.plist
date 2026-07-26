@@ -8,5 +8,9 @@
 	<array>
 		<string>bluetooth-central</string>
 	</array>
+	<key>UISupportedExternalAccessoryProtocols</key>
+	<array>
+		<string>com.obdlink</string>
+	</array>
 </dict>
 </plist>

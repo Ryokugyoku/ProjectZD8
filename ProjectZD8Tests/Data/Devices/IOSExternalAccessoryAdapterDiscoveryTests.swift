@@ -5,18 +5,37 @@ import XCTest
 /// iOS ExternalAccessoryの構成、候補判定、識別値保護を検証します。
 @MainActor
 final class IOSExternalAccessoryAdapterDiscoveryTests: XCTestCase {
+    /// 製品用Info.plistが実機試験対象のOBDLinkプロトコルだけを許可することを検証します。
+    ///
+    /// 責務: iOS製品構成のExternalAccessory許可値を実験対象の `com.obdlink` へ固定します。
+    func testProductInfoPlistAllowsExperimentalOBDLinkProtocol() throws {
+        let infoPlistURL = try repositoryRootURL()
+            .appending(path: "ProjectZD8/Info.plist")
+        let data = try Data(contentsOf: infoPlistURL)
+        let propertyList = try PropertyListSerialization.propertyList(
+            from: data,
+            format: nil
+        )
+        let dictionary = try XCTUnwrap(propertyList as? [String: Any])
+
+        XCTAssertEqual(
+            dictionary[IOSExternalAccessoryProtocolConfiguration.infoPlistKey] as? [String],
+            ["com.obdlink"]
+        )
+    }
+
     /// プロトコル構成が空白と重複を除くことを検証します。
     ///
     /// 責務: Info.plist相当の入力が比較可能な許可集合へ正規化されることを確認します。
     func testProtocolConfigurationNormalizesValues() {
         let configuration = IOSExternalAccessoryProtocolConfiguration(
-            protocolStrings: [" com.example.obd ", "com.example.obd", "   "]
+            protocolStrings: [" com.obdlink ", "com.obdlink", "   "]
         )
 
-        XCTAssertEqual(configuration.protocolStrings, ["com.example.obd"])
+        XCTAssertEqual(configuration.protocolStrings, ["com.obdlink"])
         XCTAssertEqual(
-            configuration.matchingProtocol(in: ["unrelated", "com.example.obd"]),
-            "com.example.obd"
+            configuration.matchingProtocol(in: ["unrelated", "com.obdlink"]),
+            "com.obdlink"
         )
     }
 
@@ -27,7 +46,7 @@ final class IOSExternalAccessoryAdapterDiscoveryTests: XCTestCase {
         let snapshot = makeSnapshot()
         let discovery = IOSExternalAccessoryAdapterDiscovery(
             configuration: IOSExternalAccessoryProtocolConfiguration(
-                protocolStrings: ["com.example.obd"]
+                protocolStrings: ["com.obdlink"]
             ),
             loadSnapshots: { [snapshot] }
         )
@@ -76,7 +95,7 @@ final class IOSExternalAccessoryAdapterDiscoveryTests: XCTestCase {
         )
         let discovery = IOSExternalAccessoryAdapterDiscovery(
             configuration: IOSExternalAccessoryProtocolConfiguration(
-                protocolStrings: ["com.example.obd"]
+                protocolStrings: ["com.obdlink"]
             ),
             loadSnapshots: { [disconnected, mismatched] }
         )
@@ -98,9 +117,28 @@ final class IOSExternalAccessoryAdapterDiscoveryTests: XCTestCase {
             manufacturer: "OBD Solutions",
             modelNumber: "MX+",
             serialNumber: "MXPLUS-SERIAL",
-            protocolStrings: ["com.example.obd"],
+            protocolStrings: ["com.obdlink"],
             isConnected: isConnected
         )
     }
+
+    /// 現在のテストファイル位置からリポジトリルートURLを解決します。
+    ///
+    /// 責務: 製品Info.plist検証が参照するProjectZD8リポジトリルートを一意に返します。
+    /// - Returns: `ProjectZD8Tests` の親ディレクトリURL。
+    /// - Throws: テストファイルパスから `ProjectZD8Tests` を特定できない場合のエラー。
+    private func repositoryRootURL() throws -> URL {
+        let components = URL(filePath: #filePath).pathComponents
+        guard let testsIndex = components.firstIndex(of: "ProjectZD8Tests") else {
+            throw IOSExternalAccessoryAdapterDiscoveryTestError.repositoryRootNotFound
+        }
+        return URL(filePath: NSString.path(withComponents: Array(components[..<testsIndex])))
+    }
+}
+
+/// iOS ExternalAccessory構成テストのパス解決エラーです。
+private enum IOSExternalAccessoryAdapterDiscoveryTestError: Error {
+    /// テストファイル位置からリポジトリルートを特定できませんでした。
+    case repositoryRootNotFound
 }
 #endif

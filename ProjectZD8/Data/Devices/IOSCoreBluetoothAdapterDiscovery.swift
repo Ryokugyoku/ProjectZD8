@@ -8,6 +8,9 @@ final class IOSCoreBluetoothAdapterDiscovery: NSObject, AdapterDiscoveryPort, CB
     /// CoreBluetooth検出値をDomain候補へ変換します。
     private let mapper = IOSBluetoothAdvertisementMapper()
 
+    /// BLE候補を既知OBDアダプターへ限定する判定規則です。
+    private let candidatePolicy = IOSOBDBluetoothCandidatePolicy()
+
     /// 現在の探索を担当する中央マネージャーです。
     private var centralManager: CBCentralManager?
 
@@ -98,9 +101,9 @@ final class IOSCoreBluetoothAdapterDiscovery: NSObject, AdapterDiscoveryPort, CB
         }
     }
 
-    /// Bluetooth Low Energy周辺機器の検出情報をUUID単位で記録します。
+    /// Bluetooth Low Energy周辺機器から既知OBD候補だけをUUID単位で記録します。
     ///
-    /// 責務: 1件のCoreBluetooth検出通知を名称優先順位と広告情報を保持する候補へ変換します。
+    /// 責務: 1件のCoreBluetooth検出通知を既知OBD信号で選別して広告情報を保持する候補へ変換します。
     /// - Parameters:
     ///   - central: 検出通知を生成した中央マネージャー。
     ///   - peripheral: 検出されたBluetooth Low Energy周辺機器。
@@ -120,6 +123,7 @@ final class IOSCoreBluetoothAdapterDiscovery: NSObject, AdapterDiscoveryPort, CB
             hasManufacturerData: advertisementData[CBAdvertisementDataManufacturerDataKey] != nil,
             serviceIdentifiers: advertisedServiceIdentifiers(from: advertisementData)
         )
+        guard candidatePolicy.accepts(adapter) else { return }
         discoveredAdapters[peripheral.identifier] = adapter
     }
 
