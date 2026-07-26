@@ -116,9 +116,21 @@ final class IOSCoreBluetoothAdapterDiscovery: NSObject, AdapterDiscoveryPort, CB
             advertisementLocalName: advertisementData[CBAdvertisementDataLocalNameKey] as? String,
             peripheralName: peripheral.name,
             connectionState: connectionState(for: peripheral.state),
-            hasManufacturerData: advertisementData[CBAdvertisementDataManufacturerDataKey] != nil
+            hasManufacturerData: advertisementData[CBAdvertisementDataManufacturerDataKey] != nil,
+            serviceIdentifiers: advertisedServiceIdentifiers(from: advertisementData)
         )
         discoveredAdapters[peripheral.identifier] = adapter
+    }
+
+    /// BLE広告から通常およびOverflow Service UUIDを取得します。
+    ///
+    /// 責務: 1件のCoreBluetooth広告辞書を表示可能なService UUID文字列一覧へ変換します。
+    /// - Parameter advertisementData: CoreBluetoothが公開した広告辞書。
+    /// - Returns: 広告に含まれる通常およびOverflow Service UUID一覧。
+    private func advertisedServiceIdentifiers(from advertisementData: [String: Any]) -> [String] {
+        let advertised = advertisementData[CBAdvertisementDataServiceUUIDsKey] as? [CBUUID] ?? []
+        let overflow = advertisementData[CBAdvertisementDataOverflowServiceUUIDsKey] as? [CBUUID] ?? []
+        return (advertised + overflow).map(\.uuidString)
     }
 
     /// 中央マネージャーで期限付きBLEスキャンを開始します。

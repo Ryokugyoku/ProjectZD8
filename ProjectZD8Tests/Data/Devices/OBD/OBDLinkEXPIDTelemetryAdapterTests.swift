@@ -54,6 +54,30 @@ final class OBDLinkEXPIDTelemetryAdapterTests: XCTestCase {
         XCTAssertTrue(didOpen)
     }
 
+    /// 既知UARTを提供するBLE終端から許可済み主要PIDを読み取ります。
+    ///
+    /// 責務: BLE UART終端が主要PID取得の共通ELM/STNチャネルへ進むことを確認します。
+    func testReadsAllowlistedPIDThroughBluetoothLowEnergyByteStream() async throws {
+        let transport = PIDTransportFake(responses: [
+            "ELM327 v1.4b\r>", "OK\r>", "OK\r>", "OK\r>", "OK\r>", "OK\r>",
+            "OK\r>", "41 0C 1F 40\r>"
+        ])
+        let adapter = OBDLinkEXPIDTelemetryAdapter(makeTransport: { _ in transport })
+        let request = OBDPIDRequest(service: 0x01, pid: 0x0C)
+        let endpoint = OBDConnectionEndpoint(
+            transport: .bluetoothLowEnergy,
+            systemIdentifier: "AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE",
+            displayName: "OBDLink BLE candidate"
+        )
+
+        let values = try await adapter.read([request], using: endpoint)
+        await adapter.endSession()
+
+        XCTAssertEqual(values[request], [0x1F, 0x40])
+        let didOpen = await transport.didOpen
+        XCTAssertTrue(didOpen)
+    }
+
     /// ZD8専用PIDを定義済み物理ヘッダーへ送信します。
     ///
     /// 責務: 車種専用定義が7E0と7E1へ個別送信され、正応答だけを保持することを確認します。

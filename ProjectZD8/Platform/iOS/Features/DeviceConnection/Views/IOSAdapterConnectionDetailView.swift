@@ -35,6 +35,11 @@ struct IOSAdapterConnectionDetailView: View {
                             "ios.settings.adapter.details.manufacturer_data",
                             value: manufacturerDataValue
                         )
+                        detailRow(
+                            "ios.settings.adapter.details.service_uuids",
+                            value: serviceIdentifiersValue,
+                            monospaced: true
+                        )
                     }
                     .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
                     .overlay {
@@ -95,6 +100,12 @@ struct IOSAdapterConnectionDetailView: View {
         return String(localized: hasManufacturerData
             ? "ios.settings.adapter.details.available"
             : "ios.settings.adapter.details.not_available")
+    }
+
+    /// BLE広告から取得したService UUIDを省略せず表示する値です。
+    private var serviceIdentifiersValue: String {
+        guard !adapter.bluetoothServiceIdentifiers.isEmpty else { return unavailableValue }
+        return adapter.bluetoothServiceIdentifiers.joined(separator: "\n")
     }
 
     /// 1件の接続情報を省略しない値の行として生成します。

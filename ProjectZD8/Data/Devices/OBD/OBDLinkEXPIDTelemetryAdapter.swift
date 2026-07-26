@@ -3,7 +3,7 @@ import Foundation
 /// OBDLink EXまたはMX+でPID定義DB由来のService 01要求を読み取ります。
 actor OBDLinkEXPIDTelemetryAdapter: OBDPIDTelemetryPort {
     /// ELM/STNバイトストリームTransportを生成するFactoryです。
-    private let makeTransport: @Sendable (OBDConnectionEndpoint) throws -> any OBDCommandTransport
+    private let makeTransport: @MainActor @Sendable (OBDConnectionEndpoint) throws -> any OBDCommandTransport
     /// 現在開いているELM/STNバイトストリームTransportです。
     private var activeTransport: (any OBDCommandTransport)?
     /// 現在の単一inflightコマンドチャネルです。
@@ -19,7 +19,7 @@ actor OBDLinkEXPIDTelemetryAdapter: OBDPIDTelemetryPort {
     ///
     /// 責務: 主要PID読取を物理Transport生成境界へ結び付けます。
     /// - Parameter makeTransport: 接続終端に対応するTransport生成処理。
-    init(makeTransport: @escaping @Sendable (OBDConnectionEndpoint) throws -> any OBDCommandTransport) {
+    init(makeTransport: @escaping @MainActor @Sendable (OBDConnectionEndpoint) throws -> any OBDCommandTransport) {
         self.makeTransport = makeTransport
     }
 
@@ -195,7 +195,7 @@ actor OBDLinkEXPIDTelemetryAdapter: OBDPIDTelemetryPort {
     private func channel(for endpoint: OBDConnectionEndpoint) async throws -> SerializedELMCommandChannel {
         if activeEndpoint == endpoint, let activeChannel { return activeChannel }
         await closeActiveSession()
-        let transport = try makeTransport(endpoint)
+        let transport = try await makeTransport(endpoint)
         try await transport.open()
         let channel = SerializedELMCommandChannel(transport: transport)
         do {

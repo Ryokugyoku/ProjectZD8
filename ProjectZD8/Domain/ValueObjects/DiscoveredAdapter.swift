@@ -26,6 +26,9 @@ struct DiscoveredAdapter: Equatable, Identifiable, Sendable {
     /// BluetoothアドバタイズメントにManufacturer Dataが含まれていたかどうかです。
     let hasManufacturerData: Bool?
 
+    /// Bluetoothアドバタイズメントから取得できたService UUID一覧です。
+    let bluetoothServiceIdentifiers: [String]
+
     /// システムが候補へ割り当てた識別子です。
     let systemIdentifier: String
 
@@ -56,6 +59,7 @@ struct DiscoveredAdapter: Equatable, Identifiable, Sendable {
     ///   - productName: システムから取得できた製品名称。
     ///   - advertisementLocalName: Bluetoothアドバタイズメントから取得できたローカル名称。
     ///   - hasManufacturerData: BluetoothアドバタイズメントにManufacturer Dataが含まれていたかどうか。
+    ///   - bluetoothServiceIdentifiers: Bluetooth広告から取得できたService UUID一覧。
     ///   - systemIdentifier: システムが候補へ割り当てた識別子。
     ///   - serialNumber: システムから取得できたシリアル番号。
     ///   - vendorIdentifier: システムから取得できたベンダー識別値。
@@ -71,6 +75,7 @@ struct DiscoveredAdapter: Equatable, Identifiable, Sendable {
         productName: String? = nil,
         advertisementLocalName: String? = nil,
         hasManufacturerData: Bool? = nil,
+        bluetoothServiceIdentifiers: [String] = [],
         systemIdentifier: String,
         serialNumber: String? = nil,
         vendorIdentifier: String? = nil,
@@ -87,6 +92,7 @@ struct DiscoveredAdapter: Equatable, Identifiable, Sendable {
         self.productName = productName
         self.advertisementLocalName = advertisementLocalName
         self.hasManufacturerData = hasManufacturerData
+        self.bluetoothServiceIdentifiers = bluetoothServiceIdentifiers
         self.systemIdentifier = systemIdentifier
         self.serialNumber = serialNumber
         self.vendorIdentifier = vendorIdentifier

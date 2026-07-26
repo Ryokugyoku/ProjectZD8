@@ -14,10 +14,8 @@ nonisolated struct OBDConnectionEndpoint: Equatable, Sendable {
         /// ELM/STNの連続バイトストリームを提供できる終端かどうかです。
         var supportsELMByteStream: Bool {
             switch self {
-            case .bluetoothClassic, .serial:
+            case .bluetoothLowEnergy, .bluetoothClassic, .serial:
                 true
-            case .bluetoothLowEnergy:
-                false
             }
         }
     }

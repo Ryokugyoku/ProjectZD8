@@ -9344,6 +9344,28 @@
         }
       }
     },
+    "ios.settings.adapter.details.service_uuids" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Advertised Service UUIDs"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "UUID de servicio anunciados"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "広告Service UUID"
+          }
+        }
+      }
+    },
     "ios.settings.adapter.details.secondary_confirm_hint" : {
       "localizations" : {
         "en" : {

@@ -12,13 +12,15 @@ struct IOSBluetoothAdvertisementMapper {
     ///   - peripheralName: `CBPeripheral` から取得した名称。
     ///   - connectionState: 検出時点の周辺機器接続状態。
     ///   - hasManufacturerData: アドバタイズメントにManufacturer Dataが含まれていたかどうか。
+    ///   - serviceIdentifiers: アドバタイズメントから取得したService UUID一覧。
     /// - Returns: Manufacturer Dataのバイト列を名称へ変換しないBluetooth候補。
     func makeAdapter(
         peripheralIdentifier: UUID,
         advertisementLocalName: String?,
         peripheralName: String?,
         connectionState: DiscoveredAdapterConnectionState,
-        hasManufacturerData: Bool
+        hasManufacturerData: Bool,
+        serviceIdentifiers: [String] = []
     ) -> DiscoveredAdapter {
         let identifier = peripheralIdentifier.uuidString
         let localName = normalized(advertisementLocalName)
@@ -32,6 +34,10 @@ struct IOSBluetoothAdvertisementMapper {
             productName: systemName,
             advertisementLocalName: localName,
             hasManufacturerData: hasManufacturerData,
+            bluetoothServiceIdentifiers: serviceIdentifiers
+                .map { $0.uppercased() }
+                .uniqued()
+                .sorted(),
             systemIdentifier: identifier,
             isConnected: connectionState == .connected,
             connectionState: connectionState
@@ -49,6 +55,18 @@ struct IOSBluetoothAdvertisementMapper {
             return nil
         }
         return normalized
+    }
+}
+
+/// Hashable値の入力順を保った重複除外を提供します。
+private extension Sequence where Element: Hashable {
+    /// 入力順で初出した要素だけを返します。
+    ///
+    /// 責務: 1件のSequenceを入力順を維持した重複なし配列へ縮約します。
+    /// - Returns: 初出順の重複なし要素配列。
+    func uniqued() -> [Element] {
+        var seen: Set<Element> = []
+        return filter { seen.insert($0).inserted }
     }
 }
 #endif

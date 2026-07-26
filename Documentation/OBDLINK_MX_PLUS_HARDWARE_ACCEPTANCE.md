@@ -75,17 +75,57 @@ cause for the first observed failure.
 2. The official OBDLink app may be used separately to confirm the adapter and
    iPhone can pair. Close it before ProjectZD8 testing. Its success is not
    ProjectZD8 evidence.
-3. Do not add a guessed External Accessory protocol to ProjectZD8. Before the
-   iPhone transport can be implemented and built, obtain from OBD Solutions:
+
+### Experimental BLE inspection
+
+The current trial build may scan all BLE advertisements so the selected physical
+unit can settle the transport question. This is diagnostic evidence, not a claim
+that the retail MX+ supports BLE.
+
+1. In ProjectZD8 Settings, refresh the primary adapter list and select only the
+   candidate whose displayed name and physical device state you can correlate.
+2. Open its detail sheet and record the Peripheral UUID and advertised Service
+   UUIDs locally. Do not publish the Peripheral UUID.
+3. The trial transport connects only when discovered characteristics match one
+   of these explicit UART profiles; it does not guess arbitrary writable
+   characteristics:
+   - experimental supplied profile: Service
+     `B3491406-44E4-4D83-97C5-CE3190130000`, combined Notify/Write
+     `B3491406-44E4-4D83-97C5-CE3190130001`;
+   - FFF0 profile: Notify `FFF1`, Write `FFF2`;
+   - FFE0 profile: combined Notify/Write `FFE1`;
+   - 18F0 profile: Notify `2AF0`, Write `2AF1`.
+4. Xcode device logs record discovered Service/Characteristic UUIDs and the
+   selected profile under `IOSCoreBluetoothOBDTransport`. They do not record a
+   Bluetooth address, VIN, or command response payload.
+5. Stop after candidate inspection unless vehicle identification has been
+   explicitly approved. Pressing HOME Connect can send adapter initialization,
+   `ATI`, `0902`, and `ATDP`; it is not an adapter-only probe.
+6. If the unit is absent from the BLE list or no explicit profile matches, keep
+   the result as an observed trial failure. Do not add a guessed UUID or infer
+   BLE support from iPhone Settings pairing alone.
+
+### ExternalAccessory stop condition
+
+1. Do not add a guessed External Accessory protocol to ProjectZD8. Before the
+   dormant iPhone transport can be activated, obtain from OBD Solutions:
    - the exact reverse-DNS External Accessory protocol string;
    - confirmation that this app and development team may communicate with MX+;
    - the supported stream framing or SDK contract;
    - connection, authentication, and reconnection requirements.
-4. After those values are supplied, the required implementation is an iOS-only
-   `ExternalAccessory` discovery and `EASession` transport, the exact
-   `UISupportedExternalAccessoryProtocols` entry, Composition injection, and an
-   opt-in iPhone hardware test. Until then, iPhone ProjectZD8 communication must
-   remain explicitly unavailable.
+2. The iOS-only `ExternalAccessory` discovery, `EASession` byte stream, and
+   Composition injection are present but intentionally dormant. Add the exact
+   manufacturer-provided value to `UISupportedExternalAccessoryProtocols` in
+   `ProjectZD8/Info.plist`; do not substitute a product name, bundle identifier,
+   BLE service UUID, or inferred reverse-DNS string.
+3. Rebuild and install on the approved iPhone. In Settings, refresh the
+   Bluetooth adapter list. ProjectZD8 may show only accessories that iOS exposes
+   to this app, whose `protocolStrings` intersect the Info.plist allowlist, and
+   which are currently connected. System pairing alone does not satisfy these
+   conditions.
+4. Add and run an opt-in iPhone adapter-only hardware test before approving VIN
+   or PID acquisition. The first adapter test must stop after a documented `ATI`
+   response; real-vehicle commands still require separate explicit approval.
 
 Suggested manufacturer request:
 
@@ -104,9 +144,10 @@ Record each result independently:
 - macOS OS pairing;
 - macOS adapter-only RFCOMM/ATI test;
 - iPhone OS pairing;
+- iPhone BLE advertisement and discovered Service/Characteristic UUIDs;
+- matched experimental BLE UART profile, if any;
 - iPhone manufacturer protocol authorization;
 - ProjectZD8 VIN observation;
 - ProjectZD8 PID observation;
 - UI and accessibility human review;
 - long-session and reconnection behavior.
-

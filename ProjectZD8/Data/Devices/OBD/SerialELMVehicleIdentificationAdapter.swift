@@ -3,7 +3,7 @@ import Foundation
 /// 選択済みELM/STN互換バイトストリームへ型付きコマンドだけを送り車両識別子を取得します。
 struct SerialELMVehicleIdentificationAdapter: VehicleIdentificationPort {
     /// ELM/STNバイトストリームTransportを生成するFactoryです。
-    private let makeTransport: @Sendable (OBDConnectionEndpoint) throws -> any OBDCommandTransport
+    private let makeTransport: @MainActor @Sendable (OBDConnectionEndpoint) throws -> any OBDCommandTransport
     /// 観測日時を提供する注入済みクロックです。
     private let now: @Sendable () -> Date
 
@@ -14,7 +14,7 @@ struct SerialELMVehicleIdentificationAdapter: VehicleIdentificationPort {
     ///   - makeTransport: 接続終端に対応するTransport生成処理。
     ///   - now: 観測完了日時の供給元。
     init(
-        makeTransport: @escaping @Sendable (OBDConnectionEndpoint) throws -> any OBDCommandTransport,
+        makeTransport: @escaping @MainActor @Sendable (OBDConnectionEndpoint) throws -> any OBDCommandTransport,
         now: @escaping @Sendable () -> Date = Date.init
     ) {
         self.makeTransport = makeTransport

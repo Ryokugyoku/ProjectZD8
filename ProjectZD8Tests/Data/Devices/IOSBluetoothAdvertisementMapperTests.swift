@@ -42,5 +42,24 @@ final class IOSBluetoothAdvertisementMapperTests: XCTestCase {
         XCTAssertEqual(adapter.systemIdentifier, identifier.uuidString)
         XCTAssertNil(adapter.advertisementLocalName)
     }
+
+    /// 広告Service UUIDが正規化、重複除外、整列されることを検証します。
+    ///
+    /// 責務: CoreBluetooth広告のService UUID一覧が実機確認用の安定表示値になることを確認します。
+    func testServiceIdentifiersAreNormalizedForInspection() {
+        let adapter = IOSBluetoothAdvertisementMapper().makeAdapter(
+            peripheralIdentifier: UUID(uuidString: "AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE")!,
+            advertisementLocalName: "OBDLink",
+            peripheralName: nil,
+            connectionState: .disconnected,
+            hasManufacturerData: false,
+            serviceIdentifiers: ["fff0", "B3491406-44e4-4d83-97c5-ce3190130000", "FFF0"]
+        )
+
+        XCTAssertEqual(
+            adapter.bluetoothServiceIdentifiers,
+            ["B3491406-44E4-4D83-97C5-CE3190130000", "FFF0"]
+        )
+    }
 }
 #endif

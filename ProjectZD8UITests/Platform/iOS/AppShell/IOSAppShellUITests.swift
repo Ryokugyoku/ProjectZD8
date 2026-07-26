@@ -272,7 +272,9 @@ final class IOSAppShellUITests: XCTestCase {
         XCTAssertTrue(settingsButton.waitForExistence(timeout: 5))
         settingsButton.tap()
 
-        let primaryAdapter = application.buttons["ios-settings-adapter-primary"]
+        let primaryAdapter = application.buttons.matching(
+            identifier: "ios-settings-adapter-card"
+        ).element(boundBy: 0)
         XCTAssertTrue(primaryAdapter.waitForExistence(timeout: 2))
         primaryAdapter.tap()
         application.tap()
@@ -286,7 +288,9 @@ final class IOSAppShellUITests: XCTestCase {
         cancelButton.tap()
         XCTAssertFalse(application.descendants(matching: .any)["ios-adapter-selection-primary"].waitForExistence(timeout: 1))
 
-        let secondaryAdapter = application.buttons["ios-settings-adapter-secondary"]
+        let secondaryAdapter = application.buttons.matching(
+            identifier: "ios-settings-adapter-card"
+        ).element(boundBy: 1)
         XCTAssertTrue(secondaryAdapter.waitForExistence(timeout: 2))
         secondaryAdapter.tap()
 

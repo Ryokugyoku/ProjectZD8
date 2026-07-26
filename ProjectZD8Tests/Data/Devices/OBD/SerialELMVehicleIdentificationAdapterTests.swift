@@ -41,23 +41,23 @@ final class SerialELMVehicleIdentificationAdapterTests: XCTestCase {
         XCTAssertEqual(snapshot.obdIdentifier, "ZD81234567")
     }
 
-    /// BLE終端へELM/STNコマンドを送りません。
+    /// 既知UARTを提供するBLE終端でも同じ読取専用識別シーケンスを実行します。
     ///
-    /// 責務: 連続バイトストリームを提供しないBLE終端がTransport生成前に拒否されることを確認します。
-    func testRejectsBLEEndpointBeforeOpeningTransport() async {
-        let transport = OBDCommandTransportFake(responses: [])
+    /// 責務: BLE UART終端がPeripheral固有Transport経由でVIN要求へ進むことを確認します。
+    func testIdentifiesThroughBluetoothLowEnergyByteStream() async throws {
+        let transport = OBDCommandTransportFake(responses: successfulResponses)
         let adapter = SerialELMVehicleIdentificationAdapter(makeTransport: { _ in transport })
-        do {
-            _ = try await adapter.identifyVehicle(using: .init(transport: .bluetoothLowEnergy, systemIdentifier: "x", displayName: "x"))
-            XCTFail("ELM/STN処理は未実装BLE終端へ接続してはいけません")
-        } catch {
-            XCTAssertEqual(
-                error as? VehicleIdentificationError,
-                .stageFailed(.endpointValidation, .transportUnsupported)
-            )
-            let didOpen = await transport.didOpen
-            XCTAssertFalse(didOpen)
-        }
+        let endpoint = OBDConnectionEndpoint(
+            transport: .bluetoothLowEnergy,
+            systemIdentifier: "AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE",
+            displayName: "OBDLink BLE candidate"
+        )
+
+        let snapshot = try await adapter.identifyVehicle(using: endpoint)
+
+        let commands = await transport.commands
+        XCTAssertEqual(snapshot.vin, "1D4GP00R55B123456")
+        XCTAssertTrue(commands.contains("0902\r"))
     }
 
     /// NO DATA応答をVIN未取得成功へ変換しません。

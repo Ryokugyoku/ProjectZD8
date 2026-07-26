@@ -5,10 +5,10 @@ import UIKit
 /// iOSアプリケーションで使用する実装依存関係を組み立てます。
 @MainActor
 enum IOSApplicationComposition {
-    /// PID定義DB、iOSデモBluetooth読取境界、接続中スリープ抑止を結び付けます。
+    /// PID定義DB、iOS Bluetooth読取境界、接続中スリープ抑止を結び付けます。
     ///
     /// 責務: iOSのPID取得依存関係と接続中スリープ抑止を1件のLiveTelemetry構成へ注入します。
-    /// - Returns: デモBluetoothで継続取得でき、実BLEでは明示的利用不能を返すモデル。
+    /// - Returns: デモ、既知BLE UART、または構成済みBluetooth Classic終端で取得できるモデル。
     /// - Parameter sessionDidEnd: PID取得終了原因をLoggingへ通知する処理。
     /// - Parameter distanceDidChange: 取得元付き累積距離をLoggingへ通知する処理。
     /// - Parameter rawResponseDidReceive: 数値化前のOBD応答をLoggingへ保存する処理。
@@ -17,8 +17,14 @@ enum IOSApplicationComposition {
         distanceDidChange: @escaping @MainActor (ConnectionSessionDistanceObservation) -> Void = { _ in },
         rawResponseDidReceive: @escaping @Sendable (OBDRawResponseObservation) async throws -> Void = { _ in }
     ) -> LiveTelemetryModel {
+        let externalAccessoryConfiguration = IOSExternalAccessoryProtocolConfiguration()
         let telemetry = DemoAwareOBDPIDTelemetryAdapter(
-            live: UnavailableOBDPIDTelemetryAdapter(),
+            live: OBDLinkEXPIDTelemetryAdapter { endpoint in
+                try makeBluetoothOBDTransport(
+                    for: endpoint,
+                    configuration: externalAccessoryConfiguration
+                )
+            },
             demo: DemoOBDPIDTelemetryAdapter()
         )
         let definitionRepository = makeOBDPIDDefinitionRepository()
@@ -63,9 +69,9 @@ enum IOSApplicationComposition {
             ?? UnavailableVehiclePIDCapabilityRepository()
     }
 
-    /// CloudKit同期とデモBluetooth識別境界を注入した車両管理モデルを生成します。
+    /// CloudKit同期とiOS Bluetooth識別境界を注入した車両管理モデルを生成します。
     ///
-    /// 責務: iOSの車両保存とデモ対応かつ実BLE未提供の識別境界をVehicleManagementへ結び付けます。
+    /// 責務: iOSの車両保存とデモまたは既知Bluetooth UART識別境界をVehicleManagementへ結び付けます。
     /// - Returns: private database同期を使用する車両管理モデル。
     /// - Parameter connectionSessionRepository: Garageの車両別ログ集計に使用する接続履歴取得先。
     /// - Parameter vehicleSessionsDidDelete: 車両関連セッション削除後に履歴表示へ再読込を通知する処理。
@@ -80,12 +86,18 @@ enum IOSApplicationComposition {
         ) -> Void = { _, _, _ in }
     ) -> VehicleManagementModel {
         let vehicleRepository = CloudKitVehicleRepository()
+        let externalAccessoryConfiguration = IOSExternalAccessoryProtocolConfiguration()
         return VehicleManagementModel(
             state: VehicleManagementState(),
             repository: vehicleRepository,
             identifyForConnection: IdentifyVehicleForConnectionUseCase(
                 identification: DemoAwareVehicleIdentificationAdapter(
-                    live: UnavailableVehicleIdentificationAdapter(error: .transportUnsupported),
+                    live: SerialELMVehicleIdentificationAdapter { endpoint in
+                        try makeBluetoothOBDTransport(
+                            for: endpoint,
+                            configuration: externalAccessoryConfiguration
+                        )
+                    },
                     demo: DemoVehicleIdentificationAdapter()
                 )
             ),
@@ -230,13 +242,16 @@ enum IOSApplicationComposition {
         )
     }
 
-    /// 実CoreBluetooth探索とConnection設定保存を注入した設定プレゼンテーションモデルを生成します。
+    /// iOS Bluetooth探索とConnection設定保存を注入した設定プレゼンテーションモデルを生成します。
     ///
     /// 責務: iOSの探索・保存実装をDeviceConnectionユースケースと設定表示境界へ結び付けます。
-    /// - Returns: 実際のBLE探索とデフォルト設定保存を使用するiOS設定プレゼンテーションモデル。
+    /// - Returns: 接続済みExternalAccessoryとBLE探索およびデフォルト設定保存を使用するモデル。
     static func makeSettingsPresentationModel() -> IOSSettingsPresentationModel {
+        let externalAccessoryConfiguration = IOSExternalAccessoryProtocolConfiguration()
         let discovery = DemoIncludedAdapterDiscovery(
-            wrapping: IOSCoreBluetoothAdapterDiscovery(),
+            wrapping: IOSBluetoothAdapterDiscovery(
+                externalAccessoryConfiguration: externalAccessoryConfiguration
+            ),
             demoCandidates: DemoOBDAdapter.bluetoothCandidates
         )
         let discoverAdapters = DiscoverAdaptersUseCase(discoveryPort: discovery)
@@ -249,6 +264,31 @@ enum IOSApplicationComposition {
                 preferencePort: preferenceStore
             )
         )
+    }
+
+    /// 選択済みiOS Bluetooth終端に対応するELM/STNバイトストリームを生成します。
+    ///
+    /// 責務: 1件のBLEまたはBluetooth Classic終端を対応するOBDコマンドTransportへ変換します。
+    /// - Parameters:
+    ///   - endpoint: 選択済みアダプターの物理終端。
+    ///   - configuration: Bluetooth Classic用にInfo.plistから読み取ったExternalAccessoryプロトコル許可集合。
+    /// - Returns: 選択済み終端のELM/STN連続バイト通信に使用するTransport。
+    /// - Throws: 未構成、対象外Transport、UUID不正、または通信生成条件を満たさない場合の識別エラー。
+    private static func makeBluetoothOBDTransport(
+        for endpoint: OBDConnectionEndpoint,
+        configuration: IOSExternalAccessoryProtocolConfiguration
+    ) throws -> any OBDCommandTransport {
+        switch endpoint.transport {
+        case .bluetoothLowEnergy:
+            return try IOSCoreBluetoothOBDTransport(endpoint: endpoint)
+        case .bluetoothClassic:
+            return try IOSExternalAccessoryOBDTransport(
+                endpoint: endpoint,
+                configuration: configuration
+            )
+        case .serial:
+            throw VehicleIdentificationError.transportUnsupported
+        }
     }
 
     /// Debug UIテストが要求した認証済み起動状態または通常の確認中状態です。
