@@ -233,6 +233,18 @@ struct ConnectionHistoryState: Equatable {
         filterStartDate != nil || filterEndDate != nil || endReasonFilter != .all
     }
 
+    /// 指定セッションを履歴画面から手動アップロードできるかを返します。
+    ///
+    /// 責務: 1件のセッション保管状態と自動アップロード設定を手動アップロード操作の表示可否へ変換します。
+    /// - Parameter session: 判定する終了済み接続セッション。
+    /// - Returns: 手動アップロード操作を表示する場合は `true`。
+    func isManualUploadAvailable(for session: ConnectionSession) -> Bool {
+        guard session.endedAt != nil,
+              session.rawLogSummary.localState != .removed,
+              session.rawLogSummary.cloudState != .uploaded else { return false }
+        return !automaticUploadEnabled || session.rawLogSummary.cloudState == .failed
+    }
+
     /// 終了済み履歴を車両単位へ集約して返します。
     var vehicleGroups: [ConnectionHistoryVehicleGroup] {
         let grouped = Dictionary(grouping: closedSessions) { session in

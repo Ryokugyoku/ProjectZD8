@@ -8490,19 +8490,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "The session remains on this device. Check iCloud and try again from Connection History."
+            "value" : "The session remains on this device. Check your iCloud connection, then retry."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "La sesión permanece en este dispositivo. Comprueba iCloud e inténtalo de nuevo desde el historial de conexiones."
+            "value" : "La sesión permanece en este dispositivo. Comprueba la conexión con iCloud y vuelve a intentarlo."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "セッションはこの端末に残っています。iCloudを確認し、接続履歴からもう一度お試しください。"
+            "value" : "セッションはこの端末に残っています。iCloud接続を確認してから再試行してください。"
           }
         }
       }
@@ -8547,6 +8547,50 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "iCloudにアップロード中"
+          }
+        }
+      }
+    },
+    "history.upload.retry" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Retry Upload"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reintentar carga"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "アップロードを再試行"
+          }
+        }
+      }
+    },
+    "history.upload.retry.description" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check iCloud and send this session again."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Comprueba iCloud y vuelve a enviar esta sesión."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iCloud接続を確認し、このセッションをもう一度送信します。"
           }
         }
       }

@@ -123,10 +123,16 @@ struct IOSConnectionHistoryView: View {
             isPresented: Binding(
                 get: { state.uploadFailureSessionID != nil },
                 set: { if !$0 { send(.sessionUploadFailureDismissed) } }
-            )
-        ) {
-            Button("history.upload.error.dismiss") { send(.sessionUploadFailureDismissed) }
-        } message: {
+            ),
+            presenting: state.uploadFailureSessionID
+        ) { sessionID in
+            Button("history.upload.error.dismiss", role: .cancel) {
+                send(.sessionUploadFailureDismissed)
+            }
+            Button("history.upload.retry") {
+                send(.sessionUploadRequested(sessionID))
+            }
+        } message: { _ in
             Text("history.upload.error.message")
         }
     }
@@ -459,36 +465,9 @@ struct IOSConnectionHistoryView: View {
             NavigationLink(value: session.id) { sessionRow(session) }
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("ios-history-session-\(session.id.rawValue.uuidString)")
-            if canUpload(session) {
+            if state.isManualUploadAvailable(for: session) {
                 Divider().padding(.horizontal, 15)
-                Button {
-                    send(.sessionUploadRequested(session.id))
-                } label: {
-                    if state.uploadingSessionID == session.id {
-                        VStack(spacing: 6) {
-                            ProgressView(value: state.uploadProgress ?? 0, total: 1)
-                                .progressViewStyle(.linear)
-                            HStack {
-                                Text("history.upload.in_progress")
-                                Spacer()
-                                Text(state.uploadProgress ?? 0, format: .percent.precision(.fractionLength(0)))
-                                    .monospacedDigit()
-                            }
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.horizontal, 15)
-                        .padding(.vertical, 10)
-                    } else {
-                        Label("history.upload.button", systemImage: "icloud.and.arrow.up")
-                            .font(.subheadline.weight(.semibold))
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 11)
-                    }
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(.tint)
-                .disabled(state.uploadingSessionID != nil)
-                .accessibilityIdentifier("ios-history-upload-\(session.id.rawValue.uuidString)")
+                uploadAction(session)
             }
             if canReleaseRawCache(session) {
                 Divider().padding(.horizontal, 15)
@@ -508,16 +487,66 @@ struct IOSConnectionHistoryView: View {
         .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
 
-    /// 1件のセッションへ手動iCloudアップロードを表示するかを返します。
+    /// 1件のセッションに現在必要なアップロード操作を表示します。
     ///
-    /// 責務: 1件の終了済みセッションを未アップロードかつ送信元Rawを失っていない条件で手動送信可否へ変換します。
-    /// - Parameter session: 判定対象の接続セッション。
-    /// - Returns: 一覧へアップロードボタンを表示する場合は `true`。
-    private func canUpload(_ session: ConnectionSession) -> Bool {
-        !state.automaticUploadEnabled
-            && session.endedAt != nil
-            && session.rawLogSummary.localState != .removed
-            && session.rawLogSummary.cloudState != .uploaded
+    /// 責務: 1件の手動送信可能なセッションを通常アップロード、再試行、進捗のいずれかの操作表示へ変換します。
+    /// - Parameter session: アップロード操作を表示する接続セッション。
+    /// - Returns: 現在の転送状態に対応するアップロード操作。
+    @ViewBuilder private func uploadAction(_ session: ConnectionSession) -> some View {
+        Button {
+            send(.sessionUploadRequested(session.id))
+        } label: {
+            if state.uploadingSessionID == session.id {
+                VStack(spacing: 6) {
+                    ProgressView(value: state.uploadProgress ?? 0, total: 1)
+                        .progressViewStyle(.linear)
+                    HStack {
+                        Text("history.upload.in_progress")
+                        Spacer()
+                        Text(state.uploadProgress ?? 0, format: .percent.precision(.fractionLength(0)))
+                            .monospacedDigit()
+                    }
+                    .font(.subheadline.weight(.semibold))
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.horizontal, 15)
+                .padding(.vertical, 10)
+            } else if session.rawLogSummary.cloudState == .failed {
+                HStack(spacing: 12) {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.system(size: 17, weight: .bold))
+                        .foregroundStyle(.white)
+                        .frame(width: 38, height: 38)
+                        .background(.red, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("history.upload.retry")
+                            .font(.subheadline.weight(.bold))
+                            .foregroundStyle(.primary)
+                        Text("history.upload.retry.description")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.leading)
+                    }
+                    Spacer(minLength: 4)
+                    Image(systemName: "chevron.right")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(.red)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 15)
+                .padding(.vertical, 11)
+                .background(.red.opacity(0.055))
+            } else {
+                Label("history.upload.button", systemImage: "icloud.and.arrow.up")
+                    .font(.subheadline.weight(.semibold))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 11)
+                    .foregroundStyle(.tint)
+            }
+        }
+        .buttonStyle(.plain)
+        .disabled(state.uploadingSessionID != nil)
+        .accessibilityIdentifier("ios-history-upload-\(session.id.rawValue.uuidString)")
     }
 
     /// 1件のセッションで安全な端末容量解放を選択できるかを返します。

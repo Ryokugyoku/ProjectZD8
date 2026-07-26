@@ -122,6 +122,36 @@ final class ConnectionHistoryModelTests: XCTestCase {
         transferRepository.resumeDeletionRequest()
     }
 
+    /// 自動アップロードが有効でも失敗したセッションだけは手動再試行可能です。
+    ///
+    /// 責務: 自動アップロード設定とCloudKit転送状態を履歴画面の手動再試行可否へ変換できることを確認します。
+    func testFailedUploadRemainsManuallyAvailableWhenAutomaticUploadIsEnabled() {
+        var failed = makeClosedSession(
+            startedAt: 100,
+            duration: 60,
+            reason: .userDisconnected,
+            vehicle: ConnectionSessionVehicle(id: VehicleID(), name: "BRZ", displayIdentifier: "ZD8")
+        )
+        failed.rawLogSummary = ConnectionSessionRawLogSummary(
+            recordCount: 1,
+            byteCount: 1,
+            localState: .available,
+            cloudState: .failed,
+            manifestDigest: nil,
+            macImportReceipt: nil
+        )
+        var pending = failed
+        pending.rawLogSummary.cloudState = .pending
+        var state = ConnectionHistoryState(automaticUploadEnabled: true)
+
+        XCTAssertTrue(state.isManualUploadAvailable(for: failed))
+        XCTAssertFalse(state.isManualUploadAvailable(for: pending))
+
+        state.automaticUploadEnabled = false
+
+        XCTAssertTrue(state.isManualUploadAvailable(for: pending))
+    }
+
     /// 終了済み履歴が登録車両単位に集約され、中断件数と総時間を保持することを検証します。
     ///
     /// 責務: 複数セッションを車両ID単位の履歴集計へ変換できることを確認します。
