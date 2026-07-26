@@ -35,6 +35,9 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Verify TestFlight publishing automation
+        run: ruby .github/testflight_build_publisher_test.rb
+
       - name: Select Xcode 26.6
         run: sudo xcode-select --switch /Applications/Xcode_26.6.app
 

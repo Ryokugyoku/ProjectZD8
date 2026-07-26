@@ -20,6 +20,51 @@ class TestFlightBuildPublisherTest < Minitest::Test
     assert_equal %w[ios-build mac-build], relationship.fetch(:data).map { |build| build.fetch(:id) }
   end
 
+  def test_publish_waits_for_internal_testing_eligibility_and_group_activation
+    client = TestFlightPublisherFakeClient.new(
+      build_responses: [builds_response],
+      internal_states: {
+        "ios-build" => %w[PROCESSING READY_FOR_BETA_TESTING READY_FOR_BETA_TESTING IN_BETA_TESTING],
+        "mac-build" => %w[PROCESSING PROCESSING READY_FOR_BETA_TESTING IN_BETA_TESTING]
+      }
+    )
+    publisher = publisher(client, attempts: 3)
+
+    publisher.publish(submit_external_review: false)
+
+    assert client.posts.key?("/v1/betaGroups/#{GROUP_ID}/relationships/builds")
+  end
+
+  def test_publish_stops_when_internal_testing_requires_export_compliance
+    client = TestFlightPublisherFakeClient.new(
+      build_responses: [builds_response],
+      internal_states: { "mac-build" => ["MISSING_EXPORT_COMPLIANCE"] }
+    )
+    publisher = publisher(client)
+
+    error = assert_raises(RuntimeError) { publisher.publish(submit_external_review: false) }
+
+    assert_includes error.message, "MAC_OS"
+    assert_includes error.message, "MISSING_EXPORT_COMPLIANCE"
+    refute client.posts.key?("/v1/betaGroups/#{GROUP_ID}/relationships/builds")
+  end
+
+  def test_publish_fails_when_grouped_build_does_not_enter_internal_testing
+    client = TestFlightPublisherFakeClient.new(
+      build_responses: [builds_response],
+      internal_states: {
+        "ios-build" => ["READY_FOR_BETA_TESTING"],
+        "mac-build" => ["READY_FOR_BETA_TESTING"]
+      }
+    )
+    publisher = publisher(client, attempts: 2)
+
+    error = assert_raises(RuntimeError) { publisher.publish(submit_external_review: false) }
+
+    assert_includes error.message, "enter internal TestFlight testing"
+    assert client.posts.key?("/v1/betaGroups/#{GROUP_ID}/relationships/builds")
+  end
+
   def test_publish_reports_incomplete_review_contact_without_submitting
     client = TestFlightPublisherFakeClient.new(
       build_responses: [builds_response],
@@ -133,10 +178,14 @@ end
 class TestFlightPublisherFakeClient
   attr_reader :posts, :post_history
 
-  def initialize(build_responses:, review_contact: {}, external_states: {})
+  def initialize(build_responses:, review_contact: {}, external_states: {}, internal_states: {})
     @build_responses = build_responses
     @review_contact = review_contact
     @external_states = external_states
+    @internal_states = {
+      "ios-build" => %w[READY_FOR_BETA_TESTING IN_BETA_TESTING],
+      "mac-build" => %w[READY_FOR_BETA_TESTING IN_BETA_TESTING]
+    }.merge(internal_states)
     @posts = {}
     @post_history = []
   end
@@ -146,12 +195,23 @@ class TestFlightPublisherFakeClient
     return { "data" => { "attributes" => @review_contact } } if path.end_with?("/betaAppReviewDetail")
 
     build_id = path.split("/")[-2]
-    { "data" => { "attributes" => { "externalBuildState" => @external_states.fetch(build_id) } } }
+    attributes = {
+      "internalBuildState" => next_internal_state(build_id),
+      "externalBuildState" => @external_states[build_id]
+    }
+    { "data" => { "attributes" => attributes } }
   end
 
   def post(path, body:)
     @posts[path] = body
     @post_history << [path, body]
     nil
+  end
+
+  private
+
+  def next_internal_state(build_id)
+    states = @internal_states.fetch(build_id)
+    states.length > 1 ? states.shift : states.first
   end
 end

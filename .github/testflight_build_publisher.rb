@@ -2,11 +2,20 @@
 
 require_relative "app_store_connect_client"
 
-# 1回のGitHub Actionsビルドを外部TestFlight配信へ進める処理を担当します。
+# 1回のGitHub Actionsビルドを内部TestFlight配信へ進め、必要に応じて外部審査へ提出する処理を担当します。
 class TestFlightBuildPublisher
   REQUIRED_PLATFORMS = %w[IOS MAC_OS].freeze
   PROCESSING_STATE = "PROCESSING"
   VALID_STATE = "VALID"
+  INTERNAL_BETA_READY_STATES = %w[
+    READY_FOR_BETA_TESTING
+    IN_BETA_TESTING
+  ].freeze
+  INTERNAL_BETA_WAITING_STATES = %w[
+    PROCESSING
+    IN_EXPORT_COMPLIANCE_REVIEW
+  ].freeze
+  INTERNAL_BETA_TESTING_STATE = "IN_BETA_TESTING"
   READY_FOR_REVIEW_STATE = "READY_FOR_BETA_SUBMISSION"
   REVIEW_IN_PROGRESS_OR_COMPLETE_STATES = %w[
     WAITING_FOR_BETA_REVIEW
@@ -33,7 +42,19 @@ class TestFlightBuildPublisher
 
   def publish(submit_external_review:)
     builds = wait_for_valid_builds
+    wait_for_internal_beta_states(
+      builds,
+      accepted_states: INTERNAL_BETA_READY_STATES,
+      waiting_states: INTERNAL_BETA_WAITING_STATES,
+      phase: "become eligible for internal TestFlight testing"
+    )
     add_builds_to_beta_group(builds)
+    wait_for_internal_beta_states(
+      builds,
+      accepted_states: [INTERNAL_BETA_TESTING_STATE],
+      waiting_states: INTERNAL_BETA_WAITING_STATES + ["READY_FOR_BETA_TESTING"],
+      phase: "enter internal TestFlight testing"
+    )
     puts "Added iOS and native macOS build #{@build_number} to the TestFlight beta group."
 
     return unless submit_external_review
@@ -89,6 +110,36 @@ class TestFlightBuildPublisher
       "/v1/betaGroups/#{@beta_group_id}/relationships/builds",
       body: { data: relationship_data }
     )
+  end
+
+  def wait_for_internal_beta_states(builds, accepted_states:, waiting_states:, phase:)
+    @attempts.times do |attempt|
+      states = internal_beta_states(builds)
+      failed = states.find { |_platform, state| !accepted_states.include?(state) && !waiting_states.include?(state) }
+      if failed
+        platform, state = failed
+        raise "Build #{platform} cannot #{phase} from internal TestFlight state #{state.inspect}."
+      end
+
+      return states if REQUIRED_PLATFORMS.all? { |platform| accepted_states.include?(states[platform]) }
+
+      puts "Waiting for iOS and native macOS build #{@build_number} to #{phase} " \
+           "(attempt #{attempt + 1}/#{@attempts}; states: #{states})."
+      @sleeper.sleep(@interval_seconds) if attempt + 1 < @attempts
+    end
+
+    raise "Timed out waiting for iOS and native macOS build #{@build_number} to #{phase}."
+  end
+
+  def internal_beta_states(builds)
+    REQUIRED_PLATFORMS.to_h do |platform|
+      build_id = builds.fetch(platform).fetch("id")
+      detail = @client.get(
+        "/v1/builds/#{build_id}/buildBetaDetail",
+        query: { "fields[buildBetaDetails]" => "internalBuildState" }
+      )
+      [platform, detail.dig("data", "attributes", "internalBuildState")]
+    end
   end
 
   def validate_review_contact
