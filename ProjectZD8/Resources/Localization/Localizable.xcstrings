@@ -3473,6 +3473,94 @@
         }
       }
     },
+    "default-adapter-arrival-body" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ is available. Open RevTorque Insight and connect?"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ está disponible. ¿Quieres abrir RevTorque Insight y conectarte?"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ が接続可能になりました。RevTorque Insightを開いて接続しますか？"
+          }
+        }
+      }
+    },
+    "default-adapter-arrival-connect-action" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open and Connect"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abrir y conectar"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "開いて接続"
+          }
+        }
+      }
+    },
+    "default-adapter-arrival-decline-action" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not Now"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ahora no"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "今はしない"
+          }
+        }
+      }
+    },
+    "default-adapter-arrival-title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Default adapter found"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Adaptador predeterminado encontrado"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "デフォルトアダプターを検出"
+          }
+        }
+      }
+    },
     "garage.activity.duration" : {
       "localizations" : {
         "en" : {
@@ -8683,94 +8771,6 @@
         }
       }
     },
-    "default-adapter-arrival-body" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ is available. Open RevTorque Insight and connect?"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ está disponible. ¿Quieres abrir RevTorque Insight y conectarte?"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ が接続可能になりました。RevTorque Insightを開いて接続しますか？"
-          }
-        }
-      }
-    },
-    "default-adapter-arrival-connect-action" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Open and Connect"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Abrir y conectar"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "開いて接続"
-          }
-        }
-      }
-    },
-    "default-adapter-arrival-decline-action" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Not Now"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ahora no"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "今はしない"
-          }
-        }
-      }
-    },
-    "default-adapter-arrival-title" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Default adapter found"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Adaptador predeterminado encontrado"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "デフォルトアダプターを検出"
-          }
-        }
-      }
-    },
     "home.action.connect" : {
       "localizations" : {
         "en" : {
@@ -9454,28 +9454,6 @@
         }
       }
     },
-    "ios.settings.adapter.details.service_uuids" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Advertised Service UUIDs"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "UUID de servicio anunciados"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "広告Service UUID"
-          }
-        }
-      }
-    },
     "ios.settings.adapter.details.secondary_confirm_hint" : {
       "localizations" : {
         "en" : {
@@ -9516,6 +9494,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ここでは受信専用セカンダリーアダプター候補を設定します。車両への接続は開始しません。"
+          }
+        }
+      }
+    },
+    "ios.settings.adapter.details.service_uuids" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Advertised Service UUIDs"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "UUID de servicio anunciados"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "広告Service UUID"
           }
         }
       }
@@ -17660,10 +17660,10 @@
         }
       }
     },
-    "RevTorque Insight" : {
+    "R" : {
 
     },
-    "REVTORQUE INSIGHT" : {
+    "RevTorque Insight" : {
 
     },
     "settings.adapter.description" : {
@@ -19836,6 +19836,28 @@
         }
       }
     },
+    "telemetry.status.polling" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Standard OBD polling continues in the background"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El sondeo OBD estándar continúa en segundo plano"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "画面外でも標準OBDポーリングを継続中"
+          }
+        }
+      }
+    },
     "telemetry.status.reading" : {
       "localizations" : {
         "en" : {
@@ -19898,28 +19920,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "収集を終了し、接続を閉じています…"
-          }
-        }
-      }
-    },
-    "telemetry.status.polling" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Standard OBD polling continues in the background"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "El sondeo OBD estándar continúa en segundo plano"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "画面外でも標準OBDポーリングを継続中"
           }
         }
       }
