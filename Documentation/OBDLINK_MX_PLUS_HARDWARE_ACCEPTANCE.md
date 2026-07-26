@@ -65,7 +65,8 @@ that a later stage passed.
 When reporting a failure, record the first visible diagnostic stage:
 `ENDPOINT`, `TRANSPORT-CREATE`, `TRANSPORT-OPEN`, `ATZ`, `AT-CONFIG`, `ATI`,
 `0902-REQUEST`, `0902-PARSE`, or `ATDP`. Do not substitute a later inferred
-cause for the first observed failure.
+cause for the first observed failure. Both iOS and macOS failure presentations
+show this stable code without exposing the accessory identifier or response.
 
 ## iPhone arrival procedure and external stop condition
 
@@ -143,6 +144,11 @@ contract.
 5. Add and run an opt-in iPhone adapter-only hardware test before approving VIN
    or PID acquisition. The first adapter test must stop after a documented `ATI`
    response; real-vehicle commands still require separate explicit approval.
+
+The current ExternalAccessory transport schedules both `EASession` streams on
+the Main RunLoop common mode before opening them and removes them after close.
+This follows Apple's stream lifecycle requirement but does not establish that
+`com.obdlink` carries an unframed ELM/STN byte stream.
 
 Suggested manufacturer request:
 

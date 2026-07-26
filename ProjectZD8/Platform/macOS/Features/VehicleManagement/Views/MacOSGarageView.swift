@@ -386,21 +386,4 @@ struct MacOSGarageView: View {
     }
 }
 
-/// macOS Garageで車両識別失敗段階を表示文言へ変換します。
-private extension VehicleIdentificationError.Stage {
-    /// 実機確認で報告できる現在段階の安定診断コードです。
-    var diagnosticCode: String {
-        switch self {
-        case .endpointValidation: "ENDPOINT"
-        case .transportCreation: "TRANSPORT-CREATE"
-        case .transportOpen: "TRANSPORT-OPEN"
-        case .adapterReset: "ATZ"
-        case .adapterConfiguration: "AT-CONFIG"
-        case .adapterIdentity: "ATI"
-        case .vehicleIdentificationRequest: "0902-REQUEST"
-        case .vehicleIdentificationParsing: "0902-PARSE"
-        case .protocolDescription: "ATDP"
-        }
-    }
-}
 #endif

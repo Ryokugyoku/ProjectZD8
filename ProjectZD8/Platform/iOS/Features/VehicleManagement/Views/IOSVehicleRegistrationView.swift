@@ -60,6 +60,15 @@ struct IOSVehicleRegistrationView: View {
                         Text(LocalizedStringKey(state.failureKey ?? "garage.error.obd_unavailable"))
                             .multilineTextAlignment(.center)
                             .foregroundStyle(.secondary)
+                        if let stage = state.identificationFailureStage {
+                            HStack(spacing: 5) {
+                                Text("garage.identification.failure_stage")
+                                Text(stage.diagnosticCode)
+                            }
+                            .font(.caption.monospaced())
+                            .foregroundStyle(.secondary)
+                            .accessibilityIdentifier("ios-vehicle-identification-failure-stage")
+                        }
                         HStack(spacing: 12) {
                             Button("garage.retry") { send(.identificationRetryRequested) }
                                 .buttonStyle(.borderedProminent)

@@ -20,6 +20,23 @@ enum VehicleIdentificationError: Error, Equatable {
         case vehicleIdentificationParsing
         /// 選択済みOBDプロトコルの説明を取得しています。
         case protocolDescription
+
+        /// 実機失敗報告で使用する安定した診断コードです。
+        ///
+        /// 責務: 1件の車両識別段階を機密情報を含まない短い診断コードへ変換します。
+        var diagnosticCode: String {
+            switch self {
+            case .endpointValidation: "ENDPOINT"
+            case .transportCreation: "TRANSPORT-CREATE"
+            case .transportOpen: "TRANSPORT-OPEN"
+            case .adapterReset: "ATZ"
+            case .adapterConfiguration: "AT-CONFIG"
+            case .adapterIdentity: "ATI"
+            case .vehicleIdentificationRequest: "0902-REQUEST"
+            case .vehicleIdentificationParsing: "0902-PARSE"
+            case .protocolDescription: "ATDP"
+            }
+        }
     }
 
     /// 失敗段階で観測した単一原因です。

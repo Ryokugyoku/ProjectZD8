@@ -5,6 +5,21 @@ import XCTest
 /// 車両管理モデルが識別失敗を原因別の表示状態へ変換することを検証します。
 @MainActor
 final class VehicleManagementModelTests: XCTestCase {
+    /// 全識別段階が実機報告用の安定診断コードを持つことを検証します。
+    ///
+    /// 責務: 車両識別段階と画面表示用診断コードの対応を固定します。
+    func testIdentificationStagesExposeStableDiagnosticCodes() {
+        XCTAssertEqual(VehicleIdentificationError.Stage.endpointValidation.diagnosticCode, "ENDPOINT")
+        XCTAssertEqual(VehicleIdentificationError.Stage.transportCreation.diagnosticCode, "TRANSPORT-CREATE")
+        XCTAssertEqual(VehicleIdentificationError.Stage.transportOpen.diagnosticCode, "TRANSPORT-OPEN")
+        XCTAssertEqual(VehicleIdentificationError.Stage.adapterReset.diagnosticCode, "ATZ")
+        XCTAssertEqual(VehicleIdentificationError.Stage.adapterConfiguration.diagnosticCode, "AT-CONFIG")
+        XCTAssertEqual(VehicleIdentificationError.Stage.adapterIdentity.diagnosticCode, "ATI")
+        XCTAssertEqual(VehicleIdentificationError.Stage.vehicleIdentificationRequest.diagnosticCode, "0902-REQUEST")
+        XCTAssertEqual(VehicleIdentificationError.Stage.vehicleIdentificationParsing.diagnosticCode, "0902-PARSE")
+        XCTAssertEqual(VehicleIdentificationError.Stage.protocolDescription.diagnosticCode, "ATDP")
+    }
+
     /// デモ車両も通常登録操作を経てRepositoryへ保存します。
     ///
     /// 責務: デモ識別結果が保存省略されず通常の車両プロフィールとして登録されることを確認します。

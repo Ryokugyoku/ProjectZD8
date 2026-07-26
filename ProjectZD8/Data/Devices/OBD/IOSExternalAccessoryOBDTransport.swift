@@ -3,13 +3,16 @@
 import Foundation
 
 /// iOS ExternalAccessoryセッションをELM/STN連続バイトストリームとして公開します。
-actor IOSExternalAccessoryOBDTransport: OBDCommandTransport {
+@MainActor
+final class IOSExternalAccessoryOBDTransport: OBDCommandTransport {
     /// 接続対象の非可逆ExternalAccessory識別子です。
     private let endpoint: OBDConnectionEndpoint
     /// メーカー確認済みExternalAccessoryプロトコル許可集合です。
     private let configuration: IOSExternalAccessoryProtocolConfiguration
     /// ExternalAccessoryを非可逆識別子へ変換します。
     private let mapper = IOSExternalAccessorySnapshotMapper()
+    /// EASessionストリームをMain RunLoop上で対称に開閉します。
+    private let streamLifecycle = IOSExternalAccessoryStreamLifecycle()
     /// 現在開いているExternalAccessoryセッションです。
     private var session: EASession?
     /// 現在開いているアクセサリー入力ストリームです。
@@ -57,14 +60,22 @@ actor IOSExternalAccessoryOBDTransport: OBDCommandTransport {
         inputStream = openedSession.inputStream
         outputStream = openedSession.outputStream
         readBuffer.removeAll(keepingCapacity: true)
-        inputStream?.open()
-        outputStream?.open()
+        prepareAndOpenStreams()
         do {
             try await waitForStreamsToOpen()
         } catch {
             closeStreams()
             throw error
         }
+    }
+
+    /// ExternalAccessory入出力をMain RunLoopへ登録してから開きます。
+    ///
+    /// 責務: 1組のEASessionストリームを同一MainActor上のRunLoop駆動状態へ遷移させます。
+    /// - Side Effects: Main RunLoopのcommon modeへ入出力ストリームを登録して開きます。
+    private func prepareAndOpenStreams() {
+        guard let inputStream, let outputStream else { return }
+        streamLifecycle.open(inputStream: inputStream, outputStream: outputStream)
     }
 
     /// 復帰文字を含むELM/STNコマンドを全バイト書き込みます。
@@ -241,8 +252,12 @@ actor IOSExternalAccessoryOBDTransport: OBDCommandTransport {
     ///
     /// 責務: 現在のExternalAccessory通信資源を再利用不能な未接続状態へ戻します。
     private func closeStreams() {
-        inputStream?.close()
-        outputStream?.close()
+        if let inputStream, let outputStream {
+            streamLifecycle.close(inputStream: inputStream, outputStream: outputStream)
+        } else {
+            inputStream?.close()
+            outputStream?.close()
+        }
         inputStream = nil
         outputStream = nil
         session = nil
