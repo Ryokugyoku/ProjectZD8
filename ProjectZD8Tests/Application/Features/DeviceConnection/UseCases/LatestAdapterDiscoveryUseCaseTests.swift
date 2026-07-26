@@ -63,14 +63,14 @@ final class LatestAdapterDiscoveryUseCaseTests: XCTestCase {
     ///
     /// 責務: 最新探索テストへ渡す最小のBluetooth候補を構築します。
     /// - Parameter id: 候補の安定識別子。
-    /// - Returns: 未接続のBluetooth候補。
+    /// - Returns: 接続済みのBluetooth候補。
     private func makeAdapter(id: String) -> DiscoveredAdapter {
         DiscoveredAdapter(
             id: id,
             transportMode: .bluetooth,
             displayName: id,
             systemIdentifier: id,
-            isConnected: false
+            isConnected: true
         )
     }
 

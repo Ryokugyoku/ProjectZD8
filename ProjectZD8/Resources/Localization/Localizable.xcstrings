@@ -9393,19 +9393,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "No Bluetooth Low Energy devices were found. Make sure the adapter is advertising, then scan again."
+            "value" : "No connected Bluetooth Low Energy devices were found. Connect the adapter in Settings, then scan again."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "No se encontraron dispositivos Bluetooth Low Energy. Comprueba que el adaptador esté anunciándose y vuelve a buscar."
+            "value" : "No se encontraron dispositivos Bluetooth Low Energy conectados. Conecta el adaptador en Ajustes y vuelve a buscar."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Bluetooth Low Energy機器が見つかりませんでした。アダプターがアドバタイズ中であることを確認して再探索してください。"
+            "value" : "接続済みのBluetooth Low Energy機器が見つかりませんでした。設定でアダプターを接続してから再探索してください。"
           }
         }
       }
@@ -9459,19 +9459,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Searching for nearby Bluetooth Low Energy devices…"
+            "value" : "Looking for connected Bluetooth Low Energy devices…"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Buscando dispositivos Bluetooth Low Energy cercanos…"
+            "value" : "Buscando dispositivos Bluetooth Low Energy conectados…"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "周辺のBluetooth Low Energy機器を探索中…"
+            "value" : "接続済みのBluetooth Low Energy機器を確認中…"
           }
         }
       }
@@ -18023,19 +18023,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Choose USB or Bluetooth, then inspect a detected device before setting it."
+            "value" : "Choose USB or Bluetooth, then inspect a connected device before setting it."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Elige USB o Bluetooth y revisa el dispositivo antes de configurarlo."
+            "value" : "Elige USB o Bluetooth y revisa un dispositivo conectado antes de configurarlo."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "USBまたはBluetoothを選び、検出したデバイスの接続情報を確認します。"
+            "value" : "USBまたはBluetoothを選び、接続済みデバイスの接続情報を確認します。"
           }
         }
       }
@@ -18045,19 +18045,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Connect or pair the adapter, then try scanning again."
+            "value" : "Connect the adapter to this device, then try again."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Conecta o empareja el adaptador y vuelve a buscar."
+            "value" : "Conecta el adaptador a este dispositivo y vuelve a intentarlo."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "アダプターを接続またはペアリングしてから再探索してください。"
+            "value" : "このデバイスにアダプターを接続してから再度お試しください。"
           }
         }
       }
@@ -18067,19 +18067,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "No devices found"
+            "value" : "No connected devices"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "No se encontraron dispositivos"
+            "value" : "No hay dispositivos conectados"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "デバイスが見つかりません"
+            "value" : "接続済みデバイスがありません"
           }
         }
       }
@@ -18177,19 +18177,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Looking for devices available to this Mac…"
+            "value" : "Looking for devices connected to this Mac…"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Buscando dispositivos disponibles para este Mac…"
+            "value" : "Buscando dispositivos conectados a este Mac…"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "このMacで利用できるデバイスを探索中…"
+            "value" : "このMacに接続済みのデバイスを確認中…"
           }
         }
       }

@@ -29,14 +29,14 @@ final class DiscoverAdaptersUseCaseTests: XCTestCase {
             transportMode: .bluetooth,
             displayName: "Adapter",
             systemIdentifier: identifier,
-            isConnected: false
+            isConnected: true
         )
         let duplicate = DiscoveredAdapter(
             id: "bluetooth-low-energy:\(identifier)",
             transportMode: .bluetooth,
             displayName: "Adapter Duplicate",
             systemIdentifier: identifier,
-            isConnected: false
+            isConnected: true
         )
         let port = AdapterDiscoveryPortFake(adapters: [first, duplicate])
         let useCase = DiscoverAdaptersUseCase(discoveryPort: port)
@@ -44,6 +44,33 @@ final class DiscoverAdaptersUseCaseTests: XCTestCase {
         let result = try await useCase.execute(for: .bluetooth)
 
         XCTAssertEqual(result, [first])
+        XCTAssertEqual(port.requestedModes, [.bluetooth])
+    }
+
+    /// Bluetooth探索結果から未接続候補を除外することを検証します。
+    ///
+    /// 責務: Bluetooth選択一覧が接続済みと確認できた候補だけを返すことを確認します。
+    func testExecuteExcludesDisconnectedBluetoothCandidates() async throws {
+        let connected = DiscoveredAdapter(
+            id: "connected",
+            transportMode: .bluetooth,
+            displayName: "Connected",
+            systemIdentifier: "connected",
+            isConnected: true
+        )
+        let disconnected = DiscoveredAdapter(
+            id: "disconnected",
+            transportMode: .bluetooth,
+            displayName: "Disconnected",
+            systemIdentifier: "disconnected",
+            isConnected: false
+        )
+        let port = AdapterDiscoveryPortFake(adapters: [disconnected, connected])
+        let useCase = DiscoverAdaptersUseCase(discoveryPort: port)
+
+        let result = try await useCase.execute(for: .bluetooth)
+
+        XCTAssertEqual(result, [connected])
         XCTAssertEqual(port.requestedModes, [.bluetooth])
     }
 

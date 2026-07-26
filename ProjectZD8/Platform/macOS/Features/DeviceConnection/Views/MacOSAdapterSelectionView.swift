@@ -1,7 +1,7 @@
 #if os(macOS)
 import SwiftUI
 
-/// macOSで指定された接続役割のアダプター候補を接続方式別に表示します。
+/// macOSで指定された接続役割の利用可能な接続済みアダプター候補を接続方式別に表示します。
 struct MacOSAdapterSelectionView: View {
     /// この候補選択画面が設定するアダプターの接続役割です。
     let slot: AdapterConnectionRole

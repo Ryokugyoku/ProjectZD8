@@ -186,6 +186,31 @@ final class IOSSettingsPresentationModelTests: XCTestCase {
         XCTAssertEqual(model.state.selectedAdapters[.primary], adapter)
     }
 
+    /// 保存済みデフォルトと同じ機器でも未接続ならプライマリーへ自動設定しないことを検証します。
+    ///
+    /// 責務: iOS起動時探索が未接続Bluetooth候補を保存済みデフォルトの利用可能状態として扱わないことを確認します。
+    func testDisconnectedSavedDefaultIsNotSelectedAtLaunch() async {
+        let disconnectedAdapter = DiscoveredAdapter(
+            id: "saved",
+            transportMode: .bluetooth,
+            displayName: "Saved Adapter",
+            systemIdentifier: "saved",
+            isConnected: false
+        )
+        let model = makeModel(
+            port: ImmediateIOSAdapterDiscoveryPortFake(result: .success([disconnectedAdapter])),
+            preferencePort: IOSDefaultAdapterPreferencePortFake(
+                loadedPreference: DefaultAdapterPreference(adapter: disconnectedAdapter)
+            )
+        )
+
+        await waitForDiscovery(in: model)
+
+        XCTAssertNil(model.state.selectedAdapters[.primary])
+        XCTAssertEqual(model.state.defaultAdapterPreference?.adapterID, "saved")
+        XCTAssertTrue(model.state.discoveredAdapters.isEmpty)
+    }
+
     /// 保存済みデフォルトと異なるBluetooth候補を検出しても自動設定しないことを検証します。
     ///
     /// 責務: iOS起動時探索が一致しない候補をデフォルトアダプターとして扱わないことを確認します。
@@ -317,14 +342,14 @@ final class IOSSettingsPresentationModelTests: XCTestCase {
     /// - Parameters:
     ///   - id: 候補の安定識別子。
     ///   - name: 候補の表示名。
-    /// - Returns: プレゼンテーションテストで使用するBluetooth候補。
+    /// - Returns: プレゼンテーションテストで使用する接続済みBluetooth候補。
     private func makeAdapter(id: String, name: String) -> DiscoveredAdapter {
         DiscoveredAdapter(
             id: id,
             transportMode: .bluetooth,
             displayName: name,
             systemIdentifier: id,
-            isConnected: false
+            isConnected: true
         )
     }
 

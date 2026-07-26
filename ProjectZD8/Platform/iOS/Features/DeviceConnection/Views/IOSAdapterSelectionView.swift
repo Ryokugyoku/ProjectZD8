@@ -1,7 +1,7 @@
 #if os(iOS)
 import SwiftUI
 
-/// iPhoneで指定スロットへ割り当てるBluetooth Low Energy候補を表示します。
+/// iPhoneで指定スロットへ割り当てる接続済みBluetooth Low Energy候補を表示します。
 struct IOSAdapterSelectionView: View {
     /// Bluetooth候補を割り当てるアダプタースロットです。
     let slot: AdapterConnectionRole
@@ -12,9 +12,9 @@ struct IOSAdapterSelectionView: View {
     /// 候補探索と選択操作をプレゼンテーションモデルへ通知します。
     let send: (IOSSettingsAction) -> Void
 
-    /// Bluetooth専用の候補一覧と再探索およびキャンセル操作を提供します。
+    /// 接続済みBluetooth専用の候補一覧と再探索およびキャンセル操作を提供します。
     ///
-    /// 責務: iPhoneで指定スロット向けBLE候補を状態別に確認できる選択画面として描画します。
+    /// 責務: iPhoneで指定スロット向け接続済みBLE候補を状態別に確認できる選択画面として描画します。
     var body: some View {
         NavigationStack {
             discoveryContent
@@ -103,9 +103,9 @@ struct IOSAdapterSelectionView: View {
         }
     }
 
-    /// 1件のBLE候補を詳細確認へ進める行として生成します。
+    /// 1件の接続済みBLE候補を詳細確認へ進める行として生成します。
     ///
-    /// 責務: 1件のBluetooth候補を名称と省略したUUIDを持つ44pt以上の選択操作として描画します。
+    /// 責務: 1件の接続済みBluetooth候補を名称と省略したUUIDを持つ44pt以上の選択操作として描画します。
     /// - Parameter adapter: 表示対象のBluetooth候補。
     /// - Returns: VoiceOverで名称、方式、選択操作を判別できる候補ボタン。
     private func candidateButton(for adapter: DiscoveredAdapter) -> some View {
