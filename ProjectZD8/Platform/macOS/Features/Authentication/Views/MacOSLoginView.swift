@@ -115,20 +115,20 @@ struct MacOSLoginView: View {
         ZStack {
             LinearGradient(
                 colors: [
-                    Color(red: 0.02, green: 0.032, blue: 0.06),
-                    Color(red: 0.045, green: 0.065, blue: 0.11),
-                    Color(red: 0.018, green: 0.022, blue: 0.04)
+                    Color(red: 0.05, green: 0.05, blue: 0.06),
+                    Color(red: 0.025, green: 0.035, blue: 0.055),
+                    Color(red: 0.016, green: 0.018, blue: 0.025)
                 ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
             Circle()
-                .fill(Color.cyan.opacity(0.12))
+                .fill(Color.accentColor.opacity(0.17))
                 .frame(width: 560, height: 560)
                 .blur(radius: 130)
                 .offset(x: 280, y: -280)
             Circle()
-                .fill(Color.blue.opacity(0.09))
+                .fill(Color.orange.opacity(0.05))
                 .frame(width: 460, height: 460)
                 .blur(radius: 140)
                 .offset(x: -380, y: 300)
@@ -141,24 +141,42 @@ struct MacOSLoginView: View {
     ///
     /// 責務: macOSログイン画面のブランド識別情報を1件のヘッダーへ配置します。
     /// - Parameter scale: ウインドウ寸法から解決した内部コンテンツ倍率。
-    /// - Returns: Project ZD8のmacOSブランドヘッダー。
+    /// - Returns: RevTorque InsightのmacOSブランドヘッダー。
     private func brandHeader(scale: CGFloat) -> some View {
         HStack(spacing: 13 * scale) {
             ZStack {
                 RoundedRectangle(cornerRadius: 14 * scale, style: .continuous)
-                    .fill(.white.opacity(0.09))
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color(red: 0.015, green: 0.075, blue: 0.14),
+                                Color(red: 0.025, green: 0.15, blue: 0.23)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
                 Image(systemName: "gauge.with.dots.needle.50percent")
                     .font(.system(size: 24 * scale, weight: .semibold))
-                    .foregroundStyle(.cyan)
+                    .foregroundStyle(Color.accentColor)
+                Circle()
+                    .fill(.orange)
+                    .frame(width: 5 * scale, height: 5 * scale)
+                    .offset(x: 13 * scale, y: -12 * scale)
             }
             .frame(width: 50 * scale, height: 50 * scale)
+            .overlay {
+                RoundedRectangle(cornerRadius: 14 * scale, style: .continuous)
+                    .stroke(Color.accentColor.opacity(0.32), lineWidth: 1)
+            }
+            .shadow(color: Color.accentColor.opacity(0.3), radius: 14 * scale, y: 6 * scale)
             VStack(alignment: .leading, spacing: 2) {
-                Text("PROJECT ZD8")
+                Text("RevTorque Insight")
                     .font(.system(size: 17 * scale, weight: .bold, design: .rounded))
-                    .tracking(1.8)
+                    .tracking(0.25)
                 Text("auth.eyebrow")
                     .font(.system(size: 10 * scale, weight: .semibold))
-                    .foregroundStyle(.cyan)
+                    .foregroundStyle(Color.accentColor)
                     .tracking(1.4)
             }
         }
@@ -179,7 +197,7 @@ struct MacOSLoginView: View {
                 .trim(from: 0.08, to: 0.72)
                 .stroke(
                     AngularGradient(
-                        colors: [.cyan.opacity(0.2), .cyan, .blue, .cyan.opacity(0.2)],
+                        colors: [Color.accentColor.opacity(0.2), Color.accentColor, .cyan, Color.accentColor.opacity(0.2)],
                         center: .center
                     ),
                     style: StrokeStyle(lineWidth: max(4, diameter * 0.018), lineCap: .round)
@@ -188,18 +206,20 @@ struct MacOSLoginView: View {
             Circle()
                 .stroke(.white.opacity(0.18), style: StrokeStyle(lineWidth: 1, dash: [2, 9]))
                 .padding(diameter * 0.12)
-            VStack(spacing: diameter * 0.04) {
-                Image(systemName: "car.side.fill")
-                    .font(.system(size: diameter * 0.2, weight: .medium))
-                    .foregroundStyle(.white)
-                Text("ZD8")
-                    .font(.system(size: diameter * 0.095, weight: .bold, design: .rounded))
-                    .foregroundStyle(.cyan)
-                    .tracking(2.4)
+            HStack(spacing: -diameter * 0.03) {
+                Text("R")
+                    .font(.system(size: diameter * 0.30, weight: .bold, design: .rounded))
+                Image(systemName: "waveform.path.ecg")
+                    .font(.system(size: diameter * 0.23, weight: .semibold))
             }
+            .foregroundStyle(Color.accentColor)
+            Circle()
+                .fill(.orange)
+                .frame(width: diameter * 0.035, height: diameter * 0.035)
+                .offset(x: diameter * 0.19, y: -diameter * 0.03)
         }
         .frame(width: diameter, height: diameter)
-        .shadow(color: .cyan.opacity(0.16), radius: 30)
+        .shadow(color: Color.accentColor.opacity(0.2), radius: 30)
         .accessibilityHidden(true)
     }
 
@@ -251,7 +271,7 @@ struct MacOSLoginView: View {
             VStack(alignment: .leading, spacing: 7) {
                 Text("auth.panel.eyebrow")
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(.cyan)
+                    .foregroundStyle(Color.accentColor)
                     .tracking(1.2)
                 Text("auth.panel.title")
                     .font(.title2.weight(.bold))

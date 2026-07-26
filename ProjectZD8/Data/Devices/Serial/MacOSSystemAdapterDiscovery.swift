@@ -1,20 +1,20 @@
 #if os(macOS)
-import CoreBluetooth
 import Foundation
+import IOBluetooth
 import IOKit
 import IOKit.serial
 
-/// macOSのIORegistryとBluetoothスタックからアダプター候補を取得します。
+/// macOSのIORegistryとBluetooth Classicスタックからアダプター候補を取得します。
 @MainActor
 final class MacOSSystemAdapterDiscovery: NSObject, AdapterDiscoveryPort {
-    /// Bluetooth Low Energyの一定時間スキャンを担当するオブジェクトです。
-    private let bluetoothScanner: MacOSBluetoothLowEnergyScanner
+    /// OBDLink MX+に限定したBluetooth Classic探索を担当するオブジェクトです。
+    private let bluetoothScanner: MacOSOBDLinkMXPlusBluetoothScanner
 
     /// macOSのデバイス探索実装を生成します。
     ///
     /// 責務: Bluetoothスキャナーを保持するmacOSアダプター探索境界を構築します。
     override init() {
-        bluetoothScanner = MacOSBluetoothLowEnergyScanner()
+        bluetoothScanner = MacOSOBDLinkMXPlusBluetoothScanner()
         super.init()
     }
 
@@ -29,7 +29,7 @@ final class MacOSSystemAdapterDiscovery: NSObject, AdapterDiscoveryPort {
         case .usb:
             return discoverUSBDevices()
         case .bluetooth:
-            return try await bluetoothScanner.scan()
+            return try await bluetoothScanner.discover()
         }
     }
 
@@ -196,89 +196,181 @@ final class MacOSSystemAdapterDiscovery: NSObject, AdapterDiscoveryPort {
     }
 }
 
-/// CoreBluetoothで周辺のBluetooth Low Energyデバイスを一定時間探索します。
+/// Bluetooth Classicの履歴と周辺探索からOBDLink MX+だけを取得します。
 @MainActor
-private final class MacOSBluetoothLowEnergyScanner: NSObject, CBCentralManagerDelegate {
-    /// CoreBluetoothのスキャンと状態通知を提供する中央マネージャーです。
-    private var centralManager: CBCentralManager?
+private final class MacOSOBDLinkMXPlusBluetoothScanner: NSObject, IOBluetoothDeviceInquiryDelegate {
+    /// OBDLink MX+名称とペアリング完了を検証する方針です。
+    private let candidatePolicy = MacOSOBDLinkMXPlusDiscoveryPolicy()
 
-    /// 現在のスキャンで検出した候補を識別子ごとに保持します。
-    private var discoveredAdapters: [String: DiscoveredAdapter] = [:]
+    /// 現在実行中のBluetooth Classic探索です。
+    private var inquiry: IOBluetoothDeviceInquiry?
 
-    /// Bluetooth Low Energyスキャナーを初期状態で生成します。
+    /// 現在の探索で検出したMX+候補をBluetoothアドレスごとに保持します。
+    private var discoveredDevices: [String: IOBluetoothDevice] = [:]
+
+    /// 現在の非同期探索を完了させる継続です。
+    private var continuation: CheckedContinuation<[DiscoveredAdapter], any Error>?
+
+    /// Bluetooth Classic探索に設ける終了タスクです。
+    private var timeoutTask: Task<Void, Never>?
+
+    /// Bluetooth Classicスキャナーを初期状態で生成します。
     ///
-    /// 責務: CoreBluetoothスキャン開始前の空の探索状態を構築します。
+    /// 責務: OBDLink MX+探索開始前の空のBluetooth Classic状態を構築します。
     override init() {
         super.init()
     }
 
-    /// 周辺のBluetooth Low Energyデバイスを一定時間探索します。
+    /// 最近参照した機器と一定時間の周辺探索からOBDLink MX+候補を返します。
     ///
-    /// 責務: CoreBluetoothで検出できた周辺機器を1回分の候補一覧として返します。
-    /// - Returns: スキャン期間内に検出できたBluetooth Low Energy候補。
-    /// - Throws: タスクがキャンセルされた場合の `CancellationError`。
-    func scan() async throws -> [DiscoveredAdapter] {
-        discoveredAdapters = [:]
-        let manager = CBCentralManager(delegate: self, queue: .main)
-        centralManager = manager
+    /// 責務: macOSが既知または探索中に報告した機器をMX+専用候補一覧へ変換します。
+    /// - Returns: 名称とペアリング状態を確認できたOBDLink MX+候補。
+    /// - Throws: 探索開始失敗またはタスク取消し。
+    func discover() async throws -> [DiscoveredAdapter] {
+        try Task.checkCancellation()
+        cancelActiveDiscovery()
+        discoveredDevices = [:]
+        addRecentOBDLinkDevices()
 
-        for _ in 0..<15 where manager.state == .unknown || manager.state == .resetting {
-            try await Task.sleep(for: .milliseconds(100))
+        return try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { continuation in
+                self.continuation = continuation
+                guard let inquiry = IOBluetoothDeviceInquiry(delegate: self) else {
+                    finish(with: .failure(MacOSAdapterDiscoveryError.bluetoothUnavailable))
+                    return
+                }
+                self.inquiry = inquiry
+                guard inquiry.start() == kIOReturnSuccess else {
+                    finish(with: .failure(MacOSAdapterDiscoveryError.bluetoothUnavailable))
+                    return
+                }
+                timeoutTask = Task { [weak self] in
+                    try? await Task.sleep(for: .seconds(5))
+                    guard !Task.isCancelled else { return }
+                    self?.finish(with: .success(self?.makeAdapters() ?? []))
+                }
+            }
+        } onCancel: {
+            Task { @MainActor in
+                self.finish(with: .failure(CancellationError()))
+            }
         }
-
-        guard manager.state == .poweredOn else {
-            centralManager = nil
-            throw MacOSAdapterDiscoveryError.bluetoothUnavailable
-        }
-
-        manager.scanForPeripherals(withServices: nil, options: [CBCentralManagerScanOptionAllowDuplicatesKey: false])
-        do {
-            try await Task.sleep(for: .seconds(2))
-        } catch {
-            manager.stopScan()
-            centralManager = nil
-            throw error
-        }
-        manager.stopScan()
-        centralManager = nil
-        return Array(discoveredAdapters.values)
     }
 
-    /// Bluetooth中央マネージャーの状態変更を受け取ります。
+    /// Bluetooth Classic探索で1件見つかった機器をMX+候補として記録します。
     ///
-    /// 責務: CoreBluetoothが要求する中央マネージャー状態通知の受信境界を提供します。
-    /// - Parameter central: 状態が変更された中央マネージャー。
-    func centralManagerDidUpdateState(_ central: CBCentralManager) {}
-
-    /// Bluetooth Low Energy周辺機器の検出情報を候補として記録します。
-    ///
-    /// 責務: 1件のCoreBluetooth検出通知を重複のないアダプター候補へ変換します。
+    /// 責務: 1件のIOBluetooth探索通知を名称確認済みMX+辞書へ反映します。
     /// - Parameters:
-    ///   - central: 検出通知を生成した中央マネージャー。
-    ///   - peripheral: 検出されたBluetooth Low Energy周辺機器。
-    ///   - advertisementData: 周辺機器が公開したアドバタイズ情報。
-    ///   - RSSI: 検出時の受信信号強度。
-    func centralManager(
-        _ central: CBCentralManager,
-        didDiscover peripheral: CBPeripheral,
-        advertisementData: [String: Any],
-        rssi RSSI: NSNumber
+    ///   - sender: 通知元のBluetooth探索。
+    ///   - device: 見つかったBluetooth Classic機器。
+    func deviceInquiryDeviceFound(
+        _ sender: IOBluetoothDeviceInquiry!,
+        device: IOBluetoothDevice!
     ) {
-        let identifier = peripheral.identifier.uuidString
-        let advertisedName = advertisementData[CBAdvertisementDataLocalNameKey] as? String
-        let resolvedName = advertisedName ?? peripheral.name ?? identifier
-        discoveredAdapters["bluetooth-low-energy:\(identifier)"] = DiscoveredAdapter(
-            id: "bluetooth-low-energy:\(identifier)",
-            transportMode: .bluetooth,
-            displayName: resolvedName,
-            productName: advertisedName ?? peripheral.name,
-            systemIdentifier: identifier,
-            isConnected: peripheral.state == .connected
-        )
+        addIfOBDLinkMXPlus(device)
+    }
+
+    /// Bluetooth Classic探索の完了結果を待機中の呼出元へ返します。
+    ///
+    /// 責務: 1回のIOBluetooth探索完了を候補一覧または利用不能エラーへ変換します。
+    /// - Parameters:
+    ///   - sender: 完了したBluetooth探索。
+    ///   - error: IOBluetoothが返した探索結果。
+    ///   - aborted: 呼出元または期限により中止されたかどうか。
+    func deviceInquiryComplete(
+        _ sender: IOBluetoothDeviceInquiry!,
+        error: IOReturn,
+        aborted: Bool
+    ) {
+        guard error == kIOReturnSuccess || aborted else {
+            finish(with: .failure(MacOSAdapterDiscoveryError.bluetoothUnavailable))
+            return
+        }
+        finish(with: .success(makeAdapters()))
+    }
+
+    /// macOSの最近参照した機器からOBDLink MX+だけを現在候補へ追加します。
+    ///
+    /// 責務: 有限件数のBluetooth履歴を名称で保守的に絞り込み現在探索へ統合します。
+    private func addRecentOBDLinkDevices() {
+        let recentDevices = IOBluetoothDevice.recentDevices(32) as? [IOBluetoothDevice] ?? []
+        recentDevices.forEach(addIfOBDLinkMXPlus)
+    }
+
+    /// 名称とBluetoothアドレスを持つOBDLink MX+を候補辞書へ追加します。
+    ///
+    /// 責務: 1件のBluetooth機器を公式MX+名称接頭辞で検証して重複なく保持します。
+    /// - Parameter device: macOSが報告したBluetooth Classic機器。
+    private func addIfOBDLinkMXPlus(_ device: IOBluetoothDevice) {
+        guard let name = normalized(device.nameOrAddress),
+              candidatePolicy.accepts(name: name, isPaired: device.isPaired()),
+              let address = normalized(device.addressString) else {
+            return
+        }
+        discoveredDevices[address] = device
+    }
+
+    /// 保持中のBluetooth機器を接続終端付きMX+候補へ変換します。
+    ///
+    /// 責務: 名称確認済みMX+辞書を安定順序のBluetooth Classic候補一覧へ写像します。
+    /// - Returns: Bluetoothアドレス順に並べたMX+候補。
+    private func makeAdapters() -> [DiscoveredAdapter] {
+        discoveredDevices.compactMap { address, device in
+            guard let name = normalized(device.nameOrAddress) else { return nil }
+            return DiscoveredAdapter(
+                id: "bluetooth-classic:\(address)",
+                transportMode: .bluetooth,
+                connectionTransport: .bluetoothClassic,
+                displayName: name,
+                manufacturerName: "OBD Solutions LLC",
+                productName: "OBDLink MX+",
+                systemIdentifier: address,
+                isConnected: device.isConnected()
+            )
+        }
+        .sorted { $0.systemIdentifier < $1.systemIdentifier }
+    }
+
+    /// 空白だけのBluetooth文字列を除外します。
+    ///
+    /// 責務: 1件の任意文字列を空でない前後空白除去済み値へ変換します。
+    /// - Parameter value: macOSから取得した任意文字列。
+    /// - Returns: 空でない正規化値。値がない場合は `nil`。
+    private func normalized(_ value: String?) -> String? {
+        guard let value = value?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !value.isEmpty else {
+            return nil
+        }
+        return value
+    }
+
+    /// 現在のBluetooth探索と期限タスクを破棄します。
+    ///
+    /// 責務: 以前の探索資源を次回探索へ持ち越さないよう停止します。
+    private func cancelActiveDiscovery() {
+        timeoutTask?.cancel()
+        timeoutTask = nil
+        inquiry?.stop()
+        inquiry = nil
+        continuation = nil
+    }
+
+    /// 現在のBluetooth探索を1回だけ完了します。
+    ///
+    /// 責務: 最初の探索結果だけで継続を再開してIOBluetooth資源を解放します。
+    /// - Parameter result: 候補一覧または探索失敗。
+    private func finish(with result: Result<[DiscoveredAdapter], any Error>) {
+        guard let continuation else { return }
+        self.continuation = nil
+        timeoutTask?.cancel()
+        timeoutTask = nil
+        inquiry?.stop()
+        inquiry = nil
+        continuation.resume(with: result)
     }
 }
 
-/// macOSのデバイス探索を開始できない状態を表します。
+/// macOSのBluetooth Classic探索を開始できない状態を表します。
 private enum MacOSAdapterDiscoveryError: Error {
     /// Bluetoothが無効、未許可、またはこのMacで利用できません。
     case bluetoothUnavailable

@@ -28,6 +28,7 @@ struct IOSAppShellTabBar: View {
                 .stroke(Color.primary.opacity(0.09), lineWidth: 1)
         }
         .shadow(color: Color.black.opacity(0.12), radius: 20, y: 8)
+        .shadow(color: Color.accentColor.opacity(0.08), radius: 12, y: 3)
         .padding(.horizontal, 14)
         .padding(.top, 8)
         .padding(.bottom, 4)

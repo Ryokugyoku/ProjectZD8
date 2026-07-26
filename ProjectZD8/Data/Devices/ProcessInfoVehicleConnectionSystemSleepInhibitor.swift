@@ -20,7 +20,7 @@ final class ProcessInfoVehicleConnectionSystemSleepInhibitor: VehicleConnectionS
             guard activity == nil else { return }
             activity = ProcessInfo.processInfo.beginActivity(
                 options: .idleSystemSleepDisabled,
-                reason: "ProjectZD8 vehicle connection is active"
+                reason: "RevTorque Insight vehicle connection is active"
             )
         } else if let activity {
             ProcessInfo.processInfo.endActivity(activity)

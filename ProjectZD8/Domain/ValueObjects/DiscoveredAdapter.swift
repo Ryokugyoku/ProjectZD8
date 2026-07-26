@@ -8,6 +8,9 @@ struct DiscoveredAdapter: Equatable, Identifiable, Sendable {
     /// 候補を検出した物理接続方式です。
     let transportMode: AdapterTransportMode
 
+    /// OBDコマンド通信で使用する物理終端の種類です。
+    let connectionTransport: OBDConnectionEndpoint.Transport
+
     /// 一覧で優先表示する名称または代替識別子です。
     let displayName: String
 
@@ -47,6 +50,7 @@ struct DiscoveredAdapter: Equatable, Identifiable, Sendable {
     /// - Parameters:
     ///   - id: 同一候補を識別する安定識別子。
     ///   - transportMode: 候補を検出した物理接続方式。
+    ///   - connectionTransport: OBDコマンド通信で使用する物理終端。省略時は探索方式から解決します。
     ///   - displayName: 一覧で優先表示する名称または代替識別子。
     ///   - manufacturerName: システムから取得できたメーカー名称。
     ///   - productName: システムから取得できた製品名称。
@@ -61,6 +65,7 @@ struct DiscoveredAdapter: Equatable, Identifiable, Sendable {
     nonisolated init(
         id: String,
         transportMode: AdapterTransportMode,
+        connectionTransport: OBDConnectionEndpoint.Transport? = nil,
         displayName: String,
         manufacturerName: String? = nil,
         productName: String? = nil,
@@ -75,6 +80,8 @@ struct DiscoveredAdapter: Equatable, Identifiable, Sendable {
     ) {
         self.id = id
         self.transportMode = transportMode
+        self.connectionTransport = connectionTransport
+            ?? (transportMode == .usb ? .serial : .bluetoothLowEnergy)
         self.displayName = displayName
         self.manufacturerName = manufacturerName
         self.productName = productName

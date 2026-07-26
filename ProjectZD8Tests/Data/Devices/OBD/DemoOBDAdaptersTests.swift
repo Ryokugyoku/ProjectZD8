@@ -13,7 +13,7 @@ final class DemoOBDAdaptersTests: XCTestCase {
         ).identifyVehicle(using: endpoint)
 
         XCTAssertEqual(snapshot.vin, DemoOBDAdapter.syntheticVIN(for: endpoint))
-        XCTAssertEqual(snapshot.fields.first(where: { $0.id == "manufacturer" })?.value, "ProjectZD8 Demo Motors")
+        XCTAssertEqual(snapshot.fields.first(where: { $0.id == "manufacturer" })?.value, "RevTorque Demo Motors")
         XCTAssertEqual(snapshot.observedAt, Date(timeIntervalSince1970: 123))
     }
 

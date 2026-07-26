@@ -12,9 +12,9 @@ struct IOSAppShellBackground: View {
 
             LinearGradient(
                 colors: [
-                    Color.accentColor.opacity(0.12),
+                    Color.accentColor.opacity(0.10),
                     Color.clear,
-                    Color.primary.opacity(0.025)
+                    Color.orange.opacity(0.025)
                 ],
                 startPoint: .topTrailing,
                 endPoint: .bottomLeading
@@ -25,6 +25,12 @@ struct IOSAppShellBackground: View {
                 .frame(width: 260, height: 260)
                 .blur(radius: 70)
                 .offset(x: 150, y: -280)
+
+            Circle()
+                .fill(Color.orange.opacity(0.035))
+                .frame(width: 220, height: 220)
+                .blur(radius: 80)
+                .offset(x: -150, y: 320)
         }
         .ignoresSafeArea()
         .accessibilityHidden(true)

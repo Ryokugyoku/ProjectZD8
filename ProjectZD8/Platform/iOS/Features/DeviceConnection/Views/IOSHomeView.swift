@@ -69,14 +69,14 @@ struct IOSHomeView: View {
                     )
                     .shadow(color: Color.accentColor.opacity(0.25), radius: 10, y: 4)
 
-                Image(systemName: "car.side.fill")
+                Image(systemName: "gauge.with.dots.needle.50percent")
                     .font(.system(size: 20, weight: .semibold))
                     .foregroundStyle(.white)
             }
             .frame(width: 46, height: 46)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text("Project ZD8")
+                Text("RevTorque Insight")
                     .font(.system(.headline, design: .rounded, weight: .bold))
 
                 Text("ios.shell.tagline")

@@ -71,20 +71,20 @@ struct IOSLoginView: View {
         ZStack {
             LinearGradient(
                 colors: [
-                    Color(red: 0.025, green: 0.04, blue: 0.075),
-                    Color(red: 0.045, green: 0.07, blue: 0.12),
-                    Color(red: 0.02, green: 0.025, blue: 0.045)
+                    Color(red: 0.055, green: 0.055, blue: 0.065),
+                    Color(red: 0.025, green: 0.035, blue: 0.055),
+                    Color(red: 0.018, green: 0.02, blue: 0.028)
                 ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
             Circle()
-                .fill(Color.cyan.opacity(0.12))
+                .fill(Color.accentColor.opacity(0.18))
                 .frame(width: 360, height: 360)
                 .blur(radius: 80)
                 .offset(x: 150, y: -240)
             Circle()
-                .fill(Color.blue.opacity(0.1))
+                .fill(Color.orange.opacity(0.055))
                 .frame(width: 300, height: 300)
                 .blur(radius: 90)
                 .offset(x: -170, y: 300)
@@ -98,19 +98,37 @@ struct IOSLoginView: View {
         HStack(spacing: 12) {
             ZStack {
                 RoundedRectangle(cornerRadius: 13, style: .continuous)
-                    .fill(.white.opacity(0.1))
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color(red: 0.015, green: 0.075, blue: 0.14),
+                                Color(red: 0.025, green: 0.15, blue: 0.23)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
                 Image(systemName: "gauge.with.dots.needle.50percent")
                     .font(.system(size: 23, weight: .semibold))
-                    .foregroundStyle(.cyan)
+                    .foregroundStyle(Color.accentColor)
+                Circle()
+                    .fill(.orange)
+                    .frame(width: 5, height: 5)
+                    .offset(x: 12, y: -11)
             }
             .frame(width: 48, height: 48)
+            .overlay {
+                RoundedRectangle(cornerRadius: 13, style: .continuous)
+                    .stroke(Color.accentColor.opacity(0.32), lineWidth: 1)
+            }
+            .shadow(color: Color.accentColor.opacity(0.3), radius: 14, y: 6)
             VStack(alignment: .leading, spacing: 2) {
-                Text("PROJECT ZD8")
+                Text("RevTorque Insight")
                     .font(.system(.headline, design: .rounded, weight: .bold))
-                    .tracking(1.4)
+                    .tracking(0.2)
                 Text("auth.eyebrow")
                     .font(.caption.weight(.medium))
-                    .foregroundStyle(.cyan)
+                    .foregroundStyle(Color.accentColor)
                     .tracking(1.1)
             }
             Spacer(minLength: 0)
@@ -131,7 +149,7 @@ struct IOSLoginView: View {
                 .trim(from: 0.08, to: 0.72)
                 .stroke(
                     AngularGradient(
-                        colors: [.cyan.opacity(0.25), .cyan, .blue, .cyan.opacity(0.25)],
+                        colors: [Color.accentColor.opacity(0.25), Color.accentColor, .cyan, Color.accentColor.opacity(0.25)],
                         center: .center
                     ),
                     style: StrokeStyle(lineWidth: 5, lineCap: .round)
@@ -140,18 +158,20 @@ struct IOSLoginView: View {
             Circle()
                 .stroke(.white.opacity(0.18), style: StrokeStyle(lineWidth: 1, dash: [2, 8]))
                 .padding(22)
-            VStack(spacing: 8) {
-                Image(systemName: "car.side.fill")
-                    .font(.system(size: diameter * 0.22, weight: .medium))
-                    .foregroundStyle(.white)
-                Text("ZD8")
-                    .font(.system(size: diameter * 0.11, weight: .bold, design: .rounded))
-                    .foregroundStyle(.cyan)
-                    .tracking(2)
+            HStack(spacing: -diameter * 0.03) {
+                Text("R")
+                    .font(.system(size: diameter * 0.32, weight: .bold, design: .rounded))
+                Image(systemName: "waveform.path.ecg")
+                    .font(.system(size: diameter * 0.25, weight: .semibold))
             }
+            .foregroundStyle(Color.accentColor)
+            Circle()
+                .fill(.orange)
+                .frame(width: diameter * 0.035, height: diameter * 0.035)
+                .offset(x: diameter * 0.20, y: -diameter * 0.035)
         }
         .frame(width: diameter, height: diameter)
-        .shadow(color: .cyan.opacity(0.18), radius: 24)
+        .shadow(color: Color.accentColor.opacity(0.2), radius: 24)
         .accessibilityHidden(true)
     }
 

@@ -2,7 +2,7 @@ import Foundation
 import XCTest
 @testable import ProjectZD8
 
-/// 選択済みELM/STN互換シリアルAdapterのコマンド順序、観測保持、失敗終端を検証します。
+/// 選択済みELM/STN互換Adapterのコマンド順序、観測保持、失敗終端を検証します。
 @MainActor
 final class SerialELMVehicleIdentificationAdapterTests: XCTestCase {
     /// 完全な識別フローがVINと全原文を返します。
@@ -41,15 +41,15 @@ final class SerialELMVehicleIdentificationAdapterTests: XCTestCase {
         XCTAssertEqual(snapshot.obdIdentifier, "ZD81234567")
     }
 
-    /// Bluetooth終端へEXシリアルコマンドを送りません。
+    /// BLE終端へELM/STNコマンドを送りません。
     ///
-    /// 責務: EXのUSB以外の接続方式がTransport生成前に拒否されることを確認します。
-    func testRejectsNonSerialEndpointBeforeOpeningTransport() async {
+    /// 責務: 連続バイトストリームを提供しないBLE終端がTransport生成前に拒否されることを確認します。
+    func testRejectsBLEEndpointBeforeOpeningTransport() async {
         let transport = OBDCommandTransportFake(responses: [])
         let adapter = SerialELMVehicleIdentificationAdapter(makeTransport: { _ in transport })
         do {
             _ = try await adapter.identifyVehicle(using: .init(transport: .bluetoothLowEnergy, systemIdentifier: "x", displayName: "x"))
-            XCTFail("EXはBLE終端へ接続してはいけません")
+            XCTFail("ELM/STN処理は未実装BLE終端へ接続してはいけません")
         } catch {
             XCTAssertEqual(
                 error as? VehicleIdentificationError,
@@ -95,6 +95,25 @@ final class SerialELMVehicleIdentificationAdapterTests: XCTestCase {
         let commands = await transport.commands
         XCTAssertTrue(commands.contains("0902\r"))
         XCTAssertFalse(commands.contains("STDIX\r"))
+    }
+
+    /// MX+のBluetooth Classic終端でも同じ読取専用識別シーケンスを実行します。
+    ///
+    /// 責務: Bluetooth ClassicバイトストリームがBLEとして拒否されずVIN要求へ進むことを確認します。
+    func testIdentifiesThroughBluetoothClassicByteStream() async throws {
+        let transport = OBDCommandTransportFake(responses: successfulResponses)
+        let adapter = SerialELMVehicleIdentificationAdapter(makeTransport: { _ in transport })
+        let endpoint = OBDConnectionEndpoint(
+            transport: .bluetoothClassic,
+            systemIdentifier: "00-04-3E-12-34-56",
+            displayName: "OBDLink MX+ 48318"
+        )
+
+        let snapshot = try await adapter.identifyVehicle(using: endpoint)
+
+        let commands = await transport.commands
+        XCTAssertEqual(snapshot.vin, "1D4GP00R55B123456")
+        XCTAssertTrue(commands.contains("0902\r"))
     }
 
     /// テスト用EXシリアル終端です。

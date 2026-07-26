@@ -1,10 +1,10 @@
 import Foundation
 
-/// OBDLink EXでPID定義DB由来のService 01要求を読み取ります。
+/// OBDLink EXまたはMX+でPID定義DB由来のService 01要求を読み取ります。
 actor OBDLinkEXPIDTelemetryAdapter: OBDPIDTelemetryPort {
-    /// シリアルTransportを生成するFactoryです。
+    /// ELM/STNバイトストリームTransportを生成するFactoryです。
     private let makeTransport: @Sendable (OBDConnectionEndpoint) throws -> any OBDCommandTransport
-    /// 現在開いているシリアルTransportです。
+    /// 現在開いているELM/STNバイトストリームTransportです。
     private var activeTransport: (any OBDCommandTransport)?
     /// 現在の単一inflightコマンドチャネルです。
     private var activeChannel: SerializedELMCommandChannel?
@@ -32,7 +32,7 @@ actor OBDLinkEXPIDTelemetryAdapter: OBDPIDTelemetryPort {
     /// - Returns: 各要求に対応する未加工データバイト。
     /// - Throws: 非シリアル終端、Service非対応、接続、または初期化に失敗した場合のエラー。
     func read(_ requests: [OBDPIDRequest], using endpoint: OBDConnectionEndpoint) async throws -> [OBDPIDRequest: [UInt8]] {
-        guard endpoint.transport == .serial else { throw OBDPIDTelemetryError.unavailable }
+        guard endpoint.transport.supportsELMByteStream else { throw OBDPIDTelemetryError.unavailable }
         let commands = try requests.map { request -> ELM327CurrentDataCommand in
             guard let command = ELM327CurrentDataCommand(request: request) else {
                 throw OBDPIDTelemetryError.unsupportedPID
@@ -67,7 +67,7 @@ actor OBDLinkEXPIDTelemetryAdapter: OBDPIDTelemetryPort {
         _ definitions: [OBDPIDDefinition],
         using endpoint: OBDConnectionEndpoint
     ) async throws -> [OBDPIDRequest: [UInt8]] {
-        guard endpoint.transport == .serial else { throw OBDPIDTelemetryError.unavailable }
+        guard endpoint.transport.supportsELMByteStream else { throw OBDPIDTelemetryError.unavailable }
         let prepared = try definitions.map { definition -> (UInt16, ELM327VehicleSpecificPIDCommand) in
             guard let header = definition.header,
                   let command = ELM327VehicleSpecificPIDCommand(definition: definition) else {
@@ -128,7 +128,7 @@ actor OBDLinkEXPIDTelemetryAdapter: OBDPIDTelemetryPort {
         _ requests: [OBDPIDRequest],
         using endpoint: OBDConnectionEndpoint
     ) async throws -> [OBDPIDRequest: [UInt8]] {
-        guard endpoint.transport == .serial,
+        guard endpoint.transport.supportsELMByteStream,
               Set(requests) == Set(BRZBetaPIDPolicy.requests) else {
             throw OBDPIDTelemetryError.periodicMessagingUnavailable
         }

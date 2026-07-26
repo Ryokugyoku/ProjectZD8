@@ -6,8 +6,20 @@ nonisolated struct OBDConnectionEndpoint: Equatable, Sendable {
     enum Transport: String, Equatable, Sendable {
         /// Bluetooth Low EnergyのUARTサービスを使用します。
         case bluetoothLowEnergy
+        /// Bluetooth ClassicのSerial Port Profileを使用します。
+        case bluetoothClassic
         /// macOSから公開されたシリアルデバイスを使用します。
         case serial
+
+        /// ELM/STNの連続バイトストリームを提供できる終端かどうかです。
+        var supportsELMByteStream: Bool {
+            switch self {
+            case .bluetoothClassic, .serial:
+                true
+            case .bluetoothLowEnergy:
+                false
+            }
+        }
     }
 
     /// 使用する物理通信方式です。
@@ -22,7 +34,7 @@ nonisolated struct OBDConnectionEndpoint: Equatable, Sendable {
     /// 責務: 1件の検出結果を通信層へ渡せる最小接続情報へ変換します。
     /// - Parameter adapter: 接続対象として選択されたアダプター。
     init(adapter: DiscoveredAdapter) {
-        transport = adapter.transportMode == .bluetooth ? .bluetoothLowEnergy : .serial
+        transport = adapter.connectionTransport
         systemIdentifier = adapter.systemIdentifier
         displayName = adapter.displayName
     }

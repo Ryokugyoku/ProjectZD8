@@ -2903,19 +2903,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Project ZD8 is a vehicle-data support app developed and provided by an individual. Please confirm the following before use."
+            "value" : "RevTorque Insight is a vehicle-data support app developed and provided by an individual. Please confirm the following before use."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Project ZD8 es una aplicación de apoyo para datos del vehículo desarrollada y ofrecida por un particular. Confirma lo siguiente antes de usarla."
+            "value" : "RevTorque Insight es una aplicación de apoyo para datos del vehículo desarrollada y ofrecida por un particular. Confirma lo siguiente antes de usarla."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Project ZD8は個人が開発・提供する車両データ支援アプリです。利用前に次の内容を確認してください。"
+            "value" : "RevTorque Insightは個人が開発・提供する車両データ支援アプリです。利用前に次の内容を確認してください。"
           }
         }
       }
@@ -9548,19 +9548,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Allow Bluetooth access for ProjectZD8 in Settings, then scan again."
+            "value" : "Allow Bluetooth access for RevTorque Insight in Settings, then scan again."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Permite el acceso a Bluetooth para ProjectZD8 en Ajustes y vuelve a buscar."
+            "value" : "Permite el acceso a Bluetooth para RevTorque Insight en Ajustes y vuelve a buscar."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "設定でProjectZD8のBluetooth利用を許可してから再探索してください。"
+            "value" : "設定でRevTorque InsightのBluetooth利用を許可してから再探索してください。"
           }
         }
       }
@@ -17528,10 +17528,10 @@
         }
       }
     },
-    "Project ZD8" : {
+    "RevTorque Insight" : {
 
     },
-    "PROJECT ZD8" : {
+    "REVTORQUE INSIGHT" : {
 
     },
     "settings.adapter.description" : {
@@ -18620,19 +18620,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "More settings will be added as Project ZD8 evolves."
+            "value" : "More settings will be added as RevTorque Insight evolves."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Se añadirán más ajustes a medida que evolucione Project ZD8."
+            "value" : "Se añadirán más ajustes a medida que evolucione RevTorque Insight."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Project ZD8の進化に合わせて設定項目を追加していきます。"
+            "value" : "RevTorque Insightの進化に合わせて設定項目を追加していきます。"
           }
         }
       }
@@ -18734,19 +18734,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Shape Project ZD8 around the way you drive and work."
+            "value" : "Shape RevTorque Insight around the way you drive and work."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Adapta Project ZD8 a tu forma de conducir y trabajar."
+            "value" : "Adapta RevTorque Insight a tu forma de conducir y trabajar."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "運転と作業のスタイルに合わせてProject ZD8を整えます。"
+            "value" : "運転と作業のスタイルに合わせてRevTorque Insightを整えます。"
           }
         }
       }

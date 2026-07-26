@@ -1,15 +1,15 @@
 import Foundation
 
-/// 選択済みELM/STN互換シリアルアダプターへ型付きコマンドだけを送り車両識別子を取得します。
+/// 選択済みELM/STN互換バイトストリームへ型付きコマンドだけを送り車両識別子を取得します。
 struct SerialELMVehicleIdentificationAdapter: VehicleIdentificationPort {
-    /// シリアルTransportを生成するFactoryです。
+    /// ELM/STNバイトストリームTransportを生成するFactoryです。
     private let makeTransport: @Sendable (OBDConnectionEndpoint) throws -> any OBDCommandTransport
     /// 観測日時を提供する注入済みクロックです。
     private let now: @Sendable () -> Date
 
     /// Transport Factoryとクロックを注入して生成します。
     ///
-    /// 責務: シリアル車両識別処理を物理Transport生成と時刻取得境界へ固定します。
+    /// 責務: ELM/STN車両識別処理を物理Transport生成と時刻取得境界へ固定します。
     /// - Parameters:
     ///   - makeTransport: 接続終端に対応するTransport生成処理。
     ///   - now: 観測完了日時の供給元。
@@ -21,14 +21,14 @@ struct SerialELMVehicleIdentificationAdapter: VehicleIdentificationPort {
         self.now = now
     }
 
-    /// 選択済みシリアルアダプターを初期化してService 09 PID 02の車両識別子を取得します。
+    /// 選択済みELM/STNアダプターを初期化してService 09 PID 02の車両識別子を取得します。
     ///
-    /// 責務: 1件の選択済みシリアル接続から型付き読取専用識別観測を生成します。
-    /// - Parameter endpoint: 選択済みアダプターが公開するUSBシリアル終端。
+    /// 責務: 1件の選択済みELM/STN接続から型付き読取専用識別観測を生成します。
+    /// - Parameter endpoint: 選択済みアダプターが公開する連続バイトストリーム終端。
     /// - Returns: VIN、アダプター、プロトコル、加工前応答を含む観測。
     /// - Throws: 非シリアル終端、接続、コマンド、応答解析に失敗した場合の識別エラー。
     func identifyVehicle(using endpoint: OBDConnectionEndpoint) async throws -> VehicleIdentificationSnapshot {
-        guard endpoint.transport == .serial else {
+        guard endpoint.transport.supportsELMByteStream else {
             throw VehicleIdentificationError.stageFailed(.endpointValidation, .transportUnsupported)
         }
         let transport: any OBDCommandTransport

@@ -5,7 +5,7 @@ import AuthenticationServices
 /// macOSアプリケーションで使用する実装依存関係を組み立てます。
 @MainActor
 enum MacOSApplicationComposition {
-    /// PID定義DB、EXシリアル読取、接続中スリープ抑止を結び付けます。
+    /// PID定義DB、EX USB／MX+ Bluetooth読取、接続中スリープ抑止を結び付けます。
     ///
     /// 責務: macOSのPID取得依存関係と接続中スリープ抑止を1件のLiveTelemetry構成へ注入します。
     /// - Returns: DB登録済みPIDを読み取れるモデル。
@@ -19,7 +19,7 @@ enum MacOSApplicationComposition {
     ) -> LiveTelemetryModel {
         let telemetry = DemoAwareOBDPIDTelemetryAdapter(
             live: OBDLinkEXPIDTelemetryAdapter { endpoint in
-                MacOS115200BaudOBDSerialTransport(devicePath: endpoint.systemIdentifier)
+                try makeOBDCommandTransport(for: endpoint)
             },
             demo: DemoOBDPIDTelemetryAdapter()
         )
@@ -65,9 +65,9 @@ enum MacOSApplicationComposition {
             ?? UnavailableVehiclePIDCapabilityRepository()
     }
 
-    /// CloudKit同期と選択済みシリアルアダプター通信を注入した車両管理モデルを生成します。
+    /// CloudKit同期と選択済みELM/STNアダプター通信を注入した車両管理モデルを生成します。
     ///
-    /// 責務: macOSの車両保存、写真読込、シリアル識別をVehicleManagementへ結び付けます。
+    /// 責務: macOSの車両保存、写真読込、USB／Bluetooth識別をVehicleManagementへ結び付けます。
     /// - Returns: private database同期を使用する車両管理モデル。
     /// - Parameter connectionSessionRepository: Garageの車両別ログ集計に使用する接続履歴取得先。
     /// - Parameter vehicleSessionsDidDelete: 車両関連セッション削除後に履歴表示へ再読込を通知する処理。
@@ -88,7 +88,7 @@ enum MacOSApplicationComposition {
             identifyForConnection: IdentifyVehicleForConnectionUseCase(
                 identification: DemoAwareVehicleIdentificationAdapter(
                     live: SerialELMVehicleIdentificationAdapter { endpoint in
-                        MacOS115200BaudOBDSerialTransport(devicePath: endpoint.systemIdentifier)
+                        try makeOBDCommandTransport(for: endpoint)
                     },
                     demo: DemoVehicleIdentificationAdapter()
                 )
@@ -251,6 +251,25 @@ enum MacOSApplicationComposition {
                 preferencePort: preferenceStore
             )
         )
+    }
+
+    /// 選択済み終端に対応するmacOSのOBDバイトストリームを生成します。
+    ///
+    /// 責務: 1件の接続終端をUSBシリアルまたはBluetooth Classic RFCOMM Transportへ振り分けます。
+    /// - Parameter endpoint: 探索時に物理方式を確定したOBD接続終端。
+    /// - Returns: ELM/STNコマンドを送受信できるmacOS Transport。
+    /// - Throws: BLEなど未実装の物理方式では `VehicleIdentificationError.transportUnsupported`。
+    private static func makeOBDCommandTransport(
+        for endpoint: OBDConnectionEndpoint
+    ) throws -> any OBDCommandTransport {
+        switch endpoint.transport {
+        case .serial:
+            return MacOS115200BaudOBDSerialTransport(devicePath: endpoint.systemIdentifier)
+        case .bluetoothClassic:
+            return MacOSBluetoothRFCOMMOBDTransport(deviceAddress: endpoint.systemIdentifier)
+        case .bluetoothLowEnergy:
+            throw VehicleIdentificationError.transportUnsupported
+        }
     }
 
     /// Debug UIテストが要求した認証済み起動状態または通常の確認中状態です。

@@ -119,11 +119,13 @@ This subsection is the authoritative visual contract for macOS AppShell and scre
 
 #### Product concept
 
-The macOS experience MUST feel like a calm, modern automotive cockpit: information is immediately readable, controls feel precise, and visual depth indicates hierarchy without ornamental noise.
+The RevTorque Insight experience MUST feel like a calm, modern automotive analysis cockpit: information is immediately readable, controls feel precise, and visual depth indicates hierarchy without ornamental noise.
 
 - The overall composition MUST be content-first. Navigation establishes context but MUST NOT visually compete with the active feature.
 - The surface hierarchy SHOULD be created with restrained material, tint, opacity, spacing, and continuous rounded shapes. Repeated heavy borders, saturated full-panel fills, and unrelated decorative colors MUST NOT become the primary hierarchy.
-- The accent color MUST communicate selection, focus, or a primary action. It MUST NOT be applied to every icon, label, and container merely to make the screen look active.
+- Luminous cyan, inherited from the app icon's tachometer and signal trace, is the primary brand accent and MUST communicate selection, focus, a primary action, or analytical depth. It MUST NOT be applied to every icon, label, and container merely to make the screen look active.
+- Orange MUST remain a small, high-energy secondary accent for a signal peak, caution, or similarly exceptional emphasis. It MUST NOT imply a connection, healthy state, or measured result without presentation-backed evidence.
+- Authentication and AppShell surfaces MUST establish the RevTorque Insight identity consistently while allowing iOS and macOS to retain platform-owned layout and interaction conventions.
 - Decorative text or status cards MUST remain truthful. A View MUST NOT show “connected,” “ready,” “healthy,” live values, or similar operational claims unless they come from presentation state owned by the appropriate Application workflow.
 - A screen SHOULD have one dominant visual idea. For the AppShell sidebar, that idea is a translucent navigation surface with one luminous selected destination; new effects MUST support that hierarchy rather than compete with it.
 
@@ -131,7 +133,7 @@ The macOS experience MUST feel like a calm, modern automotive cockpit: informati
 
 The expanded macOS AppShell sidebar MUST keep the following semantic order:
 
-1. A compact brand header that identifies Project ZD8.
+1. A compact brand header that identifies RevTorque Insight.
 2. A subdued navigation section label.
 3. Persistent destination rows with an icon, title, and short supporting label.
 4. Flexible empty space that keeps navigation near the top.

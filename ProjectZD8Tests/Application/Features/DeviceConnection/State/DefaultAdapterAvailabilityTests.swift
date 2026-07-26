@@ -49,6 +49,28 @@ final class DefaultAdapterAvailabilityTests: XCTestCase {
         XCTAssertEqual(availability.connectionEndpoint, OBDConnectionEndpoint(adapter: adapter))
     }
 
+    /// MX+候補がBluetooth Classic終端をHOMEへ公開することを検証します。
+    ///
+    /// 責務: 探索時に確定したClassic方式をBLEへ変換せず接続終端へ保持することを確認します。
+    func testMatchingMXPlusAdapterPreservesBluetoothClassicEndpoint() {
+        let adapter = DiscoveredAdapter(
+            id: "bluetooth-classic:00-04-3E-12-34-56",
+            transportMode: .bluetooth,
+            connectionTransport: .bluetoothClassic,
+            displayName: "OBDLink MX+ 48318",
+            systemIdentifier: "00-04-3E-12-34-56",
+            isConnected: false
+        )
+
+        let availability = DefaultAdapterAvailability(
+            preference: DefaultAdapterPreference(adapter: adapter),
+            detectedAdapter: adapter
+        )
+
+        XCTAssertEqual(availability.connectionEndpoint?.transport, .bluetoothClassic)
+        XCTAssertEqual(availability.connectionEndpoint?.systemIdentifier, "00-04-3E-12-34-56")
+    }
+
     /// テスト用Bluetoothアダプター候補を生成します。
     ///
     /// 責務: 指定した識別子と名称を持つ未接続候補を1件構築します。

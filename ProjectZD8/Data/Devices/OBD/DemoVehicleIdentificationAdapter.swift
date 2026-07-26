@@ -25,7 +25,7 @@ struct DemoVehicleIdentificationAdapter: VehicleIdentificationPort {
         return VehicleIdentificationSnapshot(
             vin: syntheticVIN,
             fields: [
-                .init(id: "manufacturer", label: "Manufacturer", value: "ProjectZD8 Demo Motors", source: endpoint.displayName),
+                .init(id: "manufacturer", label: "Manufacturer", value: "RevTorque Demo Motors", source: endpoint.displayName),
                 .init(id: "engineModel", label: "Engine Model", value: "ZD8-SIM-24", source: endpoint.displayName),
                 .init(id: "obdProtocol", label: "OBD Protocol", value: "ISO 15765-4 (simulated)", source: endpoint.displayName)
             ],

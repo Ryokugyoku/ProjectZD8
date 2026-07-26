@@ -2,7 +2,7 @@ import Foundation
 import XCTest
 @testable import ProjectZD8
 
-/// OBDLink EX主要PID読取の許可コマンド列と応答保持を検証します。
+/// OBDLink EX／MX+主要PID読取の許可コマンド列と応答保持を検証します。
 @MainActor
 final class OBDLinkEXPIDTelemetryAdapterTests: XCTestCase {
     /// 2種の検証済みPIDを1回の接続で読み取ります。
@@ -28,6 +28,30 @@ final class OBDLinkEXPIDTelemetryAdapterTests: XCTestCase {
         XCTAssertEqual(values[requests[1]], [0x00, 0x00])
         XCTAssertEqual(commands, ["ATZ\r", "ATE0\r", "ATL0\r", "ATS1\r", "ATH0\r", "ATSP0\r", "ATSH7DF\r", "0105\r", "010C\r"])
         XCTAssertTrue(didClose)
+    }
+
+    /// MX+のBluetooth Classic終端からも許可済み主要PIDを読み取ります。
+    ///
+    /// 責務: Bluetooth Classic終端がELM/STNバイトストリームとして主要PID取得へ進むことを確認します。
+    func testReadsAllowlistedPIDThroughBluetoothClassicByteStream() async throws {
+        let transport = PIDTransportFake(responses: [
+            "ELM327 v1.4b\r>", "OK\r>", "OK\r>", "OK\r>", "OK\r>", "OK\r>",
+            "OK\r>", "41 0C 1F 40\r>"
+        ])
+        let adapter = OBDLinkEXPIDTelemetryAdapter(makeTransport: { _ in transport })
+        let request = OBDPIDRequest(service: 0x01, pid: 0x0C)
+        let endpoint = OBDConnectionEndpoint(
+            transport: .bluetoothClassic,
+            systemIdentifier: "00-04-3E-12-34-56",
+            displayName: "OBDLink MX+ 48318"
+        )
+
+        let values = try await adapter.read([request], using: endpoint)
+        await adapter.endSession()
+
+        XCTAssertEqual(values[request], [0x1F, 0x40])
+        let didOpen = await transport.didOpen
+        XCTAssertTrue(didOpen)
     }
 
     /// ZD8専用PIDを定義済み物理ヘッダーへ送信します。

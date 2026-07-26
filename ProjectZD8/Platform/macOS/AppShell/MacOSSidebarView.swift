@@ -86,22 +86,33 @@ struct MacOSSidebarView: View {
                 RoundedRectangle(cornerRadius: 13 * metrics.scale, style: .continuous)
                     .fill(
                         LinearGradient(
-                            colors: [Color.accentColor, Color.accentColor.opacity(0.55)],
+                            colors: [
+                                Color(red: 0.015, green: 0.075, blue: 0.14),
+                                Color(red: 0.025, green: 0.15, blue: 0.23)
+                            ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         )
                     )
                     .shadow(color: Color.accentColor.opacity(0.32), radius: 12 * metrics.scale, y: 5 * metrics.scale)
 
-                Image(systemName: "car.side.fill")
+                Image(systemName: "gauge.with.dots.needle.50percent")
                     .font(.system(size: 20 * metrics.scale, weight: .semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Color.accentColor)
+                Circle()
+                    .fill(.orange)
+                    .frame(width: 5 * metrics.scale, height: 5 * metrics.scale)
+                    .offset(x: 11 * metrics.scale, y: -10 * metrics.scale)
             }
             .frame(width: 44 * metrics.scale, height: 44 * metrics.scale)
+            .overlay {
+                RoundedRectangle(cornerRadius: 13 * metrics.scale, style: .continuous)
+                    .stroke(Color.accentColor.opacity(0.32), lineWidth: 1)
+            }
 
             VStack(alignment: .leading, spacing: 1 * metrics.scale) {
-                Text("Project ZD8")
-                    .font(.system(size: 17 * metrics.scale, weight: .bold, design: .rounded))
+                Text("RevTorque Insight")
+                    .font(.system(size: 15 * metrics.scale, weight: .bold, design: .rounded))
 
                 Text("sidebar.brand.tagline")
                     .font(.system(size: 9 * metrics.scale, weight: .semibold, design: .rounded))

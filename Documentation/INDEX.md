@@ -19,6 +19,7 @@ dependencies. Do not reload a document already read in the same task.
 | View or presentation change | [`CODING_STANDARDS.md` §4–5](CODING_STANDARDS.md#4-replaceable-screen-rule) | Placement §2–4; macOS contract for macOS UI |
 | macOS layout or visual review | [`CODING_STANDARDS.md` §5](CODING_STANDARDS.md#5-platform-separation) | §10 for handoff; relevant Platform tests |
 | OBD, persistence, logging, or analysis boundary | [`CODING_STANDARDS.md` §9](CODING_STANDARDS.md#9-obd-acquisition-persistence-and-analysis-boundaries) | Placement §2–4 and the owning Feature in §6 |
+| OBDLink MX+ arrival or real-hardware acceptance | [`OBDLINK_MX_PLUS_HARDWARE_ACCEPTANCE.md`](OBDLINK_MX_PLUS_HARDWARE_ACCEPTANCE.md) | Coding Standards §9–10 before executing vehicle or hardware actions |
 | Feature ownership or a new Feature | [`PLACEMENT_RULES.md` §6](PLACEMENT_RULES.md#6-feature-growth) | §1 and §5 before adding a directory |
 | Validation or handoff | [`CODING_STANDARDS.md` §8 and §10](CODING_STANDARDS.md#8-tests) | macOS visual evidence in §5 when applicable |
 
@@ -68,6 +69,7 @@ real-device, real-adapter, and external-service evidence as separate claims.
 | [`README.md`](../README.md) | Human-facing project entry point, requirements, and license summary |
 | [`CODING_STANDARDS.md`](CODING_STANDARDS.md) | Source-quality, UI-boundary, testing, and review contracts |
 | [`PLACEMENT_RULES.md`](PLACEMENT_RULES.md) | Physical ownership, dependency direction, and folder approval rules |
+| [`OBDLINK_MX_PLUS_HARDWARE_ACCEPTANCE.md`](OBDLINK_MX_PLUS_HARDWARE_ACCEPTANCE.md) | Staged macOS/iPhone MX+ arrival checks and evidence boundaries |
 | `INDEX.md` | Token-efficient routing to the authoritative document section |
 
 When adding documentation, extend an existing owner when its responsibility fits.

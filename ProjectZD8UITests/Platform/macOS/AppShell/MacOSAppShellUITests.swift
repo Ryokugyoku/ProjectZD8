@@ -13,6 +13,7 @@ final class MacOSAppShellUITests: XCTestCase {
         application.launch()
 
         XCTAssertTrue(application.descendants(matching: .any)["macos-app-shell"].waitForExistence(timeout: 5))
+        XCTAssertTrue(application.staticTexts["RevTorque Insight"].exists)
     }
 
     /// macOSサイドバーが要求されたすべての遷移先を公開することを検証します。
