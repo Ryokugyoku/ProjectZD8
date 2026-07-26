@@ -4,7 +4,7 @@ require_relative "app_store_connect_client"
 
 # 1回のGitHub Actionsビルドを外部TestFlight配信へ進める処理を担当します。
 class TestFlightBuildPublisher
-  REQUIRED_PLATFORMS = %w[IOS MAC_OS].freeze
+  REQUIRED_PLATFORMS = %w[IOS].freeze
   PROCESSING_STATE = "PROCESSING"
   VALID_STATE = "VALID"
   READY_FOR_REVIEW_STATE = "READY_FOR_BETA_SUBMISSION"
@@ -34,13 +34,13 @@ class TestFlightBuildPublisher
   def publish(submit_external_review:)
     builds = wait_for_valid_builds
     add_builds_to_beta_group(builds)
-    puts "Added iOS and macOS build #{@build_number} to the TestFlight beta group."
+    puts "Added iOS build #{@build_number} to the TestFlight beta group for iPhone, iPad, and Apple silicon Mac testing."
 
     return unless submit_external_review
 
     validate_review_contact
     submit_builds_for_external_review(builds)
-    puts "Submitted eligible iOS and macOS builds for external TestFlight review."
+    puts "Submitted the eligible iOS build for external TestFlight review."
   end
 
   private
@@ -61,7 +61,7 @@ class TestFlightBuildPublisher
       @sleeper.sleep(@interval_seconds) if attempt + 1 < @attempts
     end
 
-    raise "Timed out waiting for valid iOS and macOS build #{@build_number}."
+    raise "Timed out waiting for valid iOS build #{@build_number}."
   end
 
   def builds_by_platform

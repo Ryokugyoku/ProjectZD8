@@ -18,7 +18,7 @@ permissions:
 
 jobs:
   upload:
-    name: Build and upload iPhone, iPad, and macOS apps
+    name: Build and upload the iPhone and iPad app for iOS and Apple silicon Macs
     if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
     runs-on: macos-26
     timeout-minutes: 90
@@ -83,37 +83,6 @@ jobs:
           xcodebuild -exportArchive \
             -archivePath "${RUNNER_TEMP}/ProjectZD8-iOS.xcarchive" \
             -exportPath "${RUNNER_TEMP}/ProjectZD8-iOS-Export" \
-            -exportOptionsPlist .github/ExportOptions-TestFlight.plist \
-            -allowProvisioningUpdates \
-            -authenticationKeyPath "${RUNNER_TEMP}/private_keys/AuthKey_${API_KEY_ID}.p8" \
-            -authenticationKeyID "$API_KEY_ID" \
-            -authenticationKeyIssuerID "$API_ISSUER_ID"
-
-      - name: Archive macOS app
-        env:
-          API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
-          API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
-        run: |
-          xcodebuild archive \
-            -project "$PROJECT_PATH" \
-            -scheme "$SCHEME" \
-            -configuration Release \
-            -destination 'generic/platform=macOS' \
-            -archivePath "${RUNNER_TEMP}/ProjectZD8-macOS.xcarchive" \
-            -allowProvisioningUpdates \
-            -authenticationKeyPath "${RUNNER_TEMP}/private_keys/AuthKey_${API_KEY_ID}.p8" \
-            -authenticationKeyID "$API_KEY_ID" \
-            -authenticationKeyIssuerID "$API_ISSUER_ID" \
-            CURRENT_PROJECT_VERSION="${GITHUB_RUN_NUMBER}"
-
-      - name: Upload macOS app to TestFlight
-        env:
-          API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
-          API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
-        run: |
-          xcodebuild -exportArchive \
-            -archivePath "${RUNNER_TEMP}/ProjectZD8-macOS.xcarchive" \
-            -exportPath "${RUNNER_TEMP}/ProjectZD8-macOS-Export" \
             -exportOptionsPlist .github/ExportOptions-TestFlight.plist \
             -allowProvisioningUpdates \
             -authenticationKeyPath "${RUNNER_TEMP}/private_keys/AuthKey_${API_KEY_ID}.p8" \

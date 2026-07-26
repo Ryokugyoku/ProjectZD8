@@ -8,7 +8,7 @@ class TestFlightBuildPublisherTest < Minitest::Test
   GROUP_ID = "group-id"
   BUILD_NUMBER = "42"
 
-  def test_publish_waits_for_both_platforms_and_adds_them_to_group
+  def test_publish_waits_for_ios_and_adds_only_it_to_group
     client = TestFlightPublisherFakeClient.new(
       build_responses: [builds_response(ios_state: "PROCESSING", mac_state: "PROCESSING"), builds_response]
     )
@@ -17,7 +17,7 @@ class TestFlightBuildPublisherTest < Minitest::Test
     publisher.publish(submit_external_review: false)
 
     relationship = client.posts.fetch("/v1/betaGroups/#{GROUP_ID}/relationships/builds")
-    assert_equal %w[ios-build mac-build], relationship.fetch(:data).map { |build| build.fetch(:id) }
+    assert_equal %w[ios-build], relationship.fetch(:data).map { |build| build.fetch(:id) }
   end
 
   def test_publish_reports_incomplete_review_contact_without_submitting
@@ -33,38 +33,50 @@ class TestFlightBuildPublisherTest < Minitest::Test
     refute client.posts.key?("/v1/betaAppReviewSubmissions")
   end
 
-  def test_publish_stops_when_app_store_connect_rejects_a_platform_build
+  def test_publish_stops_when_app_store_connect_rejects_the_ios_build
     client = TestFlightPublisherFakeClient.new(
-      build_responses: [builds_response(mac_state: "INVALID")]
+      build_responses: [builds_response(ios_state: "INVALID")]
     )
     publisher = publisher(client)
 
     error = assert_raises(RuntimeError) { publisher.publish(submit_external_review: false) }
 
-    assert_includes error.message, "MAC_OS"
+    assert_includes error.message, "IOS"
     refute client.posts.key?("/v1/betaGroups/#{GROUP_ID}/relationships/builds")
+  end
+
+  def test_publish_ignores_a_rejected_native_macos_build
+    client = TestFlightPublisherFakeClient.new(
+      build_responses: [builds_response(mac_state: "INVALID")]
+    )
+    publisher = publisher(client)
+
+    publisher.publish(submit_external_review: false)
+
+    relationship = client.posts.fetch("/v1/betaGroups/#{GROUP_ID}/relationships/builds")
+    assert_equal %w[ios-build], relationship.fetch(:data).map { |build| build.fetch(:id) }
   end
 
   def test_publish_submits_ready_builds_for_external_review
     client = TestFlightPublisherFakeClient.new(
       build_responses: [builds_response],
       review_contact: complete_review_contact,
-      external_states: { "ios-build" => "READY_FOR_BETA_SUBMISSION", "mac-build" => "READY_FOR_BETA_SUBMISSION" }
+      external_states: { "ios-build" => "READY_FOR_BETA_SUBMISSION" }
     )
     publisher = publisher(client)
 
     publisher.publish(submit_external_review: true)
 
     submissions = client.post_history.select { |path, _body| path == "/v1/betaAppReviewSubmissions" }
-    assert_equal 2, submissions.count
-    assert_equal %w[ios-build mac-build], submissions.map { |_path, body| body.dig(:data, :relationships, :build, :data, :id) }
+    assert_equal 1, submissions.count
+    assert_equal %w[ios-build], submissions.map { |_path, body| body.dig(:data, :relationships, :build, :data, :id) }
   end
 
   def test_publish_does_not_resubmit_builds_already_in_external_testing
     client = TestFlightPublisherFakeClient.new(
       build_responses: [builds_response],
       review_contact: complete_review_contact,
-      external_states: { "ios-build" => "IN_BETA_TESTING", "mac-build" => "IN_BETA_TESTING" }
+      external_states: { "ios-build" => "IN_BETA_TESTING" }
     )
     publisher = publisher(client)
 
