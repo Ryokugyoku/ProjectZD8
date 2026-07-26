@@ -5,9 +5,9 @@ import UIKit
 /// iOSアプリケーションで使用する実装依存関係を組み立てます。
 @MainActor
 enum IOSApplicationComposition {
-    /// PID定義DB、iOS Bluetooth読取境界、接続中スリープ抑止を結び付けます。
+    /// PID定義DB、iOS Bluetooth読取境界、接続中の画面自動ロック抑止を結び付けます。
     ///
-    /// 責務: iOSのPID取得依存関係と接続中スリープ抑止を1件のLiveTelemetry構成へ注入します。
+    /// 責務: iOSのPID取得依存関係と接続中の画面自動ロック抑止を1件のLiveTelemetry構成へ注入します。
     /// - Returns: デモ、既知BLE UART、または構成済みBluetooth Classic終端で取得できるモデル。
     /// - Parameter sessionDidEnd: PID取得終了原因をLoggingへ通知する処理。
     /// - Parameter distanceDidChange: 取得元付き累積距離をLoggingへ通知する処理。
@@ -41,7 +41,7 @@ enum IOSApplicationComposition {
             ),
             sessionDidEnd: sessionDidEnd,
             distanceDidChange: distanceDidChange,
-            systemSleepInhibitor: ProcessInfoVehicleConnectionSystemSleepInhibitor()
+            systemSleepInhibitor: IOSVehicleConnectionScreenSleepInhibitor()
         )
     }
 
