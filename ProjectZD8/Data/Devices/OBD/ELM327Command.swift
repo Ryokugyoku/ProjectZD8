@@ -98,21 +98,3 @@ nonisolated struct ELM327TransmitHeaderCommand: Sendable, ELM327CommandEncoding 
     /// 復帰文字を付けた送信用ASCIIデータです。
     var encodedData: Data { Data((requestID + "\r").utf8) }
 }
-
-/// OBDLinkへ2件の読取り専用標準PID周期送信を設定する型付きコマンドです。
-enum STNBRZBetaPeriodicCommand: String, Sendable, ELM327CommandEncoding {
-    /// 登録済み周期メッセージを解除します。
-    case clear = "STPPMC"
-    /// 100ミリ秒周期でService 01 PID 0Cを機能アドレスへ送信します。
-    case addEngineSpeed = "STPPMA 100,7DF,010C"
-    /// 100ミリ秒周期でService 01 PID 0Dを機能アドレスへ送信します。
-    case addVehicleSpeed = "STPPMA 100,7DF,010D"
-    /// 現在フィルターを通過した次の2メッセージを受信します。
-    case monitorPair = "STM 2"
-
-    /// 未加工観測で使用する安定要求識別子です。
-    var requestID: String { String(describing: self) }
-
-    /// 復帰文字を付けた送信用ASCIIデータです。
-    var encodedData: Data { Data((rawValue + "\r").utf8) }
-}

@@ -4,38 +4,6 @@ import XCTest
 
 /// iOS HOMEのアダプター表示状態への変換を検証します。
 final class IOSHomeStateTests: XCTestCase {
-    /// BRZ Beta取得中をHOME表示状態へ公開します。
-    ///
-    /// 責務: 周期取得方式がiOS HOMEのBeta表示フラグへ変換されることを確認します。
-    func testBRZPeriodicModePresentsBetaConnection() {
-        var telemetryState = LiveTelemetryState()
-        telemetryState.phase = .loaded
-        telemetryState.acquisitionMode = .brzBetaPeriodic
-
-        let state = IOSHomeState(
-            settingsState: IOSSettingsState(),
-            liveTelemetryState: telemetryState
-        )
-
-        XCTAssertTrue(state.isBRZBetaActive)
-    }
-
-    /// BRZ Betaの明示同意待ちをHOMEへ公開します。
-    ///
-    /// 責務: Applicationの判断待ち段階がiOS HOMEの警告表示条件へ変換されることを確認します。
-    func testBRZConsentPhasePresentsRiskDecision() {
-        var telemetryState = LiveTelemetryState()
-        telemetryState.phase = .awaitingBRZBetaConsent
-
-        let state = IOSHomeState(
-            settingsState: IOSSettingsState(),
-            liveTelemetryState: telemetryState
-        )
-
-        XCTAssertTrue(state.requiresBRZBetaConsent)
-        XCTAssertFalse(state.isBRZBetaActive)
-    }
-
     /// デフォルト未設定時に設定を要求する状態となることを検証します。
     ///
     /// 責務: 空のiOS設定状態がHOMEでデフォルト未設定として表現されることを確認します。

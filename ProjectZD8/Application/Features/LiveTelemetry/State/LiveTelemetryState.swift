@@ -6,8 +6,6 @@ struct LiveTelemetryState: Equatable {
         case idle
         /// DB登録済みPIDの対応状況を探索しています。
         case reading
-        /// BRZ Beta周期取得の危険性に対するユーザー判断を待っています。
-        case awaitingBRZBetaConsent
         /// 応答済みPIDを継続取得しています。
         case loaded
         /// 取得停止と通信資源の解放完了を待っています。
@@ -26,14 +24,14 @@ struct LiveTelemetryState: Equatable {
     var endpoint: OBDConnectionEndpoint?
     /// 現在監視する車両のアプリ内識別子です。
     var vehicleID: VehicleID?
-    /// 現在有効なリアルタイム取得方式です。
-    var acquisitionMode: LiveTelemetryAcquisitionMode = .standardPolling
+    /// 車種専用PIDの適用に使用する確認済み型式コードです。
+    var vehicleModelCode: String?
     /// 直近の失敗を表示するローカライズキーです。
     var failureKey: String?
 
     /// HOMEで切断操作を提供する接続中段階かどうかです。
     var isConnectionActive: Bool {
-        phase == .reading || phase == .awaitingBRZBetaConsent || phase == .loaded || phase == .stopping
+        phase == .reading || phase == .loaded || phase == .stopping
     }
 
     /// 通信資源の安全な終了完了を待っているかどうかです。

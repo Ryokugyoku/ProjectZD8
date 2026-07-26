@@ -8860,28 +8860,6 @@
         }
       }
     },
-    "home.connection.brz_beta" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "BRZ stream connection (Beta)"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Conexión de flujo BRZ (Beta)"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "BRZストリーム接続（Beta）"
-          }
-        }
-      }
-    },
     "home.eyebrow" : {
       "localizations" : {
         "en" : {
@@ -19235,94 +19213,6 @@
         }
       }
     },
-    "telemetry.brz_beta.warning.accept" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Accept Risk and Start Beta"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Aceptar el riesgo e iniciar Beta"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "リスクを承知してBetaを開始"
-          }
-        }
-      }
-    },
-    "telemetry.brz_beta.warning.message" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "This experimental mode makes OBDLink send engine-speed and vehicle-speed requests every 100 ms. It has not been verified on a real BRZ and may increase diagnostic traffic, disrupt communication, or adversely affect the vehicle. Stop immediately if the vehicle or adapter behaves unexpectedly. Do you want to proceed at your own risk?"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Este modo experimental hace que OBDLink envíe solicitudes de régimen y velocidad cada 100 ms. No se ha verificado en un BRZ real y puede aumentar el tráfico de diagnóstico, interrumpir la comunicación o afectar negativamente al vehículo. Deténgalo inmediatamente si el vehículo o el adaptador se comportan de forma inesperada. ¿Desea continuar bajo su responsabilidad?"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "この実験的モードでは、OBDLinkがエンジン回転数と車速を100ミリ秒ごとに要求します。実車のBRZでは未検証であり、診断通信量の増加、通信障害、車両への悪影響が生じる可能性があります。車両やアダプターに異常が見られた場合は直ちに停止してください。リスクを承知のうえで実行しますか？"
-          }
-        }
-      }
-    },
-    "telemetry.brz_beta.warning.title" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Experimental BRZ Stream (Beta)"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Flujo experimental BRZ (Beta)"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "実験的なBRZストリーム（Beta）"
-          }
-        }
-      }
-    },
-    "telemetry.brz_beta.warning.use_standard" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Use Standard Mode"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Usar modo estándar"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "通常モードを使用"
-          }
-        }
-      }
-    },
     "telemetry.category.diagnostics" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -19814,28 +19704,6 @@
         }
       }
     },
-    "telemetry.status.brz_beta_periodic" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "BRZ periodic connection (Beta): engine speed and vehicle speed"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Conexión periódica BRZ (Beta): régimen del motor y velocidad"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "BRZ周期接続（Beta）：エンジン回転数・車速"
-          }
-        }
-      }
-    },
     "telemetry.status.reading" : {
       "localizations" : {
         "en" : {
@@ -19902,24 +19770,24 @@
         }
       }
     },
-    "telemetry.status.streaming" : {
+    "telemetry.status.polling" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Live acquisition continues in the background"
+            "value" : "Standard OBD polling continues in the background"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "La adquisición continúa en segundo plano"
+            "value" : "El sondeo OBD estándar continúa en segundo plano"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "画面外でもリアルタイム取得を継続中"
+            "value" : "画面外でも標準OBDポーリングを継続中"
           }
         }
       }

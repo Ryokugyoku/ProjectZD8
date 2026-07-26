@@ -5,6 +5,20 @@ import XCTest
 /// OBDLink EX／MX+主要PID読取の許可コマンド列と応答保持を検証します。
 @MainActor
 final class OBDLinkEXPIDTelemetryAdapterTests: XCTestCase {
+    /// 空のPID要求では物理接続を開きません。
+    ///
+    /// 責務: 空バッチをBluetoothまたはシリアル接続なしの空応答へ変換することを確認します。
+    func testEmptyBatchDoesNotOpenTransport() async throws {
+        let transport = PIDTransportFake(responses: [])
+        let adapter = OBDLinkEXPIDTelemetryAdapter(makeTransport: { _ in transport })
+
+        let values = try await adapter.read([], using: endpoint)
+
+        let didOpen = await transport.didOpen
+        XCTAssertEqual(values, [:])
+        XCTAssertFalse(didOpen)
+    }
+
     /// 2種の検証済みPIDを1回の接続で読み取ります。
     ///
     /// 責務: 初期化後に0105と010Cだけを送り、応答バイトを要求別に保持することを確認します。
@@ -100,45 +114,22 @@ final class OBDLinkEXPIDTelemetryAdapterTests: XCTestCase {
         XCTAssertTrue(commands.contains("2117\r"))
     }
 
-    /// OBDLinkへ回転数と車速の周期送信を登録して受信します。
+    /// ELM初期化拒否時はPID要求へ進まずTransportを閉じます。
     ///
-    /// 責務: Beta取得が2件の固定STPPMAと有限STMだけを送ることを確認します。
-    func testReadsBRZBetaPIDsUsingPeriodicMessaging() async throws {
-        let transport = PIDTransportFake(responses: [
-            "ELM327 v1.4b\r>", "OK\r>", "OK\r>", "OK\r>", "OK\r>", "OK\r>",
-            "OK\r>", "1\r>", "2\r>", "41 0C 1F 40\r41 0D 32\r>", "OK\r>"
-        ])
-        let adapter = OBDLinkEXPIDTelemetryAdapter(makeTransport: { _ in transport })
-
-        let values = try await adapter.readPeriodic(BRZBetaPIDPolicy.requests, using: endpoint)
-        await adapter.endSession()
-        let commands = await transport.commands
-
-        XCTAssertEqual(values[OBDPIDRequest(service: 0x01, pid: 0x0C)]?.prefix(2), [0x1F, 0x40])
-        XCTAssertEqual(values[OBDPIDRequest(service: 0x01, pid: 0x0D)]?.first, 0x32)
-        XCTAssertEqual(
-            commands,
-            [
-                "ATZ\r", "ATE0\r", "ATL0\r", "ATS1\r", "ATH0\r", "ATSP0\r",
-                "STPPMC\r", "STPPMA 100,7DF,010C\r", "STPPMA 100,7DF,010D\r", "STM 2\r", "STPPMC\r"
-            ]
-        )
-    }
-
-    /// Beta以外の要求集合をシリアル接続前に拒否します。
-    ///
-    /// 責務: 未許可PIDがSTN周期メッセージへ変換されないことを確認します。
-    func testRejectsNonBetaPeriodicRequestsBeforeOpeningTransport() async {
-        let transport = PIDTransportFake(responses: [])
+    /// 責務: 1件の拒否された初期化応答を接続資源解放済みのコマンド拒否へ変換することを確認します。
+    func testRejectedInitializationClosesTransportBeforePIDRequest() async {
+        let transport = PIDTransportFake(responses: ["ELM327 v1.4b\r>", "?\r>"])
         let adapter = OBDLinkEXPIDTelemetryAdapter(makeTransport: { _ in transport })
 
         do {
-            _ = try await adapter.readPeriodic([.init(service: 0x01, pid: 0x05)], using: endpoint)
-            XCTFail("対象外PIDの周期送信は成功してはいけません")
+            _ = try await adapter.read([.init(service: 0x01, pid: 0x0C)], using: endpoint)
+            XCTFail("初期化拒否は成功してはいけません")
         } catch {
-            let didOpen = await transport.didOpen
-            XCTAssertEqual(error as? OBDPIDTelemetryError, .periodicMessagingUnavailable)
-            XCTAssertFalse(didOpen)
+            let commands = await transport.commands
+            let didClose = await transport.didClose
+            XCTAssertEqual(error as? OBDPIDTelemetryError, .commandRejected)
+            XCTAssertEqual(commands, ["ATZ\r", "ATE0\r"])
+            XCTAssertTrue(didClose)
         }
     }
 

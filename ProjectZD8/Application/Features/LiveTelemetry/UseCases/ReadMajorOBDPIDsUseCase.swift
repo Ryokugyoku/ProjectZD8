@@ -118,42 +118,6 @@ struct ReadMajorOBDPIDsUseCase {
         }
     }
 
-    /// 指定PID定義をアダプター管理の周期応答から数値化します。
-    ///
-    /// 責務: 1回の周期受信バッチを応答済みPIDの数値観測へ変換します。
-    /// - Parameters:
-    ///   - definitions: 周期取得する読取り専用PID定義。
-    ///   - endpoint: OBDアダプターの物理終端。
-    /// - Returns: 今回受信できた定義順の数値化済みPID観測。
-    /// - Throws: 周期送信、受信、または数式評価に失敗した場合のエラー。
-    func executePeriodic(
-        definitions: [OBDPIDDefinition],
-        using endpoint: OBDConnectionEndpoint
-    ) async throws -> [OBDPIDSample] {
-        let requests = definitions.map { OBDPIDRequest(service: $0.service, pid: $0.pid) }
-        let startedAt = monotonicNanoseconds()
-        let responses = try await telemetry.readPeriodic(requests, using: endpoint)
-        let observedAt = now()
-        let elapsed = monotonicNanoseconds() &- startedAt
-        try await recordRawResponses(responses, observedAt: observedAt, elapsedNanoseconds: elapsed)
-        return try definitions.compactMap { definition in
-            let request = OBDPIDRequest(service: definition.service, pid: definition.pid)
-            guard let bytes = responses[request] else { return nil }
-            return OBDPIDSample(
-                request: request,
-                nameKey: definition.nameKey,
-                value: try evaluator.evaluate(definition, bytes: bytes),
-                unit: definition.unit,
-                vehicleModelCode: definition.vehicleModelCode,
-                observedAt: observedAt,
-                summaryKey: definition.summaryKey,
-                highValueKey: definition.highValueKey,
-                lowValueKey: definition.lowValueKey,
-                correlationKey: definition.correlationKey
-            )
-        }
-    }
-
     /// DB登録済みの全PIDを1回読み取り、定義式で数値化します。
     ///
     /// 責務: 1回のOBD接続からDB登録済みPIDの応答済み数値観測を生成します。

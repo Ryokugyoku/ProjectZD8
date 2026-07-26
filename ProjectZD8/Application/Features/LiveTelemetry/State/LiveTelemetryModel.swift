@@ -4,18 +4,6 @@ import Observation
 @MainActor
 @Observable
 final class LiveTelemetryModel {
-    /// BRZ Beta開始前に保持する対応確認済みの取得文脈です。
-    private struct PendingBRZBetaDecision {
-        /// OBDアダプターの物理終端です。
-        let endpoint: OBDConnectionEndpoint
-        /// 標準取得へ戻る場合に使用する全対応定義です。
-        let standardDefinitions: [OBDPIDDefinition]
-        /// Beta周期取得に使用する回転数と車速の定義です。
-        let betaDefinitions: [OBDPIDDefinition]
-        /// この判断要求が属する取得世代です。
-        let generation: UInt
-    }
-
     /// Platformが描画する現在状態です。
     var state: LiveTelemetryState
     /// 検証済み主要PIDを数値化するユースケースです。
@@ -34,8 +22,6 @@ final class LiveTelemetryModel {
     @ObservationIgnored private var pollingTask: Task<Void, Never>?
     /// 古い取得完了を新しい接続状態へ反映しないための世代です。
     @ObservationIgnored private var pollingGeneration: UInt = 0
-    /// ユーザーの明示判断を待つBRZ Beta取得文脈です。
-    @ObservationIgnored private var pendingBRZBetaDecision: PendingBRZBetaDecision?
 
     /// 初期状態、PID読取ユースケース、更新方針、終了通知先を固定します。
     ///
@@ -99,16 +85,12 @@ final class LiveTelemetryModel {
     /// - Parameter action: Platformから通知された型付き操作。
     func send(_ action: LiveTelemetryAction) {
         switch action {
-        case let .startRequested(endpoint, vehicleID, acquisitionMode):
-            start(using: endpoint, vehicleID: vehicleID, acquisitionMode: acquisitionMode)
+        case let .startRequested(endpoint, vehicleID, vehicleModelCode):
+            start(using: endpoint, vehicleID: vehicleID, vehicleModelCode: vehicleModelCode)
         case .retryRequested:
             if let endpoint = state.endpoint, let vehicleID = state.vehicleID {
-                start(using: endpoint, vehicleID: vehicleID, acquisitionMode: state.acquisitionMode)
+                start(using: endpoint, vehicleID: vehicleID, vehicleModelCode: state.vehicleModelCode)
             }
-        case .brzBetaAccepted:
-            resolveBRZBetaDecision(shouldUseBeta: true)
-        case .brzBetaDeclined:
-            resolveBRZBetaDecision(shouldUseBeta: false)
         case .stopRequested:
             stop()
         }
@@ -120,11 +102,11 @@ final class LiveTelemetryModel {
     /// - Parameters:
     ///   - endpoint: OBDアダプターの物理終端。
     ///   - vehicleID: 対応PID設定を参照する車両ID。
-    ///   - acquisitionMode: VIN判定から要求された取得方式。
+    ///   - vehicleModelCode: 確認済み車種専用PIDを適用する型式コード。
     private func start(
         using endpoint: OBDConnectionEndpoint,
         vehicleID: VehicleID,
-        acquisitionMode: LiveTelemetryAcquisitionMode
+        vehicleModelCode: String?
     ) {
         let previousTask = pollingTask
         previousTask?.cancel()
@@ -132,19 +114,18 @@ final class LiveTelemetryModel {
         let generation = pollingGeneration
         state.endpoint = endpoint
         state.vehicleID = vehicleID
-        state.acquisitionMode = acquisitionMode
+        state.vehicleModelCode = vehicleModelCode
         state.phase = .reading
         state.failureKey = nil
         state.samples = []
         state.supportedPIDCount = 0
         systemSleepInhibitor?.setVehicleConnectionActive(true)
-        pendingBRZBetaDecision = nil
         pollingTask = Task { [weak self] in
             _ = await previousTask?.value
             await self?.poll(
                 using: endpoint,
                 vehicleID: vehicleID,
-                requestedMode: acquisitionMode,
+                vehicleModelCode: vehicleModelCode,
                 generation: generation
             )
         }
@@ -158,7 +139,6 @@ final class LiveTelemetryModel {
         let previousTask = pollingTask
         previousTask?.cancel()
         pollingTask = nil
-        pendingBRZBetaDecision = nil
         pollingGeneration &+= 1
         let generation = pollingGeneration
         state.phase = .stopping
@@ -173,26 +153,23 @@ final class LiveTelemetryModel {
         }
     }
 
-    /// 初回全件探索後に選択された方式でPID更新を繰り返します。
+    /// 初回全件探索後に優先度付きPID更新を繰り返します。
     ///
     /// 責務: 1件の接続終端を応答済みPIDの継続的な最新値へ変換します。
     /// - Parameters:
     ///   - endpoint: OBDアダプターの物理終端。
     ///   - vehicleID: 対応PID設定を参照する車両ID。
-    ///   - requestedMode: VIN判定から要求された取得方式。
+    ///   - vehicleModelCode: 確認済み車種専用PIDを適用する型式コード。
     ///   - generation: この取得開始時の世代。
     private func poll(
         using endpoint: OBDConnectionEndpoint,
         vehicleID: VehicleID,
-        requestedMode: LiveTelemetryAcquisitionMode,
+        vehicleModelCode: String?,
         generation: UInt
     ) async {
         do {
             let definitions: [OBDPIDDefinition]
             if let loadVehicleCapabilities {
-                let vehicleModelCode = requestedMode == .brzBetaPeriodic
-                    ? ZD8VehicleModelPolicy.modelCode
-                    : nil
                 let capabilities = try await loadVehicleCapabilities.execute(
                     vehicleID: vehicleID,
                     vehicleModelCode: vehicleModelCode,
@@ -202,145 +179,10 @@ final class LiveTelemetryModel {
             } else {
                 definitions = try readMajorPIDs.loadDefinitions()
             }
-            if requestedMode == .brzBetaPeriodic,
-               !definitions.contains(where: \.isVehicleSpecific),
-               let betaDefinitions = BRZBetaPIDPolicy().definitions(from: definitions),
-               try await offerBRZBetaIfEligible(
-                   standardDefinitions: definitions,
-                   betaDefinitions: betaDefinitions,
-                   endpoint: endpoint,
-                   generation: generation
-               ) {
-                return
-            }
-            state.acquisitionMode = .standardPolling
             try await pollStandard(definitions: definitions, endpoint: endpoint, generation: generation)
         } catch {
             await handlePollingFailure(error, generation: generation)
         }
-    }
-
-    /// BRZ Beta候補の2件を直接確認してユーザー判断待ちへ移行します。
-    ///
-    /// 責務: 回転数と車速の直接応答をBeta開始前の明示同意待ち状態へ変換します。
-    /// - Parameters:
-    ///   - standardDefinitions: 標準取得へ戻る場合に使用する全対応定義。
-    ///   - betaDefinitions: 回転数と車速の対応確認済み定義。
-    ///   - endpoint: OBDLink EXのシリアル終端。
-    ///   - generation: この取得開始時の世代。
-    /// - Returns: 両方の直接応答を確認して判断待ちへ移行した場合は `true`。
-    private func offerBRZBetaIfEligible(
-        standardDefinitions: [OBDPIDDefinition],
-        betaDefinitions: [OBDPIDDefinition],
-        endpoint: OBDConnectionEndpoint,
-        generation: UInt
-    ) async throws -> Bool {
-        let directSamples = try await readMajorPIDs.execute(definitions: betaDefinitions, using: endpoint)
-        guard Set(directSamples.map(\.request)) == Set(BRZBetaPIDPolicy.requests) else { return false }
-        try Task.checkCancellation()
-        guard pollingGeneration == generation else {
-            await readMajorPIDs.endSession()
-            return true
-        }
-        pendingBRZBetaDecision = PendingBRZBetaDecision(
-            endpoint: endpoint,
-            standardDefinitions: standardDefinitions,
-            betaDefinitions: betaDefinitions,
-            generation: generation
-        )
-        state.samples = ordered(directSamples, definitions: betaDefinitions)
-        state.supportedPIDCount = betaDefinitions.count
-        state.phase = .awaitingBRZBetaConsent
-        pollingTask = nil
-        return true
-    }
-
-    /// ユーザー判断に応じてBetaまたは標準取得を再開します。
-    ///
-    /// 責務: 保持中のBRZ Beta判断1件を選択された継続取得タスクへ変換します。
-    /// - Parameter shouldUseBeta: 警告を承知してBetaを開始する場合は `true`。
-    private func resolveBRZBetaDecision(shouldUseBeta: Bool) {
-        guard let decision = pendingBRZBetaDecision,
-              decision.generation == pollingGeneration,
-              state.phase == .awaitingBRZBetaConsent else { return }
-        pendingBRZBetaDecision = nil
-        state.phase = .reading
-        pollingTask = Task { [weak self] in
-            await self?.continueAfterBRZBetaDecision(decision, shouldUseBeta: shouldUseBeta)
-        }
-    }
-
-    /// 明示選択された取得方式を実行します。
-    ///
-    /// 責務: 1件のBRZ Beta判断結果を周期取得または標準ポーリングへ分岐します。
-    /// - Parameters:
-    ///   - decision: 対応確認済みの保留取得文脈。
-    ///   - shouldUseBeta: Beta周期取得を試行する場合は `true`。
-    private func continueAfterBRZBetaDecision(
-        _ decision: PendingBRZBetaDecision,
-        shouldUseBeta: Bool
-    ) async {
-        do {
-            if shouldUseBeta {
-                do {
-                    try await pollConfirmedBRZBeta(
-                        definitions: decision.betaDefinitions,
-                        endpoint: decision.endpoint,
-                        generation: decision.generation
-                    )
-                    return
-                } catch OBDPIDTelemetryError.periodicMessagingUnavailable {
-                    await readMajorPIDs.endSession()
-                } catch OBDPIDTelemetryError.commandRejected {
-                    await readMajorPIDs.endSession()
-                }
-            }
-            state.acquisitionMode = .standardPolling
-            try await pollStandard(
-                definitions: decision.standardDefinitions,
-                endpoint: decision.endpoint,
-                generation: decision.generation
-            )
-        } catch {
-            await handlePollingFailure(error, generation: decision.generation)
-        }
-    }
-
-    /// OBDLinkの周期送信へ回転数と車速の取得を委譲します。
-    ///
-    /// 責務: 2件の対応済み標準PIDをBRZ Betaの継続的な最新値へ変換します。
-    /// - Parameters:
-    ///   - definitions: 回転数と車速の対応確認済み定義。
-    ///   - endpoint: OBDLink EXのシリアル終端。
-    ///   - generation: この取得開始時の世代。
-    private func pollConfirmedBRZBeta(
-        definitions: [OBDPIDDefinition],
-        endpoint: OBDConnectionEndpoint,
-        generation: UInt
-    ) async throws {
-        let initialSamples = try await readMajorPIDs.executePeriodic(definitions: definitions, using: endpoint)
-        try Task.checkCancellation()
-        guard pollingGeneration == generation, !initialSamples.isEmpty else {
-            if initialSamples.isEmpty { throw OBDPIDTelemetryError.noVehicleResponse }
-            await readMajorPIDs.endSession()
-            return
-        }
-        state.samples = ordered(initialSamples, definitions: definitions)
-        state.supportedPIDCount = definitions.count
-        state.acquisitionMode = .brzBetaPeriodic
-        state.phase = .loaded
-        while !Task.isCancelled, pollingGeneration == generation {
-            try await Task.sleep(for: .milliseconds(50))
-            let samples = try await readMajorPIDs.executePeriodic(definitions: definitions, using: endpoint)
-            try Task.checkCancellation()
-            guard !samples.isEmpty else { throw OBDPIDTelemetryError.noVehicleResponse }
-            guard pollingGeneration == generation else {
-                await readMajorPIDs.endSession()
-                return
-            }
-            merge(samples, definitions: definitions)
-        }
-        await readMajorPIDs.endSession()
     }
 
     /// PID取得失敗を終了処理と表示状態へ統一的に反映します。

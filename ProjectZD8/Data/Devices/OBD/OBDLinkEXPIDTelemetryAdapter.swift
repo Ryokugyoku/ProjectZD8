@@ -10,8 +10,6 @@ actor OBDLinkEXPIDTelemetryAdapter: OBDPIDTelemetryPort {
     private var activeChannel: SerializedELMCommandChannel?
     /// 現在の接続資源が属するOBD終端です。
     private var activeEndpoint: OBDConnectionEndpoint?
-    /// 2件のBRZ Beta周期メッセージがアダプターへ登録済みかどうかです。
-    private var isPeriodicMessagingActive = false
     /// 現在ELMへ設定している11bit送信ヘッダーです。
     private var activeTransmitHeader: UInt16?
 
@@ -39,6 +37,7 @@ actor OBDLinkEXPIDTelemetryAdapter: OBDPIDTelemetryPort {
             }
             return command
         }
+        guard !commands.isEmpty else { return [:] }
         do {
             let activeChannel = try await channel(for: endpoint)
             try await setTransmitHeader(0x7DF, using: activeChannel)
@@ -75,6 +74,7 @@ actor OBDLinkEXPIDTelemetryAdapter: OBDPIDTelemetryPort {
             }
             return (header, command)
         }
+        guard !prepared.isEmpty else { return [:] }
         do {
             let channel = try await channel(for: endpoint)
             var result: [OBDPIDRequest: [UInt8]] = [:]
@@ -116,69 +116,10 @@ actor OBDLinkEXPIDTelemetryAdapter: OBDPIDTelemetryPort {
         activeTransmitHeader = header
     }
 
-    /// 回転数と車速をOBDLinkの周期送信で読み取ります。
+    /// ELM設定応答が既知の拒否文字列を含まないか判定します。
     ///
-    /// 責務: 固定した2件のService 01要求をSTN周期メッセージと受信バッチへ変換します。
-    /// - Parameters:
-    ///   - requests: 回転数 `01 0C` と車速 `01 0D` の要求。
-    ///   - endpoint: EXが公開するUSBシリアル終端。
-    /// - Returns: 今回受信できた要求ごとの未加工データバイト。
-    /// - Throws: 対象外要求、周期コマンド非対応、接続、または応答解析失敗の場合のエラー。
-    func readPeriodic(
-        _ requests: [OBDPIDRequest],
-        using endpoint: OBDConnectionEndpoint
-    ) async throws -> [OBDPIDRequest: [UInt8]] {
-        guard endpoint.transport.supportsELMByteStream,
-              Set(requests) == Set(BRZBetaPIDPolicy.requests) else {
-            throw OBDPIDTelemetryError.periodicMessagingUnavailable
-        }
-        do {
-            let channel = try await channel(for: endpoint)
-            if !isPeriodicMessagingActive {
-                try await configurePeriodicMessaging(using: channel)
-            }
-            let response = try await channel.execute(STNBRZBetaPeriodicCommand.monitorPair)
-            var values: [OBDPIDRequest: [UInt8]] = [:]
-            for request in requests {
-                if let bytes = try? ELM327PIDResponseParser().parse(response, request: request) {
-                    values[request] = bytes
-                }
-            }
-            return values
-        } catch VehicleIdentificationError.responseTimedOut {
-            await closeActiveSession()
-            throw OBDPIDTelemetryError.noVehicleResponse
-        } catch VehicleIdentificationError.connectionFailed {
-            await closeActiveSession()
-            throw OBDPIDTelemetryError.connectionLost
-        } catch {
-            if !isPeriodicMessagingActive { await closeActiveSession() }
-            throw error
-        }
-    }
-
-    /// OBDLinkへ2件の周期メッセージを登録します。
-    ///
-    /// 責務: 初期化済みELMチャネルを回転数と車速の100ミリ秒周期送信状態へ遷移させます。
-    /// - Parameter channel: 単一inflightを保つ初期化済みELMチャネル。
-    /// - Throws: STN周期コマンドが拒否された場合は `OBDPIDTelemetryError.periodicMessagingUnavailable`。
-    private func configurePeriodicMessaging(using channel: SerializedELMCommandChannel) async throws {
-        let clearResponse = try await channel.execute(STNBRZBetaPeriodicCommand.clear)
-        guard isAccepted(clearResponse) else { throw OBDPIDTelemetryError.periodicMessagingUnavailable }
-        for command in [STNBRZBetaPeriodicCommand.addEngineSpeed, .addVehicleSpeed] {
-            let response = try await channel.execute(command)
-            guard isAccepted(response) else {
-                _ = try? await channel.execute(STNBRZBetaPeriodicCommand.clear)
-                throw OBDPIDTelemetryError.periodicMessagingUnavailable
-            }
-        }
-        isPeriodicMessagingActive = true
-    }
-
-    /// STNコマンド応答が既知の拒否文字列を含まないか判定します。
-    ///
-    /// 責務: 1件のSTN応答を周期設定の受理可否へ変換します。
-    /// - Parameter response: プロンプトを除いたSTN応答。
+    /// 責務: 1件のELM設定応答を受理可否へ変換します。
+    /// - Parameter response: プロンプトを除いたELM設定応答。
     /// - Returns: 空でなく既知の拒否文字列を含まない場合は `true`。
     private func isAccepted(_ response: String) -> Bool {
         let normalized = response.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
@@ -200,7 +141,8 @@ actor OBDLinkEXPIDTelemetryAdapter: OBDPIDTelemetryPort {
         let channel = SerializedELMCommandChannel(transport: transport)
         do {
             for command in [ELM327Command.reset, .echoOff, .linefeedsOff, .spacesOn, .headersOff, .automaticProtocol] {
-                _ = try await channel.execute(command)
+                let response = try await channel.execute(command)
+                guard isAccepted(response) else { throw OBDPIDTelemetryError.commandRejected }
             }
         } catch {
             await transport.close()
@@ -245,9 +187,6 @@ actor OBDLinkEXPIDTelemetryAdapter: OBDPIDTelemetryPort {
     ///
     /// 責務: 保持中のシリアルTransportを1回だけ閉じて接続状態を消去します。
     func endSession() async {
-        if isPeriodicMessagingActive, let activeChannel {
-            _ = try? await activeChannel.execute(STNBRZBetaPeriodicCommand.clear)
-        }
         await closeActiveSession()
     }
 
@@ -259,7 +198,6 @@ actor OBDLinkEXPIDTelemetryAdapter: OBDPIDTelemetryPort {
         activeTransport = nil
         activeChannel = nil
         activeEndpoint = nil
-        isPeriodicMessagingActive = false
         activeTransmitHeader = nil
     }
 }

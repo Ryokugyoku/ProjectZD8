@@ -37,12 +37,6 @@ struct MacOSLiveTelemetryView: View {
         }
         .background(telemetryBackground)
         .accessibilityIdentifier("macos-live-telemetry")
-        .alert("telemetry.brz_beta.warning.title", isPresented: betaConsentIsPresented) {
-            Button("telemetry.brz_beta.warning.use_standard", role: .cancel) { send(.brzBetaDeclined) }
-            Button("telemetry.brz_beta.warning.accept", role: .destructive) { send(.brzBetaAccepted) }
-        } message: {
-            Text("telemetry.brz_beta.warning.message")
-        }
         .onChange(of: availableCategories) { _, categories in
             if !categories.contains(selectedCategory), let first = categories.first { selectedCategory = first }
         }
@@ -115,10 +109,10 @@ struct MacOSLiveTelemetryView: View {
         case .stopping:
             statusBanner("telemetry.status.stopping", symbol: "stop.circle", color: .orange, showsProgress: true)
         case .loaded:
-            statusBanner(state.acquisitionMode == .brzBetaPeriodic ? "telemetry.status.brz_beta_periodic" : "telemetry.status.streaming", symbol: "waveform.path.ecg", color: .green, showsProgress: false)
+            statusBanner("telemetry.status.polling", symbol: "waveform.path.ecg", color: .green, showsProgress: false)
         case .failed:
             statusBanner(state.failureKey ?? "telemetry.error.read_failed", symbol: "exclamationmark.triangle.fill", color: .orange, showsProgress: false)
-        case .idle, .awaitingBRZBetaConsent:
+        case .idle:
             EmptyView()
         }
     }
@@ -313,11 +307,6 @@ struct MacOSLiveTelemetryView: View {
             helpRow("telemetry.help.low", valueKey: sample.lowValueKey)
             helpRow("telemetry.help.correlation", valueKey: sample.correlationKey)
         }.padding(18).frame(width: 360)
-    }
-
-    /// BRZ Betaの危険性確認を表示するBindingです。
-    private var betaConsentIsPresented: Binding<Bool> {
-        Binding(get: { state.phase == .awaitingBRZBetaConsent }, set: { _ in })
     }
 
     /// 回転数と車速を優先し、不在時は先頭値で空きを補います。

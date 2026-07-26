@@ -9,10 +9,6 @@ struct MacOSHomeState: Equatable {
     let isConnectionActive: Bool
     /// 通信資源の終了完了を待っているかどうかです。
     let isDisconnecting: Bool
-    /// BRZ限定の周期接続Betaが有効かどうかです。
-    let isBRZBetaActive: Bool
-    /// BRZ Betaの危険性に対するユーザー判断が必要かどうかです。
-    let requiresBRZBetaConsent: Bool
 
     /// macOS設定状態からHOME表示状態を生成します。
     ///
@@ -34,9 +30,6 @@ struct MacOSHomeState: Equatable {
         }
         isConnectionActive = liveTelemetryState.isConnectionActive
         isDisconnecting = liveTelemetryState.isDisconnecting
-        isBRZBetaActive = liveTelemetryState.phase == .loaded
-            && liveTelemetryState.acquisitionMode == .brzBetaPeriodic
-        requiresBRZBetaConsent = liveTelemetryState.phase == .awaitingBRZBetaConsent
     }
 }
 #endif

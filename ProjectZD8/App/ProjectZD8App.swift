@@ -106,11 +106,11 @@ struct ProjectZD8App: App {
         ) { vehicle, endpoint, identification in
             connectionSessionLifecycleModel.send(.startRequested)
             connectionSessionLifecycleModel.send(.vehicleResolved(vehicle))
-            let mode: LiveTelemetryAcquisitionMode = ZD8VehicleModelPolicy().matches(identification.vin)
+            let vehicleModelCode = ZD8VehicleModelPolicy().matches(identification.vin)
                 || ZD8VehicleModelPolicy().matches(identification.obdIdentifier)
-                ? .brzBetaPeriodic
-                : .standardPolling
-            liveTelemetryModel.send(.startRequested(endpoint, vehicle.id, mode))
+                ? ZD8VehicleModelPolicy.modelCode
+                : nil
+            liveTelemetryModel.send(.startRequested(endpoint, vehicle.id, vehicleModelCode: vehicleModelCode))
         }
         let maintenanceModel = IOSApplicationComposition.makeMaintenanceModel()
         _authenticationModel = State(
@@ -198,11 +198,11 @@ struct ProjectZD8App: App {
         ) { vehicle, endpoint, identification in
             connectionSessionLifecycleModel.send(.startRequested)
             connectionSessionLifecycleModel.send(.vehicleResolved(vehicle))
-            let mode: LiveTelemetryAcquisitionMode = ZD8VehicleModelPolicy().matches(identification.vin)
+            let vehicleModelCode = ZD8VehicleModelPolicy().matches(identification.vin)
                 || ZD8VehicleModelPolicy().matches(identification.obdIdentifier)
-                ? .brzBetaPeriodic
-                : .standardPolling
-            liveTelemetryModel.send(.startRequested(endpoint, vehicle.id, mode))
+                ? ZD8VehicleModelPolicy.modelCode
+                : nil
+            liveTelemetryModel.send(.startRequested(endpoint, vehicle.id, vehicleModelCode: vehicleModelCode))
         }
         let maintenanceModel = MacOSApplicationComposition.makeMaintenanceModel()
         _authenticationModel = State(
