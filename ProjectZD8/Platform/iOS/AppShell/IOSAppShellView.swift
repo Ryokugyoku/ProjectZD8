@@ -105,34 +105,60 @@ struct IOSAppShellView: View {
         ZStack {
             IOSAppShellBackground()
 
-            IOSDestinationView(
-                destination: selectedDestination,
-                settingsState: settingsModel.state,
-                accountSettings: accountSettingsModel.settings,
-                vehicleManagementState: vehicleManagementModel.state,
-                maintenanceState: maintenanceModel.state,
-                liveTelemetryState: liveTelemetryModel.state,
-                connectionHistoryState: connectionHistoryModel.state,
-                sessionLogAnalysisState: sessionLogAnalysisModel.state,
-                sendHomeAction: handleHomeAction,
-                sendSettingsAction: settingsModel.send,
-                sendAccountSettingsAction: accountSettingsModel.send,
-                sendVehicleManagementAction: vehicleManagementModel.send,
-                sendMaintenanceAction: maintenanceModel.send,
-                sendLiveTelemetryAction: liveTelemetryModel.send,
-                sendConnectionHistoryAction: connectionHistoryModel.send,
-                sendSessionLogAnalysisAction: sessionLogAnalysisModel.send,
-                accountDeletionPhase: accountDeletionPhase,
-                accountDeletionFailure: accountDeletionFailure,
-                sendAuthenticationAction: sendAuthenticationAction
-            )
-        }
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            IOSAppShellTabBar(selection: $selectedDestination)
+            IOSAppShellTabBar(selection: $selectedDestination) { destination in
+                destinationContent(for: destination)
+            }
         }
         .environment(\.locale, Locale(identifier: accountSettingsModel.settings.language.localeIdentifier))
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("ios-app-shell")
+        .onChange(of: selectedDestination) { _, destination in
+            handleDestinationSelection(destination)
+        }
+    }
+
+    /// 指定されたタブに対応するiOS専用画面を生成します。
+    ///
+    /// 責務: 1件のAppShell遷移先を必要な表示状態と操作通知先へ接続します。
+    /// - Parameter destination: 生成する画面を識別する遷移先。
+    /// - Returns: 指定された遷移先に対応するiOS画面。
+    private func destinationContent(for destination: IOSAppShellDestination) -> some View {
+        IOSDestinationView(
+            destination: destination,
+            settingsState: settingsModel.state,
+            accountSettings: accountSettingsModel.settings,
+            vehicleManagementState: vehicleManagementModel.state,
+            maintenanceState: maintenanceModel.state,
+            liveTelemetryState: liveTelemetryModel.state,
+            connectionHistoryState: connectionHistoryModel.state,
+            sessionLogAnalysisState: sessionLogAnalysisModel.state,
+            sendHomeAction: handleHomeAction,
+            sendSettingsAction: settingsModel.send,
+            sendAccountSettingsAction: accountSettingsModel.send,
+            sendVehicleManagementAction: vehicleManagementModel.send,
+            sendMaintenanceAction: maintenanceModel.send,
+            sendLiveTelemetryAction: liveTelemetryModel.send,
+            sendConnectionHistoryAction: connectionHistoryModel.send,
+            sendSessionLogAnalysisAction: sessionLogAnalysisModel.send,
+            accountDeletionPhase: accountDeletionPhase,
+            accountDeletionFailure: accountDeletionFailure,
+            sendAuthenticationAction: sendAuthenticationAction
+        )
+    }
+
+    /// 選択された画面が必要とする最新表示を型付き操作で要求します。
+    ///
+    /// 責務: AppShellの遷移先変更を選択画面だけの更新要求へ変換します。
+    /// - Parameter destination: ユーザーまたは画面操作が選択した遷移先。
+    private func handleDestinationSelection(_ destination: IOSAppShellDestination) {
+        switch destination {
+        case .history:
+            connectionHistoryModel.send(.refreshRequested)
+        case .garage:
+            vehicleManagementModel.send(.refreshRequested)
+        case .home, .liveLog, .maintenance, .settings:
+            break
+        }
     }
 
     /// HOMEから受け取った1件の操作をiOSナビゲーションへ反映します。

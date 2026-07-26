@@ -20,20 +20,31 @@ final class IOSAppShellUITests: XCTestCase {
         add(screenshot)
     }
 
-    /// iOS下部ナビゲーションが要求されたすべての遷移先を公開することを検証します。
+    /// iOS下部ナビゲーションが主要タブと標準のその他導線を公開することを検証します。
     ///
-    /// 責務: iOS AppShellが整備とGarageを含む6件のタブ操作を表示することを確認します。
+    /// 責務: iOS AppShellが4件の主要タブとGarage・設定を含む標準のその他一覧を表示することを確認します。
     @MainActor
     func testTabBarShowsEveryRequestedDestination() {
         let application = XCUIApplication.authenticatedProjectZD8()
         application.launch()
 
-        XCTAssertTrue(application.buttons["ios-tab-home"].waitForExistence(timeout: 5))
-        XCTAssertTrue(application.buttons["ios-tab-liveLog"].exists)
-        XCTAssertTrue(application.buttons["ios-tab-history"].exists)
-        XCTAssertTrue(application.buttons["ios-tab-maintenance"].exists)
-        XCTAssertTrue(application.buttons["ios-tab-garage"].exists)
-        XCTAssertTrue(application.buttons["ios-tab-settings"].exists)
+        let tabBar = application.tabBars.firstMatch
+        XCTAssertTrue(tabBar.waitForExistence(timeout: 5))
+        XCTAssertTrue(tabBar.isHittable)
+        XCTAssertEqual(tabBar.buttons.count, 5)
+        for index in 0..<4 {
+            XCTAssertTrue(tabBar.buttons.element(boundBy: index).isHittable)
+        }
+
+        let moreTab = tabBar.buttons.element(boundBy: 4)
+        XCTAssertTrue(moreTab.exists)
+        XCTAssertTrue(moreTab.isHittable)
+        moreTab.tap()
+
+        XCTAssertTrue(application.descendants(matching: .any)["Garage"].exists)
+        XCTAssertTrue(["設定", "Settings", "Ajustes"].contains {
+            application.descendants(matching: .any)[$0].exists
+        })
     }
 
     /// 下部ナビゲーションの整備操作でiPhone専用整備画面へ切り替わることを検証します。
@@ -44,9 +55,10 @@ final class IOSAppShellUITests: XCTestCase {
         let application = XCUIApplication.authenticatedProjectZD8()
         application.launch()
 
-        let maintenanceButton = application.buttons["ios-tab-maintenance"]
-        XCTAssertTrue(maintenanceButton.waitForExistence(timeout: 5))
-        maintenanceButton.tap()
+        XCTAssertTrue(application.selectAppShellTab(
+            identifier: "ios-tab-maintenance",
+            labels: ["整備", "Service", "Servicio"]
+        ))
 
         XCTAssertTrue(application.descendants(matching: .any)["ios-maintenance"].waitForExistence(timeout: 3))
         let screenshot = XCTAttachment(screenshot: application.screenshot())
@@ -63,15 +75,32 @@ final class IOSAppShellUITests: XCTestCase {
         let application = XCUIApplication.authenticatedProjectZD8()
         application.launch()
 
-        let garageButton = application.buttons["ios-tab-garage"]
-        XCTAssertTrue(garageButton.waitForExistence(timeout: 5))
-        garageButton.tap()
+        XCTAssertTrue(application.selectAppShellTab(
+            identifier: "ios-tab-garage",
+            labels: ["Garage", "Garaje"]
+        ))
 
         XCTAssertTrue(application.descendants(matching: .any)["ios-garage-screen"].waitForExistence(timeout: 3))
         let screenshot = XCTAttachment(screenshot: application.screenshot())
         screenshot.name = "iPhone-Garage-Japanese"
         screenshot.lifetime = .keepAlways
         add(screenshot)
+    }
+
+    /// 下部ナビゲーションの履歴操作でiOS専用接続履歴へ切り替わることを検証します。
+    ///
+    /// 責務: 履歴タブの選択が更新可能なiPhone向け接続履歴画面を表示することを確認します。
+    @MainActor
+    func testHistoryTabShowsIOSConnectionHistoryScreen() {
+        let application = XCUIApplication.authenticatedProjectZD8()
+        application.launch()
+
+        XCTAssertTrue(application.selectAppShellTab(
+            identifier: "ios-tab-history",
+            labels: ["履歴", "History", "Historial"]
+        ))
+
+        XCTAssertTrue(application.descendants(matching: .any)["ios-connection-history"].waitForExistence(timeout: 3))
     }
 
     /// デフォルト未設定のHOME操作が押すたびに案内され、手動でも再遷移できることを検証します。
@@ -101,14 +130,23 @@ final class IOSAppShellUITests: XCTestCase {
         screenshot.lifetime = .keepAlways
         add(screenshot)
 
-        application.buttons["ios-tab-home"].tap()
+        XCTAssertTrue(application.selectAppShellTab(
+            identifier: "ios-tab-home",
+            labels: ["ホーム", "Home", "Inicio"]
+        ))
         XCTAssertTrue(application.descendants(matching: .any)["ios-home-screen"].waitForExistence(timeout: 2))
-        application.buttons["ios-tab-settings"].tap()
+        XCTAssertTrue(application.selectAppShellTab(
+            identifier: "ios-tab-settings",
+            labels: ["設定", "Settings", "Ajustes"]
+        ))
 
         XCTAssertTrue(application.descendants(matching: .any)["ios-settings-screen"].waitForExistence(timeout: 2))
         XCTAssertTrue(application.descendants(matching: .any)["ios-settings-adapter-card"].exists)
 
-        application.buttons["ios-tab-home"].tap()
+        XCTAssertTrue(application.selectAppShellTab(
+            identifier: "ios-tab-home",
+            labels: ["ホーム", "Home", "Inicio"]
+        ))
         let secondSetupButton = application.buttons["ios-home-setup-adapter"]
         XCTAssertTrue(secondSetupButton.waitForExistence(timeout: 2))
         secondSetupButton.tap()
@@ -125,9 +163,10 @@ final class IOSAppShellUITests: XCTestCase {
         let application = XCUIApplication.authenticatedProjectZD8()
         application.launch()
 
-        let settingsButton = application.buttons["ios-tab-settings"]
-        XCTAssertTrue(settingsButton.waitForExistence(timeout: 5))
-        settingsButton.tap()
+        XCTAssertTrue(application.selectAppShellTab(
+            identifier: "ios-tab-settings",
+            labels: ["設定", "Settings", "Ajustes"]
+        ))
 
         XCTAssertTrue(application.descendants(matching: .any)["ios-settings-screen"].waitForExistence(timeout: 2))
         XCTAssertTrue(application.descendants(matching: .any)["ios-settings-language"].exists)
@@ -148,9 +187,10 @@ final class IOSAppShellUITests: XCTestCase {
         application.launchArguments += ["-AppleInterfaceStyle", "Dark"]
         application.launch()
 
-        let settingsButton = application.buttons["ios-tab-settings"]
-        XCTAssertTrue(settingsButton.waitForExistence(timeout: 5))
-        settingsButton.tap()
+        XCTAssertTrue(application.selectAppShellTab(
+            identifier: "ios-tab-settings",
+            labels: ["設定", "Settings", "Ajustes"]
+        ))
 
         let lightAppearance = application.buttons["ios-settings-appearance-light"]
         XCTAssertTrue(lightAppearance.waitForExistence(timeout: 2))
@@ -175,9 +215,10 @@ final class IOSAppShellUITests: XCTestCase {
         let application = XCUIApplication.authenticatedProjectZD8()
         application.launch()
 
-        let settingsButton = application.buttons["ios-tab-settings"]
-        XCTAssertTrue(settingsButton.waitForExistence(timeout: 5))
-        settingsButton.tap()
+        XCTAssertTrue(application.selectAppShellTab(
+            identifier: "ios-tab-settings",
+            labels: ["設定", "Settings", "Ajustes"]
+        ))
 
         let spanishLanguage = application.buttons["Español"]
         XCTAssertTrue(spanishLanguage.waitForExistence(timeout: 2))
@@ -202,9 +243,10 @@ final class IOSAppShellUITests: XCTestCase {
         let application = XCUIApplication.authenticatedProjectZD8()
         application.launch()
 
-        let settingsButton = application.buttons["ios-tab-settings"]
-        XCTAssertTrue(settingsButton.waitForExistence(timeout: 5))
-        settingsButton.tap()
+        XCTAssertTrue(application.selectAppShellTab(
+            identifier: "ios-tab-settings",
+            labels: ["設定", "Settings", "Ajustes"]
+        ))
 
         let deleteStart = application.buttons["ios-account-delete-start"]
         for _ in 0..<4 where !deleteStart.exists {
@@ -227,9 +269,10 @@ final class IOSAppShellUITests: XCTestCase {
         let application = XCUIApplication.authenticatedProjectZD8()
         application.launch()
 
-        let settingsButton = application.buttons["ios-tab-settings"]
-        XCTAssertTrue(settingsButton.waitForExistence(timeout: 5))
-        settingsButton.tap()
+        XCTAssertTrue(application.selectAppShellTab(
+            identifier: "ios-tab-settings",
+            labels: ["設定", "Settings", "Ajustes"]
+        ))
 
         let deleteStart = application.buttons["ios-account-delete-start"]
         for _ in 0..<4 where !deleteStart.exists {
@@ -268,9 +311,10 @@ final class IOSAppShellUITests: XCTestCase {
         }
         application.launch()
 
-        let settingsButton = application.buttons["ios-tab-settings"]
-        XCTAssertTrue(settingsButton.waitForExistence(timeout: 5))
-        settingsButton.tap()
+        XCTAssertTrue(application.selectAppShellTab(
+            identifier: "ios-tab-settings",
+            labels: ["設定", "Settings", "Ajustes"]
+        ))
 
         let primaryAdapter = application.buttons.matching(
             identifier: "ios-settings-adapter-card"
@@ -320,7 +364,10 @@ final class IOSAppShellUITests: XCTestCase {
         }
         application.launch()
 
-        application.buttons["ios-tab-settings"].tap()
+        XCTAssertTrue(application.selectAppShellTab(
+            identifier: "ios-tab-settings",
+            labels: ["設定", "Settings", "Ajustes"]
+        ))
         let primaryAdapter = application.buttons.matching(
             identifier: "ios-settings-adapter-card"
         ).firstMatch
@@ -336,9 +383,10 @@ final class IOSAppShellUITests: XCTestCase {
         XCTAssertTrue(confirmButton.waitForExistence(timeout: 2))
         confirmButton.tap()
 
-        let homeTab = application.buttons["ios-tab-home"]
-        XCTAssertTrue(homeTab.waitForExistence(timeout: 2))
-        homeTab.tap()
+        XCTAssertTrue(application.selectAppShellTab(
+            identifier: "ios-tab-home",
+            labels: ["ホーム", "Home", "Inicio"]
+        ))
 
         let connectButton = application.buttons["ios-home-connect"]
         XCTAssertTrue(connectButton.waitForExistence(timeout: 3))
@@ -351,6 +399,42 @@ final class IOSAppShellUITests: XCTestCase {
 
 /// iOS AppShell UIテスト用の認証済み起動構成を生成します。
 private extension XCUIApplication {
+    /// 指定されたAppShellタブを直接または標準のその他一覧から選択します。
+    ///
+    /// 責務: iPhoneの標準タブ上限に応じた1件の遷移先選択をUIテストへ提供します。
+    /// - Parameters:
+    ///   - identifier: タブ項目へ割り当てた安定アクセシビリティ識別子。
+    ///   - labels: タブバーまたはその他一覧で遷移先を特定するローカライズ済み候補名。
+    /// - Returns: 対象のタブまたはその他一覧項目を選択できた場合は `true`。
+    @MainActor
+    func selectAppShellTab(identifier: String, labels: [String]) -> Bool {
+        let directTab = buttons[identifier]
+        if directTab.waitForExistence(timeout: 1) {
+            directTab.tap()
+            return true
+        }
+
+        let tabBar = tabBars.firstMatch
+        guard tabBar.waitForExistence(timeout: 2), tabBar.buttons.count > 4 else { return false }
+        for label in labels {
+            let localizedTab = tabBar.buttons[label]
+            if localizedTab.exists {
+                localizedTab.tap()
+                return true
+            }
+        }
+        tabBar.buttons.element(boundBy: 4).tap()
+
+        for label in labels {
+            let overflowItem = descendants(matching: .any)[label]
+            if overflowItem.waitForExistence(timeout: 1) {
+                overflowItem.tap()
+                return true
+            }
+        }
+        return false
+    }
+
     /// 認証済みDebug起動引数を持つProject ZD8アプリを生成します。
     ///
     /// 責務: AppShell UIテストを実Apple認証から分離します。

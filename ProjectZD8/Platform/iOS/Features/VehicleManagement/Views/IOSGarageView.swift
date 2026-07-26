@@ -67,7 +67,6 @@ struct IOSGarageView: View {
                         endPoint: .bottom
                     ).ignoresSafeArea()
                 }
-                .onAppear { send(.refreshRequested) }
                 .accessibilityIdentifier("ios-garage-screen")
             }
             .sheet(isPresented: Binding(
