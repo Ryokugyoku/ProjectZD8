@@ -16,7 +16,7 @@ final class IOSBluetoothAdapterDiscovery: AdapterDiscoveryPort {
             externalAccessoryDiscovery: IOSExternalAccessoryAdapterDiscovery(
                 configuration: externalAccessoryConfiguration
             ),
-            lowEnergyDiscovery: IOSCoreBluetoothAdapterDiscovery()
+            lowEnergyDiscovery: AppleCoreBluetoothAdapterDiscovery()
         )
     }
 

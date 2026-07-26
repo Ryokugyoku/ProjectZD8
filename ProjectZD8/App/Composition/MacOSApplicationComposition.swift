@@ -238,7 +238,10 @@ enum MacOSApplicationComposition {
     /// - Returns: 実際のシステム探索とデフォルト設定保存を使用するmacOS設定プレゼンテーションモデル。
     static func makeSettingsPresentationModel() -> MacOSSettingsPresentationModel {
         let discovery = DemoIncludedAdapterDiscovery(
-            wrapping: MacOSSystemAdapterDiscovery(),
+            wrapping: MacOSAdapterDiscovery(
+                systemDiscovery: MacOSSystemAdapterDiscovery(),
+                lowEnergyDiscovery: AppleCoreBluetoothAdapterDiscovery()
+            ),
             demoCandidates: DemoOBDAdapter.usbCandidates
         )
         let discoverAdapters = DiscoverAdaptersUseCase(discoveryPort: discovery)
@@ -255,10 +258,10 @@ enum MacOSApplicationComposition {
 
     /// 選択済み終端に対応するmacOSのOBDバイトストリームを生成します。
     ///
-    /// 責務: 1件の接続終端をUSBシリアルまたはBluetooth Classic RFCOMM Transportへ振り分けます。
+    /// 責務: 1件の接続終端をUSBシリアル、Bluetooth Classic、または共通BLE Transportへ振り分けます。
     /// - Parameter endpoint: 探索時に物理方式を確定したOBD接続終端。
     /// - Returns: ELM/STNコマンドを送受信できるmacOS Transport。
-    /// - Throws: BLEなど未実装の物理方式では `VehicleIdentificationError.transportUnsupported`。
+    /// - Throws: BLE終端の識別子が不正な場合は `VehicleIdentificationError.transportUnsupported`。
     private static func makeOBDCommandTransport(
         for endpoint: OBDConnectionEndpoint
     ) throws -> any OBDCommandTransport {
@@ -268,7 +271,7 @@ enum MacOSApplicationComposition {
         case .bluetoothClassic:
             return MacOSBluetoothRFCOMMOBDTransport(deviceAddress: endpoint.systemIdentifier)
         case .bluetoothLowEnergy:
-            throw VehicleIdentificationError.transportUnsupported
+            return try AppleCoreBluetoothOBDTransport(endpoint: endpoint)
         }
     }
 

@@ -29,7 +29,7 @@ final class IOSCoreBluetoothDefaultAdapterArrivalMonitor: NSObject,
     ///
     /// 責務: 製品が対応するUART Service集合をバックグラウンドBLE監視条件へ固定します。
     override init() {
-        serviceUUIDs = IOSBluetoothUARTProfile.supported.map {
+        serviceUUIDs = AppleBluetoothUARTProfile.supported.map {
             CBUUID(string: $0.serviceUUID)
         }
         super.init()

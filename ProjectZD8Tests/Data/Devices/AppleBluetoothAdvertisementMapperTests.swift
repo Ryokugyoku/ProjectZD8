@@ -1,15 +1,15 @@
-#if os(iOS)
+#if os(iOS) || os(macOS)
 import XCTest
 @testable import ProjectZD8
 
-/// iOSのBluetoothアドバタイズメント変換規則を検証します。
+/// AppleプラットフォームのBluetoothアドバタイズメント変換規則を検証します。
 @MainActor
-final class IOSBluetoothAdvertisementMapperTests: XCTestCase {
+final class AppleBluetoothAdvertisementMapperTests: XCTestCase {
     /// Advertisement Local Nameが周辺機器名より優先されることを検証します。
     ///
     /// 責務: BLE候補の表示名が指定された名称優先順位に従うことを確認します。
     func testAdvertisementLocalNameTakesPriorityOverPeripheralName() {
-        let adapter = IOSBluetoothAdvertisementMapper().makeAdapter(
+        let adapter = AppleBluetoothAdvertisementMapper().makeAdapter(
             peripheralIdentifier: UUID(uuidString: "AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE")!,
             advertisementLocalName: "Advertisement Name",
             peripheralName: "Peripheral Name",
@@ -30,7 +30,7 @@ final class IOSBluetoothAdvertisementMapperTests: XCTestCase {
     func testMissingNamesFallBackToPeripheralUUID() {
         let identifier = UUID(uuidString: "11111111-2222-3333-4444-555555555555")!
 
-        let adapter = IOSBluetoothAdvertisementMapper().makeAdapter(
+        let adapter = AppleBluetoothAdvertisementMapper().makeAdapter(
             peripheralIdentifier: identifier,
             advertisementLocalName: "   ",
             peripheralName: nil,
@@ -47,7 +47,7 @@ final class IOSBluetoothAdvertisementMapperTests: XCTestCase {
     ///
     /// 責務: CoreBluetooth広告のService UUID一覧が実機確認用の安定表示値になることを確認します。
     func testServiceIdentifiersAreNormalizedForInspection() {
-        let adapter = IOSBluetoothAdvertisementMapper().makeAdapter(
+        let adapter = AppleBluetoothAdvertisementMapper().makeAdapter(
             peripheralIdentifier: UUID(uuidString: "AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE")!,
             advertisementLocalName: "OBDLink",
             peripheralName: nil,

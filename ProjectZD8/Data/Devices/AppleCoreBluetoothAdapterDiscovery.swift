@@ -1,15 +1,15 @@
-#if os(iOS)
+#if os(iOS) || os(macOS)
 import CoreBluetooth
 import Foundation
 
-/// CoreBluetoothを使ってiPhone周辺のBluetooth Low Energy候補を一定時間探索します。
+/// CoreBluetoothを使ってAppleデバイス周辺のBluetooth Low Energy候補を一定時間探索します。
 @MainActor
-final class IOSCoreBluetoothAdapterDiscovery: NSObject, AdapterDiscoveryPort, CBCentralManagerDelegate {
+final class AppleCoreBluetoothAdapterDiscovery: NSObject, AdapterDiscoveryPort, CBCentralManagerDelegate {
     /// CoreBluetooth検出値をDomain候補へ変換します。
-    private let mapper = IOSBluetoothAdvertisementMapper()
+    private let mapper = AppleBluetoothAdvertisementMapper()
 
     /// BLE候補を既知OBDアダプターへ限定する判定規則です。
-    private let candidatePolicy = IOSOBDBluetoothCandidatePolicy()
+    private let candidatePolicy = AppleOBDBluetoothCandidatePolicy()
 
     /// 現在の探索を担当する中央マネージャーです。
     private var centralManager: CBCentralManager?
@@ -28,14 +28,14 @@ final class IOSCoreBluetoothAdapterDiscovery: NSObject, AdapterDiscoveryPort, CB
 
     /// 空の探索状態でCoreBluetooth探索境界を生成します。
     ///
-    /// 責務: iOS向けBLE探索を開始前の状態で構築します。
+    /// 責務: Appleプラットフォーム向けBLE探索を開始前の状態で構築します。
     override init() {
         super.init()
     }
 
     /// Bluetooth Low Energy接続方式だけで周辺候補を取得します。
     ///
-    /// 責務: iOSで許可されたBluetooth Low Energy探索要求を期限付きスキャンへ委譲します。
+    /// 責務: Appleプラットフォームで許可されたBluetooth Low Energy探索要求を期限付きスキャンへ委譲します。
     /// - Parameter mode: 探索対象の物理接続方式。
     /// - Returns: スキャン期間内にCoreBluetoothから取得できた候補。
     /// - Throws: USB要求、Bluetooth利用不可、またはタスクキャンセルの場合のエラー。

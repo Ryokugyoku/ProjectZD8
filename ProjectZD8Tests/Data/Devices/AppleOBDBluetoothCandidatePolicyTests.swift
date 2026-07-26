@@ -1,14 +1,14 @@
-#if os(iOS)
+#if os(iOS) || os(macOS)
 import XCTest
 @testable import ProjectZD8
 
-/// iOSのBLE一覧が既知OBD候補だけを公開することを検証します。
-final class IOSOBDBluetoothCandidatePolicyTests: XCTestCase {
+/// AppleプラットフォームのBLE一覧が既知OBD候補だけを公開することを検証します。
+final class AppleOBDBluetoothCandidatePolicyTests: XCTestCase {
     /// 公式に確認したOBDLink、VEEPEAK、VgateのBLE名称を許可することを検証します。
     ///
     /// 責務: 既知OBDメーカーの広告名称が選択候補として保持されることを確認します。
     func testAcceptsKnownOBDProductNames() {
-        let policy = IOSOBDBluetoothCandidatePolicy()
+        let policy = AppleOBDBluetoothCandidatePolicy()
 
         XCTAssertTrue(policy.accepts(makeAdapter(name: "OBDLink CX")))
         XCTAssertTrue(policy.accepts(makeAdapter(name: "VEEPEAK")))
@@ -20,9 +20,9 @@ final class IOSOBDBluetoothCandidatePolicyTests: XCTestCase {
     ///
     /// 責務: 採用済みUART構成を広告するBLE候補が名称欠損だけで除外されないことを確認します。
     func testAcceptsKnownUARTServiceIdentifiers() {
-        let policy = IOSOBDBluetoothCandidatePolicy()
+        let policy = AppleOBDBluetoothCandidatePolicy()
 
-        for serviceIdentifier in IOSBluetoothUARTProfile.supported.map(\.serviceUUID) {
+        for serviceIdentifier in AppleBluetoothUARTProfile.supported.map(\.serviceUUID) {
             XCTAssertTrue(
                 policy.accepts(
                     makeAdapter(
@@ -39,7 +39,7 @@ final class IOSOBDBluetoothCandidatePolicyTests: XCTestCase {
     ///
     /// 責務: 一般アクセサリー、UUID表示、Manufacturer Dataだけの候補をOBD一覧へ混入させないことを確認します。
     func testRejectsUnrelatedBluetoothPeripherals() {
-        let policy = IOSOBDBluetoothCandidatePolicy()
+        let policy = AppleOBDBluetoothCandidatePolicy()
 
         XCTAssertFalse(policy.accepts(makeAdapter(name: "AirPods Pro")))
         XCTAssertFalse(policy.accepts(makeAdapter(name: "Pioneer Navi")))

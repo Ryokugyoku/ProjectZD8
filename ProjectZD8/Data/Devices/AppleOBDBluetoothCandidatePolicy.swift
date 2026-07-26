@@ -1,8 +1,8 @@
-#if os(iOS)
+#if os(iOS) || os(macOS)
 import Foundation
 
-/// iOSのBLE探索結果を既知のOBDアダプター信号へ限定する判定規則です。
-nonisolated struct IOSOBDBluetoothCandidatePolicy: Sendable {
+/// AppleプラットフォームのBLE探索結果を既知のOBDアダプター信号へ限定する判定規則です。
+nonisolated struct AppleOBDBluetoothCandidatePolicy: Sendable {
     /// 公式製品資料または採用済み参照実装で確認したBLE表示名の接頭辞です。
     private static let knownNamePrefixes = [
         "OBDLINK",
@@ -13,7 +13,7 @@ nonisolated struct IOSOBDBluetoothCandidatePolicy: Sendable {
 
     /// 通信実装が明示的に扱う既知UART Service UUIDです。
     private static let knownServiceIdentifiers = Set(
-        IOSBluetoothUARTProfile.supported.map(\.serviceUUID)
+        AppleBluetoothUARTProfile.supported.map(\.serviceUUID)
     )
 
     /// 1件のBLE候補が既知のOBD表示名またはUART Service UUIDを持つか判定します。

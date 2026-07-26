@@ -1,8 +1,8 @@
-#if os(iOS)
+#if os(iOS) || os(macOS)
 import Foundation
 
-/// iOSのBluetooth Low Energy検出値をDomain候補へ変換します。
-struct IOSBluetoothAdvertisementMapper {
+/// AppleプラットフォームのBluetooth Low Energy検出値をDomain候補へ変換します。
+struct AppleBluetoothAdvertisementMapper {
     /// CoreBluetoothから取得した1件の検出値をアダプター候補へ変換します。
     ///
     /// 責務: Advertisement Local Name、周辺機器名、UUIDの優先順で1件のBLE候補を構築します。

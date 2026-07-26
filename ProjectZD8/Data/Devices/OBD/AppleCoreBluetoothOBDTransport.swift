@@ -1,17 +1,17 @@
-#if os(iOS)
+#if os(iOS) || os(macOS)
 import CoreBluetooth
 import Foundation
 import OSLog
 
 /// 選択済みBLE Peripheralを既知UART構成へ接続してELM/STNバイトストリームを提供します。
 @MainActor
-final class IOSCoreBluetoothOBDTransport: NSObject, OBDCommandTransport, CBCentralManagerDelegate, CBPeripheralDelegate {
+final class AppleCoreBluetoothOBDTransport: NSObject, OBDCommandTransport, CBCentralManagerDelegate, CBPeripheralDelegate {
     /// 接続対象のPeripheral UUIDと表示名です。
     private let endpoint: OBDConnectionEndpoint
     /// 実機能力を既知UART構成へ照合します。
-    private let profileResolver = IOSBluetoothUARTProfileResolver()
+    private let profileResolver = AppleBluetoothUARTProfileResolver()
     /// 実機で発見したUUIDを機密値なしで記録します。
-    private let logger = Logger(subsystem: "ProjectZD8", category: "IOSCoreBluetoothOBDTransport")
+    private let logger = Logger(subsystem: "ProjectZD8", category: "AppleCoreBluetoothOBDTransport")
     /// 現在のBLE中央役割です。
     private var centralManager: CBCentralManager?
     /// 現在接続または探索しているPeripheralです。
@@ -390,7 +390,7 @@ final class IOSCoreBluetoothOBDTransport: NSObject, OBDCommandTransport, CBCentr
             (
                 service.uuidString,
                 characteristics.map { characteristic in
-                    IOSBluetoothCharacteristicCapability(
+                    AppleBluetoothCharacteristicCapability(
                         uuid: characteristic.uuid.uuidString,
                         supportsNotify: characteristic.properties.contains(.notify)
                             || characteristic.properties.contains(.indicate),

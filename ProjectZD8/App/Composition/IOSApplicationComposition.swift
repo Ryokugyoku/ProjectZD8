@@ -298,7 +298,7 @@ enum IOSApplicationComposition {
     ) throws -> any OBDCommandTransport {
         switch endpoint.transport {
         case .bluetoothLowEnergy:
-            return try IOSCoreBluetoothOBDTransport(endpoint: endpoint)
+            return try AppleCoreBluetoothOBDTransport(endpoint: endpoint)
         case .bluetoothClassic:
             return try IOSExternalAccessoryOBDTransport(
                 endpoint: endpoint,

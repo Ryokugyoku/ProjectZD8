@@ -1,8 +1,8 @@
-#if os(iOS)
+#if os(iOS) || os(macOS)
 import Foundation
 
-/// iOSで試験する既知のBluetooth Low Energy UART構成を表します。
-nonisolated struct IOSBluetoothUARTProfile: Equatable, Sendable {
+/// Appleプラットフォームで試験する既知のBluetooth Low Energy UART構成を表します。
+nonisolated struct AppleBluetoothUARTProfile: Equatable, Sendable {
     /// UART構成の由来と互換範囲です。
     enum Kind: String, Equatable, Sendable {
         /// 提供資料に基づくOBDLink MX+試験構成です。
@@ -45,26 +45,26 @@ nonisolated struct IOSBluetoothUARTProfile: Equatable, Sendable {
     }
 
     /// 実機試験で照合する既知UART構成を優先順で返します。
-    static let supported: [IOSBluetoothUARTProfile] = [
-        IOSBluetoothUARTProfile(
+    static let supported: [AppleBluetoothUARTProfile] = [
+        AppleBluetoothUARTProfile(
             kind: .obdLinkMXPlusExperimental,
             serviceUUID: "B3491406-44E4-4D83-97C5-CE3190130000",
             writeCharacteristicUUID: "B3491406-44E4-4D83-97C5-CE3190130001",
             notifyCharacteristicUUID: "B3491406-44E4-4D83-97C5-CE3190130001"
         ),
-        IOSBluetoothUARTProfile(
+        AppleBluetoothUARTProfile(
             kind: .fff0,
             serviceUUID: "FFF0",
             writeCharacteristicUUID: "FFF2",
             notifyCharacteristicUUID: "FFF1"
         ),
-        IOSBluetoothUARTProfile(
+        AppleBluetoothUARTProfile(
             kind: .ffe0,
             serviceUUID: "FFE0",
             writeCharacteristicUUID: "FFE1",
             notifyCharacteristicUUID: "FFE1"
         ),
-        IOSBluetoothUARTProfile(
+        AppleBluetoothUARTProfile(
             kind: .vGate18F0,
             serviceUUID: "18F0",
             writeCharacteristicUUID: "2AF1",
@@ -74,7 +74,7 @@ nonisolated struct IOSBluetoothUARTProfile: Equatable, Sendable {
 }
 
 /// 1件のBLE Characteristicが公開するUART関連能力です。
-nonisolated struct IOSBluetoothCharacteristicCapability: Equatable, Sendable {
+nonisolated struct AppleBluetoothCharacteristicCapability: Equatable, Sendable {
     /// Characteristic UUIDです。
     let uuid: String
     /// Notifyを有効化できるかどうかです。
@@ -106,7 +106,7 @@ nonisolated struct IOSBluetoothCharacteristicCapability: Equatable, Sendable {
 }
 
 /// 実機のService一覧から利用可能な既知UART構成を選択します。
-nonisolated struct IOSBluetoothUARTProfileResolver {
+nonisolated struct AppleBluetoothUARTProfileResolver {
     /// 実機能力を満たす最初の既知UART構成を返します。
     ///
     /// 責務: Service別Characteristic能力をNotify可能かつ書込可能な既知UART構成へ解決します。
@@ -115,9 +115,9 @@ nonisolated struct IOSBluetoothUARTProfileResolver {
     ///   - profiles: 優先順に照合する既知UART構成。
     /// - Returns: 必要なService、Notify、Write能力が揃う最初の構成。該当しない場合は `nil`。
     func resolve(
-        services: [String: [IOSBluetoothCharacteristicCapability]],
-        profiles: [IOSBluetoothUARTProfile] = IOSBluetoothUARTProfile.supported
-    ) -> IOSBluetoothUARTProfile? {
+        services: [String: [AppleBluetoothCharacteristicCapability]],
+        profiles: [AppleBluetoothUARTProfile] = AppleBluetoothUARTProfile.supported
+    ) -> AppleBluetoothUARTProfile? {
         let normalizedServices = Dictionary(uniqueKeysWithValues: services.map {
             ($0.key.uppercased(), $0.value)
         })

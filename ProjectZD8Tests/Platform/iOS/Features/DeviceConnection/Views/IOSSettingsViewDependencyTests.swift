@@ -18,7 +18,7 @@ final class IOSSettingsViewDependencyTests: XCTestCase {
         for viewURL in viewURLs {
             let source = try String(contentsOf: viewURL, encoding: .utf8)
             XCTAssertFalse(source.contains("import CoreBluetooth"), viewURL.path())
-            XCTAssertFalse(source.contains("IOSCoreBluetoothAdapterDiscovery"), viewURL.path())
+            XCTAssertFalse(source.contains("AppleCoreBluetoothAdapterDiscovery"), viewURL.path())
             XCTAssertFalse(source.contains("ProjectZD8/Data"), viewURL.path())
         }
     }
