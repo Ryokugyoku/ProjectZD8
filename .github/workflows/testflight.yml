@@ -43,10 +43,14 @@ jobs:
           API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
           API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
           API_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_API_PRIVATE_KEY }}
+          IOS_DEVELOPMENT_CERTIFICATE_BASE64: ${{ secrets.IOS_DEVELOPMENT_CERTIFICATE_BASE64 }}
+          IOS_DEVELOPMENT_CERTIFICATE_PASSWORD: ${{ secrets.IOS_DEVELOPMENT_CERTIFICATE_PASSWORD }}
         run: |
           test -n "$API_KEY_ID"
           test -n "$API_ISSUER_ID"
           test -n "$API_PRIVATE_KEY"
+          test -n "$IOS_DEVELOPMENT_CERTIFICATE_BASE64"
+          test -n "$IOS_DEVELOPMENT_CERTIFICATE_PASSWORD"
 
       - name: Install temporary App Store Connect key
         env:
@@ -57,6 +61,34 @@ jobs:
           mkdir -p "$(dirname "$api_key_path")"
           printf '%s' "$API_PRIVATE_KEY" > "$api_key_path"
           chmod 600 "$api_key_path"
+
+      - name: Install fixed iOS development signing identity
+        env:
+          IOS_DEVELOPMENT_CERTIFICATE_BASE64: ${{ secrets.IOS_DEVELOPMENT_CERTIFICATE_BASE64 }}
+          IOS_DEVELOPMENT_CERTIFICATE_PASSWORD: ${{ secrets.IOS_DEVELOPMENT_CERTIFICATE_PASSWORD }}
+        run: |
+          certificate_path="${RUNNER_TEMP}/ProjectZD8-iOS-Development.p12"
+          keychain_path="${RUNNER_TEMP}/ProjectZD8-signing.keychain-db"
+          keychain_password="$(openssl rand -hex 32)"
+
+          printf '%s' "$IOS_DEVELOPMENT_CERTIFICATE_BASE64" | /usr/bin/base64 -D > "$certificate_path"
+          security create-keychain -p "$keychain_password" "$keychain_path"
+          security set-keychain-settings -lut 21600 "$keychain_path"
+          security unlock-keychain -p "$keychain_password" "$keychain_path"
+          security import "$certificate_path" \
+            -k "$keychain_path" \
+            -P "$IOS_DEVELOPMENT_CERTIFICATE_PASSWORD" \
+            -T /usr/bin/codesign \
+            -T "$(xcrun --find xcodebuild)"
+          security set-key-partition-list \
+            -S apple-tool:,apple:,codesign: \
+            -s \
+            -k "$keychain_password" \
+            "$keychain_path"
+          security list-keychains -d user -s "$keychain_path"
+          security default-keychain -d user -s "$keychain_path"
+          security find-identity -v -p codesigning "$keychain_path" | \
+            grep '170EECC0DE9974138EFE595468182FC68AFF1F7F'
 
       - name: Archive iPhone and iPad app
         env:
@@ -73,6 +105,7 @@ jobs:
             -authenticationKeyPath "${RUNNER_TEMP}/private_keys/AuthKey_${API_KEY_ID}.p8" \
             -authenticationKeyID "$API_KEY_ID" \
             -authenticationKeyIssuerID "$API_ISSUER_ID" \
+            CODE_SIGN_IDENTITY='170EECC0DE9974138EFE595468182FC68AFF1F7F' \
             CURRENT_PROJECT_VERSION="${GITHUB_RUN_NUMBER}"
 
       - name: Upload iPhone and iPad app to TestFlight
@@ -98,8 +131,13 @@ jobs:
           ASC_SUBMIT_EXTERNAL_REVIEW: ${{ inputs.submit_external_review }}
         run: ruby .github/testflight_build_publisher.rb
 
-      - name: Remove temporary private key
+      - name: Remove temporary signing material
         if: ${{ always() }}
         env:
           API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
-        run: rm -f "${RUNNER_TEMP}/private_keys/AuthKey_${API_KEY_ID}.p8"
+        run: |
+          security delete-keychain "${RUNNER_TEMP}/ProjectZD8-signing.keychain-db" || true
+          find "${RUNNER_TEMP}/private_keys/AuthKey_${API_KEY_ID}.p8" \
+            "${RUNNER_TEMP}/ProjectZD8-iOS-Development.p12" \
+            -type f \
+            -delete
