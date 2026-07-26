@@ -266,6 +266,24 @@ enum IOSApplicationComposition {
         )
     }
 
+    /// 既定BLE到来監視とユーザー承認付きローカル通知を生成します。
+    ///
+    /// 責務: iOSのCoreBluetooth監視と通知応答を既定アダプター接続確認ユースケースへ注入します。
+    /// - Parameter connectionRequested: 通知で了承されたBLE終端の通知先。
+    /// - Returns: 保存済み既定BLEを監視して接続確認を提示するユースケース。
+    static func makeDefaultAdapterConnectionPromptUseCase(
+        connectionRequested: @escaping @MainActor (OBDConnectionEndpoint) -> Void
+    ) -> PromptForDefaultAdapterConnectionUseCase {
+        PromptForDefaultAdapterConnectionUseCase(
+            defaultAdapterPreference: DefaultAdapterPreferenceUseCase(
+                preferencePort: UserDefaultsDefaultAdapterPreferenceStore()
+            ),
+            arrivalMonitor: IOSCoreBluetoothDefaultAdapterArrivalMonitor(),
+            connectionPrompt: IOSLocalDefaultAdapterConnectionPrompt(),
+            connectionRequested: connectionRequested
+        )
+    }
+
     /// 選択済みiOS Bluetooth終端に対応するELM/STNバイトストリームを生成します。
     ///
     /// 責務: 1件のBLEまたはBluetooth Classic終端を対応するOBDコマンドTransportへ変換します。

@@ -37,6 +37,48 @@ final class UserDefaultsDefaultAdapterPreferenceStoreTests: XCTestCase {
         XCTAssertNil(store.load())
     }
 
+    /// 物理終端を持たない旧保存形式を探索方式から安全に補完できることを検証します。
+    ///
+    /// 責務: 旧形式のUSB設定をシリアル終端として後方互換復元することを確認します。
+    func testLoadRestoresLegacyUSBPreferenceAsSerialTransport() throws {
+        let suiteName = "UserDefaultsDefaultAdapterPreferenceStoreTests.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        defaults.set(
+            [
+                "adapterID": "usb:legacy",
+                "transportMode": AdapterTransportMode.usb.rawValue,
+                "displayName": "Legacy USB",
+                "systemIdentifier": "/dev/cu.legacy"
+            ],
+            forKey: "deviceConnection.defaultAdapter"
+        )
+        let store = UserDefaultsDefaultAdapterPreferenceStore(defaults: defaults)
+
+        XCTAssertEqual(store.load()?.connectionTransport, .serial)
+    }
+
+    /// 物理終端を持たない旧Bluetooth形式を識別子からClassicとして補完できることを検証します。
+    ///
+    /// 責務: UUIDではない旧Bluetooth設定をExternal Accessory向けClassic終端として復元することを確認します。
+    func testLoadRestoresLegacyNonUUIDBluetoothPreferenceAsClassicTransport() throws {
+        let suiteName = "UserDefaultsDefaultAdapterPreferenceStoreTests.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        defaults.set(
+            [
+                "adapterID": "bluetooth:legacy-classic",
+                "transportMode": AdapterTransportMode.bluetooth.rawValue,
+                "displayName": "Legacy Classic",
+                "systemIdentifier": "42"
+            ],
+            forKey: "deviceConnection.defaultAdapter"
+        )
+        let store = UserDefaultsDefaultAdapterPreferenceStore(defaults: defaults)
+
+        XCTAssertEqual(store.load()?.connectionTransport, .bluetoothClassic)
+    }
+
     /// アカウント削除時に保存済みデフォルトアダプターを除去できることを検証します。
     ///
     /// 責務: 端末固有設定の削除後にデフォルトアダプターが復元されないことを確認します。

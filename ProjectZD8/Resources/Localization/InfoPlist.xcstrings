@@ -19,19 +19,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Bluetooth is used to discover primary adapter candidates."
+            "value" : "Bluetooth is used to discover and connect to adapters and acquire vehicle data while connected."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Bluetooth se utiliza para detectar adaptadores principales candidatos."
+            "value" : "Bluetooth se utiliza para detectar y conectar adaptadores y adquirir datos del vehículo durante la conexión."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "プライマリーアダプター候補を検出するためにBluetoothを使用します。"
+            "value" : "アダプターの検出・接続と、接続中の車両データ取得にBluetoothを使用します。"
           }
         }
       }

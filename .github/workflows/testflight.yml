@@ -2,6 +2,12 @@ name: TestFlight
 
 on:
   workflow_dispatch:
+    inputs:
+      submit_external_review:
+        description: Submit the uploaded builds for external TestFlight review
+        required: true
+        default: false
+        type: boolean
 
 concurrency:
   group: testflight-${{ github.ref }}
@@ -20,6 +26,8 @@ jobs:
     env:
       PROJECT_PATH: ProjectZD8.xcodeproj
       SCHEME: ProjectZD8
+      ASC_APP_ID: "6794738083"
+      ASC_BETA_GROUP_ID: "50b38969-a5d1-4637-baf7-02a223bab2f2"
 
     steps:
       - name: Check out source
@@ -111,6 +119,15 @@ jobs:
             -authenticationKeyPath "${RUNNER_TEMP}/private_keys/AuthKey_${API_KEY_ID}.p8" \
             -authenticationKeyID "$API_KEY_ID" \
             -authenticationKeyIssuerID "$API_ISSUER_ID"
+
+      - name: Publish uploaded builds to the TestFlight beta group
+        env:
+          ASC_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          ASC_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          ASC_API_PRIVATE_KEY_PATH: ${{ runner.temp }}/private_keys/AuthKey_${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}.p8
+          ASC_BUILD_NUMBER: ${{ github.run_number }}
+          ASC_SUBMIT_EXTERNAL_REVIEW: ${{ inputs.submit_external_review }}
+        run: ruby .github/testflight_build_publisher.rb
 
       - name: Remove temporary private key
         if: ${{ always() }}

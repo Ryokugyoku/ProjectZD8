@@ -9,19 +9,22 @@ final class IOSExternalAccessoryAdapterDiscoveryTests: XCTestCase {
     ///
     /// 責務: iOS製品構成のExternalAccessory許可値を実験対象の `com.obdlink` へ固定します。
     func testProductInfoPlistAllowsExperimentalOBDLinkProtocol() throws {
-        let infoPlistURL = try repositoryRootURL()
-            .appending(path: "ProjectZD8/Info.plist")
-        let data = try Data(contentsOf: infoPlistURL)
-        let propertyList = try PropertyListSerialization.propertyList(
-            from: data,
-            format: nil
-        )
-        let dictionary = try XCTUnwrap(propertyList as? [String: Any])
+        let dictionary = try productInfoPlist()
 
         XCTAssertEqual(
             dictionary[IOSExternalAccessoryProtocolConfiguration.infoPlistKey] as? [String],
             ["com.obdlink"]
         )
+    }
+
+    /// 製品用Info.plistがBLEとExternalAccessoryの接続中取得をバックグラウンドで許可することを検証します。
+    ///
+    /// 責務: iOS製品構成のバックグラウンドモードを2種類のBluetooth通信経路へ固定します。
+    func testProductInfoPlistAllowsBackgroundBluetoothAcquisition() throws {
+        let dictionary = try productInfoPlist()
+        let modes = try XCTUnwrap(dictionary["UIBackgroundModes"] as? [String])
+
+        XCTAssertEqual(Set(modes), ["bluetooth-central", "external-accessory"])
     }
 
     /// プロトコル構成が空白と重複を除くことを検証します。
@@ -133,6 +136,22 @@ final class IOSExternalAccessoryAdapterDiscoveryTests: XCTestCase {
             throw IOSExternalAccessoryAdapterDiscoveryTestError.repositoryRootNotFound
         }
         return URL(filePath: NSString.path(withComponents: Array(components[..<testsIndex])))
+    }
+
+    /// 製品用Info.plistを比較可能な辞書として読み込みます。
+    ///
+    /// 責務: リポジトリ内のiOS製品構成を1件のProperty List辞書へ変換します。
+    /// - Returns: `ProjectZD8/Info.plist` のルート辞書。
+    /// - Throws: リポジトリルート解決、ファイル読込、Property List変換、または辞書変換に失敗した場合のエラー。
+    private func productInfoPlist() throws -> [String: Any] {
+        let infoPlistURL = try repositoryRootURL()
+            .appending(path: "ProjectZD8/Info.plist")
+        let data = try Data(contentsOf: infoPlistURL)
+        let propertyList = try PropertyListSerialization.propertyList(
+            from: data,
+            format: nil
+        )
+        return try XCTUnwrap(propertyList as? [String: Any])
     }
 }
 

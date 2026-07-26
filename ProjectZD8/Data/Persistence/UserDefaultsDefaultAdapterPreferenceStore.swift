@@ -10,6 +10,9 @@ final class UserDefaultsDefaultAdapterPreferenceStore: DefaultAdapterPreferenceP
         /// 接続方式を保持するフィールド名です。
         static let transportMode = "transportMode"
 
+        /// 物理終端の種類を保持するフィールド名です。
+        static let connectionTransport = "connectionTransport"
+
         /// 表示名を保持するフィールド名です。
         static let displayName = "displayName"
 
@@ -47,8 +50,13 @@ final class UserDefaultsDefaultAdapterPreferenceStore: DefaultAdapterPreferenceP
             let adapterID = values[Field.adapterID],
             let rawTransportMode = values[Field.transportMode],
             let transportMode = AdapterTransportMode(rawValue: rawTransportMode),
-            let displayName = values[Field.displayName],
-            let systemIdentifier = values[Field.systemIdentifier]
+            let systemIdentifier = values[Field.systemIdentifier],
+            let connectionTransport = restoredConnectionTransport(
+                rawValue: values[Field.connectionTransport],
+                transportMode: transportMode,
+                systemIdentifier: systemIdentifier
+            ),
+            let displayName = values[Field.displayName]
         else {
             return nil
         }
@@ -56,6 +64,7 @@ final class UserDefaultsDefaultAdapterPreferenceStore: DefaultAdapterPreferenceP
         return DefaultAdapterPreference(
             adapterID: adapterID,
             transportMode: transportMode,
+            connectionTransport: connectionTransport,
             displayName: displayName,
             systemIdentifier: systemIdentifier
         )
@@ -70,6 +79,7 @@ final class UserDefaultsDefaultAdapterPreferenceStore: DefaultAdapterPreferenceP
             [
                 Field.adapterID: preference.adapterID,
                 Field.transportMode: preference.transportMode.rawValue,
+                Field.connectionTransport: preference.connectionTransport.rawValue,
                 Field.displayName: preference.displayName,
                 Field.systemIdentifier: preference.systemIdentifier
             ],
@@ -82,5 +92,29 @@ final class UserDefaultsDefaultAdapterPreferenceStore: DefaultAdapterPreferenceP
     /// 責務: 端末固有のデフォルトアダプター設定キーを存在しない状態へします。
     func remove() {
         defaults.removeObject(forKey: key)
+    }
+
+    /// 保存形式の物理終端を復元し、旧形式では探索方式と識別子から補完します。
+    ///
+    /// 責務: 永続化値または旧形式の接続方式を1件の物理終端へ変換します。
+    /// - Parameters:
+    ///   - rawValue: 保存されている物理終端の生値。
+    ///   - transportMode: 旧形式の補完に使用する探索方式。
+    ///   - systemIdentifier: BLE UUIDとClassic識別子の判別に使用するシステム識別子。
+    /// - Returns: 復元できた物理終端。値が不正な場合は `nil`。
+    private func restoredConnectionTransport(
+        rawValue: String?,
+        transportMode: AdapterTransportMode,
+        systemIdentifier: String
+    ) -> OBDConnectionEndpoint.Transport? {
+        if let rawValue {
+            return OBDConnectionEndpoint.Transport(rawValue: rawValue)
+        }
+        if transportMode == .usb {
+            return .serial
+        }
+        return UUID(uuidString: systemIdentifier) == nil
+            ? .bluetoothClassic
+            : .bluetoothLowEnergy
     }
 }

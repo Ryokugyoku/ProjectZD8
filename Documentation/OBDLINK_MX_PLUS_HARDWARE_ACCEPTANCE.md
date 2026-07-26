@@ -150,6 +150,15 @@ the Main RunLoop common mode before opening them and removes them after close.
 This follows Apple's stream lifecycle requirement but does not establish that
 `com.obdlink` carries an unframed ELM/STN byte stream.
 
+The iOS product configuration declares both `bluetooth-central` and
+`external-accessory` background modes. While an approved connection session is
+active, iOS may therefore continue the corresponding BLE or ExternalAccessory
+communication after the app leaves the foreground or the display locks.
+This declaration does not guarantee uninterrupted acquisition after force quit,
+device restart, Bluetooth loss, accessory power loss, or an unsupported
+manufacturer protocol, and those cases require separate physical-device
+evidence.
+
 Suggested manufacturer request:
 
 > We are developing an iPhone OBD application for OBDLink MX+. Please provide

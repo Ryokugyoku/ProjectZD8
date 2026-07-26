@@ -3,10 +3,11 @@
 <plist version="1.0">
 <dict>
 	<key>NSBluetoothAlwaysUsageDescription</key>
-	<string>プライマリーアダプター候補を検出するためにBluetoothを使用します。</string>
+	<string>アダプターの検出・接続と、接続中の車両データ取得にBluetoothを使用します。</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>bluetooth-central</string>
+		<string>external-accessory</string>
 	</array>
 	<key>UISupportedExternalAccessoryProtocols</key>
 	<array>

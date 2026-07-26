@@ -6,6 +6,9 @@ struct DefaultAdapterPreference: Equatable, Sendable {
     /// デフォルト候補を探索する物理接続方式です。
     let transportMode: AdapterTransportMode
 
+    /// 接続開始時に使用する物理終端の種類です。
+    let connectionTransport: OBDConnectionEndpoint.Transport
+
     /// 設定済み候補として表示する名称です。
     let displayName: String
 
@@ -19,6 +22,7 @@ struct DefaultAdapterPreference: Equatable, Sendable {
     init(adapter: DiscoveredAdapter) {
         adapterID = adapter.id
         transportMode = adapter.transportMode
+        connectionTransport = adapter.connectionTransport
         displayName = adapter.displayName
         systemIdentifier = adapter.systemIdentifier
     }
@@ -29,16 +33,20 @@ struct DefaultAdapterPreference: Equatable, Sendable {
     /// - Parameters:
     ///   - adapterID: 探索結果間で同じ候補を識別する安定識別子。
     ///   - transportMode: デフォルト候補を探索する物理接続方式。
+    ///   - connectionTransport: 接続開始時に使用する物理終端の種類。
     ///   - displayName: 設定済み候補として表示する名称。
     ///   - systemIdentifier: システムが候補へ割り当てた識別子。
     init(
         adapterID: String,
         transportMode: AdapterTransportMode,
+        connectionTransport: OBDConnectionEndpoint.Transport? = nil,
         displayName: String,
         systemIdentifier: String
     ) {
         self.adapterID = adapterID
         self.transportMode = transportMode
+        self.connectionTransport = connectionTransport
+            ?? (transportMode == .usb ? .serial : .bluetoothLowEnergy)
         self.displayName = displayName
         self.systemIdentifier = systemIdentifier
     }
