@@ -1,7 +1,7 @@
 import Foundation
 
 /// 走行接続セッションを外部識別値から独立して識別します。
-struct ConnectionSessionID: Hashable, Codable, Identifiable, Sendable {
+nonisolated struct ConnectionSessionID: Hashable, Codable, Identifiable, Sendable {
     /// アプリが生成した安定したセッション識別値です。
     let rawValue: UUID
 

@@ -1,5 +1,5 @@
 /// 接続時点の車両表示情報を履歴へ保持します。
-struct ConnectionSessionVehicle: Equatable, Codable, Sendable {
+nonisolated struct ConnectionSessionVehicle: Equatable, Codable, Sendable {
     /// 登録車両の安定識別子です。
     let id: VehicleID
     /// 接続時点でのユーザー編集可能な車両名称です。

@@ -1,7 +1,7 @@
 import Foundation
 
 /// 登録済み車両の識別情報とユーザー編集可能なプロフィールです。
-struct VehicleProfile: Identifiable, Equatable, Codable, Sendable {
+nonisolated struct VehicleProfile: Identifiable, Equatable, Codable, Sendable {
     /// アプリ内で車両を識別する安定IDです。
     let id: VehicleID
     /// OBD観測で確認されたVINです。

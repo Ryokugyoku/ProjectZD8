@@ -1,5 +1,5 @@
 /// 接続セッションが終了した直接原因です。
-enum ConnectionSessionEndReason: String, Codable, Equatable, Sendable {
+nonisolated enum ConnectionSessionEndReason: String, Codable, Equatable, Sendable {
     /// HOMEの切断操作によって終了しました。
     case userDisconnected
     /// 車両から有効な応答が返らなくなりました。

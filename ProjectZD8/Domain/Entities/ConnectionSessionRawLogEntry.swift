@@ -1,7 +1,7 @@
 import Foundation
 
 /// 1件のOBD要求に対応する未デコード応答ログです。
-struct ConnectionSessionRawLogEntry: Codable, Equatable, Sendable {
+nonisolated struct ConnectionSessionRawLogEntry: Codable, Equatable, Sendable {
     /// セッション内で単調増加する記録順序です。
     let sequence: Int64
     /// 応答を観測した実時間です。

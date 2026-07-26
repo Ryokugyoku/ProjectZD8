@@ -99,7 +99,7 @@ final class GRDBConnectionSessionRepository: ConnectionSessionRepository, Connec
     /// - Parameter accountIdentifier: 削除対象のAppleアカウント識別子。
     /// - Throws: SQLite削除を完了できない場合のGRDBエラー。
     func deleteSessions(for accountIdentifier: String) throws {
-        try databaseQueue.write { database in
+        _ = try databaseQueue.write { database in
             try ConnectionSessionRecord
                 .filter(Column("accountIdentifier") == accountIdentifier)
                 .deleteAll(database)

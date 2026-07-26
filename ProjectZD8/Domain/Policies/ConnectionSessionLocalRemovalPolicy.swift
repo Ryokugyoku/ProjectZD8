@@ -1,5 +1,5 @@
 /// iPhoneからセッションRawログを除去する前の判断結果です。
-enum ConnectionSessionLocalRemovalDecision: Equatable, Sendable {
+nonisolated enum ConnectionSessionLocalRemovalDecision: Equatable, Sendable {
     /// CloudKit上のRaw Manifestを確認できるため標準確認で除去できます。
     case safe
     /// CloudKit保管を確認できないためデータ消失警告が必要です。
@@ -9,7 +9,7 @@ enum ConnectionSessionLocalRemovalDecision: Equatable, Sendable {
 }
 
 /// セッション状態とCloudKit保管証跡からiPhoneローカル除去可否を決定します。
-struct ConnectionSessionLocalRemovalPolicy {
+nonisolated struct ConnectionSessionLocalRemovalPolicy {
     /// セッションの現在状態からローカル除去判断を返します。
     ///
     /// 責務: 1件の接続セッションを安全、警告必須、利用不能のいずれかへ分類します。

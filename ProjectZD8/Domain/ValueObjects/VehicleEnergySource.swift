@@ -1,5 +1,5 @@
 /// 車両が走行に使用するエネルギー源を表します。
-enum VehicleEnergySource: String, CaseIterable, Codable, Sendable {
+nonisolated enum VehicleEnergySource: String, CaseIterable, Codable, Sendable {
     /// ガソリンです。
     case gasoline
     /// ハイオク（プレミアムガソリン）です。

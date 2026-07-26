@@ -1,7 +1,7 @@
 import Foundation
 
 /// HOME接続開始から通信終了までの1回の接続履歴です。
-struct ConnectionSession: Identifiable, Equatable, Codable, Sendable {
+nonisolated struct ConnectionSession: Identifiable, Equatable, Codable, Sendable {
     /// 履歴画面が表示するセッション状態です。
     enum Status: Equatable, Sendable {
         /// 現在も接続と取得が継続しています。

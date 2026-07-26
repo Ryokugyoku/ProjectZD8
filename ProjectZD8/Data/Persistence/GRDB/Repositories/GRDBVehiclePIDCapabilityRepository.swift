@@ -120,7 +120,7 @@ final class GRDBVehiclePIDCapabilityRepository: VehiclePIDCapabilityRepository, 
     func deleteCapabilities(for vehicleIDs: [VehicleID]) throws {
         guard !vehicleIDs.isEmpty else { return }
         let identifiers = vehicleIDs.map { $0.rawValue.uuidString.lowercased() }
-        try databaseQueue.write { database in
+        _ = try databaseQueue.write { database in
             try VehiclePIDCapabilityRecord
                 .filter(identifiers.contains(Column("vehicleID")))
                 .deleteAll(database)

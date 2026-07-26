@@ -1,7 +1,7 @@
 import Foundation
 
 /// 端末内Rawログの保管状態です。
-enum ConnectionSessionLocalRawState: String, Codable, Equatable, Sendable {
+nonisolated enum ConnectionSessionLocalRawState: String, Codable, Equatable, Sendable {
     /// Raw応答がまだ記録されていません。
     case empty
     /// Raw応答が現在端末に保存されています。
@@ -11,7 +11,7 @@ enum ConnectionSessionLocalRawState: String, Codable, Equatable, Sendable {
 }
 
 /// セッション転送の現在状態です。
-enum ConnectionSessionCloudSyncState: String, Codable, Equatable, Sendable {
+nonisolated enum ConnectionSessionCloudSyncState: String, Codable, Equatable, Sendable {
     /// 転送対象のRaw応答がまだありません。
     case notUploaded
     /// CloudKitへの転送を待っています。
@@ -23,7 +23,7 @@ enum ConnectionSessionCloudSyncState: String, Codable, Equatable, Sendable {
 }
 
 /// Macがセッションを永続的に取り込んだことを示す受領証です。
-struct ConnectionSessionMacImportReceipt: Codable, Equatable, Sendable {
+nonisolated struct ConnectionSessionMacImportReceipt: Codable, Equatable, Sendable {
     /// 取り込んだMacの安定したインストール識別子です。
     let deviceID: String
     /// ユーザーが判別できるMac表示名です。
@@ -50,7 +50,7 @@ struct ConnectionSessionMacImportReceipt: Codable, Equatable, Sendable {
 }
 
 /// 接続履歴へ表示するRawログ件数と端末間保管状態です。
-struct ConnectionSessionRawLogSummary: Codable, Equatable, Sendable {
+nonisolated struct ConnectionSessionRawLogSummary: Codable, Equatable, Sendable {
     /// セッションへ記録されたRaw応答件数です。
     var recordCount: Int64
     /// セッションへ記録されたRaw応答Payload合計バイト数です。

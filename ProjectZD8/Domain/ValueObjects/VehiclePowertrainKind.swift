@@ -1,5 +1,5 @@
 /// 車両の動力構成を燃料種別から独立して分類します。
-enum VehiclePowertrainKind: String, CaseIterable, Codable, Sendable {
+nonisolated enum VehiclePowertrainKind: String, CaseIterable, Codable, Sendable {
     /// 内燃機関のみで走行する構成です。
     case combustion
     /// 外部充電を行わないハイブリッド構成です。

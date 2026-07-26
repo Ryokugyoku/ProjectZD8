@@ -1,5 +1,5 @@
 /// 接続セッションを取得したAppleプラットフォームです。
-enum ConnectionSessionAcquisitionPlatform: String, Codable, Equatable, Sendable {
+nonisolated enum ConnectionSessionAcquisitionPlatform: String, Codable, Equatable, Sendable {
     /// iPhoneでログを取得しました。
     case iPhone
     /// iPadでログを取得しました。
@@ -9,7 +9,7 @@ enum ConnectionSessionAcquisitionPlatform: String, Codable, Equatable, Sendable 
 }
 
 /// 接続セッションの取得元端末を示す不変スナップショットです。
-struct ConnectionSessionAcquisitionDevice: Codable, Equatable, Sendable {
+nonisolated struct ConnectionSessionAcquisitionDevice: Codable, Equatable, Sendable {
     /// ログ取得時に動作していたAppleプラットフォームです。
     let platform: ConnectionSessionAcquisitionPlatform
     /// ログ取得時に取得できたユーザー向け端末名です。

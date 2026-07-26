@@ -128,7 +128,7 @@ struct SessionLogVisualizationSnapshot: Equatable, Sendable {
 }
 
 /// 数値化済みPID時系列を用途別系列と代表的な相関候補へ変換します。
-enum SessionLogVisualizationBuilder {
+nonisolated enum SessionLogVisualizationBuilder {
     /// 1系列のグラフへ渡す最大代表点数です。
     private static let maximumChartPointCount = 600
     /// 散布図で比較する標準PIDの組です。

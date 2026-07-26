@@ -1,5 +1,5 @@
 /// CloudKitを介してセッションID単位で移動する未デコードログです。
-struct ConnectionSessionTransferPackage: Codable, Equatable, Sendable {
+nonisolated struct ConnectionSessionTransferPackage: Codable, Equatable, Sendable {
     /// Rawログを所有する安定セッションIDです。
     let sessionID: ConnectionSessionID
     /// Rawログを所有するAppleアカウント識別子です。
@@ -40,7 +40,7 @@ struct ConnectionSessionTransferPackage: Codable, Equatable, Sendable {
 }
 
 /// CloudKitから検証済みで取得したセッションPayloadです。
-struct VerifiedConnectionSessionTransfer: Equatable, Sendable {
+nonisolated struct VerifiedConnectionSessionTransfer: Equatable, Sendable {
     /// 復元するセッションPayloadです。
     let package: ConnectionSessionTransferPackage
     /// CloudKit AssetバイトのSHA-256です。
