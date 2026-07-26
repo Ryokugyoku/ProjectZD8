@@ -35,8 +35,8 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Select Xcode 26.4
-        run: sudo xcode-select --switch /Applications/Xcode_26.4.app
+      - name: Select Xcode 26.6
+        run: sudo xcode-select --switch /Applications/Xcode_26.6.app
 
       - name: Validate App Store Connect credentials
         env:
