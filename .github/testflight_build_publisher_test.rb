@@ -10,7 +10,8 @@ class TestFlightBuildPublisherTest < Minitest::Test
 
   def test_publish_waits_for_both_platforms_and_adds_them_to_group
     client = TestFlightPublisherFakeClient.new(
-      build_responses: [builds_response(ios_state: "PROCESSING", mac_state: "PROCESSING"), builds_response]
+      build_responses: [builds_response(ios_state: "PROCESSING", mac_state: "PROCESSING"), builds_response],
+      beta_group_attributes: { "hasAccessToAllBuilds" => false }
     )
     publisher = publisher(client, attempts: 2)
 
@@ -18,6 +19,15 @@ class TestFlightBuildPublisherTest < Minitest::Test
 
     relationship = client.posts.fetch("/v1/betaGroups/#{GROUP_ID}/relationships/builds")
     assert_equal %w[ios-build mac-build], relationship.fetch(:data).map { |build| build.fetch(:id) }
+  end
+
+  def test_publish_skips_manual_add_for_an_automatic_distribution_group
+    client = TestFlightPublisherFakeClient.new(build_responses: [builds_response])
+    publisher = publisher(client)
+
+    publisher.publish(submit_external_review: false)
+
+    refute client.posts.key?("/v1/betaGroups/#{GROUP_ID}/relationships/builds")
   end
 
   def test_publish_rejects_an_external_beta_group
@@ -49,6 +59,7 @@ class TestFlightBuildPublisherTest < Minitest::Test
   def test_publish_waits_for_internal_testing_eligibility_and_group_activation
     client = TestFlightPublisherFakeClient.new(
       build_responses: [builds_response],
+      beta_group_attributes: { "hasAccessToAllBuilds" => false },
       internal_states: {
         "ios-build" => %w[PROCESSING READY_FOR_BETA_TESTING READY_FOR_BETA_TESTING IN_BETA_TESTING],
         "mac-build" => %w[PROCESSING PROCESSING READY_FOR_BETA_TESTING IN_BETA_TESTING]
@@ -78,6 +89,7 @@ class TestFlightBuildPublisherTest < Minitest::Test
   def test_publish_fails_when_grouped_build_does_not_enter_internal_testing
     client = TestFlightPublisherFakeClient.new(
       build_responses: [builds_response],
+      beta_group_attributes: { "hasAccessToAllBuilds" => false },
       internal_states: {
         "ios-build" => ["READY_FOR_BETA_TESTING"],
         "mac-build" => ["READY_FOR_BETA_TESTING"]
@@ -217,7 +229,8 @@ class TestFlightPublisherFakeClient
     @beta_group_attributes = {
       "name" => "test",
       "isInternalGroup" => true,
-      "iosBuildsAvailableForAppleSiliconMac" => false
+      "iosBuildsAvailableForAppleSiliconMac" => false,
+      "hasAccessToAllBuilds" => true
     }.merge(beta_group_attributes)
     @internal_states = {
       "ios-build" => %w[READY_FOR_BETA_TESTING IN_BETA_TESTING],

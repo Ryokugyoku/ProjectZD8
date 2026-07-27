@@ -41,7 +41,7 @@ class TestFlightBuildPublisher
   end
 
   def publish(submit_external_review:)
-    validate_internal_beta_group
+    beta_group_attributes = validate_internal_beta_group
     builds = wait_for_valid_builds
     wait_for_internal_beta_states(
       builds,
@@ -49,14 +49,18 @@ class TestFlightBuildPublisher
       waiting_states: INTERNAL_BETA_WAITING_STATES,
       phase: "become eligible for internal TestFlight testing"
     )
-    add_builds_to_beta_group(builds)
+    if beta_group_attributes["hasAccessToAllBuilds"] == true
+      puts "Internal TestFlight beta group automatically receives all builds."
+    else
+      add_builds_to_beta_group(builds)
+    end
     wait_for_internal_beta_states(
       builds,
       accepted_states: [INTERNAL_BETA_TESTING_STATE],
       waiting_states: INTERNAL_BETA_WAITING_STATES + ["READY_FOR_BETA_TESTING"],
       phase: "enter internal TestFlight testing"
     )
-    puts "Added iOS and native macOS build #{@build_number} to the TestFlight beta group."
+    puts "Confirmed iOS and native macOS build #{@build_number} in the internal TestFlight beta group."
 
     return unless submit_external_review
 
@@ -71,7 +75,7 @@ class TestFlightBuildPublisher
     response = @client.get(
       "/v1/betaGroups/#{@beta_group_id}",
       query: {
-        "fields[betaGroups]" => "name,isInternalGroup,iosBuildsAvailableForAppleSiliconMac"
+        "fields[betaGroups]" => "name,isInternalGroup,iosBuildsAvailableForAppleSiliconMac,hasAccessToAllBuilds"
       }
     )
     attributes = response.fetch("data").fetch("attributes")
@@ -81,7 +85,7 @@ class TestFlightBuildPublisher
       raise "TestFlight beta group #{group_name.inspect} must be an internal group."
     end
 
-    return if attributes["iosBuildsAvailableForAppleSiliconMac"] == false
+    return attributes if attributes["iosBuildsAvailableForAppleSiliconMac"] == false
 
     raise "Internal TestFlight beta group #{group_name.inspect} must disable iOS builds on Apple silicon Mac."
   end
