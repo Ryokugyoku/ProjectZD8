@@ -27,7 +27,7 @@ jobs:
       PROJECT_PATH: ProjectZD8.xcodeproj
       SCHEME: ProjectZD8
       ASC_APP_ID: "6794738083"
-      ASC_BETA_GROUP_ID: "50b38969-a5d1-4637-baf7-02a223bab2f2"
+      ASC_BETA_GROUP_ID: "cebcd59c-adfb-49d8-9b60-8dd02b577111" # Internal group "test"
 
     steps:
       - name: Check out source

@@ -20,6 +20,32 @@ class TestFlightBuildPublisherTest < Minitest::Test
     assert_equal %w[ios-build mac-build], relationship.fetch(:data).map { |build| build.fetch(:id) }
   end
 
+  def test_publish_rejects_an_external_beta_group
+    client = TestFlightPublisherFakeClient.new(
+      build_responses: [builds_response],
+      beta_group_attributes: { "isInternalGroup" => false }
+    )
+    publisher = publisher(client)
+
+    error = assert_raises(RuntimeError) { publisher.publish(submit_external_review: false) }
+
+    assert_includes error.message, "must be an internal group"
+    refute client.posts.key?("/v1/betaGroups/#{GROUP_ID}/relationships/builds")
+  end
+
+  def test_publish_rejects_ios_builds_on_apple_silicon_mac
+    client = TestFlightPublisherFakeClient.new(
+      build_responses: [builds_response],
+      beta_group_attributes: { "iosBuildsAvailableForAppleSiliconMac" => true }
+    )
+    publisher = publisher(client)
+
+    error = assert_raises(RuntimeError) { publisher.publish(submit_external_review: false) }
+
+    assert_includes error.message, "must disable iOS builds on Apple silicon Mac"
+    refute client.posts.key?("/v1/betaGroups/#{GROUP_ID}/relationships/builds")
+  end
+
   def test_publish_waits_for_internal_testing_eligibility_and_group_activation
     client = TestFlightPublisherFakeClient.new(
       build_responses: [builds_response],
@@ -178,10 +204,21 @@ end
 class TestFlightPublisherFakeClient
   attr_reader :posts, :post_history
 
-  def initialize(build_responses:, review_contact: {}, external_states: {}, internal_states: {})
+  def initialize(
+    build_responses:,
+    review_contact: {},
+    external_states: {},
+    internal_states: {},
+    beta_group_attributes: {}
+  )
     @build_responses = build_responses
     @review_contact = review_contact
     @external_states = external_states
+    @beta_group_attributes = {
+      "name" => "test",
+      "isInternalGroup" => true,
+      "iosBuildsAvailableForAppleSiliconMac" => false
+    }.merge(beta_group_attributes)
     @internal_states = {
       "ios-build" => %w[READY_FOR_BETA_TESTING IN_BETA_TESTING],
       "mac-build" => %w[READY_FOR_BETA_TESTING IN_BETA_TESTING]
@@ -191,6 +228,10 @@ class TestFlightPublisherFakeClient
   end
 
   def get(path, query: {})
+    if path == "/v1/betaGroups/#{TestFlightBuildPublisherTest::GROUP_ID}"
+      return { "data" => { "attributes" => @beta_group_attributes } }
+    end
+
     return @build_responses.shift if path == "/v1/builds"
     return { "data" => { "attributes" => @review_contact } } if path.end_with?("/betaAppReviewDetail")
 

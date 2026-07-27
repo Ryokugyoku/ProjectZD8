@@ -41,6 +41,7 @@ class TestFlightBuildPublisher
   end
 
   def publish(submit_external_review:)
+    validate_internal_beta_group
     builds = wait_for_valid_builds
     wait_for_internal_beta_states(
       builds,
@@ -65,6 +66,25 @@ class TestFlightBuildPublisher
   end
 
   private
+
+  def validate_internal_beta_group
+    response = @client.get(
+      "/v1/betaGroups/#{@beta_group_id}",
+      query: {
+        "fields[betaGroups]" => "name,isInternalGroup,iosBuildsAvailableForAppleSiliconMac"
+      }
+    )
+    attributes = response.fetch("data").fetch("attributes")
+    group_name = attributes.fetch("name", @beta_group_id)
+
+    unless attributes["isInternalGroup"] == true
+      raise "TestFlight beta group #{group_name.inspect} must be an internal group."
+    end
+
+    return if attributes["iosBuildsAvailableForAppleSiliconMac"] == false
+
+    raise "Internal TestFlight beta group #{group_name.inspect} must disable iOS builds on Apple silicon Mac."
+  end
 
   def wait_for_valid_builds
     @attempts.times do |attempt|
