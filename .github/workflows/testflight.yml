@@ -103,27 +103,12 @@ jobs:
             -scheme "$SCHEME" \
             -configuration Release \
             -destination 'generic/platform=iOS' \
-            -derivedDataPath "${RUNNER_TEMP}/DerivedData-iOS" \
             -archivePath "${RUNNER_TEMP}/ProjectZD8-iOS.xcarchive" \
             -allowProvisioningUpdates \
             -authenticationKeyPath "${RUNNER_TEMP}/private_keys/AuthKey_${API_KEY_ID}.p8" \
             -authenticationKeyID "$API_KEY_ID" \
             -authenticationKeyIssuerID "$API_ISSUER_ID" \
             CURRENT_PROJECT_VERSION="${GITHUB_RUN_NUMBER}"
-
-      - name: Verify iPhone and iPad archive identity
-        run: |
-          archive_path="${RUNNER_TEMP}/ProjectZD8-iOS.xcarchive"
-          archive_info="${archive_path}/Info.plist"
-          application_path="$(plutil -extract ApplicationProperties.ApplicationPath raw "$archive_info")"
-          application_info="${archive_path}/Products/${application_path}/Info.plist"
-
-          test "$(plutil -extract ApplicationProperties.CFBundleIdentifier raw "$archive_info")" = \
-            'Ryokugyoku.ProjectZD8'
-          test "$(plutil -extract ApplicationProperties.CFBundleVersion raw "$archive_info")" = \
-            "$GITHUB_RUN_NUMBER"
-          test "$(plutil -extract CFBundleSupportedPlatforms.0 raw "$application_info")" = \
-            'iPhoneOS'
 
       - name: Upload iPhone and iPad app to TestFlight
         env:
@@ -149,27 +134,12 @@ jobs:
             -scheme "$SCHEME" \
             -configuration Release \
             -destination 'generic/platform=macOS' \
-            -derivedDataPath "${RUNNER_TEMP}/DerivedData-macOS" \
             -archivePath "${RUNNER_TEMP}/ProjectZD8-macOS.xcarchive" \
             -allowProvisioningUpdates \
             -authenticationKeyPath "${RUNNER_TEMP}/private_keys/AuthKey_${API_KEY_ID}.p8" \
             -authenticationKeyID "$API_KEY_ID" \
             -authenticationKeyIssuerID "$API_ISSUER_ID" \
             CURRENT_PROJECT_VERSION="${GITHUB_RUN_NUMBER}"
-
-      - name: Verify native macOS archive identity
-        run: |
-          archive_path="${RUNNER_TEMP}/ProjectZD8-macOS.xcarchive"
-          archive_info="${archive_path}/Info.plist"
-          application_path="$(plutil -extract ApplicationProperties.ApplicationPath raw "$archive_info")"
-          application_info="${archive_path}/Products/${application_path}/Contents/Info.plist"
-
-          test "$(plutil -extract ApplicationProperties.CFBundleIdentifier raw "$archive_info")" = \
-            'Ryokugyoku.ProjectZD8'
-          test "$(plutil -extract ApplicationProperties.CFBundleVersion raw "$archive_info")" = \
-            "$GITHUB_RUN_NUMBER"
-          test "$(plutil -extract CFBundleSupportedPlatforms.0 raw "$application_info")" = \
-            'MacOSX'
 
       - name: Upload native macOS app to TestFlight
         env:

@@ -257,6 +257,8 @@ Serial communication, OBD protocol handling, persistence, real-time presentation
 - An unavailable model, incompatible model, low-confidence result, cancellation, or inference failure MUST remain distinguishable from a successful analysis result. Analysis failure MUST NOT be reported as logging success or fabricated numeric output.
 - Recorded source logs MUST remain usable independently of derived analysis results. Reanalysis or replacement of the analysis implementation MUST NOT require rewriting the original acquired data.
 
+The product requirements and evidence gates for registered-vehicle change detection are recorded in [`VEHICLE_CHANGE_DETECTION_REQUIREMENTS.md`](VEHICLE_CHANGE_DETECTION_REQUIREMENTS.md). That document identifies MLX Swift as a feasibility candidate but does not override the TensorFlow placement above or authorize a new production directory; such a change requires a separately reviewed standards and placement decision.
+
 The exact serial transport, OBD command set, database technology, TensorFlow runtime, model format, formulas, units, and supported vehicles MUST NOT be guessed from this folder scaffold. Each requires a separately reviewed implementation or requirement decision.
 
 ## 10. Human review checklist
