@@ -1,7 +1,7 @@
 import Foundation
 
 /// セッション割当て前にApplicationが受け取る未デコードOBD応答です。
-struct OBDRawResponseObservation: Equatable, Sendable {
+nonisolated struct OBDRawResponseObservation: Equatable, Sendable {
     /// 応答を観測した実時間です。
     let observedAt: Date
     /// 要求バッチ開始から応答群受信までの単調時間です。

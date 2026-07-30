@@ -1,4 +1,6 @@
+import Foundation
 import Observation
+import Dispatch
 
 /// 車両接続中の優先度付きPID継続取得ライフサイクルをApplicationユースケースへ結び付けます。
 @MainActor
@@ -12,6 +14,12 @@ final class LiveTelemetryModel {
     @ObservationIgnored private let loadVehicleCapabilities: LoadVehiclePIDCapabilitiesUseCase?
     /// PID更新対象と間引き周期を決める方針です。
     @ObservationIgnored private let pollingPolicy: OBDPIDPollingPolicy
+    /// Production取得loopを方式Bの永続証拠へ接続する境界です。
+    @ObservationIgnored private let acquisitionEvidence: (any LiveTelemetryAcquisitionEvidencePort)?
+    /// batch開始日時を供給するclockです。
+    @ObservationIgnored private let now: @Sendable () -> Date
+    /// polling sleepの予定wake遅延を測る単調clockです。
+    @ObservationIgnored private let monotonicNanoseconds: @Sendable () -> UInt64
     /// PID取得セッションが終了した原因をLoggingへ通知する処理です。
     @ObservationIgnored private let sessionDidEnd: @MainActor (ConnectionSessionEndReason) -> Void
     /// 取得できた取得元付き累積距離をLoggingへ通知する処理です。
@@ -31,6 +39,9 @@ final class LiveTelemetryModel {
     ///   - readMajorPIDs: 主要PID読取と数値化を行うユースケース。
     ///   - loadVehicleCapabilities: 車両別対応PIDの再利用または初回探索を行うユースケース。
     ///   - pollingPolicy: PIDごとの更新優先度と間引き周期を決める方針。
+    ///   - acquisitionEvidence: Production取得loopを方式Bの永続証拠へ接続する境界。
+    ///   - now: batch開始日時を供給するclock。
+    ///   - monotonicNanoseconds: polling sleepの予定wake遅延を測る単調clock。
     ///   - sessionDidEnd: PID取得終了原因をLoggingへ通知する処理。
     ///   - distanceDidChange: 車種専用PID、Service 01 PID A6、またはPID 31の累積距離をLoggingへ通知する処理。
     ///   - systemSleepInhibitor: 車両接続中だけシステムスリープを抑止する境界。
@@ -39,6 +50,9 @@ final class LiveTelemetryModel {
         readMajorPIDs: ReadMajorOBDPIDsUseCase,
         loadVehicleCapabilities: LoadVehiclePIDCapabilitiesUseCase? = nil,
         pollingPolicy: OBDPIDPollingPolicy,
+        acquisitionEvidence: (any LiveTelemetryAcquisitionEvidencePort)? = nil,
+        now: @escaping @Sendable () -> Date = Date.init,
+        monotonicNanoseconds: @escaping @Sendable () -> UInt64 = { DispatchTime.now().uptimeNanoseconds },
         sessionDidEnd: @escaping @MainActor (ConnectionSessionEndReason) -> Void = { _ in },
         distanceDidChange: @escaping @MainActor (ConnectionSessionDistanceObservation) -> Void = { _ in },
         systemSleepInhibitor: (any VehicleConnectionSystemSleepInhibiting)? = nil
@@ -47,6 +61,9 @@ final class LiveTelemetryModel {
         self.readMajorPIDs = readMajorPIDs
         self.loadVehicleCapabilities = loadVehicleCapabilities
         self.pollingPolicy = pollingPolicy
+        self.acquisitionEvidence = acquisitionEvidence
+        self.now = now
+        self.monotonicNanoseconds = monotonicNanoseconds
         self.sessionDidEnd = sessionDidEnd
         self.distanceDidChange = distanceDidChange
         self.systemSleepInhibitor = systemSleepInhibitor
@@ -58,12 +75,18 @@ final class LiveTelemetryModel {
     /// - Parameters:
     ///   - readMajorPIDs: PID読取と数値化を行うユースケース。
     ///   - loadVehicleCapabilities: 車両別対応PIDの再利用または初回探索を行うユースケース。
+    ///   - acquisitionEvidence: Production取得loopを方式Bの永続証拠へ接続する境界。
+    ///   - now: batch開始日時を供給するclock。
+    ///   - monotonicNanoseconds: polling sleepの予定wake遅延を測る単調clock。
     ///   - sessionDidEnd: PID取得終了原因をLoggingへ通知する処理。
     ///   - distanceDidChange: 車種専用PID、Service 01 PID A6、またはPID 31の累積距離をLoggingへ通知する処理。
     ///   - systemSleepInhibitor: 車両接続中だけシステムスリープを抑止する境界。
     convenience init(
         readMajorPIDs: ReadMajorOBDPIDsUseCase,
         loadVehicleCapabilities: LoadVehiclePIDCapabilitiesUseCase? = nil,
+        acquisitionEvidence: (any LiveTelemetryAcquisitionEvidencePort)? = nil,
+        now: @escaping @Sendable () -> Date = Date.init,
+        monotonicNanoseconds: @escaping @Sendable () -> UInt64 = { DispatchTime.now().uptimeNanoseconds },
         sessionDidEnd: @escaping @MainActor (ConnectionSessionEndReason) -> Void = { _ in },
         distanceDidChange: @escaping @MainActor (ConnectionSessionDistanceObservation) -> Void = { _ in },
         systemSleepInhibitor: (any VehicleConnectionSystemSleepInhibiting)? = nil
@@ -73,6 +96,9 @@ final class LiveTelemetryModel {
             readMajorPIDs: readMajorPIDs,
             loadVehicleCapabilities: loadVehicleCapabilities,
             pollingPolicy: OBDPIDPollingPolicy(),
+            acquisitionEvidence: acquisitionEvidence,
+            now: now,
+            monotonicNanoseconds: monotonicNanoseconds,
             sessionDidEnd: sessionDidEnd,
             distanceDidChange: distanceDidChange,
             systemSleepInhibitor: systemSleepInhibitor
@@ -109,6 +135,7 @@ final class LiveTelemetryModel {
         vehicleModelCode: String?
     ) {
         let previousTask = pollingTask
+        let previousGeneration = pollingGeneration
         previousTask?.cancel()
         pollingGeneration &+= 1
         let generation = pollingGeneration
@@ -122,6 +149,9 @@ final class LiveTelemetryModel {
         systemSleepInhibitor?.setVehicleConnectionActive(true)
         pollingTask = Task { [weak self] in
             _ = await previousTask?.value
+            if previousTask != nil {
+                await self?.acquisitionEvidence?.cancel(generation: previousGeneration)
+            }
             await self?.poll(
                 using: endpoint,
                 vehicleID: vehicleID,
@@ -137,14 +167,16 @@ final class LiveTelemetryModel {
     private func stop() {
         let shouldNotifySessionEnd = pollingTask != nil || state.isConnectionActive
         let previousTask = pollingTask
+        let stoppedGeneration = pollingGeneration
         previousTask?.cancel()
         pollingTask = nil
         pollingGeneration &+= 1
         let generation = pollingGeneration
         state.phase = .stopping
         state.failureKey = nil
-        Task { [weak self, readMajorPIDs] in
+        Task { [weak self, readMajorPIDs, acquisitionEvidence] in
             _ = await previousTask?.value
+            await acquisitionEvidence?.cancel(generation: stoppedGeneration)
             await readMajorPIDs.endSession()
             guard let self, self.pollingGeneration == generation else { return }
             self.state.phase = .idle
@@ -169,6 +201,7 @@ final class LiveTelemetryModel {
     ) async {
         do {
             let definitions: [OBDPIDDefinition]
+            let capabilityInputs: [ConnectionSessionAcquisitionPIDCapabilityInput]
             if let loadVehicleCapabilities {
                 let capabilities = try await loadVehicleCapabilities.execute(
                     vehicleID: vehicleID,
@@ -176,10 +209,41 @@ final class LiveTelemetryModel {
                     endpoint: endpoint
                 )
                 definitions = try readMajorPIDs.loadDefinitions(for: capabilities)
+                let capabilityByRequest = Dictionary(
+                    uniqueKeysWithValues: capabilities.map { ($0.id.request, $0) }
+                )
+                capabilityInputs = definitions.compactMap { definition in
+                    let request = OBDPIDRequest(service: definition.service, pid: definition.pid)
+                    return capabilityByRequest[request].map {
+                        ConnectionSessionAcquisitionPIDCapabilityInput(
+                            request: request,
+                            support: .supported,
+                            isCollectionEnabled: $0.isCollectionEnabled
+                        )
+                    }
+                }
             } else {
                 definitions = try readMajorPIDs.loadDefinitions()
+                capabilityInputs = []
             }
-            try await pollStandard(definitions: definitions, endpoint: endpoint, generation: generation)
+            if let acquisitionEvidence {
+                guard capabilityInputs.count == definitions.count else {
+                    throw CreateConnectionSessionAcquisitionManifestError.capabilityEvidenceMissing
+                }
+                try await acquisitionEvidence.start(
+                    LiveTelemetryAcquisitionStartInput(
+                        generation: generation,
+                        definitions: definitions,
+                        capabilities: capabilityInputs,
+                        orderedRequests: pollingPolicy.definitionsToPoll(from: definitions, tick: 0).map {
+                            OBDPIDRequest(service: $0.service, pid: $0.pid)
+                        }
+                    )
+                )
+                try await pollPersisted(definitions: definitions, endpoint: endpoint, generation: generation)
+            } else {
+                try await pollStandard(definitions: definitions, endpoint: endpoint, generation: generation)
+            }
         } catch {
             await handlePollingFailure(error, generation: generation)
         }
@@ -192,6 +256,7 @@ final class LiveTelemetryModel {
     ///   - error: 取得処理から伝播したエラー。
     ///   - generation: エラーが属する取得世代。
     private func handlePollingFailure(_ error: Error, generation: UInt) async {
+        await acquisitionEvidence?.cancel(generation: generation)
         await readMajorPIDs.endSession()
         guard pollingGeneration == generation else { return }
         if error is CancellationError { return }
@@ -263,6 +328,73 @@ final class LiveTelemetryModel {
             merge(samples, definitions: supportedDefinitions)
             tick &+= 1
         }
+        await readMajorPIDs.endSession()
+    }
+
+    /// 方式Bの保存ゲート下で優先度付きPID更新を繰り返します。
+    ///
+    /// 責務: 対応済みPID定義をstable batch identity付きの永続取得と最新表示値へ変換します。
+    /// - Parameters:
+    ///   - definitions: capability確定済みの数値化可能定義。
+    ///   - endpoint: OBDアダプターの物理終端。
+    ///   - generation: この取得開始時の世代。
+    /// - Throws: manifest、batch、通信、永続化、または数値化を完了できない場合のエラー。
+    private func pollPersisted(
+        definitions: [OBDPIDDefinition],
+        endpoint: OBDConnectionEndpoint,
+        generation: UInt
+    ) async throws {
+        guard let acquisitionEvidence else { throw OBDPIDTelemetryError.unavailable }
+        var tick: UInt = 0
+        var batchOrdinal: Int64 = 0
+        var supportedDefinitions = definitions
+        while !Task.isCancelled, pollingGeneration == generation {
+            let scheduleDelayNanoseconds: UInt64?
+            if tick > 0 {
+                let sleepStarted = monotonicNanoseconds()
+                let scheduledWake = sleepStarted.addingReportingOverflow(250_000_000)
+                try await Task.sleep(for: .milliseconds(250))
+                let actualWake = monotonicNanoseconds()
+                scheduleDelayNanoseconds = scheduledWake.overflow || actualWake < scheduledWake.partialValue
+                    ? nil
+                    : actualWake - scheduledWake.partialValue
+            } else {
+                scheduleDelayNanoseconds = nil
+            }
+            let selectedDefinitions = pollingPolicy.definitionsToPoll(
+                from: supportedDefinitions,
+                tick: tick
+            )
+            let samples = try await acquisitionEvidence.acquire(
+                LiveTelemetryAcquisitionBatchInput(
+                    generation: generation,
+                    batchOrdinal: batchOrdinal,
+                    policyTick: tick,
+                    startedAt: now(),
+                    scheduleDelayNanoseconds: scheduleDelayNanoseconds,
+                    definitions: selectedDefinitions,
+                    endpoint: endpoint
+                )
+            )
+            try Task.checkCancellation()
+            guard pollingGeneration == generation else { return }
+            guard !samples.isEmpty else { throw OBDPIDTelemetryError.noVehicleResponse }
+            if tick == 0 {
+                let responded = Set(samples.map(\.request))
+                supportedDefinitions = definitions.filter {
+                    responded.contains(OBDPIDRequest(service: $0.service, pid: $0.pid))
+                }
+                state.samples = ordered(samples, definitions: supportedDefinitions)
+                state.supportedPIDCount = supportedDefinitions.count
+                state.phase = .loaded
+                notifyDistance(from: samples)
+            } else {
+                merge(samples, definitions: supportedDefinitions)
+            }
+            tick &+= 1
+            batchOrdinal += 1
+        }
+        await acquisitionEvidence.cancel(generation: generation)
         await readMajorPIDs.endSession()
     }
 

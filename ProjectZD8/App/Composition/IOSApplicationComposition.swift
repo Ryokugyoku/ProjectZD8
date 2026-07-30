@@ -11,11 +11,15 @@ enum IOSApplicationComposition {
     /// - Returns: デモ、既知BLE UART、または構成済みBluetooth Classic終端で取得できるモデル。
     /// - Parameter sessionDidEnd: PID取得終了原因をLoggingへ通知する処理。
     /// - Parameter distanceDidChange: 取得元付き累積距離をLoggingへ通知する処理。
-    /// - Parameter rawResponseDidReceive: 数値化前のOBD応答をLoggingへ保存する処理。
+    /// - Parameter connectionSessionStorage: sessionと取得証拠で同じGRDB Queueを共有する保存先。
+    /// - Parameter activeSessionID: 現在Logging sessionの識別子を返す境界。
+    /// - Parameter performanceEvents: 方式B取得区間を通知する匿名計測境界。
     static func makeLiveTelemetryModel(
+        connectionSessionStorage: any ConnectionSessionRepository & ConnectionSessionRawLogRepository & ConnectionSessionAcquisitionRepository & ConnectionSessionAcquisitionBatchRepository & ConnectionSessionAcquisitionTerminationRepository,
+        activeSessionID: @escaping @Sendable () async -> ConnectionSessionID?,
+        performanceEvents: any AcquisitionPerformanceEventPort = NoOpAcquisitionPerformanceEventPort(),
         sessionDidEnd: @escaping @MainActor (ConnectionSessionEndReason) -> Void = { _ in },
-        distanceDidChange: @escaping @MainActor (ConnectionSessionDistanceObservation) -> Void = { _ in },
-        rawResponseDidReceive: @escaping @Sendable (OBDRawResponseObservation) async throws -> Void = { _ in }
+        distanceDidChange: @escaping @MainActor (ConnectionSessionDistanceObservation) -> Void = { _ in }
     ) -> LiveTelemetryModel {
         let externalAccessoryConfiguration = IOSExternalAccessoryProtocolConfiguration()
         let telemetry = DemoAwareOBDPIDTelemetryAdapter(
@@ -28,17 +32,39 @@ enum IOSApplicationComposition {
             demo: DemoOBDPIDTelemetryAdapter()
         )
         let definitionRepository = makeOBDPIDDefinitionRepository()
+        let configuration = ProductionConnectionSessionAcquisitionConfiguration.phase4G
+        let acquisitionController = ConnectionSessionAcquisitionController(
+            createManifest: CreateConnectionSessionAcquisitionManifestUseCase(
+                acquisitionRepository: connectionSessionStorage,
+                evidencePort: BundleConnectionSessionAcquisitionEvidenceAdapter(
+                    schemaContractVersion: configuration.schemaContractVersion,
+                    acquisitionPlatform: makeConnectionSessionAcquisitionDevice().platform
+                )
+            ),
+            persistBatch: PersistAcquisitionBatchUseCase(
+                repository: connectionSessionStorage,
+                telemetry: telemetry,
+                monotonicNanoseconds: { DispatchTime.now().uptimeNanoseconds },
+                performanceEvents: performanceEvents
+            ),
+            activeSessionID: activeSessionID,
+            manifestVersion: configuration.manifestVersion,
+            pollingPolicyVersion: configuration.pollingPolicyVersion,
+            modelInputManifestVersion: configuration.modelInputManifestVersion,
+            formulaCanonicalizationVersion: configuration.formulaCanonicalizationVersion,
+            performanceEvents: performanceEvents
+        )
         return LiveTelemetryModel(
             readMajorPIDs: ReadMajorOBDPIDsUseCase(
                 definitionRepository: definitionRepository,
-                telemetry: telemetry,
-                rawResponseDidReceive: rawResponseDidReceive
+                telemetry: telemetry
             ),
             loadVehicleCapabilities: LoadVehiclePIDCapabilitiesUseCase(
                 repository: makeVehiclePIDCapabilityRepository(),
                 telemetry: telemetry,
                 definitionRepository: definitionRepository
             ),
+            acquisitionEvidence: acquisitionController,
             sessionDidEnd: sessionDidEnd,
             distanceDidChange: distanceDidChange,
             systemSleepInhibitor: IOSVehicleConnectionScreenSleepInhibitor()
@@ -140,10 +166,27 @@ enum IOSApplicationComposition {
     /// 製品用の接続セッション保存先を生成します。
     ///
     /// 責務: iOSの接続履歴を利用可能なGRDB実装または明示的利用不能境界へ変換します。
+    /// - Parameter performanceEvents: 取得証拠writeを通知する匿名計測境界。
     /// - Returns: Application Support内の接続セッション保存先。
-    static func makeConnectionSessionRepository() -> any ConnectionSessionRepository & ConnectionSessionRawLogRepository & ConnectionSessionErasureRepository & AccountConnectionSessionErasureRepository {
-        (try? GRDBConnectionSessionRepository.openApplicationRepository())
+    static func makeConnectionSessionRepository(
+        performanceEvents: any AcquisitionPerformanceEventPort = NoOpAcquisitionPerformanceEventPort()
+    ) -> any ConnectionSessionRepository & ConnectionSessionRawLogRepository & ConnectionSessionErasureRepository & AccountConnectionSessionErasureRepository & ConnectionSessionAcquisitionRepository & ConnectionSessionAcquisitionBatchRepository & ConnectionSessionAcquisitionTerminationRepository {
+        (try? GRDBConnectionSessionRepository.openApplicationRepository(performanceEvents: performanceEvents))
             ?? UnavailableConnectionSessionRepository()
+    }
+
+    /// 明示測定buildだけに匿名signpost adapterを生成します。
+    ///
+    /// 責務: compile条件と外部run識別子をiOS取得性能event境界へ変換します。
+    /// - Returns: 有効な測定条件ではsignpost adapter、それ以外はno-op境界。
+    static func makeAcquisitionPerformanceEventPort() -> any AcquisitionPerformanceEventPort {
+        #if ACQUISITION_PERFORMANCE_MEASUREMENT
+        return OSSignpostAcquisitionPerformanceAdapter.makeIfValid(
+            runIdentifier: ProcessInfo.processInfo.environment["PROJECTZD8_ACQUISITION_PERFORMANCE_RUN_ID"]
+        ) ?? NoOpAcquisitionPerformanceEventPort()
+        #else
+        return NoOpAcquisitionPerformanceEventPort()
+        #endif
     }
 
     /// 現在のiOS端末を新規セッションの取得元表示へ変換します。

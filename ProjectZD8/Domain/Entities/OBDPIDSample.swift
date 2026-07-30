@@ -1,7 +1,7 @@
 import Foundation
 
 /// 検証済み定義で数値化した1件のOBD PID観測です。
-struct OBDPIDSample: Equatable, Identifiable, Sendable {
+nonisolated struct OBDPIDSample: Equatable, Identifiable, Sendable {
     /// Service/PIDの複合識別子です。
     let request: OBDPIDRequest
     /// 表示名へ解決できる安定キーです。

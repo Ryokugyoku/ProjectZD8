@@ -11,6 +11,8 @@ final class ConnectionSessionLifecycleModel {
     @ObservationIgnored private let repository: any ConnectionSessionRepository
     /// 未デコードOBD応答の永続化境界です。
     @ObservationIgnored private let rawLogRepository: (any ConnectionSessionRawLogRepository)?
+    /// sessionと取得証拠を部分成功なしで終了・回復する境界です。
+    @ObservationIgnored private let acquisitionTerminationRepository: (any ConnectionSessionAcquisitionTerminationRepository)?
     /// 現在日時を生成する注入済み処理です。
     @ObservationIgnored private let now: () -> Date
     /// 新規セッションIDを生成する注入済み処理です。
@@ -34,6 +36,7 @@ final class ConnectionSessionLifecycleModel {
     /// - Parameters:
     ///   - repository: セッションの保存と取得を行う境界。
     ///   - rawLogRepository: 数値化前のOBD応答を追記する境界。
+    ///   - acquisitionTerminationRepository: sessionと取得証拠を部分成功なしで終了・回復する境界。
     ///   - now: 開始日時と終了日時を生成する処理。
     ///   - makeID: 新しいセッションIDを生成する処理。省略時はUUIDを生成します。
     ///   - acquisitionDevice: 新しいセッションへ固定する現在端末情報。
@@ -43,6 +46,7 @@ final class ConnectionSessionLifecycleModel {
     init(
         repository: any ConnectionSessionRepository,
         rawLogRepository: (any ConnectionSessionRawLogRepository)? = nil,
+        acquisitionTerminationRepository: (any ConnectionSessionAcquisitionTerminationRepository)? = nil,
         now: @escaping () -> Date = Date.init,
         makeID: (() -> ConnectionSessionID)? = nil,
         acquisitionDevice: ConnectionSessionAcquisitionDevice? = nil,
@@ -52,6 +56,7 @@ final class ConnectionSessionLifecycleModel {
     ) {
         self.repository = repository
         self.rawLogRepository = rawLogRepository
+        self.acquisitionTerminationRepository = acquisitionTerminationRepository
         self.now = now
         self.makeID = makeID ?? { ConnectionSessionID() }
         self.acquisitionDevice = acquisitionDevice
@@ -99,14 +104,24 @@ final class ConnectionSessionLifecycleModel {
         guard let identifier, !identifier.isEmpty else { return }
         do {
             let unfinished = try repository.sessions(for: identifier).filter { $0.endedAt == nil }
-            var endedSessions: [ConnectionSession] = []
-            for var session in unfinished {
-                session.endedAt = now()
-                session.endReason = .unexpectedTermination
-                try repository.save(session)
-                endedSessions.append(session)
+            guard !unfinished.isEmpty else { return }
+            let recoveredAt = now()
+            let endedSessions: [ConnectionSession]
+            if let acquisitionTerminationRepository {
+                endedSessions = try acquisitionTerminationRepository.recoverInterruptedSessionAcquisitions(
+                    for: identifier,
+                    recoveredAt: recoveredAt
+                )
+            } else {
+                endedSessions = try unfinished.map { session in
+                    var ended = session
+                    ended.endedAt = recoveredAt
+                    ended.endReason = .unexpectedTermination
+                    try repository.save(ended)
+                    return ended
+                }
             }
-            if !unfinished.isEmpty { historyDidChange() }
+            if !endedSessions.isEmpty { historyDidChange() }
             if automaticUploadEnabled {
                 endedSessions.forEach(endedSessionUploadRequested)
             }
@@ -189,11 +204,23 @@ final class ConnectionSessionLifecycleModel {
     /// 責務: 1件の未終了セッションを指定原因で終端状態へ遷移させます。
     /// - Parameter reason: セッションが終了した直接原因。
     private func endSession(reason: ConnectionSessionEndReason) {
-        guard var session = activeSession else { return }
-        session.endedAt = now()
-        session.endReason = reason
+        guard let currentSession = activeSession else { return }
+        let endedAt = now()
         do {
-            try repository.save(session)
+            let session: ConnectionSession
+            if let acquisitionTerminationRepository {
+                session = try acquisitionTerminationRepository.finishSessionAcquisition(
+                    currentSession,
+                    endedAt: endedAt,
+                    reason: reason
+                )
+            } else {
+                var ended = currentSession
+                ended.endedAt = endedAt
+                ended.endReason = reason
+                try repository.save(ended)
+                session = ended
+            }
             activeSession = nil
             selectedDistanceSource = nil
             historyDidChange()
@@ -201,7 +228,7 @@ final class ConnectionSessionLifecycleModel {
                 endedSessionUploadRequested(session)
             }
         } catch {
-            activeSession = session
+            activeSession = currentSession
         }
     }
 }

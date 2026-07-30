@@ -16,6 +16,24 @@ struct DemoAwareOBDPIDTelemetryAdapter: OBDPIDTelemetryPort {
         self.demo = demo
     }
 
+    /// 終端識別子に対応する要求単位のTransport観測境界を実行します。
+    ///
+    /// 責務: 1件のPID要求群をデモまたは実車のtyped観測処理へ振り分けます。
+    /// - Parameters:
+    ///   - requests: 読み取るService/PID要求。
+    ///   - endpoint: OBDアダプターの接続終端。
+    /// - Returns: 選択した境界が直接確認した要求単位の結果。
+    /// - Throws: 選択した取得境界の要求送信前エラー。
+    func readObservations(
+        _ requests: [OBDPIDRequest],
+        using endpoint: OBDConnectionEndpoint
+    ) async throws -> [OBDPIDRequestTransportObservation] {
+        if DemoOBDAdapter.matches(endpoint) {
+            return try await demo.readObservations(requests, using: endpoint)
+        }
+        return try await live.readObservations(requests, using: endpoint)
+    }
+
     /// 終端識別子に対応するPID取得境界を実行します。
     ///
     /// 責務: 1件のPID読取要求群をデモまたは実車の取得処理へ振り分けます。

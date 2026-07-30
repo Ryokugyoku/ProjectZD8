@@ -1,7 +1,7 @@
 import Foundation
 
 /// 保存された制限付きPID数式を応答バイトへ適用します。
-struct OBDPIDFormulaEvaluator {
+nonisolated struct OBDPIDFormulaEvaluator {
     /// PID定義の数式を指定バイト列で評価します。
     ///
     /// 責務: 1件の検証対象PID式を副作用なく有限数値へ変換します。
@@ -27,7 +27,7 @@ struct OBDPIDFormulaEvaluator {
 }
 
 /// PID式の許可済みトークンだけを再帰下降で評価します。
-private struct Parser {
+nonisolated private struct Parser {
     /// 評価対象の文字配列です。
     private let characters: [Character]
     /// `A`から`H`へ対応する応答バイトです。

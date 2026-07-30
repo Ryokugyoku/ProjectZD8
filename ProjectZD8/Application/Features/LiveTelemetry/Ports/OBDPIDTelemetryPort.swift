@@ -1,5 +1,18 @@
 /// 1回のOBD接続で指定PIDの未加工データを読み取る能力です。
 protocol OBDPIDTelemetryPort: Sendable {
+    /// 複数要求を順番に実行し、送信後の結果を要求単位で返します。
+    ///
+    /// 責務: PID要求群を推測を含まないTransport観測列へ変換します。
+    /// - Parameters:
+    ///   - requests: 読み取るService/PID要求。
+    ///   - endpoint: OBDアダプターの物理終端。
+    /// - Returns: 実際に送信開始した要求ごとのTransport観測。
+    /// - Throws: 要求送信前の定義、接続、または初期化失敗。
+    func readObservations(
+        _ requests: [OBDPIDRequest],
+        using endpoint: OBDConnectionEndpoint
+    ) async throws -> [OBDPIDRequestTransportObservation]
+
     /// 複数の読取要求を1回の物理接続で実行します。
     ///
     /// 責務: 許可済みService/PID要求群を未加工応答バイトへ変換します。
@@ -31,6 +44,26 @@ protocol OBDPIDTelemetryPort: Sendable {
 
 /// セッション資源を保持しないPID取得境界へ既定終了動作を提供します。
 extension OBDPIDTelemetryPort {
+    /// 辞書型の既存実装から正応答だけを要求単位へ変換します。
+    ///
+    /// 責務: typed観測未実装の境界へ後方互換な観測列を提供します。
+    /// - Parameters:
+    ///   - requests: 読み取るService/PID要求。
+    ///   - endpoint: OBDアダプターの物理終端。
+    /// - Returns: 既存境界がpayloadを返した要求だけの入力順観測列。
+    /// - Throws: 既存の一括読取が送出したエラー。
+    func readObservations(
+        _ requests: [OBDPIDRequest],
+        using endpoint: OBDConnectionEndpoint
+    ) async throws -> [OBDPIDRequestTransportObservation] {
+        let responses = try await read(requests, using: endpoint)
+        return requests.compactMap { request in
+            responses[request].map { payload in
+                OBDPIDRequestTransportObservation(request: request, outcome: .responded(payload))
+            }
+        }
+    }
+
     /// 専用PID通信を実装しない境界では明示的な非対応を返します。
     ///
     /// 責務: 任意実装の車種専用PID要求を安全な非対応結果へ変換します。

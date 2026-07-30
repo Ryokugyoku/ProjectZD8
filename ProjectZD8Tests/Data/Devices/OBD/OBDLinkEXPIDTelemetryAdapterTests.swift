@@ -5,6 +5,48 @@ import XCTest
 /// OBDLink EX／MX+主要PID読取の許可コマンド列と応答保持を検証します。
 @MainActor
 final class OBDLinkEXPIDTelemetryAdapterTests: XCTestCase {
+    /// 拒否文字列と正応答を要求単位で区別します。
+    ///
+    /// 責務: NO DATAを非対応と推測せず未分類応答として保持し、後続正応答を失わないことを確認します。
+    func testReadObservationsKeepsRejectedResponseUnclassifiedAndContinues() async throws {
+        let transport = PIDTransportFake(responses: [
+            "ELM327 v1.4b\r>", "OK\r>", "OK\r>", "OK\r>", "OK\r>", "OK\r>",
+            "OK\r>", "NO DATA\r>", "41 0C 1F 40\r>"
+        ])
+        let adapter = OBDLinkEXPIDTelemetryAdapter(makeTransport: { _ in transport })
+        let requests = [
+            OBDPIDRequest(service: 0x01, pid: 0x05),
+            OBDPIDRequest(service: 0x01, pid: 0x0C)
+        ]
+
+        let observations = try await adapter.readObservations(requests, using: endpoint)
+
+        XCTAssertEqual(observations, [
+            .init(request: requests[0], outcome: .unclassifiedResponse),
+            .init(request: requests[1], outcome: .responded([0x1F, 0x40]))
+        ])
+    }
+
+    /// 送信後の期限切れを該当要求だけへ対応付けます。
+    ///
+    /// 責務: 期限切れ要求をtyped結果として残し、未送信の後続要求を観測済みにしないことを確認します。
+    func testReadObservationsStopsAfterTypedTimeout() async throws {
+        let transport = PIDTransportFake(responses: [
+            "ELM327 v1.4b\r>", "OK\r>", "OK\r>", "OK\r>", "OK\r>", "OK\r>", "OK\r>"
+        ])
+        let adapter = OBDLinkEXPIDTelemetryAdapter(makeTransport: { _ in transport })
+        let requests = [
+            OBDPIDRequest(service: 0x01, pid: 0x05),
+            OBDPIDRequest(service: 0x01, pid: 0x0C)
+        ]
+
+        let observations = try await adapter.readObservations(requests, using: endpoint)
+        let didClose = await transport.didClose
+
+        XCTAssertEqual(observations, [.init(request: requests[0], outcome: .timedOut)])
+        XCTAssertTrue(didClose)
+    }
+
     /// 空のPID要求では物理接続を開きません。
     ///
     /// 責務: 空バッチをBluetoothまたはシリアル接続なしの空応答へ変換することを確認します。

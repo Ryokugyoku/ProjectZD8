@@ -1,27 +1,40 @@
 import Foundation
 import GRDB
 
-/// GRDB/SQLiteへ接続セッション履歴を保存します。
-final class GRDBConnectionSessionRepository: ConnectionSessionRepository, ConnectionSessionRawLogRepository, ConnectionSessionErasureRepository, AccountConnectionSessionErasureRepository {
+/// 同じGRDB Queueへ接続session、Raw、取得証拠を保存します。
+final class GRDBConnectionSessionRepository: ConnectionSessionRepository, ConnectionSessionRawLogRepository, ConnectionSessionErasureRepository, AccountConnectionSessionErasureRepository, ConnectionSessionAcquisitionRepository, ConnectionSessionAcquisitionBatchRepository, ConnectionSessionAcquisitionTerminationRepository {
     /// SQLiteの直列化された読書き境界です。
     private let databaseQueue: DatabaseQueue
+    /// 同じSQLite Queueで取得証拠を保存する実装です。
+    private let acquisitionRepository: GRDBConnectionSessionAcquisitionRepository
 
     /// 指定DB Queueへ製品版初期Migrationを適用して生成します。
     ///
     /// 責務: 1件のSQLite接続を製品版スキーマ利用可能状態へ移行してセッションRepositoryを生成します。
-    /// - Parameter databaseQueue: 接続セッションを保存するDB Queue。
+    /// - Parameters:
+    ///   - databaseQueue: 接続セッションを保存するDB Queue。
+    ///   - performanceEvents: 取得証拠writeを通知する匿名計測境界。
     /// - Throws: Migrationを完了できない場合のGRDBエラー。
-    init(databaseQueue: DatabaseQueue) throws {
+    init(
+        databaseQueue: DatabaseQueue,
+        performanceEvents: any AcquisitionPerformanceEventPort = NoOpAcquisitionPerformanceEventPort()
+    ) throws {
         self.databaseQueue = databaseQueue
-        try ProjectZD8DatabaseMigrator.migrator.migrate(databaseQueue)
+        acquisitionRepository = try GRDBConnectionSessionAcquisitionRepository(
+            databaseQueue: databaseQueue,
+            performanceEvents: performanceEvents
+        )
     }
 
     /// Application Support内の製品DBを開いて生成します。
     ///
     /// 責務: 接続セッションDBの製品保存先を作成してリポジトリを返します。
+    /// - Parameter performanceEvents: 取得証拠writeを通知する匿名計測境界。
     /// - Returns: Migration済みの接続セッションリポジトリ。
     /// - Throws: 保存先作成、DB接続、Migrationに失敗した場合のエラー。
-    static func openApplicationRepository() throws -> GRDBConnectionSessionRepository {
+    static func openApplicationRepository(
+        performanceEvents: any AcquisitionPerformanceEventPort = NoOpAcquisitionPerformanceEventPort()
+    ) throws -> GRDBConnectionSessionRepository {
         let fileManager = FileManager.default
         let support = try fileManager.url(
             for: .applicationSupportDirectory,
@@ -32,7 +45,212 @@ final class GRDBConnectionSessionRepository: ConnectionSessionRepository, Connec
         let directory = support.appending(path: "ProjectZD8", directoryHint: .isDirectory)
         try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
         let queue = try DatabaseQueue(path: directory.appending(path: "projectzd8.sqlite").path)
-        return try GRDBConnectionSessionRepository(databaseQueue: queue)
+        return try GRDBConnectionSessionRepository(
+            databaseQueue: queue,
+            performanceEvents: performanceEvents
+        )
+    }
+
+    /// manifestとRaw開始境界を同じProduction DBへ保存します。
+    ///
+    /// 責務: 取得開始証拠保存を共有Queueの取得repositoryへ委譲します。
+    /// - Parameters:
+    ///   - manifest: 保存するimmutable manifest。
+    ///   - startedAt: Raw取得開始境界日時。
+    ///   - sessionID: 親session識別子。
+    /// - Throws: 取得repositoryが返す重複、競合、または保存失敗。
+    func saveStartOnce(
+        manifest: ConnectionSessionAcquisitionManifest,
+        startedAt: Date,
+        for sessionID: ConnectionSessionID
+    ) throws {
+        try acquisitionRepository.saveStartOnce(manifest: manifest, startedAt: startedAt, for: sessionID)
+    }
+
+    /// Raw取得終了境界を同じProduction DBへ追加します。
+    ///
+    /// 責務: 取得終了証拠保存を共有Queueの取得repositoryへ委譲します。
+    /// - Parameters:
+    ///   - endedAt: Raw取得終了境界日時。
+    ///   - reason: 取得停止理由。
+    ///   - sessionID: 親session識別子。
+    /// - Throws: 取得repositoryが返す重複、競合、または保存失敗。
+    func appendEnd(
+        at endedAt: Date,
+        reason: ConnectionSessionEndReason,
+        for sessionID: ConnectionSessionID
+    ) throws {
+        try acquisitionRepository.appendEnd(at: endedAt, reason: reason, for: sessionID)
+    }
+
+    /// 保存済みmanifestを同じProduction DBから返します。
+    ///
+    /// 責務: manifest読取を共有Queueの取得repositoryへ委譲します。
+    /// - Parameter sessionID: 読取対象session。
+    /// - Returns: 保存済みimmutable manifest。
+    /// - Throws: manifest不在または読取失敗。
+    func manifest(for sessionID: ConnectionSessionID) throws -> ConnectionSessionAcquisitionManifest {
+        try acquisitionRepository.manifest(for: sessionID)
+    }
+
+    /// 保存済み取得境界を同じProduction DBから返します。
+    ///
+    /// 責務: 取得境界読取を共有Queueの取得repositoryへ委譲します。
+    /// - Parameter sessionID: 読取対象session。
+    /// - Returns: append順の取得境界。
+    /// - Throws: 読取失敗。
+    func boundaryEvidence(for sessionID: ConnectionSessionID) throws -> [AcquisitionRawBoundaryEvidence] {
+        try acquisitionRepository.boundaryEvidence(for: sessionID)
+    }
+
+    /// open batchを同じProduction DBへ保存します。
+    ///
+    /// 責務: batch開始保存を共有Queueの取得repositoryへ委譲します。
+    /// - Parameters:
+    ///   - evidence: 保存するopen batch証拠。
+    ///   - sessionID: 親session識別子。
+    /// - Throws: 重複、競合、または保存失敗。
+    func beginBatch(_ evidence: AcquisitionBatchEvidence, for sessionID: ConnectionSessionID) throws {
+        try acquisitionRepository.beginBatch(evidence, for: sessionID)
+    }
+
+    /// request dispatch開始を同じProduction DBへ保存します。
+    ///
+    /// 責務: dispatch開始保存を共有Queueの取得repositoryへ委譲します。
+    /// - Parameters:
+    ///   - requestOrdinal: batch内要求順。
+    ///   - batchIdentity: 親batch identity。
+    ///   - sessionID: 親session識別子。
+    /// - Throws: 重複、競合、または保存失敗。
+    func markRequestDispatchBegun(
+        requestOrdinal: Int,
+        in batchIdentity: AcquisitionBatchIdentity,
+        for sessionID: ConnectionSessionID
+    ) throws {
+        try acquisitionRepository.markRequestDispatchBegun(
+            requestOrdinal: requestOrdinal,
+            in: batchIdentity,
+            for: sessionID
+        )
+    }
+
+    /// responded Rawとterminal evidenceを同じProduction DBへ保存します。
+    ///
+    /// 責務: 正応答の原子保存を共有Queueの取得repositoryへ委譲します。
+    /// - Parameters:
+    ///   - observation: 保存する未デコード正応答。
+    ///   - valueOutcome: 取得時定義による値評価結果。
+    ///   - elapsedNanoseconds: request経過時間。
+    ///   - reasonCode: 任意の分類理由code。
+    ///   - requestOrdinal: batch内要求順。
+    ///   - batchIdentity: 親batch identity。
+    ///   - sessionID: 親session識別子。
+    /// - Returns: canonical terminal request evidence。
+    /// - Throws: 重複、競合、または原子保存失敗。
+    func saveRespondedRequest(
+        observation: OBDRawResponseObservation,
+        valueOutcome: PIDRequestValueOutcome,
+        elapsedNanoseconds: UInt64,
+        reasonCode: String?,
+        requestOrdinal: Int,
+        in batchIdentity: AcquisitionBatchIdentity,
+        for sessionID: ConnectionSessionID
+    ) throws -> PIDRequestEvidence {
+        try acquisitionRepository.saveRespondedRequest(
+            observation: observation,
+            valueOutcome: valueOutcome,
+            elapsedNanoseconds: elapsedNanoseconds,
+            reasonCode: reasonCode,
+            requestOrdinal: requestOrdinal,
+            in: batchIdentity,
+            for: sessionID
+        )
+    }
+
+    /// nonresponded terminal evidenceを同じProduction DBへ保存します。
+    ///
+    /// 責務: 非応答結果保存を共有Queueの取得repositoryへ委譲します。
+    /// - Parameters:
+    ///   - outcome: 保存する非responded結果。
+    ///   - elapsedNanoseconds: request経過時間。
+    ///   - reasonCode: 任意の分類理由code。
+    ///   - requestOrdinal: batch内要求順。
+    ///   - batchIdentity: 親batch identity。
+    ///   - sessionID: 親session識別子。
+    /// - Returns: canonical terminal request evidence。
+    /// - Throws: 重複、競合、または保存失敗。
+    func saveNonRespondedRequest(
+        outcome: PIDRequestTransportOutcome,
+        elapsedNanoseconds: UInt64?,
+        reasonCode: String?,
+        requestOrdinal: Int,
+        in batchIdentity: AcquisitionBatchIdentity,
+        for sessionID: ConnectionSessionID
+    ) throws -> PIDRequestEvidence {
+        try acquisitionRepository.saveNonRespondedRequest(
+            outcome: outcome,
+            elapsedNanoseconds: elapsedNanoseconds,
+            reasonCode: reasonCode,
+            requestOrdinal: requestOrdinal,
+            in: batchIdentity,
+            for: sessionID
+        )
+    }
+
+    /// terminal batchを同じProduction DBへ保存します。
+    ///
+    /// 責務: batch終端保存を共有Queueの取得repositoryへ委譲します。
+    /// - Parameters:
+    ///   - evidence: 保存するterminal batch証拠。
+    ///   - sessionID: 親session識別子。
+    /// - Throws: 競合または原子保存失敗。
+    func finishBatch(_ evidence: AcquisitionBatchEvidence, for sessionID: ConnectionSessionID) throws {
+        try acquisitionRepository.finishBatch(evidence, for: sessionID)
+    }
+
+    /// sessionのbatch証拠を同じProduction DBから返します。
+    ///
+    /// 責務: batch読取を共有Queueの取得repositoryへ委譲します。
+    /// - Parameter sessionID: 読取対象session。
+    /// - Returns: batch ordinal順の取得証拠。
+    /// - Throws: 読取失敗。
+    func batches(for sessionID: ConnectionSessionID) throws -> [AcquisitionBatchEvidence] {
+        try acquisitionRepository.batches(for: sessionID)
+    }
+
+    /// sessionと取得証拠を同じProduction transactionで終了します。
+    ///
+    /// 責務: 原子的なsession取得終了を共有Queueの取得repositoryへ委譲します。
+    /// - Parameters:
+    ///   - session: 終了直前の現在session。
+    ///   - endedAt: 終了日時。
+    ///   - reason: 終了理由。
+    /// - Returns: canonical終了session。
+    /// - Throws: 競合または原子保存失敗。
+    func finishSessionAcquisition(
+        _ session: ConnectionSession,
+        endedAt: Date,
+        reason: ConnectionSessionEndReason
+    ) throws -> ConnectionSession {
+        try acquisitionRepository.finishSessionAcquisition(session, endedAt: endedAt, reason: reason)
+    }
+
+    /// 中断sessionと取得証拠を同じProduction transactionで回復します。
+    ///
+    /// 責務: process終了回復を共有Queueの取得repositoryへ委譲します。
+    /// - Parameters:
+    ///   - accountIdentifier: 回復対象アカウント。
+    ///   - recoveredAt: 回復日時。
+    /// - Returns: 回復した終了session。
+    /// - Throws: 読取不正または原子回復失敗。
+    func recoverInterruptedSessionAcquisitions(
+        for accountIdentifier: String,
+        recoveredAt: Date
+    ) throws -> [ConnectionSession] {
+        try acquisitionRepository.recoverInterruptedSessionAcquisitions(
+            for: accountIdentifier,
+            recoveredAt: recoveredAt
+        )
     }
 
     /// セッションの現在内容を安定ID単位で保存します。
@@ -115,32 +333,11 @@ final class GRDBConnectionSessionRepository: ConnectionSessionRepository, Connec
     /// - Throws: セッション不在、終了済み、またはSQLite書込み失敗。
     func append(_ observation: OBDRawResponseObservation, to sessionID: ConnectionSessionID) throws {
         try databaseQueue.write { database in
-            guard var session = try fetchSession(sessionID, database: database), session.endedAt == nil else {
-                throw ConnectionSessionRepositoryError.invalidState
-            }
-            let sessionKey = sessionID.rawValue.uuidString.lowercased()
-            let sequence = try Int64.fetchOne(
-                database,
-                sql: "SELECT COALESCE(MAX(sequence), -1) + 1 FROM connection_session_raw_logs WHERE sessionID = ?",
-                arguments: [sessionKey]
-            ) ?? 0
-            let entry = ConnectionSessionRawLogEntry(
-                sequence: sequence,
-                observedAt: observation.observedAt,
-                batchElapsedNanoseconds: observation.batchElapsedNanoseconds,
-                service: observation.request.service,
-                pid: observation.request.pid,
-                payload: observation.payload
+            _ = try GRDBConnectionSessionRawLogAppender().append(
+                observation,
+                to: sessionID,
+                in: database
             )
-            try ConnectionSessionRawLogRecord(entry: entry, sessionID: sessionID).insert(database)
-            session.rawLogSummary.recordCount += 1
-            session.rawLogSummary.byteCount += Int64(observation.payload.count)
-            session.rawLogSummary.localState = .available
-            session.rawLogSummary.cloudState = .pending
-            session.rawLogSummary.manifestDigest = nil
-            session.rawLogSummary.macImportReceipt = nil
-            session.rawLogSummary.lastAccessedAt = nil
-            try ConnectionSessionRecord(session: session).update(database)
         }
     }
 

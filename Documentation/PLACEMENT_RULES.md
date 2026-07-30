@@ -28,6 +28,7 @@ ProjectZD8/
 │   │   └── GRDB/
 │   ├── Network/
 │   ├── Files/
+│   ├── Diagnostics/
 │   ├── Devices/
 │   └── Mapping/
 ├── Platform/
@@ -45,6 +46,16 @@ ProjectZD8/
 ├── Resources/
 └── PreviewSupport/
 ```
+
+製品targetから独立した、読み取り専用の車両変化検知データ品質調査toolは、人間が承認した次の配置を使用する。
+
+```text
+Tools/
+└── VehicleChangeDataQuality/
+    └── Tests/
+```
+
+このtooling directoryはPython standard libraryと明示指定されたoffline fileだけへ依存する。`ProjectZD8/` source、Xcode target、GRDB、CloudKit、端末API、networkへ依存してはならず、実端末抽出や製品DB migrationを所有しない。
 
 Test targets MUST mirror the production path they verify. For example:
 
@@ -86,11 +97,12 @@ ProjectZD8/
 │   ├── VehicleManagement/{Actions,State,UseCases,Ports}/
 │   ├── Maintenance/{Actions,State,UseCases,Ports}/
 │   ├── LiveTelemetry/{Actions,State,UseCases,Ports}/
-│   ├── Logging/{Actions,State,UseCases}/
+│   ├── Logging/{Actions,State,UseCases,Ports}/
 │   ├── LogHistory/{Actions,State,UseCases}/
 │   └── Analysis/{Actions,State,UseCases,Ports}/
 ├── Data/
 │   ├── Authentication/
+│   ├── Diagnostics/
 │   ├── Devices/{Serial,OBD}/
 │   ├── Persistence/GRDB/{Database,Records,Repositories}/
 │   ├── MachineLearning/TensorFlow/
@@ -131,7 +143,7 @@ Owns use-case orchestration, commands/actions, application state transitions, an
 
 Owns concrete persistence, network, file, and device adapters plus infrastructure mapping. It implements Domain or Application ports. It MUST NOT depend on Platform or construct Views.
 
-Within Data, serial transport and OBD protocol implementations belong in `Devices/Serial` and `Devices/OBD`, respectively. Concrete TensorFlow integration belongs in `MachineLearning/TensorFlow`; framework-independent analysis policy does not.
+Within Data, serial transport and OBD protocol implementations belong in `Devices/Serial` and `Devices/OBD`, respectively. OS diagnostics and signpost adapters that implement inward-facing Application measurement ports belong in `Diagnostics`; they MUST NOT persist payloads, stable user/device/vehicle identifiers, or authentication material. Concrete TensorFlow integration belongs in `MachineLearning/TensorFlow`; framework-independent analysis policy does not.
 
 ### Platform
 

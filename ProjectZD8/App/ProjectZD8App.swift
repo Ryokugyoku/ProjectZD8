@@ -54,7 +54,10 @@ struct ProjectZD8App: App {
     /// 責務: 現在のプラットフォーム用Compositionからアプリケーションルート依存関係を構築します。
     init() {
         #if os(iOS)
-        let connectionSessionRepository = IOSApplicationComposition.makeConnectionSessionRepository()
+        let acquisitionPerformanceEvents = IOSApplicationComposition.makeAcquisitionPerformanceEventPort()
+        let connectionSessionRepository = IOSApplicationComposition.makeConnectionSessionRepository(
+            performanceEvents: acquisitionPerformanceEvents
+        )
         let connectionSessionSynchronization = IOSApplicationComposition.makeConnectionSessionSynchronization(
             storage: connectionSessionRepository
         )
@@ -91,6 +94,7 @@ struct ProjectZD8App: App {
         let connectionSessionLifecycleModel = ConnectionSessionLifecycleModel(
             repository: connectionSessionRepository,
             rawLogRepository: connectionSessionRepository,
+            acquisitionTerminationRepository: connectionSessionRepository,
             acquisitionDevice: IOSApplicationComposition.makeConnectionSessionAcquisitionDevice(),
             historyDidChange: { connectionHistoryModel.send(.localDataChanged) },
             endedSessionUploadRequested: { session in
@@ -98,13 +102,11 @@ struct ProjectZD8App: App {
             }
         )
         let liveTelemetryModel = IOSApplicationComposition.makeLiveTelemetryModel(
+            connectionSessionStorage: connectionSessionRepository,
+            activeSessionID: { await connectionSessionLifecycleModel.activeSession?.id },
+            performanceEvents: acquisitionPerformanceEvents,
             sessionDidEnd: { connectionSessionLifecycleModel.send(.endRequested($0)) },
-            distanceDidChange: { connectionSessionLifecycleModel.send(.distanceObserved($0)) },
-            rawResponseDidReceive: { observation in
-                try await MainActor.run {
-                    try connectionSessionLifecycleModel.recordRawResponse(observation)
-                }
-            }
+            distanceDidChange: { connectionSessionLifecycleModel.send(.distanceObserved($0)) }
         )
         let vehicleManagementModel = IOSApplicationComposition.makeVehicleManagementModel(
             connectionSessionRepository: connectionSessionRepository,
@@ -152,7 +154,10 @@ struct ProjectZD8App: App {
         #endif
 
         #if os(macOS)
-        let connectionSessionRepository = MacOSApplicationComposition.makeConnectionSessionRepository()
+        let acquisitionPerformanceEvents = MacOSApplicationComposition.makeAcquisitionPerformanceEventPort()
+        let connectionSessionRepository = MacOSApplicationComposition.makeConnectionSessionRepository(
+            performanceEvents: acquisitionPerformanceEvents
+        )
         let connectionSessionSynchronization = MacOSApplicationComposition.makeConnectionSessionSynchronization(
             storage: connectionSessionRepository
         )
@@ -189,6 +194,7 @@ struct ProjectZD8App: App {
         let connectionSessionLifecycleModel = ConnectionSessionLifecycleModel(
             repository: connectionSessionRepository,
             rawLogRepository: connectionSessionRepository,
+            acquisitionTerminationRepository: connectionSessionRepository,
             acquisitionDevice: MacOSApplicationComposition.makeConnectionSessionAcquisitionDevice(),
             historyDidChange: { connectionHistoryModel.send(.localDataChanged) },
             endedSessionUploadRequested: { session in
@@ -196,13 +202,11 @@ struct ProjectZD8App: App {
             }
         )
         let liveTelemetryModel = MacOSApplicationComposition.makeLiveTelemetryModel(
+            connectionSessionStorage: connectionSessionRepository,
+            activeSessionID: { await connectionSessionLifecycleModel.activeSession?.id },
+            performanceEvents: acquisitionPerformanceEvents,
             sessionDidEnd: { connectionSessionLifecycleModel.send(.endRequested($0)) },
-            distanceDidChange: { connectionSessionLifecycleModel.send(.distanceObserved($0)) },
-            rawResponseDidReceive: { observation in
-                try await MainActor.run {
-                    try connectionSessionLifecycleModel.recordRawResponse(observation)
-                }
-            }
+            distanceDidChange: { connectionSessionLifecycleModel.send(.distanceObserved($0)) }
         )
         let vehicleManagementModel = MacOSApplicationComposition.makeVehicleManagementModel(
             connectionSessionRepository: connectionSessionRepository,

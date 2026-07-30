@@ -21,6 +21,60 @@ actor OBDLinkEXPIDTelemetryAdapter: OBDPIDTelemetryPort {
         self.makeTransport = makeTransport
     }
 
+    /// 指定PIDを順番に送信し、要求単位の直接観測結果を返します。
+    ///
+    /// 責務: Service 01要求群を正応答、期限切れ、取消、通信失敗、未分類応答へ変換します。
+    /// - Parameters:
+    ///   - requests: 固定許可リストと照合するService/PID要求。
+    ///   - endpoint: ELM/STNバイトストリーム終端。
+    /// - Returns: 実際に送信を開始した要求ごとの入力順観測。
+    /// - Throws: 要求送信前の終端、Service、接続、初期化、またはヘッダー設定失敗。
+    func readObservations(
+        _ requests: [OBDPIDRequest],
+        using endpoint: OBDConnectionEndpoint
+    ) async throws -> [OBDPIDRequestTransportObservation] {
+        guard endpoint.transport.supportsELMByteStream else { throw OBDPIDTelemetryError.unavailable }
+        let commands = try requests.map { request -> ELM327CurrentDataCommand in
+            guard let command = ELM327CurrentDataCommand(request: request) else {
+                throw OBDPIDTelemetryError.unsupportedPID
+            }
+            return command
+        }
+        guard !commands.isEmpty else { return [] }
+        let channel = try await channel(for: endpoint)
+        try await setTransmitHeader(0x7DF, using: channel)
+        var observations: [OBDPIDRequestTransportObservation] = []
+        for command in commands {
+            do {
+                let response = try await channel.execute(command)
+                do {
+                    let payload = try ELM327PIDResponseParser().parse(response, request: command.request)
+                    observations.append(.init(request: command.request, outcome: .responded(payload)))
+                } catch OBDPIDTelemetryError.commandRejected {
+                    observations.append(.init(request: command.request, outcome: .unclassifiedResponse))
+                } catch OBDPIDTelemetryError.malformedResponse {
+                    observations.append(.init(request: command.request, outcome: .unclassifiedResponse))
+                }
+            } catch VehicleIdentificationError.responseTimedOut {
+                observations.append(.init(request: command.request, outcome: .timedOut))
+                await closeActiveSession()
+                break
+            } catch VehicleIdentificationError.connectionFailed {
+                observations.append(.init(request: command.request, outcome: .transportFailure))
+                await closeActiveSession()
+                break
+            } catch is CancellationError {
+                observations.append(.init(request: command.request, outcome: .cancelled))
+                await closeActiveSession()
+                break
+            } catch {
+                await closeActiveSession()
+                throw error
+            }
+        }
+        return observations
+    }
+
     /// 指定PIDを同じEXシリアル接続で順番に読み取ります。
     ///
     /// 責務: PID定義DB由来のService 01要求群を1回のEX接続で応答済みバイト辞書へ変換します。

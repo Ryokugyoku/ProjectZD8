@@ -21,6 +21,8 @@ dependencies. Do not reload a document already read in the same task.
 | OBD, persistence, logging, or analysis boundary | [`CODING_STANDARDS.md` §9](CODING_STANDARDS.md#9-obd-acquisition-persistence-and-analysis-boundaries) | Placement §2–4 and the owning Feature in §6 |
 | Vehicle-specific change-detection requirements | [`VEHICLE_CHANGE_DETECTION_REQUIREMENTS.md`](VEHICLE_CHANGE_DETECTION_REQUIREMENTS.md) | [`VEHICLE_CHANGE_DETECTION_CODEX_PROMPTS.md`](VEHICLE_CHANGE_DETECTION_CODEX_PROMPTS.md) for staged execution |
 | Vehicle change-detection staged Codex work | [`VEHICLE_CHANGE_DETECTION_CODEX_PROMPTS.md`](VEHICLE_CHANGE_DETECTION_CODEX_PROMPTS.md) | The completed evidence document from the preceding prompt |
+| Vehicle change-detection feature experiment specification | [`VEHICLE_CHANGE_DETECTION_FEATURE_SPEC.md`](VEHICLE_CHANGE_DETECTION_FEATURE_SPEC.md) | Requirements, data audit, and the next approved experiment |
+| Vehicle change-detection acquisition metadata and collection planning | [`VEHICLE_CHANGE_DETECTION_ACQUISITION_AND_COLLECTION_PLAN.md`](VEHICLE_CHANGE_DETECTION_ACQUISITION_AND_COLLECTION_PLAN.md) | Feature specification, data-quality plan, current acquisition/persistence implementation, and the next separately approved phase |
 | OBDLink MX+ arrival or real-hardware acceptance | [`OBDLINK_MX_PLUS_HARDWARE_ACCEPTANCE.md`](OBDLINK_MX_PLUS_HARDWARE_ACCEPTANCE.md) | Coding Standards §9–10 before executing vehicle or hardware actions |
 | Feature ownership or a new Feature | [`PLACEMENT_RULES.md` §6](PLACEMENT_RULES.md#6-feature-growth) | §1 and §5 before adding a directory |
 | Validation or handoff | [`CODING_STANDARDS.md` §8 and §10](CODING_STANDARDS.md#8-tests) | macOS visual evidence in §5 when applicable |
@@ -74,6 +76,11 @@ real-device, real-adapter, and external-service evidence as separate claims.
 | [`OBDLINK_MX_PLUS_HARDWARE_ACCEPTANCE.md`](OBDLINK_MX_PLUS_HARDWARE_ACCEPTANCE.md) | Staged macOS/iPhone MX+ arrival checks and evidence boundaries |
 | [`VEHICLE_CHANGE_DETECTION_REQUIREMENTS.md`](VEHICLE_CHANGE_DETECTION_REQUIREMENTS.md) | Product requirements and evidence boundaries for registered-vehicle change detection |
 | [`VEHICLE_CHANGE_DETECTION_CODEX_PROMPTS.md`](VEHICLE_CHANGE_DETECTION_CODEX_PROMPTS.md) | Ordered copy-and-paste Codex requests from data audit through product integration |
+| [`VEHICLE_CHANGE_DETECTION_DATA_INVENTORY.md`](VEHICLE_CHANGE_DETECTION_DATA_INVENTORY.md) | Current log storage, restoration, linkage, data availability, and evidence gaps for vehicle change detection |
+| [`VEHICLE_CHANGE_DETECTION_DATA_QUALITY_MEASUREMENT_PLAN.md`](VEHICLE_CHANGE_DETECTION_DATA_QUALITY_MEASUREMENT_PLAN.md) | Read-only snapshot, anonymization, calculation, rejection, and reproducibility contract for vehicle data-quality measurement |
+| [`VEHICLE_CHANGE_DETECTION_DATA_AUDIT.md`](VEHICLE_CHANGE_DETECTION_DATA_AUDIT.md) | Anonymous physical-device log quality findings and the gate for proceeding to feature specification |
+| [`VEHICLE_CHANGE_DETECTION_FEATURE_SPEC.md`](VEHICLE_CHANGE_DETECTION_FEATURE_SPEC.md) | Limited-evidence candidates and adoption gates for features, operating conditions, scores, and model comparison |
+| [`VEHICLE_CHANGE_DETECTION_ACQUISITION_AND_COLLECTION_PLAN.md`](VEHICLE_CHANGE_DETECTION_ACQUISITION_AND_COLLECTION_PLAN.md) | Acquisition-time metadata, request evidence, incremental real-log collection, remeasurement, and phased implementation gates |
 | `INDEX.md` | Token-efficient routing to the authoritative document section |
 
 When adding documentation, extend an existing owner when its responsibility fits.
