@@ -529,10 +529,12 @@ test "$(tr -d '\r\n' < "$PROJECTZD8_CAPTURE_ROOT/private/integrity.txt")" = ok
 
 ```zsh
 python3 Tools/VehicleChangeDataQuality/vehicle_change_data_quality.py \
+  --root "$PROJECTZD8_CAPTURE_ROOT" \
   --database "$PROJECTZD8_WORK_DB" \
   --scope-manifest "$PROJECTZD8_CAPTURE_ROOT/private/scope-manifest.json" \
   --output "$PROJECTZD8_CAPTURE_ROOT/anonymous-data-quality.json"
 python3 Tools/VehicleChangeDataQuality/validate_anonymous_output.py \
+  --root "$PROJECTZD8_CAPTURE_ROOT" \
   --report "$PROJECTZD8_CAPTURE_ROOT/anonymous-data-quality.json" \
   --scope-manifest "$PROJECTZD8_CAPTURE_ROOT/private/scope-manifest.json"
 projectzd8_fingerprint "$PROJECTZD8_CAPTURE_ROOT/working/ProjectZD8" \
