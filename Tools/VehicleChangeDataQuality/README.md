@@ -6,13 +6,16 @@
 
 ```sh
 python3 Tools/VehicleChangeDataQuality/vehicle_change_data_quality.py \
-  --database /path/to/working/ProjectZD8/projectzd8.sqlite \
-  --scope-manifest /private/path/to/scope-manifest.json \
-  --output /private/path/to/anonymous-data-quality.json
+  --root /path/to/capture-root \
+  --database /path/to/capture-root/working/ProjectZD8/projectzd8.sqlite \
+  --scope-manifest /path/to/capture-root/private/scope-manifest.json \
+  --output /path/to/capture-root/anonymous-data-quality.json
 
 PYTHONPATH=Tools/VehicleChangeDataQuality \
   python3 -m unittest discover -s Tools/VehicleChangeDataQuality/Tests -v
 ```
+
+`--database`、`--scope-manifest`、`--output`(検証CLIでは `--report`、`--scope-manifest`)はsymlinkを解決した実体pathが `--root`(省略時は作業directory)配下にある場合だけ受け付け、範囲外ならusage errorで終了する。
 
 fixture testはOS一時directory内だけでDBを生成し、実車データを使用しない。
 
