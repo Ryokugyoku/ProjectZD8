@@ -1,33 +1,41 @@
 import Foundation
 
-/// 車両一覧、登録確認、編集からApplicationへ通知する操作です。
-enum VehicleManagementAction {
-    /// 認証済みアカウントへ車両スコープを切り替えます。
-    case accountIdentifierChanged(String?)
-    /// HOME接続操作からOBD識別を要求します。
-    case identifyRequested(OBDConnectionEndpoint)
-    /// 直前と同じOBD終端で識別を再試行します。
-    case identificationRetryRequested
-    /// 未登録の車両識別結果を受け入れて編集へ進みます。
-    case identificationConfirmed
-    /// 未登録の車両識別子に対する登録導線をキャンセルします。
-    case registrationCancelled
-    /// 新規または既存プロフィールを保存します。
-    case vehicleSaved(VehicleProfile)
-    /// 指定車両の編集を開始します。
-    case editRequested(VehicleID)
-    /// プロフィール編集を終了します。
-    case editCancelled
-    /// 編集中プロフィールへユーザーが選んだ写真を読み込みます。
-    case photoSelected(URL)
-    /// 指定車両と車両に紐づく全セッションを削除します。
-    case vehicleDeleted(VehicleID)
-    /// 同期先から車両一覧を再読込します。
+/// 車両管理画面からモデルへ送る操作です。
+nonisolated enum VehicleManagementAction: Sendable {
+    /// 読み込みを始め、以後の変更通知を購読します。
+    case started
+    /// 変更通知の購読を止めます。
+    case stopped
+    /// 一覧を再読み込みします。
     case refreshRequested
-    /// 指定車両の対応PID収集設定を開きます。
+    /// 車両の編集画面を開きます。
+    case editRequested(VehicleID)
+    /// 画面で変更した入力を反映します。動力区分が変わるとエネルギー源も整います。
+    case draftChanged(VehicleEditDraft)
+    /// 選んだ画像データを編集中の車両の写真にします。
+    case photoPicked(Data)
+    /// 編集中の車両の写真を外します。
+    case photoRemoved
+    /// 編集中の入力を保存します。
+    case saveRequested
+    /// 保存せず編集画面を閉じます。
+    case editCancelled
+    /// 車両削除の確認を求めます。
+    case deleteRequested(VehicleID)
+    /// 確認済みの車両削除を実行します。
+    case deleteConfirmed
+    /// 車両削除をやめます。
+    case deleteCancelled
+    /// 車両のPID収集設定画面を開きます。
     case pidSettingsRequested(VehicleID)
-    /// 1件のPID収集選択を変更します。
-    case pidCollectionChanged(OBDPIDRequest, Bool)
-    /// PID収集設定を閉じます。
+    /// PID収集設定画面を閉じます。
     case pidSettingsClosed
+    /// PIDの分類絞り込みを変更します。
+    case pidCategoryFilterChanged(VehiclePIDCategoryFilter)
+    /// PIDの有効状態絞り込みを変更します。
+    case pidEnabledFilterChanged(VehiclePIDEnabledFilter)
+    /// 1つのPIDの収集有効・無効を切り替えます。
+    case pidCollectionToggled(OBDPIDRequest, isEnabled: Bool)
+    /// 表示中の失敗を閉じます。
+    case failureDismissed
 }

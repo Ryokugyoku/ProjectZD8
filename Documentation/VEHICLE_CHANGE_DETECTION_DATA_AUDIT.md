@@ -1,10 +1,12 @@
 # 登録車両変化検知 実車ログデータ品質監査
 
+> **適用範囲(必読)**: 本書の数値と所見は、2026-07-28に**旧データモデル**(`projectzd8.sqlite`、表 `connection_sessions` / `connection_session_raw_logs` / `obd_pid_definitions`)のTestFlight版から取得したsnapshotに対する履歴記録である。初版リリースの再設計で後方互換を持たない新データモデル(`insight-v1.sqlite`、表 `sessions` / `session_pids` / `session_samples`)へ置き換えたため、**この実車データは新スキーマへ引き継がれず**、新データモデルの量・coverage・工程3の証拠として数えない。新データモデルで取得した実車ログの監査は未実施であり、その判定は新しい実測まで **`no-go`(測定不能)** とする。本書の所見のうち、取得時revisionの欠如、要求分母の欠如、batch時間のPID遅延への誤読、session時間とRaw時間の差などは、新データモデルが設計上どう扱うかを[取得計画 §3.2](VEHICLE_CHANGE_DETECTION_ACQUISITION_AND_COLLECTION_PLAN.md)に整理した。以下、表・列・型の名称は旧スキーマのものである。
+
 ## 技術要約
 
 2026-07-28に、ユーザーが実車と確認したTestFlight版の登録車両1台を `A001 / V001` として匿名化し、物理端末から読み取り専用で取得したoffline SQLite snapshotを監査した。対象は8件の終了済みsession、2記録日、37.0 km、Raw 60,505件である。snapshotとworking copyは実行前後のfingerprintが一致し、匿名結果は2回の生成でbyte-for-byte一致した。`PRAGMA integrity_check=ok`、schema互換、孤立Raw 0件、重複sequence群0件、session概要件数・byte数不一致0件だった。
 
-現在snapshotのPID定義で再decodeすると、観測された35 PID、Raw 60,505件はすべて `numericFinite` かつ宣言範囲内だった。しかし、取得時点のPID definition revisionがsession/Rawへ保存されておらず、観測量も2日・37 kmに限られる。走行状態coverage、季節・整備前後・端末差、1,000 km候補の妥当性は評価できない。工程3判定は **`revise`** とし、特徴量、走行状態閾値、初期基準距離、スコア、モデル方式は確定しない。
+現在snapshotのPID定義で再decodeすると、観測された35 PID、Raw 60,505件はすべて `numericFinite` かつ宣言範囲内だった。しかし、取得時点のPID definition revisionがsession/Rawへ保存されておらず、観測量も2日・37 kmに限られる。走行状態coverage、季節・整備前後・端末差、1,000 km候補の妥当性は評価できない。旧スキーマに対する工程3判定は **`revise`** とし、特徴量、走行状態閾値、初期基準距離、スコア、モデル方式は確定しない。
 
 ## 良好な整合性と変換結果は、まだ学習適格を意味しない
 
@@ -62,7 +64,7 @@ session時間とRaw観測時間の差は合計436.505秒（約7.28分）で、me
 
 保存済み直接終了原因は `userDisconnected` 2件、`vehicleNoResponse` 5件、`connectionLost` 1件だった。後者6件はすべてreview decisionが`userInitiated`で、Domain表示状態は8件とも`completed`になる。通信上の直接原因とユーザー確認済み終了区分は別々に保持・集計する必要がある。
 
-## 監査範囲、入力、metric定義
+## 監査範囲、入力、metric定義(旧スキーマ)
 
 - cohort: ユーザーが実車と確認した、同一account scope・登録車両1台の8 session。
 - grain: session、Raw観測、Service/PID、PID連続観測間隔。
@@ -73,6 +75,7 @@ session時間とRaw観測時間の差は合計436.505秒（約7.28分）で、me
 - interval: 同じsession・同じService/PID内で観測時刻を昇順にした隣接差。session境界を跨がない。
 - percentile: Hyndman-Fan type 7。
 - 実車分類: DB値から推測せず、ユーザー確認を非公開scope manifestへ固定。
+- 新スキーマでの対応: Raw `observedAt` は `session_samples.elapsedMicroseconds`(セッション開始からの単調時計)、PID coverageの分母は `session_samples` の要求行数、実車/デモの区分は `sessions.isDemo` に置き換わる。新スキーマの計算定義は[測定計画 §7](VEHICLE_CHANGE_DETECTION_DATA_QUALITY_MEASUREMENT_PLAN.md)を参照する。
 
 入力はアプリ終了後に物理端末のApplication Support directoryを1回だけ複製したoffline snapshotである。SQLite本体だけが存在し、copy元にもWAL/SHMは存在しなかった。snapshotとworking copyはSHA-256、size、mtime、file setを非公開manifestで照合した。
 
@@ -92,20 +95,20 @@ session時間とRaw観測時間の差は合計436.505秒（約7.28分）で、me
 
 | 重要度 | 懸念 | 証拠 | 学習・評価への影響 | 最小の次対応 |
 | --- | --- | --- | --- | --- |
-| High | 取得時PID revisionがない | 全35 PIDはsnapshot revision 2で再decode | 式・単位・範囲の世代互換性を証明できない | sessionまたはRawへ取得時definition manifestを永続化する設計を後続phaseで検討 |
+| High | 取得時PID revisionがない(新スキーマでは `session_pids.definitionRevision` で設計上解消、実取得は未確認) | 全35 PIDはsnapshot revision 2で再decode | 式・単位・範囲の世代互換性を証明できない | (旧所見)取得時definitionの永続化。新スキーマはセッションごとに式・範囲・改訂を複写する |
 | High | 縦断量が不足 | 2日、37 km、8 session | 走行状態、季節、整備前後、1,000 km候補、長期trendを判断できない | 同一車両で日・距離・状態を増やして再測定 |
 | Medium | session量が強く偏る | 2〜38,298 Raw、median 1,922.5 | 短sessionが分布を不安定化し、長sessionが支配する | session単位splitと最低観測量候補を実データ感度比較する |
 | Medium | 33 PIDが1 sessionで未観測 | 33 PIDは7/8、2 PIDだけ8/8 | 固定入力manifestの完全性とmissing maskが必要 | 欠測maskを維持し0補完しない。追加sessionで再現性を測る |
 | Medium | 10秒超intervalがある | 1,690 interval、ただし30秒超0 | window内coverageが不均一になり得る | cadence別にgap候補を比較し、欠測率とは呼ばない |
-| Medium | batch時間をPID latencyにできない | batch max約10.9秒、同一batchで共有 | 個別応答性能やtimeoutを誤って推定する危険 | request/nonresponse/batch identityの将来保存を検討 |
-| Medium | Production復元が未確認 | 全8件uploaded/Manifestあり | local削除後の学習再現性は未証明 | 別の明示承認工程で1 sessionのProduction復元E2Eを検証 |
+| Medium | batch時間をPID latencyにできない | batch max約10.9秒、同一batchで共有 | 個別応答性能やtimeoutを誤って推定する危険 | (旧所見)新スキーマは無応答を含む要求行を保存する。PID個別の応答遅延は保存しない |
+| Medium | Production復元が未確認 | 全8件uploaded/Manifestあり | local削除後の学習再現性は未証明 | 新スキーマのアーカイブ(`SessionArchive`)について別の明示承認工程で1 sessionのProduction復元E2Eを検証 |
 | Low | session時間がRaw時間を上回る | 合計約7.28分、max約5.87分 | 接続時間を学習coverageに使うと過大 | Raw観測時間を主指標として併記 |
 
 この監査は記述的なデータ品質評価であり、車両状態、故障、劣化、整備効果、因果関係を推定しない。
 
-## 工程3判定はrevise
+## 工程3判定はrevise(旧スキーマの履歴判定)
 
-以下は合格した。
+この判定は旧スキーマの8 sessionに対するものであり、新データモデルには適用されない(新データモデルの実車ログがない現在の判定は `no-go`、先頭の適用範囲を参照)。以下は旧スキーマの監査で合格した項目である。
 
 - 物理端末snapshot取得、integrity、schema、privacy、scope分離
 - 複数終了sessionと複数記録日の実車Raw
@@ -117,17 +120,19 @@ session時間とRaw観測時間の差は合計436.505秒（約7.28分）で、me
 
 ## 次に必要な測定
 
-1. 同一登録車両で、異なる日・距離・走行条件の追加sessionを収集し、同じ集計器で差分を測る。
-2. sessionごとのPID definition revision、app version、schema version、polling policy、PID capability snapshotを将来どう固定するか設計する。ただしこの監査ではmigrationしない。
+旧スキーマのデータは引き継がれないため、以下は新データモデルで取得し直したデータへ適用する。
+
+1. 新データモデルで同一登録車両の実車ログを取得し、異なる日・距離・走行条件の追加sessionを集め、改訂した集計器(`Tools/VehicleChangeDataQuality`、契約version 2)で再測定する。
+2. 実取得で `session_pids` の複写(定義改訂、式、範囲、header)、無応答を含む要求行、`tick` / `elapsedMicroseconds`、`sessions` の集計列が設計どおり保存されることを匿名集計で確認する。
 3. 確認済み車速・回転数・温度・負荷PIDだけで、走行状態候補の時間・session・日coverageを測る。閾値は比較後に決める。
 4. session単位・時間単位のsplitで、短session除外候補とmissing maskの感度を測る。
-5. Production CloudKitからlocal削除済みRawを1件復元し、digest、sequence、decode、入力manifest再現性を別証拠として確認する。
+5. Production CloudKitから端末内Rawを解放したsessionのアーカイブを1件復元し、digest、sequence、decode、入力manifest再現性を別証拠として確認する。
 6. 1,000 km候補へ到達する日数・session数・状態coverageは、実際に距離を蓄積してから評価する。
 
 ## 追加で答えるべき問い
 
-- どの取得時metadataをRaw不変性を壊さずにmodel input manifestへ固定するか。
-- 2 cadenceのpollingが意図したpolicyか、実装version間で変更されるか。
+- 旧監査で未解決だった取得時metadataの固定(PID revision、app version、polling policy、capability)は新スキーマで保存されるが、実取得で期待どおり記録されるか。
+- 2 cadenceのpollingは新しい `AcquisitionPollingPolicy` の意図どおりか(`pollingPolicyVersion` と各tickの要求行で確認する)。
 - min 2件のような短sessionをどの段階で除外し、除外理由をどう保存するか。
-- 33 PIDの1 session欠測が接続時間、capability、polling開始、通信中断のどれに由来するか。
+- 旧監査で33 PIDが1 sessionで未観測だった原因(接続時間、capability、polling開始、通信中断)は、新スキーマの `support` / `isCollectionEnabled` と `outcome` で区別できるか。
 - Production復元後も同じ匿名集計結果を再現できるか。

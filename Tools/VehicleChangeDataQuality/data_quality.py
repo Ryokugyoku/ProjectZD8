@@ -1,4 +1,4 @@
-"""読み取り専用SQLite snapshotを匿名データ品質JSONへ変換します。"""
+"""読み取り専用SQLite snapshot(insight-v1.sqlite)を匿名データ品質JSONへ変換します。"""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ import json
 import math
 import sqlite3
 from collections import Counter, defaultdict
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Iterable
 from urllib.parse import quote
@@ -14,24 +14,33 @@ from urllib.parse import quote
 from formula_evaluator import PIDDefinition, classify
 
 
+CALCULATION_VERSION = 2
+CONTRACT_VERSION = 2
+SCHEMA_CONTRACT_VERSION = 2
+SOURCE_SCHEMA = "insight-v1"
+EXPECTED_MIGRATIONS = ["v1"]
+
 EXPECTED_COLUMNS = {
-    "connection_sessions": (
-        "id", "accountIdentifier", "startedAt", "endedAt", "endReason", "stopReviewDecision",
-        "vehicleID", "vehicleName", "vehicleDisplayIdentifier", "acquisitionPlatform",
-        "acquisitionDeviceName", "startingOdometerKilometers", "endingOdometerKilometers",
-        "distanceSourceModelCode", "rawRecordCount", "rawByteCount", "localRawState",
-        "cloudSyncState", "manifestDigest", "macImportedDeviceID", "macImportedDeviceName",
-        "macImportedAt", "macImportedManifestDigest", "rawLastAccessedAt",
+    "sessions": (
+        "id", "vehicleID", "startedAt", "endedAt", "endReason", "isDemo", "adapterName",
+        "adapterTransport", "platform", "deviceID", "deviceName", "appVersion", "appBuild",
+        "pollingPolicyVersion", "odometerStartKilometers", "odometerEndKilometers", "distanceSource",
+        "sampleCount", "respondedCount", "payloadByteCount", "rawAvailability", "archiveDigest",
+        "modifiedAt", "deletedAt",
     ),
-    "connection_session_raw_logs": (
-        "sessionID", "sequence", "observedAt", "batchElapsedNanoseconds", "service", "pid", "payload",
+    "session_pids": (
+        "sessionID", "ordinal", "service", "pid", "header", "support", "isCollectionEnabled",
+        "isFastGroup", "definitionRevision", "requiredByteCount", "formula", "unit", "minimumValue",
+        "maximumValue",
     ),
-    "obd_pid_definitions": (
-        "service", "pid", "header", "vehicleModelCode", "nameKey", "requiredByteCount", "formula",
-        "unit", "minimumValue", "maximumValue", "sourceURI", "revision", "summaryKey", "highValueKey",
-        "lowValueKey", "correlationKey",
+    "session_samples": (
+        "sessionID", "sequence", "tick", "elapsedMicroseconds", "service", "pid", "outcome", "payload",
     ),
 }
+
+# Domain `SampleOutcome.rawValue` と一致させます。
+OUTCOME_NAMES = {0: "responded", 1: "noData", 2: "timedOut", 3: "failed"}
+CLASSIFICATIONS = {"realVehicle", "demo", "fixture", "indeterminate"}
 
 DECODE_CLASSES = (
     "numericFinite", "missingDefinition", "unavailableFormula", "insufficientBytes",
@@ -56,59 +65,53 @@ def open_readonly(database_path: Path) -> sqlite3.Connection:
 
 
 def build_report(database_path: Path, manifest_path: Path) -> dict[str, Any]:
-    """検証済みscopeだけを匿名データ品質報告へ集計します。"""
+    """検証済みscopeだけを匿名データ品質報告へ集計します。
+
+    manifestは `{"inputKind": "physicalDeviceSnapshot", "vehicles": [{"vehicleID", "classification", "sessionIDs"}]}`。
+    アカウント識別子は存在しません(データは端末のiCloudアカウントに属する)。
+    """
 
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    scopes = manifest.get("scopes")
-    if manifest.get("inputKind") != "physicalDeviceSnapshot" or not isinstance(scopes, list) or not scopes:
-        raise DataQualityError("manifest must describe a physical device snapshot")
+    vehicles = manifest.get("vehicles")
+    if manifest.get("inputKind") != "physicalDeviceSnapshot" or not isinstance(vehicles, list) or not vehicles:
+        raise DataQualityError("manifest must describe a physical device snapshot with vehicles")
     connection = open_readonly(database_path)
     try:
         preflight = _preflight(connection)
-        reports = []
+        vehicle_reports = []
         classification_totals: Counter[str] = Counter()
-        for account_index, scope in enumerate(scopes, start=1):
-            account_identifier = _required_string(scope, "accountIdentifier")
-            vehicle_reports = []
-            vehicles = scope.get("vehicles")
-            if not isinstance(vehicles, list) or not vehicles:
-                raise DataQualityError("each scope must contain vehicles")
-            for vehicle_index, vehicle in enumerate(vehicles, start=1):
-                vehicle_id = _required_string(vehicle, "vehicleID")
-                classification = _required_string(vehicle, "classification")
-                if classification not in {"realVehicle", "demo", "fixture", "indeterminate"}:
-                    raise DataQualityError("unsupported session classification")
-                session_ids = vehicle.get("sessionIDs")
-                if not isinstance(session_ids, list) or not session_ids or not all(isinstance(value, str) for value in session_ids):
-                    raise DataQualityError("each vehicle must contain explicit session IDs")
-                classification_totals[classification] += len(session_ids)
-                vehicle_reports.append(
-                    _build_vehicle_report(
-                        connection,
-                        account_identifier,
-                        vehicle_id,
-                        session_ids,
-                        classification,
-                        f"V{vehicle_index:03d}",
-                    )
-                )
-            reports.append({"accountLabel": f"A{account_index:03d}", "vehicles": vehicle_reports})
+        excluded_demo = 0
+        for vehicle_index, vehicle in enumerate(vehicles, start=1):
+            vehicle_id = _required_string(vehicle, "vehicleID")
+            classification = _required_string(vehicle, "classification")
+            if classification not in CLASSIFICATIONS:
+                raise DataQualityError("unsupported session classification")
+            session_ids = vehicle.get("sessionIDs")
+            if not isinstance(session_ids, list) or not session_ids or not all(isinstance(value, str) for value in session_ids):
+                raise DataQualityError("each vehicle must contain explicit session IDs")
+            report, excluded = _build_vehicle_report(
+                connection, vehicle_id, session_ids, classification, f"V{vehicle_index:03d}",
+            )
+            classification_totals[classification] += report["sessionCount"]
+            excluded_demo += excluded
+            vehicle_reports.append(report)
         return {
-            "calculationVersion": 1,
+            "calculationVersion": CALCULATION_VERSION,
             "classificationTotals": dict(sorted(classification_totals.items())),
-            "contractVersion": 1,
+            "contractVersion": CONTRACT_VERSION,
             "evidenceBoundary": "anonymousOfflineAggregateOnly",
+            "exclusions": {"demoSessionsWithoutDemoClassification": excluded_demo},
             "inputKind": "physicalDeviceSnapshot",
             "percentileMethod": "hyndmanFanType7",
             "preflight": preflight,
-            "schemaContractVersion": 1,
-            "scopes": reports,
+            "schemaContractVersion": SCHEMA_CONTRACT_VERSION,
+            "sourceSchema": SOURCE_SCHEMA,
             "status": "accepted",
-            "exclusions": {},
+            "vehicles": vehicle_reports,
             "warnings": [
-                "PID revisions are snapshot revisions, not acquisition-time revisions.",
-                "Cloud uploaded state does not prove Production Asset availability or restoration.",
-                "Raw sequence is persistence order, not response arrival order.",
+                "Sample wall-clock times are session start plus monotonic elapsed time, not device clock readings.",
+                "Raw availability cloudOnly sessions carry no local samples and cannot be analysed offline.",
+                "Rates are per request row; sessions that never requested a PID do not enter its denominator.",
             ],
         }
     finally:
@@ -163,200 +166,301 @@ def _preflight(connection: sqlite3.Connection) -> dict[str, Any]:
         actual = tuple(row[1] for row in connection.execute(f"PRAGMA table_info({table})"))
         if actual != expected:
             raise DataQualityError(f"schema mismatch for {table}")
-    orphan_raw = connection.execute(
-        "SELECT COUNT(*) FROM connection_session_raw_logs AS raw "
-        "LEFT JOIN connection_sessions AS session ON session.id = raw.sessionID WHERE session.id IS NULL"
+    has_migrations = connection.execute(
+        "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'grdb_migrations'"
+    ).fetchone()[0]
+    if not has_migrations:
+        raise DataQualityError("schema mismatch: grdb_migrations is missing")
+    migrations = [row[0] for row in connection.execute("SELECT identifier FROM grdb_migrations ORDER BY rowid")]
+    if migrations != EXPECTED_MIGRATIONS:
+        raise DataQualityError("schema mismatch: unexpected migration history")
+    orphan_samples = connection.execute(
+        "SELECT COUNT(*) FROM session_samples AS sample "
+        "LEFT JOIN sessions AS session ON session.id = sample.sessionID WHERE session.id IS NULL"
+    ).fetchone()[0]
+    orphan_pids = connection.execute(
+        "SELECT COUNT(*) FROM session_pids AS pid "
+        "LEFT JOIN sessions AS session ON session.id = pid.sessionID WHERE session.id IS NULL"
     ).fetchone()[0]
     duplicate_sequence = connection.execute(
-        "SELECT COUNT(*) FROM (SELECT sessionID, sequence, COUNT(*) AS count FROM connection_session_raw_logs "
+        "SELECT COUNT(*) FROM (SELECT sessionID, sequence, COUNT(*) AS count FROM session_samples "
         "GROUP BY sessionID, sequence HAVING count > 1)"
     ).fetchone()[0]
     return {
         "duplicateSequenceGroups": duplicate_sequence,
         "integrityCheck": "ok",
-        "orphanRawRows": orphan_raw,
+        "orphanPIDRows": orphan_pids,
+        "orphanSampleRows": orphan_samples,
         "schemaCompatible": True,
     }
 
 
 def _build_vehicle_report(
     connection: sqlite3.Connection,
-    account_identifier: str,
     vehicle_id: str,
     session_ids: list[str],
     classification: str,
     vehicle_label: str,
-) -> dict[str, Any]:
-    """1つのaccount/vehicle/session scopeを匿名集計します。"""
+) -> tuple[dict[str, Any], int]:
+    """1つのvehicle/session scopeを匿名集計します。除外したdemo session数も返します。"""
 
-    placeholders = ",".join("?" for _ in session_ids)
+    unique_ids = sorted(set(session_ids))
+    placeholders = ",".join("?" for _ in unique_ids)
     session_sql = (
-        "SELECT id, startedAt, endedAt, endReason, stopReviewDecision, acquisitionPlatform, "
-        "startingOdometerKilometers, endingOdometerKilometers, rawRecordCount, rawByteCount, "
-        "localRawState, cloudSyncState, manifestDigest "
-        f"FROM connection_sessions WHERE accountIdentifier = ? AND vehicleID = ? AND id IN ({placeholders}) "
-        "ORDER BY startedAt, id"
+        "SELECT id, vehicleID, startedAt, endedAt, endReason, isDemo, adapterTransport, platform, "
+        "appVersion, appBuild, pollingPolicyVersion, odometerStartKilometers, odometerEndKilometers, "
+        "distanceSource, sampleCount, respondedCount, payloadByteCount, rawAvailability, archiveDigest "
+        f"FROM sessions WHERE id IN ({placeholders}) AND deletedAt IS NULL ORDER BY startedAt, id"
     )
-    sessions = list(connection.execute(session_sql, [account_identifier, vehicle_id, *session_ids]))
-    if len(sessions) != len(set(session_ids)):
-        raise DataQualityError("scope manifest does not match stored sessions")
-    session_id_set = {row["id"] for row in sessions}
-    if session_id_set != set(session_ids):
-        raise DataQualityError("scope manifest contains a wrong account or vehicle session")
-    definitions = _definitions(connection)
-    raw_sql = (
-        "SELECT sessionID, sequence, observedAt, batchElapsedNanoseconds, service, pid, payload "
-        f"FROM connection_session_raw_logs WHERE sessionID IN ({placeholders}) "
-        "ORDER BY sessionID, sequence"
-    )
-    raw_rows = list(connection.execute(raw_sql, session_ids))
-    raw_by_session: dict[str, list[sqlite3.Row]] = defaultdict(list)
-    for row in raw_rows:
-        raw_by_session[row["sessionID"]].append(row)
+    stored = list(connection.execute(session_sql, unique_ids))
+    if {row["id"] for row in stored} != set(unique_ids):
+        raise DataQualityError("scope manifest references a missing or deleted session")
+    if any(row["vehicleID"] != vehicle_id for row in stored):
+        raise DataQualityError("scope manifest contains a session of another vehicle")
+    for row in stored:
+        _require_integer(row["startedAt"], "startedAt")
+        if row["endedAt"] is not None:
+            _require_integer(row["endedAt"], "endedAt")
 
-    started = [_parse_timestamp(row["startedAt"]) for row in sessions]
-    ended = [_parse_timestamp(row["endedAt"]) for row in sessions if row["endedAt"] is not None]
-    raw_times = [_parse_timestamp(row["observedAt"]) for row in raw_rows]
-    session_durations = [
-        (_parse_timestamp(row["endedAt"]) - _parse_timestamp(row["startedAt"])).total_seconds()
-        for row in sessions if row["endedAt"] is not None
-    ]
-    raw_durations = []
-    duration_differences = []
-    samples_per_session = []
-    sequence_gap_sessions = 0
-    summary_count_mismatch = 0
-    summary_byte_mismatch = 0
+    demo_rows = [row for row in stored if row["isDemo"]]
+    if classification == "demo":
+        if len(demo_rows) != len(stored):
+            raise DataQualityError("demo classification contains a non-demo session")
+        sessions, excluded = stored, 0
+    else:
+        sessions = [row for row in stored if not row["isDemo"]]
+        excluded = len(demo_rows)
+
+    kept_ids = [row["id"] for row in sessions]
+    snapshots = _snapshots(connection, kept_ids)
+    samples_by_session = _samples(connection, kept_ids)
+
+    started = [_to_datetime(row["startedAt"]) for row in sessions]
+    ended = [_to_datetime(row["endedAt"]) for row in sessions if row["endedAt"] is not None]
+    session_durations = [(row["endedAt"] - row["startedAt"]) / 1000.0 for row in sessions if row["endedAt"] is not None]
+
+    raw_durations: list[float] = []
+    duration_differences: list[float] = []
+    samples_per_session: list[int] = []
+    raw_times: list[datetime] = []
+    checks: Counter[str] = Counter()
+    payload_total = 0
+    sample_total = 0
+    pid_samples: dict[tuple[int, int], list[tuple[sqlite3.Row, sqlite3.Row]]] = defaultdict(list)
     for session in sessions:
-        rows = raw_by_session.get(session["id"], [])
+        rows = samples_by_session.get(session["id"], [])
+        snapshot = snapshots.get(session["id"], {})
         samples_per_session.append(len(rows))
-        sequences = [row["sequence"] for row in rows]
-        if sequences != list(range(len(rows))):
-            sequence_gap_sessions += 1
-        if session["rawRecordCount"] != len(rows):
-            summary_count_mismatch += 1
+        sample_total += len(rows)
         payload_bytes = sum(len(row["payload"]) for row in rows)
-        if session["rawByteCount"] != payload_bytes:
-            summary_byte_mismatch += 1
+        payload_total += payload_bytes
+        responded = sum(1 for row in rows if row["outcome"] == 0)
+        if [row["sequence"] for row in rows] != list(range(len(rows))):
+            checks["sequenceGapSessions"] += 1
+        if session["sampleCount"] != len(rows):
+            checks["sampleCountMismatchSessions"] += 1
+        if session["respondedCount"] != responded:
+            checks["respondedCountMismatchSessions"] += 1
+        if session["payloadByteCount"] != payload_bytes:
+            checks["payloadByteCountMismatchSessions"] += 1
+        if sorted(item["ordinal"] for item in snapshot.values()) != list(range(len(snapshot))):
+            checks["pidOrdinalGapSessions"] += 1
+        if session["rawAvailability"] == "cloudOnly" and rows:
+            checks["cloudOnlyWithLocalSamplesSessions"] += 1
+        if session["rawAvailability"] == "local" and session["sampleCount"] > 0 and not rows:
+            checks["localWithoutSamplesSessions"] += 1
+        elapsed_values = [row["elapsedMicroseconds"] for row in rows]
+        tick_values = [row["tick"] for row in rows]
+        if any(right < left for left, right in zip(elapsed_values, elapsed_values[1:])) or any(value < 0 for value in elapsed_values):
+            checks["elapsedNotMonotonicSessions"] += 1
+        if any(right < left for left, right in zip(tick_values, tick_values[1:])):
+            checks["tickNotMonotonicSessions"] += 1
+        for row in rows:
+            if row["outcome"] not in OUTCOME_NAMES:
+                raise DataQualityError("unknown sample outcome")
+            has_payload = len(row["payload"]) > 0
+            if (row["outcome"] == 0) != has_payload:
+                checks["outcomePayloadMismatchRows"] += 1
+            pid = snapshot.get((row["service"], row["pid"]))
+            if pid is None:
+                checks["samplesWithoutSnapshotRows"] += 1
+            elif not (pid["support"] == "supported" and pid["isCollectionEnabled"]):
+                checks["samplesForUnpolledPIDRows"] += 1
+            pid_samples[(row["service"], row["pid"])].append((session, row))
         if rows:
-            observed = [_parse_timestamp(row["observedAt"]) for row in rows]
-            raw_duration = (max(observed) - min(observed)).total_seconds()
-            raw_durations.append(raw_duration)
+            span = (max(elapsed_values) - min(elapsed_values)) / 1_000_000
+            raw_durations.append(span)
+            start = _to_datetime(session["startedAt"])
+            raw_times.extend(start + timedelta(microseconds=value) for value in (min(elapsed_values), max(elapsed_values)))
             if session["endedAt"] is not None:
-                duration_differences.append(
-                    (_parse_timestamp(session["endedAt"]) - _parse_timestamp(session["startedAt"])).total_seconds()
-                    - raw_duration
-                )
+                duration_differences.append((session["endedAt"] - session["startedAt"]) / 1000.0 - span)
+    for name in (
+        "sequenceGapSessions", "sampleCountMismatchSessions", "respondedCountMismatchSessions",
+        "payloadByteCountMismatchSessions", "pidOrdinalGapSessions", "cloudOnlyWithLocalSamplesSessions",
+        "localWithoutSamplesSessions", "elapsedNotMonotonicSessions", "tickNotMonotonicSessions",
+        "outcomePayloadMismatchRows", "samplesWithoutSnapshotRows", "samplesForUnpolledPIDRows",
+    ):
+        checks.setdefault(name, 0)
 
+    day_set = {value.date() for value in started} | {value.date() for value in raw_times}
     distance_values = []
     distance_failed = 0
     for row in sessions:
-        start = row["startingOdometerKilometers"]
-        end = row["endingOdometerKilometers"]
+        start = row["odometerStartKilometers"]
+        end = row["odometerEndKilometers"]
         if start is None or end is None or not math.isfinite(start) or not math.isfinite(end) or start < 0 or end < start:
             distance_failed += 1
         else:
             distance_values.append(end - start)
 
-    pid_rows: dict[tuple[int, int], list[sqlite3.Row]] = defaultdict(list)
-    for row in raw_rows:
-        pid_rows[(row["service"], row["pid"])].append(row)
     pid_reports = [
-        _build_pid_report(key, rows, definitions.get(key), len(sessions), len({time.date() for time in raw_times}))
-        for key, rows in sorted(pid_rows.items())
+        _build_pid_report(key, entries, snapshots, len(sessions), len(day_set))
+        for key, entries in sorted(pid_samples.items())
     ]
+    observed_dates = sorted(day_set)
 
-    return {
+    report = {
+        "adapterTransportDistribution": _counter(row["adapterTransport"] for row in sessions),
+        "appVersionDistribution": _counter(f"{row['appVersion']}+{row['appBuild']}" for row in sessions),
         "classification": classification,
         "classificationDistribution": {classification: len(sessions)},
-        "cloudStateDistribution": _counter(row["cloudSyncState"] for row in sessions),
+        "demoSessionCount": sum(1 for row in sessions if row["isDemo"]),
+        "distanceSourceDistribution": _counter(row["distanceSource"] or "none" for row in sessions),
         "distance": {
             "establishedCount": len(distance_values),
             "failedCount": distance_failed,
             "totalKilometers": _rounded(sum(distance_values)),
         },
         "durationDifferenceSeconds": distribution(duration_differences),
-        "endReasonDistribution": _counter(row["endReason"] or "active" for row in sessions),
-        "localStateDistribution": _counter(row["localRawState"] for row in sessions),
-        "manifestPresenceDistribution": _counter("present" if row["manifestDigest"] else "absent" for row in sessions),
-        "observationEndDate": max(raw_times).date().isoformat() if raw_times else None,
-        "observationStartDate": min(raw_times).date().isoformat() if raw_times else None,
-        "pids": pid_reports,
-        "platformDistribution": _counter(row["acquisitionPlatform"] or "unknown" for row in sessions),
-        "qualityChecks": {
-            "rawSummaryByteMismatchSessions": summary_byte_mismatch,
-            "rawSummaryCountMismatchSessions": summary_count_mismatch,
-            "sequenceGapSessions": sequence_gap_sessions,
+        "endReasonDistribution": _counter(row["endReason"] or "recording" for row in sessions),
+        "learningEligibility": {
+            "status": "notEstablished",
+            "reasons": ["operatingConditionCoverageNotEvaluated"]
+            + ([] if classification == "realVehicle" else ["classificationNotRealVehicle"]),
         },
-        "rawPayloadByteCount": sum(len(row["payload"]) for row in raw_rows),
-        "rawLogCount": len(raw_rows),
+        "observationEndDate": observed_dates[-1].isoformat() if observed_dates else None,
+        "observationStartDate": observed_dates[0].isoformat() if observed_dates else None,
+        "pids": pid_reports,
+        "platformDistribution": _counter(row["platform"] for row in sessions),
+        "pollingPolicyVersionDistribution": _counter(str(row["pollingPolicyVersion"]) for row in sessions),
+        "qualityChecks": dict(sorted(checks.items())),
+        "rawAvailabilityDistribution": _counter(row["rawAvailability"] for row in sessions),
         "rawObservationDurationSeconds": {"distribution": distribution(raw_durations), "total": _rounded(sum(raw_durations))},
-        "rawAvailabilityDistribution": _raw_availability(sessions, raw_by_session),
-        "recordedDayCount": len({time.date() for time in raw_times}),
-        "reviewDecisionDistribution": _counter(row["stopReviewDecision"] or "unreviewed" for row in sessions),
+        "rawPayloadByteCount": payload_total,
+        "recordedDayCount": len(day_set),
+        "requestCount": sample_total,
         "samplesPerSession": distribution(samples_per_session),
         "sessionCount": len(sessions),
-        "sessionStatusDistribution": _counter(_session_status(row) for row in sessions),
         "sessionDurationSeconds": {"distribution": distribution(session_durations), "total": _rounded(sum(session_durations))},
         "sessionEndDate": max(ended).date().isoformat() if ended else None,
         "sessionStartDate": min(started).date().isoformat() if started else None,
+        "sessionStatusDistribution": _counter(_session_status(row) for row in sessions),
+        "uploadedArchiveDistribution": _counter("present" if row["archiveDigest"] else "absent" for row in sessions),
         "vehicleLabel": vehicle_label,
-        "learningEligibility": {
-            "status": "notEstablished",
-            "reasons": ["acquisitionRevisionUnavailable", "operatingConditionCoverageNotEvaluated"],
-        },
     }
+    return report, excluded
+
+
+def _snapshots(connection: sqlite3.Connection, session_ids: list[str]) -> dict[str, dict[tuple[int, int], dict[str, Any]]]:
+    """各sessionのPID snapshotをService/PID索引へ変換します。"""
+
+    if not session_ids:
+        return {}
+    placeholders = ",".join("?" for _ in session_ids)
+    rows = connection.execute(
+        "SELECT sessionID, ordinal, service, pid, header, support, isCollectionEnabled, isFastGroup, "
+        "definitionRevision, requiredByteCount, formula, minimumValue, maximumValue "
+        f"FROM session_pids WHERE sessionID IN ({placeholders}) ORDER BY sessionID, ordinal",
+        session_ids,
+    )
+    result: dict[str, dict[tuple[int, int], dict[str, Any]]] = defaultdict(dict)
+    for row in rows:
+        result[row["sessionID"]][(row["service"], row["pid"])] = {
+            "ordinal": row["ordinal"],
+            "header": row["header"],
+            "support": row["support"],
+            "isCollectionEnabled": bool(row["isCollectionEnabled"]),
+            "isFastGroup": bool(row["isFastGroup"]),
+            "definition": PIDDefinition(
+                service=row["service"], pid=row["pid"], required_byte_count=row["requiredByteCount"],
+                formula=row["formula"], minimum_value=row["minimumValue"], maximum_value=row["maximumValue"],
+                revision=row["definitionRevision"],
+            ),
+        }
+    return result
+
+
+def _samples(connection: sqlite3.Connection, session_ids: list[str]) -> dict[str, list[sqlite3.Row]]:
+    """対象sessionのRawサンプルをsequence順に読みます。"""
+
+    if not session_ids:
+        return {}
+    placeholders = ",".join("?" for _ in session_ids)
+    rows = connection.execute(
+        "SELECT sessionID, sequence, tick, elapsedMicroseconds, service, pid, outcome, payload "
+        f"FROM session_samples WHERE sessionID IN ({placeholders}) ORDER BY sessionID, sequence",
+        session_ids,
+    )
+    result: dict[str, list[sqlite3.Row]] = defaultdict(list)
+    for row in rows:
+        result[row["sessionID"]].append(row)
+    return result
 
 
 def _session_status(session: sqlite3.Row) -> str:
-    """終了原因とreview結果をDomain表示状態へ変換します。"""
+    """終了原因を表示状態へ変換します。"""
 
     if session["endReason"] is None:
-        return "connected"
-    if session["endReason"] == "userDisconnected" or session["stopReviewDecision"] == "userInitiated":
-        return "completed"
-    return "interrupted"
-
-
-def _definitions(connection: sqlite3.Connection) -> dict[tuple[int, int], PIDDefinition]:
-    """snapshot内PID定義をService/PID索引へ変換します。"""
-
-    rows = connection.execute(
-        "SELECT service, pid, requiredByteCount, formula, minimumValue, maximumValue, revision "
-        "FROM obd_pid_definitions ORDER BY service, pid"
-    )
-    return {
-        (row["service"], row["pid"]): PIDDefinition(
-            service=row["service"], pid=row["pid"], required_byte_count=row["requiredByteCount"],
-            formula=row["formula"], minimum_value=row["minimumValue"], maximum_value=row["maximumValue"],
-            revision=row["revision"],
-        )
-        for row in rows
-    }
+        return "recording"
+    return "completed" if session["endReason"] == "userStopped" else "interrupted"
 
 
 def _build_pid_report(
     key: tuple[int, int],
-    rows: list[sqlite3.Row],
-    definition: PIDDefinition | None,
+    entries: list[tuple[sqlite3.Row, sqlite3.Row]],
+    snapshots: dict[str, dict[tuple[int, int], dict[str, Any]]],
     session_count: int,
     recorded_day_count: int,
 ) -> dict[str, Any]:
-    """1つのService/PIDを件数、変換、間隔へ集計します。"""
+    """1つのService/PIDを要求数・応答率・変換・周期へ集計します。"""
 
+    outcome_counts = Counter({name: 0 for name in OUTCOME_NAMES.values()})
     decode_counts = Counter({name: 0 for name in DECODE_CLASSES})
-    times_by_session: dict[str, list[datetime]] = defaultdict(list)
-    observed_days = set()
-    for row in rows:
-        decode_counts[classify(definition, bytes(row["payload"]))] += 1
-        observed_at = _parse_timestamp(row["observedAt"])
-        times_by_session[row["sessionID"]].append(observed_at)
-        observed_days.add(observed_at.date())
-    intervals = []
-    for times in times_by_session.values():
-        ordered = sorted(times)
-        intervals.extend((right - left).total_seconds() for left, right in zip(ordered, ordered[1:]))
-    median_interval = percentile(intervals, 0.5)
+    revisions: Counter[str] = Counter()
+    support: Counter[str] = Counter()
+    headers: Counter[str] = Counter()
+    times_by_session: dict[str, list[tuple[int, int, int]]] = defaultdict(list)
+    responded_sessions: set[str] = set()
+    responded_days: set[date] = set()
+    collection_sessions = 0
+    fast_sessions = 0
+    seen_sessions: set[str] = set()
+    for session, row in entries:
+        session_id = session["id"]
+        snapshot = snapshots.get(session_id, {}).get(key)
+        outcome_counts[OUTCOME_NAMES[row["outcome"]]] += 1
+        if row["outcome"] == 0:
+            decode_counts[classify(snapshot["definition"] if snapshot else None, bytes(row["payload"]))] += 1
+            responded_sessions.add(session_id)
+            responded_days.add((_to_datetime(session["startedAt"]) + timedelta(microseconds=row["elapsedMicroseconds"])).date())
+        times_by_session[session_id].append((row["elapsedMicroseconds"], row["tick"], row["outcome"]))
+        if snapshot and session_id not in seen_sessions:
+            seen_sessions.add(session_id)
+            revisions[str(snapshot["definition"].revision)] += 1
+            support[snapshot["support"]] += 1
+            headers["none" if snapshot["header"] is None else f"0x{snapshot['header']:X}"] += 1
+            collection_sessions += snapshot["isCollectionEnabled"]
+            fast_sessions += snapshot["isFastGroup"]
+    request_intervals: list[float] = []
+    response_intervals: list[float] = []
+    tick_intervals: list[float] = []
+    for rows in times_by_session.values():
+        ordered = sorted(rows)
+        request_intervals.extend((right[0] - left[0]) / 1_000_000 for left, right in zip(ordered, ordered[1:]))
+        tick_intervals.extend(right[1] - left[1] for left, right in zip(ordered, ordered[1:]))
+        answered = [item for item in ordered if item[2] == 0]
+        response_intervals.extend((right[0] - left[0]) / 1_000_000 for left, right in zip(answered, answered[1:]))
+    median_interval = percentile(response_intervals, 0.5)
     thresholds = {
         "over10Seconds": 10.0,
         "over30Seconds": 30.0,
@@ -365,39 +469,32 @@ def _build_pid_report(
         "over5xMedian": 5.0 * median_interval if median_interval is not None else None,
         "overMax10SecondsOr3xMedian": max(10.0, 3.0 * median_interval) if median_interval is not None else None,
     }
+    requests = len(entries)
     return {
-        "batchElapsedMilliseconds": distribution(row["batchElapsedNanoseconds"] / 1_000_000 for row in rows),
+        "collectionEnabledSessionCount": collection_sessions,
         "decodeCounts": dict(decode_counts),
-        "definitionRevision": definition.revision if definition else None,
-        "intervalSeconds": distribution(intervals),
+        "definitionRevisionDistribution": dict(sorted(revisions.items())),
+        "fastGroupSessionCount": fast_sessions,
+        "headerDistribution": dict(sorted(headers.items())),
         "longGapCounts": {
-            name: sum(1 for value in intervals if threshold is not None and value > threshold)
+            name: sum(1 for value in response_intervals if threshold is not None and value > threshold)
             for name, threshold in thresholds.items()
         },
-        "observationCount": len(rows),
-        "observedDayRate": _rounded(len(observed_days) / recorded_day_count) if recorded_day_count else None,
+        "observedDayRate": _rounded(len(responded_days) / recorded_day_count) if recorded_day_count else None,
         "observedDayRateDenominator": recorded_day_count,
-        "observedSessionRate": _rounded(len(times_by_session) / session_count) if session_count else None,
+        "observedSessionRate": _rounded(len(responded_sessions) / session_count) if session_count else None,
         "observedSessionRateDenominator": session_count,
+        "outcomeCounts": dict(outcome_counts),
         "pid": key[1],
-        "revisionMeaning": "reanalyzedWithSnapshotRevision" if definition else "missingDefinition",
+        "requestCount": requests,
+        "requestIntervalSeconds": distribution(request_intervals),
+        "requestedSessionCount": len(times_by_session),
+        "responseIntervalSeconds": distribution(response_intervals),
+        "responseRate": _rounded(outcome_counts["responded"] / requests) if requests else None,
         "service": key[0],
+        "supportDistribution": dict(sorted(support.items())),
+        "tickInterval": distribution(tick_intervals),
     }
-
-
-def _raw_availability(sessions: list[sqlite3.Row], raw_by_session: dict[str, list[sqlite3.Row]]) -> dict[str, int]:
-    """sessionをローカル、復元候補、利用不能へ排他分類します。"""
-
-    result: Counter[str] = Counter()
-    for row in sessions:
-        actual_count = len(raw_by_session.get(row["id"], []))
-        if row["localRawState"] == "available" and actual_count > 0 and row["rawRecordCount"] == actual_count:
-            result["localAvailable"] += 1
-        elif row["localRawState"] == "removed" and actual_count == 0 and row["cloudSyncState"] == "uploaded" and row["manifestDigest"]:
-            result["cloudRestoreCandidate"] += 1
-        else:
-            result["unavailable"] += 1
-    return dict(result)
 
 
 def _counter(values: Iterable[str]) -> dict[str, int]:
@@ -406,20 +503,18 @@ def _counter(values: Iterable[str]) -> dict[str, int]:
     return dict(sorted(Counter(values).items()))
 
 
-def _parse_timestamp(value: str) -> datetime:
-    """GRDBのISO 8601日時をtimezone付きdatetimeへ変換します。"""
+def _require_integer(value: Any, name: str) -> None:
+    """Unixエポックミリ秒の列がINTEGERで保存されていることを検証します。"""
 
-    if not isinstance(value, str):
-        raise DataQualityError("timestamp must be stored as text")
-    normalized = value[:-1] + "+00:00" if value.endswith("Z") else value
-    try:
-        parsed = datetime.fromisoformat(normalized)
-    except ValueError as error:
-        raise DataQualityError("invalid timestamp") from error
-    if parsed.tzinfo is None:
-        # GRDB Date.databaseValue stores `yyyy-MM-dd HH:mm:ss.SSS` in UTC.
-        parsed = parsed.replace(tzinfo=timezone.utc)
-    return parsed
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise DataQualityError(f"{name} must be stored as integer epoch milliseconds")
+
+
+def _to_datetime(milliseconds: int) -> datetime:
+    """Unixエポックミリ秒をUTCのdatetimeへ変換します。"""
+
+    _require_integer(milliseconds, "timestamp")
+    return datetime(1970, 1, 1, tzinfo=timezone.utc) + timedelta(milliseconds=milliseconds)
 
 
 def _required_string(mapping: dict[str, Any], key: str) -> str:

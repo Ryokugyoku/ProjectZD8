@@ -1,16 +1,13 @@
-/// OBDのServiceとPIDを組にした読取要求識別子です。
-nonisolated struct OBDPIDRequest: Equatable, Hashable, Sendable {
-    /// OBD Service番号です。
+/// OBDのサービス番号とPID番号の組で1つの要求を識別します。
+nonisolated struct OBDPIDRequest: Hashable, Codable, Sendable {
+    /// OBDサービス番号です(例: 0x01)。
     let service: UInt8
-    /// Service内PID番号です。
+    /// サービス内のPID番号です。
     let pid: UInt8
 
-    /// ServiceとPIDを複合識別子へ固定します。
+    /// サービス番号とPID番号から要求を生成します。
     ///
-    /// 責務: 1件のOBD読取対象をService/PIDの組として保持します。
-    /// - Parameters:
-    ///   - service: OBD Service番号。
-    ///   - pid: Service内PID番号。
+    /// 責務: 1件のPID要求識別値を生成します。
     init(service: UInt8, pid: UInt8) {
         self.service = service
         self.pid = pid

@@ -4,14 +4,17 @@
 
 本書の責務は、登録車両専用変化検知について、限定実車証拠から後続実験で比較する入力、特徴量、走行状態、初期基準完成条件、score、modelの候補と、その採用・停止条件を固定することである。本書はProduction仕様、学習実行、閾値、1,000 km、score方式、model方式を承認しない。
 
-現時点の判定は **`revise`** である `[realDataObserved]`。候補比較の契約は作成できたが、取得時PID definition revision、走行状態coverage、独立したtrain/validation/testの十分量、縦断安定性がないため、Prompt CのMLX feasibility spike実装へは進まない `[blocked]`。
+現時点の判定は **`revise`** である `[realDataObserved]`。候補比較の契約は作成できたが、走行状態coverage、独立したtrain/validation/testの十分量、縦断安定性がないため、Prompt CのMLX feasibility spike実装へは進まない `[blocked]`。
 
-各項目の根拠区分は次の4種類だけを使用する。
+**データモデルの更新**: 本書の実測値(§2、§3.2の35 PID、cadence、gap)は旧データモデル(`projectzd8.sqlite`)の実車監査に基づく。初版では後方互換のない新データモデル(`insight-v1.sqlite`)へ置き換えたため、その実車データは引き継がれず、新データモデルの実車ログはまだない `[blocked]`。新データモデルは取得時のPID definition revision・式・範囲を `session_pids` に、無応答を含む全要求を `session_samples` に保存する設計であり、旧監査で不足とした取得時metadataの多くを設計上は満たす([`VEHICLE_CHANGE_DETECTION_ACQUISITION_AND_COLLECTION_PLAN.md`](VEHICLE_CHANGE_DETECTION_ACQUISITION_AND_COLLECTION_PLAN.md) §3.2)。ただし実取得での確認がないため、下表の `blocked` は実データで確認するまで解除しない。
+
+各項目の根拠区分は次の5種類だけを使用する。
 
 | 区分 | 意味 |
 | --- | --- |
 | `requirementDerived` | [`VEHICLE_CHANGE_DETECTION_REQUIREMENTS.md`](VEHICLE_CHANGE_DETECTION_REQUIREMENTS.md)から直接導ける契約 |
-| `realDataObserved` | [`VEHICLE_CHANGE_DETECTION_DATA_AUDIT.md`](VEHICLE_CHANGE_DETECTION_DATA_AUDIT.md)の匿名実車集計で確認済み |
+| `realDataObserved` | [`VEHICLE_CHANGE_DETECTION_DATA_AUDIT.md`](VEHICLE_CHANGE_DETECTION_DATA_AUDIT.md)の匿名実車集計(旧データモデル)で確認済み |
+| `currentImplementation` | 現行ソース(Domain、`AppDatabaseMigrator`)上の設計。実機・実車での記録内容は未確認 |
 | `hypothesis` | 同一入力・splitで後続実験が比較する候補。Production採用ではない |
 | `blocked` | 現在の証拠では決定または評価できない |
 
@@ -21,18 +24,18 @@
 
 | 項目 | 現在の証拠 | 区分 | 実験上の制約 |
 | --- | --- | --- | --- |
-| 対象scope | 匿名account scope 1、登録車両1台、終了済み8 session | `realDataObserved` | 別VehicleIDや別accountへ一般化しない |
-| 観測量 | 2記録日、37.0 km、Raw 60,505件、Raw観測約1.83時間 | `realDataObserved` | 季節、整備前後、長期trend、1,000 km候補を評価しない |
-| 観測PID | Service 01の35 PID | `realDataObserved` | 未観測PIDを追加せず、35 PIDすべてを適格とみなさない |
+| 対象scope(旧スキーマ) | 登録車両1台、終了済み8 session | `realDataObserved` | 別VehicleIDへ一般化しない。新データモデルへ引き継がれない |
+| 観測量(旧スキーマ) | 2記録日、37.0 km、Raw 60,505件、Raw観測約1.83時間 | `realDataObserved` | 季節、整備前後、長期trend、1,000 km候補を評価しない |
+| 観測PID(旧スキーマ) | Service 01の35 PID | `realDataObserved` | 未観測PIDを追加せず、35 PIDすべてを適格とみなさない |
 | decode | 同一snapshotのrevision 2定義では全件が有限かつ宣言範囲内 | `realDataObserved` | 取得時互換性の証明ではない |
-| revision | session/Rawに取得時PID definition revisionがない | `realDataObserved` | 現時点では全観測を学習から除外する |
+| revision | 旧スキーマではsession/Rawに取得時PID definition revisionがない。新データモデルは `session_pids.definitionRevision` に記録する設計 | `realDataObserved` / `currentImplementation` | 旧データは全観測を学習から除外する。新データは実取得で記録を確認するまで適格としない |
 | cadence | 高頻度4 PIDはmedian約0.54秒、低頻度31 PIDはmedian約6.17秒 | `realDataObserved` | 本番resampling値やgap閾値へ固定しない |
-| gap候補の観測 | 10秒超interval 1,690件、`max(10秒, 3×median)`超450件、30秒超・60秒超0件 | `realDataObserved` | 要求分母がないため欠測率・timeout率と呼ばない |
+| gap候補の観測 | 10秒超interval 1,690件、`max(10秒, 3×median)`超450件、30秒超・60秒超0件 | `realDataObserved` | 旧スキーマには要求分母がなく欠測率・timeout率と呼べなかった。新データモデルは `outcome` で分けられる |
 | session偏り | session別Rawは2〜38,298件、median 1,922.5件 | `realDataObserved` | Raw行random splitと長sessionによる支配を禁止する |
 | 状態coverage | 未測定 | `blocked` | 状態閾値、最低coverage、通知条件を決めない |
-| Production復元 | DB上は8件uploadedかつmanifestあり、Asset現存・復元は未確認 | `blocked` | remote再現可能性の証拠にしない |
+| Production復元 | 旧DB上は8件uploadedかつmanifestあり、Asset現存・復元は未確認。新データモデルのアーカイブ復元も未検証 | `blocked` | remote再現可能性の証拠にしない |
 
-Raw payloadは派生値と独立した再解析根拠として保持し、missing、invalid、incompatibleを0へ置換しない `[requirementDerived]`。本書にはVIN、VehicleID、session ID、account ID、端末名、Raw payload、Manifest digest、個別走行時刻を掲載しない `[requirementDerived]`。
+Raw payloadは派生値と独立した再解析根拠として保持し、missing、invalid、incompatibleを0へ置換しない `[requirementDerived]`。本書にはVIN、VehicleID、session ID、`deviceID`、端末名、adapter名、Raw payload、アーカイブdigest、個別走行時刻を掲載しない `[requirementDerived]`。
 
 ## 3. 入力PID manifest
 
@@ -44,13 +47,13 @@ Raw payloadは派生値と独立した再解析根拠として保持し、missin
 
 ### 3.2 観測PID一覧
 
-次の区分は下表の35 PID全行へ共通で適用する。`observedCandidate` と `excluded` は矛盾せず、前者は候補inventoryへの掲載、後者は現時点の学習・scoring入力からの除外を意味する `[requirementDerived]`。
+次の区分は、旧スキーマの監査で観測された下表の35 PID全行へ共通で適用する(新データモデルの実車ログでは再測定が必要)。`observedCandidate` と `excluded` は矛盾せず、前者は候補inventoryへの掲載、後者は現時点の学習・scoring入力からの除外を意味する `[requirementDerived]`。
 
 | manifest区分 | 全35 PIDの値 | 区分 |
 | --- | --- | --- |
 | `observedCandidate` | `yes` | `realDataObserved` |
-| `decodeVerifiedWithSnapshotRevision` | `yes: revision 2` | `realDataObserved` |
-| `acquisitionRevisionUnavailable` | `yes` | `realDataObserved` |
+| `decodeVerifiedWithSnapshotRevision` | `yes: revision 2`(旧スキーマのsnapshot) | `realDataObserved` |
+| `acquisitionRevisionUnavailable` | `yes`(旧スキーマ。新データモデルでは `session_pids` に記録) | `realDataObserved` |
 | `semanticMappingVerified` | `signal definition only` | `requirementDerived` |
 | `learningEligibilityNotEstablished` | `yes` | `blocked` |
 | `excluded` | `yes: current training/scoring` | `requirementDerived` |
@@ -94,9 +97,9 @@ Raw payloadは派生値と独立した再解析根拠として保持し、missin
 | `01/5A` | relative accelerator pedal position | 1 | `A * 100 / 255` | `%` | 0...100 | 2 |
 | `01/5C` | engine oil temperature | 1 | `A - 40` | `°C` | -40...215 | 2 |
 
-35 PIDの式・単位・値域は現行`StandardOBDPIDSeed`と同一snapshot DBのrevision 2定義に整合する `[realDataObserved]`。source URIの存在だけでは取得時revision互換性を証明しない `[requirementDerived]`。
+35 PIDの式・単位・値域は、旧スキーマ監査時の標準PIDシードおよび同一snapshot DBのrevision 2定義に整合した `[realDataObserved]`。現行のコード同梱カタログ(`Domain/Catalog/StandardOBDPIDCatalog`)との完全一致は本書では再検証していない `[blocked]`。source URIの存在だけでは取得時revision互換性を証明しない `[requirementDerived]`。
 
-将来、取得時manifestまたは人間が承認した再decode revisionを固定できたPIDだけを `excluded=no` へ遷移させる `[hypothesis]`。式、bytes、unit、rangeのrevision差分が不明、非有限、範囲外、別VehicleID、active session、DEMO/fixture/判定不能、Raw不在のいずれかはreasonを保持して除外する `[requirementDerived]`。
+新データモデルで取得したセッションのうち、`session_pids` の複写で取得時のrevision、式、bytes、unit、rangeを確認でき、人間が承認したPIDだけを `excluded=no` へ遷移させる `[hypothesis]`。式、bytes、unit、rangeのセッション間差分が不明、非有限、範囲外、別VehicleID、記録中のsession、`isDemo`/fixture/判定不能、Raw不在のいずれかはreasonを保持して除外する `[requirementDerived]`。
 
 ## 4. 時間窓、整列、欠測処理候補
 
@@ -108,8 +111,8 @@ Raw payloadは派生値と独立した再解析根拠として保持し、missin
 | missing、invalid、gap、revision incompatibleを0へ置換しない | `requirementDerived` |
 | valueとは別にPID別missing maskとgap maskを保持する | `requirementDerived` |
 | 同じsessionの重複windowは同一splitへ置く | `requirementDerived` |
-| timestampはRaw `observedAt`を基準とし、接続開始時刻をRaw開始とみなさない | `realDataObserved` |
-| 同一batch時刻は同時観測候補として保持するが、到着順やPID個別latencyへ読み替えない | `realDataObserved` |
+| timestampは `session_samples.elapsedMicroseconds`(セッション開始からの単調時計)を基準とし、`startedAt` をRaw開始とみなさない。旧スキーマでは `observedAt` を基準とした | `currentImplementation` |
+| 同一tickの要求は同じ周期の観測候補として保持するが、`elapsedMicroseconds` の測定点が確定するまで到着順やPID個別latencyへ読み替えない | `blocked` |
 
 ### 4.2 比較grid
 
@@ -183,11 +186,11 @@ system score用の電源・冷却・燃料吸気mappingは、現行の表示用`
 | 記録日数 | 累積日ごとのfeature/score分布差 | 追加日で分布差とCI幅が安定 | 2日 | `blocked` |
 | 終了済みsession数 | 累積sessionごとのsplit成立性 | train/validation/testに独立sessionを配分できる | 8件 | `blocked` |
 | 有効window数 | 状態別・PID別・session別件数 | 少数sessionに集中せずmetric CIが許容範囲 | 未測定 | `blocked` |
-| PID coverage | manifest PIDごとのsession/日/window coverage | required PIDすべてが採用下限以上 | 2 PIDは8/8、33 PIDは7/8。window未測定 | `realDataObserved` |
+| PID coverage | manifest PIDごとのsession/日/window coverage | required PIDすべてが採用下限以上 | 旧スキーマ: 2 PIDは8/8、33 PIDは7/8。window未測定 | `realDataObserved` |
 | 状態別coverage | 時間、window、session、日、距離を併記 | required状態すべてが採用下限以上 | 未測定 | `blocked` |
 | missing/gap | mask pattern、最大gap、候補別成立率 | 追加batch間で分布が安定しscoreを支配しない | interval候補だけ測定済み | `blocked` |
-| 取得時revision互換性 | acquisition manifestとの完全一致 | 全入力PIDで一致または承認済み再decode | 全35 PIDで不足 | `blocked` |
-| app version/端末互換性 | version/platform cohort別feature分布とdecode契約 | cohort差を説明またはcompatibleとして検証 | 未保存/端末個体差不明 | `blocked` |
+| 取得時revision互換性 | `session_pids` の複写の完全一致 | 全入力PIDでセッション間一致、または別cohort化 | 新データモデルの実データ未取得 | `blocked` |
+| app version/端末互換性 | version/platform/transport cohort別feature分布とdecode契約 | cohort差を説明またはcompatibleとして検証 | 保存は設計済み、実データ未取得 | `blocked` |
 
 1,000 kmは要件上の初期計画候補であり採用値ではない `[requirementDerived]`。距離へ到達しても日数、session、state、revision、versionのいずれかが不足すれば完成しない `[requirementDerived]`。
 
@@ -262,7 +265,7 @@ resource budgetの数値は対象Mac/iPhoneと実装方式の測定前には決�
 4. model/hyperparameter/threshold selectionはvalidationだけを使い、testを使わない `[requirementDerived]`。
 5. 整備後データを整備前reference学習へ混入させない。境界が確認できない場合は整備効果評価をしない `[requirementDerived]`。
 6. 将来時点のmetadata、状態、終了結果を過去windowのfeatureへ使わない `[requirementDerived]`。
-7. 同一登録車両だけを対象とし、別VehicleID・別accountを混ぜない `[requirementDerived]`。
+7. 同一登録車両だけを対象とし、別VehicleIDを混ぜない `[requirementDerived]`。
 8. normalization、imputation、feature selection、confidence calibrationはtrainでfitし、validation/testへ固定適用する `[requirementDerived]`。
 9. overlap windowの同一source intervalはgroup IDで束ね、必ず同一splitへ置く `[hypothesis]`。
 10. 時間順にtrain→validation→testを配置し、必要なら複数rolling-origin splitで再現性を確認する `[hypothesis]`。
@@ -281,41 +284,42 @@ resource budgetの数値は対象Mac/iPhoneと実装方式の測定前には決�
 | 短/長session | 長さquantile別のwindow成立率・score | 特定長さへの偏りと除外感度が安定 | `hypothesis` |
 | PID coverage | PID別session/日/window coverage | ordered setがbatch間で再現 | `hypothesis` |
 | cadence/gap | PID別median/p95/max、全gap候補件数 | 分布距離と候補選択が複数batchで安定 | `hypothesis` |
-| app version | version cohort別decode/coverage/feature分布 | manifest互換または明示的非互換を確定 | `blocked` |
-| polling policy | ordered PID set、cadence cohort、要求/非応答記録 | policy差の影響を分離 | `blocked` |
-| 端末差 | 個人情報でないstable installation cohort | 同platform内差を匿名比較 | `blocked` |
+| app version | `appVersion+appBuild` cohort別decode/coverage/feature分布 | manifest互換または明示的非互換を確定 | `blocked`(保存は設計済み、実データ未取得) |
+| polling policy | `pollingPolicyVersion`、ordered PID set、cadence cohort、`outcome` | policy差の影響を分離 | `blocked`(同上) |
+| 端末差 | `platform` / `adapterTransport` と、匿名化した `deviceID` cohort | 同platform内差を匿名比較 | `blocked`(同上) |
 | 整備前後 | 実在し、ユーザーが境界を確認した場合だけ別period化 | 混入なしでresponseを記述。因果を断定しない | `blocked` |
 
 次回収集は、現在の2日・37 km・8 sessionへ、異なる日、短/長session、低速・巡航・加減速・warm-up候補を含むことを目指すが、安全でない走行や意図的な高負荷操作を要求しない `[requirementDerived]`。追加距離・日・sessionの終了数値は、各batchの安定性curveがplateauするまで決めない `[hypothesis]`。
 
-## 12. 取得時metadata不足への対応計画
+## 12. 取得時metadataの状況
 
-Production Swift、migration、CloudKit schemaは本工程で変更しない `[requirementDerived]`。以下は独立した後続phase候補である。
+旧データモデルの監査で不足とした取得時metadataは、新データモデル(`insight-v1`)では次のとおり保存される設計である。Production Swift、CloudKit schemaは本工程で変更しない `[requirementDerived]`。「設計」はソース上の保存設計を指し、実機・実車での記録内容は未確認である `[blocked]`。
 
-| metadata | 保存責務候補 | 必要性・互換性 | 個人情報risk | 区分 |
-| --- | --- | --- | --- | --- |
-| app version | session acquisition manifest | 生成code世代を分離 | 低。version文字列のみ | `hypothesis` |
-| schema version | session acquisition manifest | decoder/storage互換判定 | 低 | `hypothesis` |
-| polling policy version | acquisition manifest | cadence・要求集合差を分離 | 低 | `hypothesis` |
-| ordered PID set | acquisition manifest | 要求分母と入力順を再現 | 低。PID自体は非個人情報 | `hypothesis` |
-| PID definition revision | PIDごとのacquisition manifest | 取得時decode契約を固定 | 低、必須 | `requirementDerived` |
-| required byte count | PID definition snapshot | payload互換性 | 低 | `requirementDerived` |
-| formula/version | versioned PID definition snapshot | 再decode再現性 | 低。式をversion管理 | `requirementDerived` |
-| unit | PID definition snapshot | feature尺度互換性 | 低 | `requirementDerived` |
-| validity range | PID definition snapshot | invalid値除外 | 低 | `requirementDerived` |
-| PID capability snapshot | acquisition manifest | unsupportedと未観測の分離候補 | 中。ECU fingerprint化を避け、必要最小PID集合へ縮約 | `hypothesis` |
-| acquisition platform | session | platform差の集計 | 低。端末名を保存・出力しない | `realDataObserved` |
-| 取得開始時刻 | session | session境界 | 中。個別時刻は機微情報として集計時に縮約 | `realDataObserved` |
-| Raw取得開始・終了時刻 | session派生summaryまたはRawから再計算 | 接続時間の過大評価を防ぐ | 中。個別時刻を外部成果物へ出さない | `hypothesis` |
-| model input manifest version | model generation manifest | model/input互換判定 | 低 | `requirementDerived` |
+| metadata | 新データモデルでの保存先 | 状態 | 区分 |
+| --- | --- | --- | --- |
+| app version / build | `sessions.appVersion` / `appBuild` | 設計あり | `currentImplementation` |
+| schema version | マイグレーション履歴 `v1`、`SessionArchive.formatVersion` | 部分(セッション行にはない) | `currentImplementation` |
+| polling policy version | `sessions.pollingPolicyVersion`(巡回件数の値は保存しない) | 部分 | `currentImplementation` |
+| ordered PID set | `session_pids.ordinal` 順 | 設計あり | `currentImplementation` |
+| PID definition revision | `session_pids.definitionRevision` | 設計あり | `currentImplementation` |
+| required byte count / formula / unit / validity range | `session_pids` の各列(式そのものを複写) | 設計あり | `currentImplementation` |
+| PID capability / collection snapshot | `session_pids.support` / `isCollectionEnabled` / `isFastGroup` | 設計あり(`unsupported` の証拠種別は保存しない) | `currentImplementation` |
+| CAN header | `session_pids.header` | 設計あり | `currentImplementation` |
+| acquisition platform | `sessions.platform` | 設計あり | `currentImplementation` |
+| adapter / transport | `sessions.adapterName` / `adapterTransport` | 部分(firmware・確立プロトコルは保存しない) | `currentImplementation` |
+| 取得元installation ID | `sessions.deviceID` | 設計あり(出力しない) | `currentImplementation` |
+| DEMO区分 | `sessions.isDemo` | 設計あり | `currentImplementation` |
+| 要求の分母・無応答 | `session_samples` の全要求行と `outcome` | 設計あり | `currentImplementation` |
+| tick / Raw取得の実時間 | `session_samples.tick` / `elapsedMicroseconds` | 設計あり(測定点は未確認) | `blocked` |
+| model input manifest version | model generation manifest(将来) | 取得証跡の対象外 | `requirementDerived` |
 
-保存ownerの最終設計、migration、retention、CloudKit同期範囲は統合計画で別承認する `[blocked]`。端末名、adapter identity、VIN、VehicleID原値、account IDをmodel featureへ使用しない `[requirementDerived]`。
+PID個別の応答遅延、`noData` と `failed` の内訳、adapter firmwareは保存されない `[blocked]`。端末名、adapter名、VIN、VehicleID原値をmodel featureへ使用しない `[requirementDerived]`。CloudKit同期範囲(セッションを `SessionArchive` として終了後に1回アップロード)の検証と retention は別承認とする `[blocked]`。
 
 ## 13. 未決定事項
 
 以下はProduction値として未決定である。
 
-- ordered PID採用集合と取得時revision互換性の解消方法 `[blocked]`
+- ordered PID採用集合と、新データモデルの実取得データでの取得時revision互換性の確認 `[blocked]`
 - window長、overlap、resampling、carry-forward age、最低観測数、gap閾値 `[hypothesis]`
 - robust統計量、mean/std、差分、slope、多変量featureの採否 `[hypothesis]`
 - 全走行状態の閾値、優先順位、最低coverage `[blocked]`
@@ -332,8 +336,8 @@ Production Swift、migration、CloudKit schemaは本工程で変更しない `[r
 
 次をすべて満たすまで学習比較を開始しない。
 
-1. 対象は同一account・同一VehicleIDで、DEMO/fixture/判定不能を除外できる `[requirementDerived]`。
-2. 使用PIDごとに取得時revisionまたは明示承認された再decode revision、formula、bytes、unit、rangeをimmutable manifestへ固定できる `[requirementDerived]`。
+1. 対象は同一VehicleIDで、`isDemo`/fixture/判定不能を除外できる `[requirementDerived]`。
+2. 使用PIDごとに取得時revision、formula、bytes、unit、rangeを、新データモデルの `session_pids` から実取得データで確認し、immutable manifestへ固定できる `[requirementDerived]`。
 3. window候補ごとの有効数と状態coverageを匿名集計し、train/validation/testへ独立session・時間を配分できる `[hypothesis]`。
 4. privacy validator、同一入力の決定性、snapshot/working copy不変性が合格する `[requirementDerived]`。
 5. 評価metric、primary decision metric、guardrail、seed、停止条件をtest確認前に固定する `[hypothesis]`。
@@ -352,7 +356,7 @@ revision互換性不明、privacy違反、VehicleID混在、split leakage、requ
 | --- | --- | --- | --- |
 | 限定証拠からの候補仕様作成 | `go` | 要件、匿名監査、35 PID現行定義、cadenceを分離して候補化できた | 本書のhuman review |
 | Production特徴量・状態・score仕様 | `revise` | 状態coverage、縦断量、system mapping、閾値が未確定 | 追加ログと比較実験 |
-| 現データでの学習入力 | `no-go` | 35 PIDすべてで取得時revision不在 | acquisition manifestまたは承認済み再decode契約 |
+| 現データでの学習入力 | `no-go` | 旧スキーマのデータは取得時revision不在で引き継がれず、新データモデルの実車ログは未取得 | 新データモデルでの実取得と `session_pids` の確認 |
 | Prompt CのMLX feasibility spike実装 | `no-go` | eligible inputと十分なsession/time splitが成立していない | §14.1を満たし、Prompt Cの配置・依存approval gateを別途通過 |
 | Production / CloudKit / 実車妥当性 | `no-go` | 本工程では変更・接続・学習・推論を実施していない | 後続の独立phaseと各証拠gate |
 

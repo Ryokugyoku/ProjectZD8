@@ -9,8 +9,8 @@ from typing import Any
 
 
 FORBIDDEN_KEYS = {
-    "accountidentifier", "vehicleid", "sessionid", "vin", "vehiclename", "vehicledisplayidentifier",
-    "acquisitiondevicename", "macimporteddeviceid", "macimporteddevicename", "manifestdigest", "payload",
+    "vehicleid", "sessionid", "vin", "vehiclename", "obdidentifier", "deviceid", "devicename",
+    "adaptername", "archivedigest", "installationid", "payload",
 }
 UUID_PATTERN = re.compile(r"\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}\b")
 LONG_HEX_PATTERN = re.compile(r"\b[0-9a-fA-F]{32,}\b")
@@ -51,14 +51,9 @@ def _manifest_secrets(manifest: dict[str, Any]) -> set[str]:
     """非公開manifest内の原識別値を照合集合へ抽出します。"""
 
     values: set[str] = set()
-    for scope in manifest.get("scopes", []):
-        account = scope.get("accountIdentifier")
-        if isinstance(account, str):
-            values.add(account)
-        for vehicle in scope.get("vehicles", []):
-            vehicle_id = vehicle.get("vehicleID")
-            if isinstance(vehicle_id, str):
-                values.add(vehicle_id)
-            values.update(value for value in vehicle.get("sessionIDs", []) if isinstance(value, str))
+    for vehicle in manifest.get("vehicles", []):
+        vehicle_id = vehicle.get("vehicleID")
+        if isinstance(vehicle_id, str):
+            values.add(vehicle_id)
+        values.update(value for value in vehicle.get("sessionIDs", []) if isinstance(value, str))
     return values
-
