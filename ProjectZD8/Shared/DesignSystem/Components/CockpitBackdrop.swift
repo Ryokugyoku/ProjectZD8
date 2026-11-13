@@ -19,7 +19,7 @@ struct CockpitBackdrop: View {
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
                 )
-                horizonGrid(size: size)
+                horizonGrid
                 Circle()
                     .fill(Color.accentColor.opacity(0.17))
                     .frame(width: longSide * 0.7, height: longSide * 0.7)
@@ -37,12 +37,8 @@ struct CockpitBackdrop: View {
         .accessibilityHidden(true)
     }
 
-    /// 画面下部から消えていく細い計測格子です。
-    ///
-    /// 責務: 表示領域へ均等間隔の格子線を薄く描画します。
-    /// - Parameter size: 背景の表示領域。
-    /// - Returns: 下方向へ強まる装飾格子。
-    private func horizonGrid(size: CGSize) -> some View {
+    /// 表示領域へ均等間隔で薄く描く、下方向へ強まる装飾格子です。
+    private var horizonGrid: some View {
         Canvas { context, canvasSize in
             let spacing: CGFloat = 44
             var path = Path()

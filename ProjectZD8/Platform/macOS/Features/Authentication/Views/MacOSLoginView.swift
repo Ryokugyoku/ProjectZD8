@@ -88,7 +88,7 @@ struct MacOSLoginView: View {
             .scrollBounceBehavior(.basedOnSize)
 
             ScrollView {
-                authenticationPanel(scale: metrics.scale)
+                authenticationPanel
                     .padding(.vertical, metrics.outerPadding)
                     .frame(minHeight: height)
             }
@@ -116,7 +116,7 @@ struct MacOSLoginView: View {
                     metrics: metrics,
                     alignment: metrics.placesHeroBesideIntroduction ? .leading : .center
                 )
-                authenticationPanel(scale: metrics.scale)
+                authenticationPanel
                 capabilityTiles(scale: metrics.scale)
             }
             .frame(maxWidth: metrics.contentMaxWidth)
@@ -249,12 +249,8 @@ struct MacOSLoginView: View {
 
     // MARK: - Authentication
 
-    /// 見出し、認証操作、信頼要素、同意案内を持つ認証パネルです。
-    ///
-    /// 責務: 現在の認証段階に対応する操作をmacOSのガラス調パネルへ配置します。
-    /// - Parameter scale: ウインドウ寸法から解決した内部コンテンツ倍率。
-    /// - Returns: macOS向け認証パネル。
-    private func authenticationPanel(scale: CGFloat) -> some View {
+    /// 見出し、認証操作、信頼要素、同意案内を持つmacOSのガラス調認証パネルです。
+    private var authenticationPanel: some View {
         VStack(alignment: .leading, spacing: 18) {
             VStack(alignment: .leading, spacing: 7) {
                 Text("auth.panel.eyebrow")
