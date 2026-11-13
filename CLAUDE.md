@@ -24,6 +24,13 @@ ruby .github/testflight_build_publisher_test.rb
 CI は `.github/workflows/testflight.yml`(iOS/macOS アーカイブ → TestFlight 配布)のみ。
 ローカルのビルド/テスト成功を、見た目・実機・実アダプター・CloudKit 本番・CI の成功として報告しない。
 
+### 単体テストの必須ルール
+
+- コードを変更したら、変更した振る舞いを検証する単体テストを同じ変更内で追加・更新する(バグ修正は再現テストを先に書く)。
+- 完了報告・コミット・PR作成の前に、変更範囲に対応する上記テストコマンドを必ず実行する。Swift は変更した型の `-only-testing:ProjectZD8Tests/<TestClass>`(複数可)、`Tools/VehicleChangeDataQuality/` は unittest 全件、`.github/` の補助スクリプトは ruby テストを実行する。
+- 報告には実行したコマンドと結果(成功/失敗の件数)を書く。失敗を残したまま完了・コミット・PRにしない。テストを実行できなかった場合(環境不足など)はその理由を明記し、実施済みとして扱わない。
+- PR 説明の「テスト」欄に実行コマンドと結果を記載する。
+
 ## アーキテクチャ
 
 ```text
