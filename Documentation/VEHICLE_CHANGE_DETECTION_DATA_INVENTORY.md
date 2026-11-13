@@ -17,7 +17,6 @@
 | 種別 | 対象 | この工程で確認した内容 | 証拠の限界 |
 | --- | --- | --- | --- |
 | 要件 | [`VEHICLE_CHANGE_DETECTION_REQUIREMENTS.md`](VEHICLE_CHANGE_DETECTION_REQUIREMENTS.md) | 車両分離、数値PID適格条件、Raw保持、macOS学習責務、実証分離 | 実データそのものではない |
-| 工程定義 | [`VEHICLE_CHANGE_DETECTION_CODEX_PROMPTS.md`](VEHICLE_CHANGE_DETECTION_CODEX_PROMPTS.md) | 実データ不在時の停止条件、匿名化、後続工程の入力 | 実データそのものではない |
 | Domain / Application | `ConnectionSession`、Raw関連Entity/Repository、Logging、Analysis use case | 保存意味、車両結合、距離、復元、数値化、Mac向け読取能力 | 実際の取得量を証明しない |
 | GRDB | migration、Record、Repository、PID seed | SQLite列、制約、保存場所、現在のPID定義 | インストール済み旧版DBや実機DBの状態を証明しない |
 | CloudKit adapter | `CloudKitConnectionSessionTransferRepository` と同期use case | private databaseのrecord種別、JSON Asset、SHA-256検証、復元経路 | Production recordの存在・取得成功を証明しない |
@@ -250,7 +249,7 @@ CloudKit Dashboardからの手作業export、DEMO DB、test fixtureを実車代�
 1. 対象実車と、おおよその対象期間を画面上で確認する。VIN、account ID、`VehicleID` をチャットへ貼らない。
 2. local Rawが残る物理端末をMacへ接続し、ロック解除・信頼・Developer Mode等、Apple標準の読取条件を満たす。
 3. 一貫したSQLite複製のためProjectZD8を終了する。ログの修復・削除・再収集はしない。
-4. Codexへ「端末を接続しアプリを終了した」とだけ知らせる。端末名や識別子は不要である。
+4. 作業担当へ「端末を接続しアプリを終了した」とだけ知らせる。端末名や識別子は不要である。
 5. local Rawがない場合だけ、対象セッションをアプリの通常確認画面からMacへ復元するかを別途承認する。Production CloudKitへ書込みやschema変更は行わない。
 
 ### 12.3 読み取り専用の抽出

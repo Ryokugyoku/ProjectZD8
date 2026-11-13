@@ -215,12 +215,12 @@ without separately validated evidence.
   analysis.
 
 MLX Swift is the agreed feasibility candidate for vehicle-specific training and
-inference. The current coding and placement standards name TensorFlow and do not
-yet authorize an MLX production directory. Before an MLX source spike or product
-integration, Codex MUST present the exact ownership, dependency, production
-path, test path, and framework-migration proposal required by the repository's
-new-folder approval gate. This requirements decision alone does not create that
-approval.
+inference. The current architecture places concrete ML integration under
+`Data/MachineLearning/TensorFlow` and does not yet include an MLX production
+directory. Before an MLX source spike or product integration, present the exact
+ownership, dependency, production path, test path, and framework-migration
+proposal to the user and obtain approval. This requirements decision alone does
+not create that approval.
 
 ### 7.2 Model artifact and synchronization
 
@@ -325,6 +325,3 @@ spike provide evidence:
 - recurrence and notification thresholds;
 - artifact size and inference-latency budgets; and
 - model storage and Production CloudKit schema.
-
-The staged Codex requests for resolving these decisions are maintained in
-[`VEHICLE_CHANGE_DETECTION_CODEX_PROMPTS.md`](VEHICLE_CHANGE_DETECTION_CODEX_PROMPTS.md).
