@@ -305,9 +305,26 @@ struct MacOSConnectionHistoryView: View {
     private func vehicleSessionList(for id: ConnectionHistoryVehicleGroupID) -> some View {
         let group = state.vehicleGroups.first(where: { $0.id == id })
         let sessions = state.filteredSessions(for: id)
-        return ScrollView {
+        // 戻る操作と車両情報のヘッダーバナーは固定し、その下だけをスクロールさせる。
+        return VStack(alignment: .leading, spacing: 0) {
+            vehicleDetailHeader(group)
+                .padding([.horizontal, .top], 28 * metrics.scale)
+                .padding(.bottom, 18 * metrics.scale)
+            vehicleSessionScrollContent(sessions)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .background(historyBackground)
+        .navigationBarBackButtonHidden(true)
+    }
+
+    /// 固定ヘッダーの下でスクロールする絞り込みとセッション一覧を描画します。
+    ///
+    /// 責務: 絞り込み済みセッション列を絞り込みパネルと一覧のスクロール領域へ変換します。
+    /// - Parameter sessions: 表示する絞り込み済みセッション。
+    /// - Returns: 絞り込みパネルとセッション一覧を含むスクロール領域。
+    private func vehicleSessionScrollContent(_ sessions: [ConnectionSession]) -> some View {
+        ScrollView {
             VStack(alignment: .leading, spacing: 18 * metrics.scale) {
-                vehicleDetailHeader(group)
                 filterPanel
                 if sessions.isEmpty { noFilterResults } else {
                     LazyVStack(spacing: 10 * metrics.scale) {
@@ -315,10 +332,8 @@ struct MacOSConnectionHistoryView: View {
                     }
                 }
             }
-            .padding(28 * metrics.scale)
+            .padding([.horizontal, .bottom], 28 * metrics.scale)
         }
-        .background(historyBackground)
-        .navigationBarBackButtonHidden(true)
     }
 
     /// 車両別履歴の文脈と戻る操作を一体化した詳細ヘッダーを描画します。
