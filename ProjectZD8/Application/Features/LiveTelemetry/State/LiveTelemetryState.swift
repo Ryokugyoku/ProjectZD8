@@ -1,41 +1,55 @@
-/// リアルタイムPID取得と表示に必要な現在状態です。
-struct LiveTelemetryState: Equatable {
-    /// PID読取処理の現在段階です。
-    enum Phase: Equatable {
-        /// 読取操作を待っています。
+/// リアルタイム表示の状態です。
+nonisolated struct LiveTelemetryState: Equatable, Sendable {
+    /// 表示している値の鮮度です。
+    nonisolated enum Status: Equatable, Sendable {
+        /// 記録がまだ始まっていません。
         case idle
-        /// DB登録済みPIDの対応状況を探索しています。
-        case reading
-        /// 応答済みPIDを継続取得しています。
-        case loaded
-        /// 取得停止と通信資源の解放完了を待っています。
-        case stopping
-        /// PID読取または数値化に失敗しました。
-        case failed
+        /// 記録中で、値は更新されています。
+        case live
+        /// 記録が終了しました。値は終了時点のまま(古い値)です。
+        case stale(SessionEndReason)
     }
 
-    /// 現在の処理段階です。
-    var phase: Phase = .idle
-    /// PIDごとの最新数値観測です。
-    var samples: [OBDPIDSample] = []
-    /// 初回探索で応答が確認できたPID数です。
-    var supportedPIDCount = 0
-    /// 読取りまたは再試行に使用するOBD終端です。
-    var endpoint: OBDConnectionEndpoint?
-    /// 現在監視する車両のアプリ内識別子です。
-    var vehicleID: VehicleID?
-    /// 車種専用PIDの適用に使用する確認済み型式コードです。
-    var vehicleModelCode: String?
-    /// 直近の失敗を表示するローカライズキーです。
-    var failureKey: String?
+    /// 主要表示のチャンネルを決める要求です。
+    static let rpmRequest = OBDPIDRequest(service: 0x01, pid: 0x0C)
+    static let speedRequest = OBDPIDRequest(service: 0x01, pid: 0x0D)
 
-    /// HOMEで切断操作を提供する接続中段階かどうかです。
-    var isConnectionActive: Bool {
-        phase == .reading || phase == .loaded || phase == .stopping
+    var status: Status = .idle
+    var sessionID: SessionID?
+    var adapterName: String?
+    /// 全チャンネルです。セッション内の並び順に並びます。
+    var channels: [LiveTelemetryChannel] = []
+    /// 開始からの経過時間(マイクロ秒)です。
+    var elapsedMicroseconds: Int64 = 0
+    /// 記録した要求の総数です。
+    var sampleCount = 0
+    /// データ付きで応答した要求の数です。
+    var respondedCount = 0
+    /// 走行距離(km)です。距離計PIDが未取得なら `nil` です。
+    var distanceKilometers: Double?
+
+    /// 責務: 初期状態を生成します。
+    init() {}
+
+    /// エンジン回転数のチャンネルです。収集対象に無ければ `nil` です。
+    var rpm: LiveTelemetryChannel? { channel(for: Self.rpmRequest) }
+    /// 車速のチャンネルです。収集対象に無ければ `nil` です。
+    var speed: LiveTelemetryChannel? { channel(for: Self.speedRequest) }
+    /// データ付き応答の割合(0...1)です。
+    var responseRate: Double { sampleCount == 0 ? 0 : Double(respondedCount) / Double(sampleCount) }
+    /// 値が終了時点の古い値かどうかです。
+    var isStale: Bool {
+        if case .stale = status { return true }
+        return false
     }
 
-    /// 通信資源の安全な終了完了を待っているかどうかです。
-    var isDisconnecting: Bool {
-        phase == .stopping
+    /// 責務: 要求に対応するチャンネルを返します。
+    func channel(for request: OBDPIDRequest) -> LiveTelemetryChannel? {
+        channels.first { $0.request == request }
+    }
+
+    /// 責務: 分類に属するチャンネルを並び順のまま返します。
+    func channels(in category: OBDPIDCategory) -> [LiveTelemetryChannel] {
+        channels.filter { $0.category == category }
     }
 }

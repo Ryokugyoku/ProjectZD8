@@ -1,5 +1,5 @@
 /// 動力区分と車両が保持するエネルギー源の整合規則です。
-enum VehicleEnergySourcePolicy {
+nonisolated enum VehicleEnergySourcePolicy {
     /// 指定した動力区分で利用可能なエネルギー源を返します。
     ///
     /// 責務: 1件の動力区分を対応するエネルギー源候補へ変換します。
