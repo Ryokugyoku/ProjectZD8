@@ -48,12 +48,17 @@ jobs:
           API_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_API_PRIVATE_KEY }}
           IOS_DEVELOPMENT_CERTIFICATE_BASE64: ${{ secrets.IOS_DEVELOPMENT_CERTIFICATE_BASE64 }}
           IOS_DEVELOPMENT_CERTIFICATE_PASSWORD: ${{ secrets.IOS_DEVELOPMENT_CERTIFICATE_PASSWORD }}
+          IOS_DEVELOPMENT_CERTIFICATE_SHA1: ${{ vars.IOS_DEVELOPMENT_CERTIFICATE_SHA1 }}
         run: |
           test -n "$API_KEY_ID"
           test -n "$API_ISSUER_ID"
           test -n "$API_PRIVATE_KEY"
           test -n "$IOS_DEVELOPMENT_CERTIFICATE_BASE64"
           test -n "$IOS_DEVELOPMENT_CERTIFICATE_PASSWORD"
+          if ! [[ "$IOS_DEVELOPMENT_CERTIFICATE_SHA1" =~ ^[0-9A-F]{40}$ ]]; then
+            echo "::error::Repository variable IOS_DEVELOPMENT_CERTIFICATE_SHA1 must be the 40-character uppercase SHA-1 of the CI Apple Development certificate."
+            exit 1
+          fi
 
       - name: Install temporary App Store Connect key
         env:
@@ -69,6 +74,7 @@ jobs:
         env:
           IOS_DEVELOPMENT_CERTIFICATE_BASE64: ${{ secrets.IOS_DEVELOPMENT_CERTIFICATE_BASE64 }}
           IOS_DEVELOPMENT_CERTIFICATE_PASSWORD: ${{ secrets.IOS_DEVELOPMENT_CERTIFICATE_PASSWORD }}
+          IOS_DEVELOPMENT_CERTIFICATE_SHA1: ${{ vars.IOS_DEVELOPMENT_CERTIFICATE_SHA1 }}
         run: |
           certificate_path="${RUNNER_TEMP}/ProjectZD8-iOS-Development.p12"
           keychain_path="${RUNNER_TEMP}/ProjectZD8-signing.keychain-db"
@@ -90,8 +96,11 @@ jobs:
             "$keychain_path"
           security list-keychains -d user -s "$keychain_path"
           security default-keychain -d user -s "$keychain_path"
-          security find-identity -v -p codesigning "$keychain_path" | \
-            grep '170EECC0DE9974138EFE595468182FC68AFF1F7F'
+          if ! security find-identity -v -p codesigning "$keychain_path" | \
+            grep -F "$IOS_DEVELOPMENT_CERTIFICATE_SHA1"; then
+            echo "::error::The imported certificate does not match IOS_DEVELOPMENT_CERTIFICATE_SHA1. Update the secret and variable together."
+            exit 1
+          fi
 
       - name: Archive iPhone and iPad app
         env:
