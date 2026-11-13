@@ -22,3 +22,7 @@ DerivedData/
 *.moved-aside
 *.swp
 *~
+
+# Python
+__pycache__/
+*.pyc
