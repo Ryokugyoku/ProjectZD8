@@ -1,61 +1,45 @@
 import Foundation
 
-/// 整備画面からモデルへ送る操作です。
-nonisolated enum MaintenanceAction: Sendable {
-    /// 読み込みを始め、以後の変更通知を購読します。
-    case started
-    /// 変更通知の購読を止めます。
-    case stopped
-    /// 再読み込みします。
-    case refreshRequested
-    /// 一覧に表示する車両を選びます。
+/// 整備画面とAppからMaintenanceへ通知する型付き操作です。
+enum MaintenanceAction {
+    /// 認証済みアカウントへ整備スコープを切り替えます。
+    case accountIdentifierChanged(String?)
+    /// 現在の登録車両集合を整備対象選択へ反映します。
+    case vehiclesChanged([VehicleProfile])
+    /// 一覧表示する車両を選択します。
     case vehicleSelected(VehicleID)
-    /// 一覧の区分絞り込みを変更します。`nil` で解除します。
+    /// 一覧の整備区分フィルターを変更します。
     case kindFilterChanged(MaintenanceKind?)
-    /// 選択車両の新規整備入力を開きます。
+    /// 選択車両の新規整備入力を開始します。
     case createRequested(MaintenanceKind)
-    /// 保存済みの整備記録を編集します。
+    /// 保存済み整備記録の編集を開始します。
     case editRequested(MaintenanceRecordID)
-    /// 画面で変更した入力を反映します。
-    case draftChanged(MaintenanceDraft)
-    /// 作業項目を追加します。
+    /// 画面で変更した未保存入力を反映します。
+    case draftChanged(MaintenanceEditorDraft)
+    /// 現在の入力へ作業項目を追加します。
     case workItemAdded
-    /// 作業項目を削除します。
+    /// 現在の入力から作業項目を削除します。
     case workItemRemoved(UUID)
-    /// 締結グループを追加します(重整備のみ)。
+    /// 重整備入力へ締結グループを追加します。
     case fastenerGroupAdded
-    /// 締結グループを削除します。
+    /// 締結グループへ個別の締結位置を追加します。
+    case fastenerAdded(UUID)
+    /// 個別締結を現在日時で完了証跡として確定します。
+    case fastenerConfirmed(UUID, UUID)
+    /// 最新の作業写真を個別締結証跡へ関連付けます。
+    case latestPhotoLinked(UUID, UUID)
+    /// 現在の入力から締結グループを削除します。
     case fastenerGroupRemoved(UUID)
-    /// 締結グループへ個別締結を追加します。
-    case fastenerAdded(groupID: UUID)
-    /// 個別締結を削除します。
-    case fastenerRemoved(groupID: UUID, evidenceID: UUID)
-    /// 個別締結を現在日時で完了として記録します。
-    case fastenerConfirmed(groupID: UUID, evidenceID: UUID)
-    /// 写真を個別締結へ関連付けます。
-    case fastenerPhotoLinked(groupID: UUID, evidenceID: UUID, photoID: PhotoID)
-    /// 写真と個別締結の関連付けを外します。
-    case fastenerPhotoUnlinked(groupID: UUID, evidenceID: UUID, photoID: PhotoID)
-    /// 写真を締結グループの分解状態の写真へ関連付けます。
-    case removalPhotoLinked(groupID: UUID, photoID: PhotoID)
-    /// 写真と分解状態の関連付けを外します。
-    case removalPhotoUnlinked(groupID: UUID, photoID: PhotoID)
-    /// 選んだ画像データを写真として追加します。
-    case photoPicked(Data)
-    /// 写真を外します。
-    case photoRemoved(PhotoID)
-    /// 写真の説明を変更します。
-    case photoCaptionChanged(PhotoID, String)
-    /// 入力を保存します。
+    /// ファイル選択済み写真を現在の入力へ追加します。
+    case photoSelected(URL)
+    /// 現在の入力から写真を削除します。
+    case photoRemoved(UUID)
+    /// 現在の入力を保存します。
     case saveRequested
-    /// 保存せず編集画面を閉じます。
-    case editCancelled
-    /// 整備記録削除の確認を求めます。
+    /// 保存せず一覧へ戻ります。
+    case editingCancelled
+    /// 指定記録を全端末から削除する墓石へ更新します。
     case deleteRequested(MaintenanceRecordID)
-    /// 確認済みの削除を実行します。
-    case deleteConfirmed
-    /// 削除をやめます。
-    case deleteCancelled
-    /// 表示中の失敗を閉じます。
-    case failureDismissed
+    /// ローカルとCloudKitの再同期を要求します。
+    case refreshRequested
 }

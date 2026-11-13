@@ -23,7 +23,7 @@ that a later stage passed.
 | OS pairing | MX+ is paired in the operating system | ProjectZD8 communication |
 | macOS adapter smoke test | RFCOMM opens and `ATI` returns a non-error response | VIN, PID, or vehicle compatibility |
 | ProjectZD8 vehicle identification | `0902` returns a valid observed identifier | Continuous PID collection |
-| PID acquisition | Allowed configured PIDs are requested and recorded as `session_samples` rows (a no-response request is a row with its `outcome`) | Visual approval or long-session stability |
+| PID acquisition | Allowed configured PIDs produce Raw-backed observations | Visual approval or long-session stability |
 
 ## macOS arrival procedure
 
@@ -55,20 +55,12 @@ that a later stage passed.
    RFCOMM, and sends only `ATI`. It does not request VIN or PID data. Without
    `PROJECTZD8_MXPLUS_ADDRESS`, the test is skipped.
 
-   Status note: the opt-in hardware test was named
-   `MacOSBluetoothRFCOMMOBDTransportHardwareTests` in the previous code base. The
-   current transport is `MacOSBluetoothRFCOMMOBDTransport`
-   (`ProjectZD8/Data/Devices/Transports/`), but no hardware test class exists in
-   `ProjectZD8Tests` yet, so the command above cannot run until it is
-   re-created. This runbook has not been executed against the current code.
-
-4. In the app's adapter selection UI, choose Bluetooth and refresh. A paired device named
+4. In ProjectZD8 Settings, select Bluetooth and refresh. A paired device named
    `OBDLink MX+` or `OBDLink MX+ <suffix>` must appear. Unpaired devices and
    other OBDLink models must not appear as MX+ candidates.
 5. Stop after adapter selection unless real-vehicle identification has been
-   explicitly approved. Connecting from the Drive screen proceeds beyond the
-   adapter-only test: it may send `ATZ`, configuration commands, `ATI`, `0902`
-   and `ATDP`, then starts a recording session.
+   explicitly approved. HOME connection proceeds beyond the adapter-only test
+   and may send `ATZ`, configuration commands, `ATI`, `0902`, and `ATDP`.
 
 When reporting a failure, record the first visible diagnostic stage:
 `ENDPOINT`, `TRANSPORT-CREATE`, `TRANSPORT-OPEN`, `ATZ`, `AT-CONFIG`, `ATI`,
@@ -100,7 +92,7 @@ The iPhone trial follows the Bluetooth setup and connect-after-selection flow in
 profiles. ProjectZD8 keeps its typed Application/Data boundaries and does not
 adopt SwiftOBD2's arbitrary-characteristic fallback.
 
-1. In the app's adapter selection UI, refresh the adapter list and select only the
+1. In ProjectZD8 Settings, refresh the primary adapter list and select only the
    candidate whose displayed name and physical device state you can correlate.
 2. Open its detail sheet and record the Peripheral UUID and advertised Service
    UUIDs locally. Do not publish the Peripheral UUID.
@@ -114,12 +106,11 @@ adopt SwiftOBD2's arbitrary-characteristic fallback.
    - FFE0 profile: combined Notify/Write `FFE1`;
    - 18F0 profile: Notify `2AF0`, Write `2AF1`.
 4. Xcode device logs record discovered Service/Characteristic UUIDs and the
-   selected profile under the `AppleCoreBluetoothOBDTransport` log category. They do not record a
+   selected profile under `IOSCoreBluetoothOBDTransport`. They do not record a
    Bluetooth address, VIN, or command response payload.
 5. Stop after candidate inspection unless vehicle identification has been
-   explicitly approved. Connecting from the Drive screen can send adapter
-   initialization, `ATI`, `0902`, and `ATDP` and starts a recording session; it is
-   not an adapter-only probe.
+   explicitly approved. Pressing HOME Connect can send adapter initialization,
+   `ATI`, `0902`, and `ATDP`; it is not an adapter-only probe.
 6. If the unit is absent from the BLE list or no explicit profile matches, keep
    the result as an observed trial failure. Do not add a guessed UUID or infer
    BLE support from iPhone Settings pairing alone.
@@ -139,7 +130,7 @@ contract.
    - the supported stream framing or SDK contract;
    - connection, authentication, and reconnection requirements.
 2. The iOS-only `ExternalAccessory` discovery, `EASession` byte stream, and
-   App composition read the experimental `com.obdlink` value from
+   Composition injection read the experimental `com.obdlink` value from
    `UISupportedExternalAccessoryProtocols`. Do not add a product name, bundle
    identifier, BLE service UUID, or another inferred reverse-DNS string.
 3. Rebuild and install on the approved iPhone. In Settings, refresh the
@@ -148,8 +139,8 @@ contract.
    which are currently connected. System pairing alone does not satisfy these
    conditions.
 4. For this trial, stop after confirming whether the exact accessory name is
-   present in the ProjectZD8 list. Do not connect (start a session) as part of
-   the device-list trial.
+   present in the ProjectZD8 list. Do not press HOME Connect as part of the
+   device-list trial.
 5. Add and run an opt-in iPhone adapter-only hardware test before approving VIN
    or PID acquisition. The first adapter test must stop after a documented `ATI`
    response; real-vehicle commands still require separate explicit approval.
@@ -189,16 +180,6 @@ Record each result independently:
 - matched experimental BLE UART profile, if any;
 - iPhone manufacturer protocol authorization;
 - ProjectZD8 VIN observation;
-- ProjectZD8 PID acquisition (requests and their `outcome` recorded in `session_samples`);
+- ProjectZD8 PID observation;
 - UI and accessibility human review;
 - long-session and reconnection behavior.
-
-Open items about this document (not verified against the current code):
-
-- the exact location of the adapter selection UI and of the connect action in
-  the new Platform views (the previous code base used Settings and a HOME
-  screen);
-- the iOS/macOS transport behaviour described here was written for the previous
-  code base's transports; the current `AppleCoreBluetoothOBDTransport`,
-  `IOSExternalAccessoryOBDTransport`, `MacOSBluetoothRFCOMMOBDTransport` and
-  `MacOS115200BaudOBDSerialTransport` have not been exercised on hardware.

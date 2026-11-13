@@ -8,13 +8,6 @@ It does not authorize a source-code implementation, a new production directory,
 an unverified PID formula, or a claim that a detected change is a mechanical
 fault.
 
-Data-model note: the first public release uses a new data model with no
-backward compatibility (`insight-v1.sqlite`; tables `sessions`, `session_pids`,
-`session_samples`). Data collected under the earlier model is not carried over.
-The requirements below apply to the new model; where they say "Raw" they mean the
-append-only `session_samples` rows together with the session's own `session_pids`
-snapshot.
-
 The user-facing purpose is:
 
 > Show when and how a registered vehicle has become different from its own
@@ -52,9 +45,8 @@ The initial scope excludes:
 ### 3.1 Registered-vehicle isolation
 
 Every reference model, model generation, feature manifest, interval summary, and
-analysis result MUST belong to one stable application-owned `VehicleID`. The
-application has no login or account identifier of its own; data belongs to the
-device's iCloud account, and every session belongs to a vehicle.
+analysis result MUST belong to one stable application-owned `VehicleID` and one
+account scope.
 
 - Display name, model name, VIN, registration plate, ECU text, and adapter
   identity MUST NOT be used as the model's primary identity.
@@ -71,20 +63,15 @@ device's iCloud account, and every session belongs to a vehicle.
 Training and scoring MUST use only PID observations for which all of the
 following are true:
 
-- the session is not a demo session (`isDemo` is false);
 - the formula, required byte count, and unit are verified;
 - the payload was decoded successfully into a finite numeric value;
 - the value passes the verified definition's validity constraints;
-- the PID definition revision is recorded in the session's `session_pids`
-  snapshot at acquisition time; and
+- the PID definition revision is recorded; and
 - the observation belongs to the target registered vehicle.
 
 An absent, failed, invalid, or incompatible value MUST remain missing. It MUST
-NOT be replaced with numeric zero. A request that received no data answer
-(`noData`, `timedOut`, `failed`) is a recorded `session_samples` row, not a
-value, and MUST NOT be read as a numeric observation. Undecoded Raw entries
-remain authoritative source evidence for later reanalysis but are excluded from
-the initial model.
+NOT be replaced with numeric zero. Undecoded Raw entries remain authoritative
+source evidence for later reanalysis but are excluded from the initial model.
 
 Each model generation MUST store an immutable input manifest containing at
 least its ordered PID set, PID definition revisions, feature-definition version,
@@ -228,10 +215,9 @@ without separately validated evidence.
   analysis.
 
 MLX Swift is the agreed feasibility candidate for vehicle-specific training and
-inference. The current architecture has no machine-learning layer or directory
-(analysis is the bundled HTML/JavaScript workbench shown in a WebView), so there
-is no MLX production directory. Before an MLX source spike or product
-integration, present the exact
+inference. The current architecture places concrete ML integration under
+`Data/MachineLearning/TensorFlow` and does not yet include an MLX production
+directory. Before an MLX source spike or product integration, present the exact
 ownership, dependency, production path, test path, and framework-migration
 proposal to the user and obtain approval. This requirements decision alone does
 not create that approval.
@@ -240,7 +226,7 @@ not create that approval.
 
 A published model artifact MUST travel with a manifest containing at least:
 
-- `VehicleID` ownership (and no application account identifier);
+- account and `VehicleID` ownership;
 - model ID, generation, format version, and reference-period ID;
 - ordered PID and definition-revision manifest;
 - feature-definition and normalization versions;
@@ -253,15 +239,10 @@ iPhone MUST stage a downloaded generation, verify its digest and compatibility,
 run a deterministic smoke inference, and switch atomically only after success.
 Failure MUST retain the current working generation.
 
-When model distribution exists, the Settings feature MUST expose independently:
+The Settings feature MUST expose independently:
 
-- automatic model download, as an iCloud-synchronized setting shared by the
-  user's devices; and
+- account-scoped automatic model download; and
 - device-scoped permission to use cellular data for model download.
-
-The first release's Settings feature covers appearance, demo mode, and Raw
-retention only; model-download settings are not implemented and are deferred
-with model distribution.
 
 Recommended defaults are automatic download enabled and cellular download
 disabled. Disabling automatic download does not delete an installed model, and
@@ -283,9 +264,8 @@ Retention requirements are:
 - remote storage: current and maintenance-boundary reference generations; and
 - every analysis result: permanent reference to the exact model generation used.
 
-Full vehicle deletion, the Sync feature's delete-all-data operation, and
-remote-only artifact deletion still require an explicit deletion specification
-for model artifacts before implementation.
+Full vehicle deletion, account erasure, and remote-only artifact deletion still
+require an explicit deletion specification before implementation.
 
 ## 8. Training-data review and publication
 
@@ -344,6 +324,4 @@ spike provide evidence:
 - score calibration and system aggregation;
 - recurrence and notification thresholds;
 - artifact size and inference-latency budgets; and
-- model storage and Production CloudKit schema; and
-- how legacy-model data would ever be admitted (currently it is not: the old
-  data is not carried over).
+- model storage and Production CloudKit schema.

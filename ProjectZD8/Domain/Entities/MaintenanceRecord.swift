@@ -141,20 +141,23 @@ nonisolated struct MaintenanceWorkItem: Identifiable, Equatable, Codable, Sendab
     }
 }
 
-/// 整備記録に添付する写真エビデンスです。画像本体は `PhotoRepository` が保持します。
+/// 整備記録に添付する写真エビデンスです。
 nonisolated struct MaintenancePhoto: Identifiable, Equatable, Codable, Sendable {
-    /// 画像本体を指す写真IDです。
-    let id: PhotoID
+    /// 写真を同期先でも識別する安定IDです。
+    let id: UUID
+    /// 写真の画像データです。
+    let data: Data
     /// 写真が示す内容の説明です。
     var caption: String
     /// 写真を記録へ追加した日時です。
     let capturedAt: Date
 
-    /// 保存済み写真を説明付きの整備エビデンスへ変換します。
+    /// 画像データを説明付きの整備エビデンスへ変換します。
     ///
-    /// 責務: 1枚の保存済み写真を追跡可能な整備写真として生成します。
-    init(id: PhotoID, caption: String = "", capturedAt: Date = Date()) {
+    /// 責務: 1枚の画像を追跡可能な整備写真として生成します。
+    init(id: UUID = UUID(), data: Data, caption: String = "", capturedAt: Date = Date()) {
         self.id = id
+        self.data = data
         self.caption = caption
         self.capturedAt = capturedAt
     }
@@ -175,7 +178,7 @@ nonisolated struct FastenerInstallationEvidence: Identifiable, Equatable, Codabl
     /// 締結を実施した日時です。
     var tightenedAt: Date?
     /// 締結状態を示す写真IDです。
-    var photoIDs: [PhotoID]
+    var photoIDs: [UUID]
     /// 個別締結に関する補足です。
     var notes: String
 
@@ -189,7 +192,7 @@ nonisolated struct FastenerInstallationEvidence: Identifiable, Equatable, Codabl
         tool: String = "",
         tightenedBy: String = "",
         tightenedAt: Date? = nil,
-        photoIDs: [PhotoID] = [],
+        photoIDs: [UUID] = [],
         notes: String = ""
     ) {
         self.id = id
@@ -218,7 +221,7 @@ nonisolated struct MaintenanceFastenerGroup: Identifiable, Equatable, Codable, S
     /// 分解順序、保管場所、異常などの記録です。
     var removalNotes: String
     /// 分解状態を示す写真IDです。
-    var removalPhotoIDs: [PhotoID]
+    var removalPhotoIDs: [UUID]
     /// 組立時に1本ずつ残す締結証跡です。
     var installations: [FastenerInstallationEvidence]
 
@@ -232,7 +235,7 @@ nonisolated struct MaintenanceFastenerGroup: Identifiable, Equatable, Codable, S
         expectedCount: Int? = nil,
         removedCount: Int = 0,
         removalNotes: String = "",
-        removalPhotoIDs: [PhotoID] = [],
+        removalPhotoIDs: [UUID] = [],
         installations: [FastenerInstallationEvidence] = []
     ) {
         self.id = id
@@ -271,7 +274,9 @@ nonisolated struct MaintenanceRecord: Identifiable, Equatable, Codable, Sendable
     /// 記録を作成した日時です。
     let createdAt: Date
     /// 最後に記録内容を更新した日時です。
-    var modifiedAt: Date
+    var updatedAt: Date
+    /// 全端末へ削除を伝播する墓石日時です。
+    var deletedAt: Date?
 
     /// 車両IDを必須として整備記録を生成します。
     ///
@@ -288,7 +293,8 @@ nonisolated struct MaintenanceRecord: Identifiable, Equatable, Codable, Sendable
         photos: [MaintenancePhoto] = [],
         fastenerGroups: [MaintenanceFastenerGroup] = [],
         createdAt: Date = Date(),
-        modifiedAt: Date = Date()
+        updatedAt: Date = Date(),
+        deletedAt: Date? = nil
     ) {
         self.id = id
         self.vehicleID = vehicleID
@@ -301,6 +307,7 @@ nonisolated struct MaintenanceRecord: Identifiable, Equatable, Codable, Sendable
         self.photos = photos
         self.fastenerGroups = fastenerGroups
         self.createdAt = createdAt
-        self.modifiedAt = modifiedAt
+        self.updatedAt = updatedAt
+        self.deletedAt = deletedAt
     }
 }

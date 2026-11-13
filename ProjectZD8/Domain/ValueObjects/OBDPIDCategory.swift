@@ -1,5 +1,5 @@
 /// リアルタイム表示で標準PIDを意味の近いまとまりへ分類します。
-nonisolated enum OBDPIDCategory: String, CaseIterable, Equatable, Hashable, Sendable {
+enum OBDPIDCategory: String, CaseIterable, Equatable, Hashable, Sendable {
     /// エンジンの負荷、回転、点火に関する項目です。
     case engine
     /// 温度に関する項目です。

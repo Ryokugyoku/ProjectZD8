@@ -1,43 +1,60 @@
 import Foundation
 
-/// 1つのPIDの要求方法と、応答バイトを物理値へ変換する規則を定義します。
+/// 1件の標準OBD PIDを数値へ変換するための永続化可能な定義です。
 nonisolated struct OBDPIDDefinition: Equatable, Sendable {
-    /// OBDサービス番号です。
+    /// OBD要求のService番号です。
     let service: UInt8
-    /// サービス内のPID番号です。
+    /// Service内のPID番号です。
     let pid: UInt8
-    /// 車種専用PIDの送信先CANヘッダーです。標準PIDでは `nil` です。
+    /// 送信先ECUを固定する11bit CANヘッダーです。標準機能アドレスの場合は `nil` です。
     let header: UInt16?
-    /// 車種専用PIDが属する車種コードです。標準PIDでは `nil` です。
+    /// この定義を使用できる車両型式です。標準PIDの場合は `nil` です。
     let vehicleModelCode: String?
-    /// 名称のローカライズキーです。
+    /// 表示名へ解決できる安定キーです。
     let nameKey: String
-    /// 数式の評価に必要な応答バイト数です。数式未確認のPIDでは `nil` です。
+    /// 数式が参照する応答データの必要バイト数です。
     let requiredByteCount: Int?
-    /// 応答バイトA〜Hに適用する制限付き数式です。未確認のPIDでは `nil` です。
+    /// `A`から`H`までのバイト変数を使用する制限付き数式です。
     let formula: String?
-    /// 変換後の単位です。
+    /// 計算結果の単位です。
     let unit: String
-    /// 規格上の最小値です。
+    /// 規格上または定義上の最小値です。
     let minimumValue: Double?
-    /// 規格上の最大値です。
+    /// 規格上または定義上の最大値です。
     let maximumValue: Double?
-    /// 定義の出典です。
+    /// 定義を確認した一次資料のURI文字列です。
     let sourceURI: String
-    /// 定義の改訂番号です。数式・単位・範囲を変えるたびに増やします。
+    /// 同じService/PID定義を更新するときの単調増加改訂番号です。
     let revision: Int
-    /// 概要ヘルプのローカライズキーです。
+    /// 項目概要を表示するローカライズキーです。
     let summaryKey: String
-    /// 値が高い時のヘルプのローカライズキーです。
+    /// 高値時の確認観点を表示するローカライズキーです。
     let highValueKey: String
-    /// 値が低い時のヘルプのローカライズキーです。
+    /// 低値時の確認観点を表示するローカライズキーです。
     let lowValueKey: String
-    /// 関連項目ヘルプのローカライズキーです。
+    /// 関連項目を表示するローカライズキーです。
     let correlationKey: String
 
-    /// PID定義を生成します。
+    /// 数式を含むPID定義を生成します。
     ///
-    /// 責務: 1件のPIDの要求方法と変換規則を固定します。
+    /// 責務: 1件のPID識別子と変換契約を不変値として固定します。
+    /// - Parameters:
+    ///   - service: OBD要求のService番号。
+    ///   - pid: Service内のPID番号。
+    ///   - header: 送信先ECUを固定する11bit CANヘッダー。
+    ///   - vehicleModelCode: この定義を使用できる車両型式。
+    ///   - nameKey: 表示名の安定キー。
+    ///   - requiredByteCount: 数式評価に必要なバイト数。
+    ///   - formula: 制限付き数式。
+    ///   - unit: 計算結果の単位。
+    ///   - minimumValue: 許容最小値。
+    ///   - maximumValue: 許容最大値。
+    ///   - sourceURI: 一次資料のURI文字列。
+    ///   - revision: 定義の改訂番号。
+    ///   - summaryKey: 項目概要のローカライズキー。
+    ///   - highValueKey: 高値時説明のローカライズキー。
+    ///   - lowValueKey: 低値時説明のローカライズキー。
+    ///   - correlationKey: 相関項目説明のローカライズキー。
     init(
         service: UInt8,
         pid: UInt8,
@@ -74,12 +91,9 @@ nonisolated struct OBDPIDDefinition: Equatable, Sendable {
         self.correlationKey = correlationKey
     }
 
-    /// サービス番号とPID番号の組です。
-    var request: OBDPIDRequest { OBDPIDRequest(service: service, pid: pid) }
-
-    /// 応答を物理値へ変換できる定義かどうかです。
+    /// 定義式で安全に数値化できるPIDかどうかです。
     var isDecodable: Bool { requiredByteCount != nil && formula?.isEmpty == false }
 
-    /// 車種専用PIDかどうかです。
+    /// 特定車両だけへ要求できる拡張PIDかどうかです。
     var isVehicleSpecific: Bool { header != nil && vehicleModelCode?.isEmpty == false }
 }

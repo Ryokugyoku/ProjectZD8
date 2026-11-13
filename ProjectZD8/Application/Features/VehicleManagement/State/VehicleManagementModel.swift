@@ -1,326 +1,467 @@
 import Foundation
 import Observation
 
-/// 車両一覧、編集、写真、削除、PID収集設定を調整します。
+/// 車両一覧、OBD識別確認、登録編集を永続化とOBD識別へ結び付けます。
 @MainActor
 @Observable
 final class VehicleManagementModel {
-    /// 画面が描画する現在状態です。
-    private(set) var state = VehicleManagementState()
+    /// Platformが描画する現在状態です。
+    var state: VehicleManagementState
+    /// 車両の読込、保存、削除を行う永続化境界です。
+    @ObservationIgnored private let repository: any VehicleRepository
+    /// 接続操作を同種の車両識別子照合へ変換するユースケースです。
+    @ObservationIgnored private let identifyForConnection: IdentifyVehicleForConnectionUseCase
+    /// ユーザーが選択した画像を読み込む境界です。
+    @ObservationIgnored private let photoImporter: any VehiclePhotoImportPort
+    /// 車両別対応PID設定の永続化境界です。
+    @ObservationIgnored private let pidCapabilityRepository: (any VehiclePIDCapabilityRepository)?
+    /// PID名称を解決するカタログ境界です。
+    @ObservationIgnored private let pidDefinitionRepository: (any OBDPIDDefinitionRepository)?
+    /// 接続履歴を車両別の軽量集計へ変換するユースケースです。
+    @ObservationIgnored private let loadVehicleActivitySummaries: LoadVehicleActivitySummariesUseCase?
+    /// 車両と関連セッションを全端末から削除するユースケースです。
+    @ObservationIgnored private let deleteVehicleWithSessions: DeleteVehicleWithSessionsUseCase?
+    /// 車両関連セッション削除後に履歴表示へ再読込を通知する処理です。
+    @ObservationIgnored private let vehicleSessionsDidDelete: @MainActor () -> Void
+    /// 接続対象車両、終端、編集前のOBD識別観測をLoggingと監視開始へ通知する処理です。
+    @ObservationIgnored private let connectionVehicleDidResolve: @MainActor (
+        VehicleProfile,
+        OBDConnectionEndpoint,
+        VehicleIdentificationSnapshot
+    ) -> Void
+    /// 現在の車両を所有するAppleアカウント識別子です。
+    @ObservationIgnored private var accountIdentifier: String?
 
-    @ObservationIgnored private let vehicles: any VehicleRepository
-    @ObservationIgnored private let photos: any PhotoRepository
-    @ObservationIgnored private let changes: any StoreChangeObserving
-    @ObservationIgnored private let now: @Sendable () -> Date
-    @ObservationIgnored private let loadActivity: LoadVehicleActivitySummariesUseCase
-    @ObservationIgnored private let loadPIDSettings: LoadVehiclePIDSettingsUseCase
-    @ObservationIgnored private let deleteVehicle: DeleteVehicleUseCase
-    @ObservationIgnored private let saveEdit: SaveVehicleEditUseCase
-    @ObservationIgnored private let pidSettings: any VehiclePIDSettingRepository
-    @ObservationIgnored private var observation: Task<Void, Never>?
-    /// 読み込み済みの写真を保持します。写真IDの内容は変わらないため無効化は不要です。
-    @ObservationIgnored private var photoCache: [PhotoID: Data] = [:]
-
-    /// 永続化契約と時計を注入してモデルを生成します。
+    /// 初期状態、注入済み境界、車両確定通知先を使ってモデルを生成します。
     ///
-    /// 責務: 車両管理の状態遷移を永続化契約へ結び付けます。
+    /// 責務: 車両管理状態を永続化、OBD識別、画像取込の各境界へ結び付けます。
+    /// - Parameters:
+    ///   - state: 初期表示状態。
+    ///   - repository: アカウントスコープ付き車両保存先。
+    ///   - identifyForConnection: VINまたは非VIN識別子の取得と登録照合を行うユースケース。
+    ///   - photoImporter: 選択画像をプロフィールデータへ変換する境界。
+    ///   - pidCapabilityRepository: 車両別対応PID設定の保存先。
+    ///   - pidDefinitionRepository: PID名称を解決するカタログ境界。
+    ///   - loadVehicleActivitySummaries: 接続履歴をGarage表示用集計へ変換するユースケース。
+    ///   - deleteVehicleWithSessions: 車両と関連セッションを全端末から削除するユースケース。
+    ///   - vehicleSessionsDidDelete: 車両関連セッション削除後に履歴表示へ再読込を通知する処理。
+    ///   - connectionVehicleDidResolve: 接続対象車両、終端、編集前のOBD識別観測を通知する処理。
     init(
-        vehicles: any VehicleRepository,
-        sessions: any SessionRepository,
-        pidSettings: any VehiclePIDSettingRepository,
-        photos: any PhotoRepository,
-        changes: any StoreChangeObserving,
-        now: @escaping @Sendable () -> Date = Date.init
+        state: VehicleManagementState,
+        repository: any VehicleRepository,
+        identifyForConnection: IdentifyVehicleForConnectionUseCase,
+        photoImporter: any VehiclePhotoImportPort,
+        pidCapabilityRepository: (any VehiclePIDCapabilityRepository)? = nil,
+        pidDefinitionRepository: (any OBDPIDDefinitionRepository)? = nil,
+        loadVehicleActivitySummaries: LoadVehicleActivitySummariesUseCase? = nil,
+        deleteVehicleWithSessions: DeleteVehicleWithSessionsUseCase? = nil,
+        vehicleSessionsDidDelete: @escaping @MainActor () -> Void = {},
+        connectionVehicleDidResolve: @escaping @MainActor (
+            VehicleProfile,
+            OBDConnectionEndpoint,
+            VehicleIdentificationSnapshot
+        ) -> Void = { _, _, _ in }
     ) {
-        self.vehicles = vehicles
-        self.photos = photos
-        self.pidSettings = pidSettings
-        self.changes = changes
-        self.now = now
-        loadActivity = LoadVehicleActivitySummariesUseCase(sessions: sessions)
-        loadPIDSettings = LoadVehiclePIDSettingsUseCase(settings: pidSettings)
-        deleteVehicle = DeleteVehicleUseCase(vehicles: vehicles, sessions: sessions)
-        saveEdit = SaveVehicleEditUseCase(vehicles: vehicles, photos: photos)
+        self.state = state
+        self.repository = repository
+        self.identifyForConnection = identifyForConnection
+        self.photoImporter = photoImporter
+        self.pidCapabilityRepository = pidCapabilityRepository
+        self.pidDefinitionRepository = pidDefinitionRepository
+        self.loadVehicleActivitySummaries = loadVehicleActivitySummaries
+        self.deleteVehicleWithSessions = deleteVehicleWithSessions
+        self.vehicleSessionsDidDelete = vehicleSessionsDidDelete
+        self.connectionVehicleDidResolve = connectionVehicleDidResolve
     }
 
-    /// 1件の操作を状態へ反映します。入力のような即時の操作は同期で、永続化を伴う操作は非同期で処理します。
+    /// 1件の型付き操作を車両管理状態と副作用へ反映します。
     ///
-    /// 責務: 画面からの操作を状態更新または非同期処理へ振り分けます。
+    /// 責務: 車両管理操作を対応する非同期ワークフロー1件へ振り分けます。
+    /// - Parameter action: PlatformまたはAppから通知された操作。
     func send(_ action: VehicleManagementAction) {
         switch action {
-        case let .draftChanged(draft): changeDraft(draft)
-        case .failureDismissed: state.failure = nil
-        case .editCancelled: Task { await cancelEditing() }
-        case .deleteCancelled: state.pendingDeletion = nil
-        case .pidSettingsClosed: state.pidSettings = nil
-        case let .pidCategoryFilterChanged(filter): state.pidSettings?.categoryFilter = filter
-        case let .pidEnabledFilterChanged(filter): state.pidSettings?.enabledFilter = filter
-        case .stopped: stopObserving()
-        default: Task { await perform(action) }
+        case let .accountIdentifierChanged(identifier): activateAccount(identifier)
+        case let .identifyRequested(endpoint): Task { await identifyVehicle(using: endpoint) }
+        case .identificationRetryRequested:
+            if let endpoint = state.connectionEndpoint { Task { await identifyVehicle(using: endpoint) } }
+        case .identificationConfirmed: beginRegistration()
+        case .registrationCancelled: cancelRegistration()
+        case let .vehicleSaved(vehicle): Task { await save(vehicle) }
+        case let .editRequested(id): beginEditing(id)
+        case .editCancelled: finishEditing()
+        case let .photoSelected(url): Task { await importPhoto(at: url) }
+        case let .vehicleDeleted(id): Task { await delete(id) }
+        case .refreshRequested: Task { await refreshVehicleCatalogIfIdle() }
+        case let .pidSettingsRequested(vehicleID): loadPIDSettings(for: vehicleID)
+        case let .pidCollectionChanged(request, isEnabled): updatePIDSelection(request, isEnabled: isEnabled)
+        case .pidSettingsClosed:
+            state.pidSettingsVehicleID = nil
+            state.pidSelectionItems = []
         }
     }
 
-    /// 1件の操作を処理し、完了まで待ちます。
+    /// 指定車両の対応PIDと名称を収集設定状態へ読み込みます。
     ///
-    /// 責務: 全操作の処理本体です。テストと合成はこれを待って結果を確認できます。
-    func perform(_ action: VehicleManagementAction) async {
-        switch action {
-        case .started:
-            startObserving()
-            state.loadPhase = .loading
-            await refresh()
-        case .stopped: stopObserving()
-        case .refreshRequested: await refresh()
-        case let .editRequested(id): await beginEditing(id)
-        case let .draftChanged(draft): changeDraft(draft)
-        case let .photoPicked(data): await pickPhoto(data)
-        case .photoRemoved: await removePhoto()
-        case .saveRequested: await save()
-        case .editCancelled: await cancelEditing()
-        case let .deleteRequested(id): requestDeletion(id)
-        case .deleteConfirmed: await confirmDeletion()
-        case .deleteCancelled: state.pendingDeletion = nil
-        case let .pidSettingsRequested(id): await openPIDSettings(id)
-        case .pidSettingsClosed: state.pidSettings = nil
-        case let .pidCategoryFilterChanged(filter): state.pidSettings?.categoryFilter = filter
-        case let .pidEnabledFilterChanged(filter): state.pidSettings?.enabledFilter = filter
-        case let .pidCollectionToggled(request, isEnabled): await toggleCollection(request, isEnabled: isEnabled)
-        case .failureDismissed: state.failure = nil
+    /// 責務: 1件の車両IDをPIDテーブル名称付き収集選択一覧へ変換します。
+    /// - Parameter vehicleID: 設定対象のアプリ内車両ID。
+    private func loadPIDSettings(for vehicleID: VehicleID) {
+        guard let pidCapabilityRepository, let pidDefinitionRepository else {
+            state.failureKey = "garage.pid_settings.error"
+            return
         }
-    }
-
-    // MARK: - Observation
-
-    /// 責務: 車両・セッション・写真・PID設定の変更通知を購読して自動で再読み込みします。
-    private func startObserving() {
-        guard observation == nil else { return }
-        let stream = changes.changes(in: [.vehicles, .sessions, .photos, .pidSettings])
-        observation = Task { [weak self] in
-            for await _ in stream {
-                guard let self else { return }
-                await self.refresh()
-            }
-        }
-    }
-
-    /// 責務: 変更通知の購読を止めます。
-    private func stopObserving() {
-        observation?.cancel()
-        observation = nil
-    }
-
-    // MARK: - Loading
-
-    /// 責務: 車両一覧と活動集計を読み直し、開いているPID設定画面も更新します。
-    private func refresh() async {
         do {
-            let stored = try await vehicles.vehicles()
-            let activity = try await loadActivity.execute()
-            var photoFailed = false
-            var items: [VehicleListItem] = []
-            for vehicle in stored {
-                let data = await photoData(for: vehicle.photoID, didFail: &photoFailed)
-                items.append(VehicleListItem(vehicle: vehicle, activity: activity[vehicle.id] ?? VehicleActivitySummary(), photoData: data))
+            let definitions = try pidDefinitionRepository.definitions()
+            let names = Dictionary(uniqueKeysWithValues: definitions.map {
+                (OBDPIDRequest(service: $0.service, pid: $0.pid), $0.nameKey)
+            })
+            let modelCodes = Dictionary(uniqueKeysWithValues: definitions.map {
+                (OBDPIDRequest(service: $0.service, pid: $0.pid), $0.vehicleModelCode)
+            })
+            state.pidSelectionItems = try pidCapabilityRepository.capabilities(for: vehicleID).map {
+                VehiclePIDSelectionItem(
+                    id: $0.id.request,
+                    nameKey: names[$0.id.request],
+                    isEnabled: $0.isCollectionEnabled,
+                    vehicleModelCode: modelCodes[$0.id.request] ?? nil
+                )
             }
-            state.vehicles = items
-            state.loadPhase = .loaded
-            if photoFailed { state.failure = .photoLoadFailed }
-            if let open = state.pidSettings {
-                if let vehicle = stored.first(where: { $0.id == open.vehicleID }) {
-                    state.pidSettings?.items = try await loadPIDSettings.execute(for: vehicle)
-                } else {
-                    state.pidSettings = nil
+            state.pidSettingsVehicleID = vehicleID
+            state.failureKey = nil
+        } catch {
+            state.failureKey = "garage.pid_settings.error"
+        }
+    }
+
+    /// 現在表示中の車両で1件のPID収集選択を更新します。
+    ///
+    /// 責務: 1件のPID選択操作を永続化して現在表示へ反映します。
+    /// - Parameters:
+    ///   - request: 更新するService/PID。
+    ///   - isEnabled: 新しい収集有効状態。
+    private func updatePIDSelection(_ request: OBDPIDRequest, isEnabled: Bool) {
+        guard let vehicleID = state.pidSettingsVehicleID, let pidCapabilityRepository else { return }
+        do {
+            try pidCapabilityRepository.setCollectionEnabled(isEnabled, for: request, vehicleID: vehicleID)
+            if let index = state.pidSelectionItems.firstIndex(where: { $0.id == request }) {
+                state.pidSelectionItems[index].isEnabled = isEnabled
+            }
+        } catch {
+            state.failureKey = "garage.pid_settings.error"
+        }
+    }
+
+    /// 新しいアカウントスコープを有効化または解除します。
+    ///
+    /// 責務: 1件の認証識別子変更を車両状態の初期化と再読込へ反映します。
+    /// - Parameter identifier: 新しいAppleアカウント識別子。
+    private func activateAccount(_ identifier: String?) {
+        guard identifier != accountIdentifier else { return }
+        accountIdentifier = identifier
+        state = VehicleManagementState()
+        guard identifier?.isEmpty == false else { return }
+        Task { await loadVehicles() }
+    }
+
+    /// 現在アカウントの車両一覧を同期先またはキャッシュから読み込みます。
+    ///
+    /// 責務: 現在の1件のアカウントスコープへ車両一覧読込結果を反映し、更新日時ベースで同期待ち合わせします。
+    private func loadVehicles() async {
+        guard let accountIdentifier else { return }
+        state.phase = .loading
+        do {
+            let remote = try await repository.loadVehicles(for: accountIdentifier)
+            let syncResult = reconcileVehicles(local: state.vehicles, remote: remote)
+            state.vehicles = syncResult.merged
+            state.hasLoadedVehicles = true
+            loadActivitySummaries(for: accountIdentifier)
+            loadSpecialPIDRegistrations()
+            state.phase = .idle
+            state.failureKey = nil
+            Task { [accountIdentifier] in
+                for vehicle in syncResult.uploadTargets {
+                    try? await repository.saveVehicle(vehicle, for: accountIdentifier)
                 }
             }
         } catch {
-            state.loadPhase = .loaded
-            state.failure = .loadFailed
+            state.phase = .failed
+            state.failureKey = "garage.error.sync"
         }
     }
 
-    /// 責務: 写真の画像データをキャッシュ越しに取得します。読めなければ `didFail` を立てます。
-    private func photoData(for id: PhotoID?, didFail: inout Bool) async -> Data? {
-        guard let id else { return nil }
-        if let cached = photoCache[id] { return cached }
-        do {
-            guard let data = try await photos.imageData(for: id) else { return nil }
-            photoCache[id] = data
-            return data
-        } catch {
-            didFail = true
-            return nil
-        }
+    /// 現在アカウントの接続履歴をGarage用の車両別集計へ読み込みます。
+    ///
+    /// 責務: 1件のアカウント識別子へ対応する車両別ログ集計を現在状態へ反映します。
+    /// - Parameter accountIdentifier: 集計対象のAppleアカウント識別子。
+    private func loadActivitySummaries(for accountIdentifier: String) {
+        guard let loadVehicleActivitySummaries else { return }
+        state.activityByVehicleID = (try? loadVehicleActivitySummaries.execute(
+            accountIdentifier: accountIdentifier
+        )) ?? [:]
     }
 
-    // MARK: - Editing
-
-    /// 責務: 保存済みの車両から編集画面を開きます。
-    private func beginEditing(_ id: VehicleID) async {
-        guard let item = state.vehicles.first(where: { $0.id == id }) else {
-            state.failure = .vehicleNotFound
-            return
-        }
-        let draft = VehicleEditDraft(vehicle: item.vehicle)
-        state.editor = VehicleEditorState(
-            draft: draft,
-            originalPhotoID: item.vehicle.photoID,
-            photoData: item.photoData,
-            issues: draft.issues(currentYear: currentYear()),
-            isSaving: false
-        )
-    }
-
-    /// 責務: 画面の入力を反映し、動力区分が変わればエネルギー源を整え、検証し直します。
-    private func changeDraft(_ draft: VehicleEditDraft) {
-        guard var editor = state.editor else { return }
-        var next = draft
-        if next.powertrain != editor.draft.powertrain {
-            next.energySources = VehicleEnergySourcePolicy.normalizedSources(next.energySources, for: next.powertrain)
-        }
-        editor.draft = next
-        editor.issues = next.issues(currentYear: currentYear())
-        state.editor = editor
-    }
-
-    /// 責務: 選んだ画像を保存し、編集中の写真にします。直前に選んだ未保存の写真は片付けます。
-    private func pickPhoto(_ data: Data) async {
-        guard let editor = state.editor, !data.isEmpty else { return }
-        do {
-            let newID = try await photos.save(data, for: editor.draft.vehicleID)
-            photoCache[newID] = data
-            await discardUnsavedPhoto()
-            state.editor?.draft.photoID = newID
-            state.editor?.photoData = data
-        } catch {
-            state.failure = .photoFailed
-        }
-    }
-
-    /// 責務: 編集中の写真を外します。保存済みの写真は保存時に削除します。
-    private func removePhoto() async {
-        guard state.editor != nil else { return }
-        await discardUnsavedPhoto()
-        state.editor?.draft.photoID = nil
-        state.editor?.photoData = nil
-    }
-
-    /// 責務: この編集中に追加した、まだ車両へ保存していない写真を削除します。
-    private func discardUnsavedPhoto() async {
-        guard let editor = state.editor, let current = editor.draft.photoID, current != editor.originalPhotoID else { return }
-        do { try await photos.delete(current) } catch { state.failure = .photoFailed }
-        photoCache[current] = nil
-    }
-
-    /// 責務: 編集内容を保存して編集画面を閉じます。
-    private func save() async {
-        guard let editor = state.editor, !editor.isSaving else { return }
-        state.editor?.issues = editor.draft.issues(currentYear: currentYear())
-        guard state.editor?.issues.isEmpty == true else {
-            state.failure = .invalidInput
-            return
-        }
-        state.editor?.isSaving = true
-        do {
-            let result = try await saveEdit.execute(
-                draft: editor.draft,
-                originalPhotoID: editor.originalPhotoID,
-                now: now(),
-                currentYear: currentYear()
-            )
-            state.editor = nil
-            if result.didFailToDeleteReplacedPhoto { state.failure = .photoFailed }
-            await refresh()
-        } catch let failure as VehicleManagementFailure {
-            state.editor?.isSaving = false
-            state.failure = failure
-        } catch {
-            state.editor?.isSaving = false
-            state.failure = .saveFailed
-        }
-    }
-
-    /// 責務: 保存せず編集画面を閉じ、この編集中に追加した写真を片付けます。
-    private func cancelEditing() async {
-        await discardUnsavedPhoto()
-        state.editor = nil
-    }
-
-    /// 責務: 現在の西暦を時計から求めます。
-    private func currentYear() -> Int {
-        Calendar.current.component(.year, from: now())
-    }
-
-    // MARK: - Deletion
-
-    /// 責務: 削除の確認を求めます。記録中の車両は確認へ進めず失敗にします。
-    private func requestDeletion(_ id: VehicleID) {
-        guard let item = state.vehicles.first(where: { $0.id == id }) else {
-            state.failure = .vehicleNotFound
-            return
-        }
-        guard !item.activity.isRecording else {
-            state.failure = .deleteRefusedWhileRecording
-            return
-        }
-        state.pendingDeletion = VehicleDeletionPrompt(
-            vehicleID: id,
-            vehicleName: item.vehicle.name,
-            sessionCount: item.activity.sessionCount
-        )
-    }
-
-    /// 責務: 確認済みの削除を実行します。
-    private func confirmDeletion() async {
-        guard let prompt = state.pendingDeletion else { return }
-        state.pendingDeletion = nil
-        do {
-            try await deleteVehicle.execute(prompt.vehicleID)
-            if state.editor?.draft.vehicleID == prompt.vehicleID { state.editor = nil }
-            if state.pidSettings?.vehicleID == prompt.vehicleID { state.pidSettings = nil }
-            await refresh()
-        } catch let failure as VehicleManagementFailure {
-            state.failure = failure
-        } catch {
-            state.failure = .deleteFailed
-        }
-    }
-
-    // MARK: - PID settings
-
-    /// 責務: 車両のPID収集設定画面を開きます。
-    private func openPIDSettings(_ id: VehicleID) async {
-        guard let vehicle = state.vehicles.first(where: { $0.id == id })?.vehicle else {
-            state.failure = .vehicleNotFound
-            return
-        }
-        do {
-            state.pidSettings = VehiclePIDSettingsState(
-                vehicleID: id,
-                vehicleName: vehicle.name,
-                items: try await loadPIDSettings.execute(for: vehicle)
-            )
-        } catch {
-            state.failure = .pidSettingsFailed
-        }
-    }
-
-    /// 責務: 1つのPIDの収集有効・無効を保存し、一覧を更新します。応答を確認していないPIDは拒否します。
-    private func toggleCollection(_ request: OBDPIDRequest, isEnabled: Bool) async {
-        guard let open = state.pidSettings, let item = open.items.first(where: { $0.request == request }) else { return }
-        guard item.isSupported else {
-            state.failure = .pidNotSupported
-            return
-        }
-        do {
-            try await pidSettings.setCollectionEnabled(isEnabled, for: request, vehicleID: open.vehicleID)
-            if let index = state.pidSettings?.items.firstIndex(where: { $0.request == request }) {
-                state.pidSettings?.items[index] = VehiclePIDSettingItem(
-                    request: item.request, nameKey: item.nameKey, unit: item.unit, category: item.category,
-                    isVehicleSpecific: item.isVehicleSpecific, support: item.support, isEnabled: isEnabled
-                )
+    /// 登録車両ごとの車種専用PID対応状態を読み込みます。
+    ///
+    /// 責務: 保存済みPID能力と定義をGarage用の車両別型式表示へ変換します。
+    private func loadSpecialPIDRegistrations() {
+        guard let pidCapabilityRepository, let pidDefinitionRepository,
+              let definitions = try? pidDefinitionRepository.definitions() else { return }
+        let modelCodes = Dictionary(uniqueKeysWithValues: definitions.compactMap { definition in
+            definition.vehicleModelCode.map {
+                (OBDPIDRequest(service: definition.service, pid: definition.pid), $0)
             }
+        })
+        var registrations: [VehicleID: String] = [:]
+        for vehicle in state.vehicles where ZD8VehicleModelPolicy().matches(vehicle) {
+            guard let capabilities = try? pidCapabilityRepository.capabilities(for: vehicle.id),
+                  let modelCode = capabilities.lazy.compactMap({ modelCodes[$0.id.request] }).first else { continue }
+            registrations[vehicle.id] = modelCode
+        }
+        state.specialPIDModelCodeByVehicleID = registrations
+    }
+
+    /// 操作待ち状態で要求された車両一覧の再読込だけを開始します。
+    ///
+    /// 責務: 進行中の識別・登録・編集状態を保持したまま、操作待ち時だけ車両カタログ再読込を開始します。
+    private func refreshVehicleCatalogIfIdle() async {
+        guard state.phase == .idle else { return }
+        await loadVehicles()
+    }
+
+    /// ローカルとキャッシュ読込データを更新日時で突合し、同期方針を作成します。
+    ///
+    /// 責務: 1回の読込結果をローカル一覧と比較し、採用対象とクラウド反映候補を返します。
+    /// - Parameters:
+    ///   - local: 画面保持中の車両一覧。
+    ///   - remote: リポジトリ読込時点の車両一覧。
+    /// - Returns: 反映先一覧とアップロード対象。
+    private func reconcileVehicles(
+        local: [VehicleProfile],
+        remote: [VehicleProfile]
+    ) -> (merged: [VehicleProfile], uploadTargets: [VehicleProfile]) {
+        let remoteByID = Dictionary(uniqueKeysWithValues: remote.map { ($0.id, $0) })
+        var merged: [VehicleProfile] = []
+        var uploadTargets: [VehicleProfile] = []
+        var syncedIDs: Set<VehicleID> = []
+
+        for localVehicle in local {
+            if let remoteVehicle = remoteByID[localVehicle.id] {
+                syncedIDs.insert(localVehicle.id)
+                if localVehicle.updatedAt > remoteVehicle.updatedAt {
+                    merged.append(localVehicle)
+                    uploadTargets.append(localVehicle)
+                } else {
+                    merged.append(remoteVehicle)
+                }
+            } else {
+                merged.append(localVehicle)
+                uploadTargets.append(localVehicle)
+            }
+        }
+
+        for remoteVehicle in remote where !syncedIDs.contains(remoteVehicle.id) {
+            merged.append(remoteVehicle)
+        }
+
+        return (merged.sorted { $0.updatedAt > $1.updatedAt }, uploadTargets)
+    }
+
+    /// OBD識別結果を登録済み接続または登録確認へ反映します。
+    ///
+    /// 責務: 1回のHOME接続要求を車両識別子の照合結果に応じた状態へ進めます。
+    /// - Parameter endpoint: 接続するOBDアダプターの物理終端。
+    private func identifyVehicle(using endpoint: OBDConnectionEndpoint) async {
+        guard accountIdentifier != nil, state.phase != .identifying else { return }
+        state.connectionEndpoint = endpoint
+        state.phase = .identifying
+        state.failureKey = nil
+        state.identificationFailureStage = nil
+        do {
+            switch try await identifyForConnection.execute(endpoint: endpoint, vehicles: state.vehicles) {
+            case let .registered(vehicle, snapshot):
+                state.connectionVehicle = vehicle
+                state.phase = .readyToConnect
+                connectionVehicleDidResolve(vehicle, endpoint, snapshot)
+                if let accountIdentifier { loadActivitySummaries(for: accountIdentifier) }
+            case let .requiresRegistration(snapshot):
+                state.pendingIdentification = snapshot
+                state.phase = .confirmingIdentification
+            }
+        } catch VehicleIdentificationError.stageFailed(let stage, let cause) {
+            applyIdentificationFailure(stage: stage, cause: cause)
+        } catch VehicleIdentificationError.vinUnavailable {
+            state.phase = .failed
+            state.failureKey = "garage.error.vin_unavailable"
+        } catch VehicleIdentificationError.pidCatalogUnavailable {
+            state.phase = .failed
+            state.failureKey = "garage.error.pid_catalog"
+        } catch VehicleIdentificationError.connectionFailed {
+            state.phase = .failed
+            state.failureKey = "garage.error.connection"
+        } catch VehicleIdentificationError.responseTimedOut {
+            state.phase = .failed
+            state.failureKey = "garage.error.timeout"
+        } catch VehicleIdentificationError.commandRejected {
+            state.phase = .failed
+            state.failureKey = "garage.error.command_rejected"
+        } catch VehicleIdentificationError.malformedResponse {
+            state.phase = .failed
+            state.failureKey = "garage.error.malformed_response"
         } catch {
-            state.failure = .pidSettingsFailed
+            state.phase = .failed
+            state.failureKey = "garage.error.obd_unavailable"
+        }
+    }
+
+    /// 型付き識別失敗をmacOSとiOSが描画できる段階と原因文言へ反映します。
+    ///
+    /// 責務: 1件の車両識別失敗を失敗状態、段階、原因ローカライズキーへ変換します。
+    /// - Parameters:
+    ///   - stage: 完了できなかった車両識別段階。
+    ///   - cause: その段階で観測した単一原因。
+    private func applyIdentificationFailure(
+        stage: VehicleIdentificationError.Stage,
+        cause: VehicleIdentificationError.Cause
+    ) {
+        state.phase = .failed
+        state.identificationFailureStage = stage
+        switch cause {
+        case .unavailable, .transportUnsupported:
+            state.failureKey = "garage.error.obd_unavailable"
+        case .connectionFailed:
+            state.failureKey = "garage.error.connection"
+        case .responseTimedOut:
+            state.failureKey = "garage.error.timeout"
+        case .commandRejected:
+            state.failureKey = "garage.error.command_rejected"
+        case .malformedResponse:
+            state.failureKey = "garage.error.malformed_response"
+        }
+    }
+
+    /// 確認済みOBD識別子から新規プロフィール入力を開始します。
+    ///
+    /// 責務: 保持中のVINまたは非VIN識別観測1件を編集可能な新規プロフィールへ変換します。
+    private func beginRegistration() {
+        guard let snapshot = state.pendingIdentification,
+              snapshot.vin != nil || snapshot.obdIdentifier != nil else { return }
+        let manufacturer = snapshot.fields.first(where: { $0.id == "manufacturer" })?.value ?? ""
+        let engineModel = snapshot.fields.first(where: { $0.id == "engineModel" })?.value ?? ""
+        state.editingVehicle = VehicleProfile(
+            vin: snapshot.vin ?? "",
+            obdIdentifier: snapshot.obdIdentifier,
+            name: manufacturer.isEmpty ? "" : manufacturer,
+            manufacturer: manufacturer,
+            engineModel: engineModel,
+            isDefault: false
+        )
+        state.phase = .registering
+    }
+
+    /// 未完了の新規登録を破棄して一覧へ戻ります。
+    ///
+    /// 責務: 新規登録用の観測と編集値だけを現在状態から解除します。
+    private func cancelRegistration() {
+        state.pendingIdentification = nil
+        state.editingVehicle = nil
+        state.phase = .idle
+    }
+
+    /// 指定車両のプロフィール編集を開始します。
+    ///
+    /// 責務: 登録一覧から指定IDの車両1件を編集状態へ設定します。
+    /// - Parameter id: 編集対象のアプリ内車両ID。
+    private func beginEditing(_ id: VehicleID) {
+        guard let vehicle = state.vehicles.first(where: { $0.id == id }) else { return }
+        state.editingVehicle = vehicle
+        state.phase = .editing
+    }
+
+    /// 現在のプロフィール編集を保存せず終了します。
+    ///
+    /// 責務: 編集対象1件を解除して車両一覧表示へ戻します。
+    private func finishEditing() {
+        state.editingVehicle = nil
+        state.phase = .idle
+    }
+
+    /// 選択画像を現在の編集プロフィールへ反映します。
+    ///
+    /// 責務: 1件のファイル選択結果を編集中車両の写真データへ変換します。
+    /// - Parameter url: Platformが選択した画像URL。
+    private func importPhoto(at url: URL) async {
+        guard var vehicle = state.editingVehicle else { return }
+        do {
+            vehicle.photoData = try await photoImporter.importPhoto(at: url)
+            state.editingVehicle = vehicle
+            state.failureKey = nil
+        } catch {
+            state.failureKey = "garage.error.photo"
+        }
+    }
+
+    /// 1件のプロフィールを現在アカウントへ保存します。
+    ///
+    /// 責務: 編集済み車両1件を保存し最新一覧へ置き換えます。
+    /// - Parameter vehicle: 保存する編集済みプロフィール。
+    private func save(_ vehicle: VehicleProfile) async {
+        guard let accountIdentifier else { return }
+        let connectionIdentification = state.phase == .registering ? state.pendingIdentification : nil
+        var saved = vehicle
+        saved.updatedAt = Date()
+        do {
+            try await repository.saveVehicle(saved, for: accountIdentifier)
+            if let index = state.vehicles.firstIndex(where: { $0.id == saved.id }) {
+                state.vehicles[index] = saved
+            } else {
+                state.vehicles.append(saved)
+            }
+            state.vehicles.sort { $0.updatedAt > $1.updatedAt }
+            state.editingVehicle = nil
+            state.pendingIdentification = nil
+            if let connectionIdentification {
+                state.connectionVehicle = saved
+                if let endpoint = state.connectionEndpoint {
+                    connectionVehicleDidResolve(saved, endpoint, connectionIdentification)
+                }
+            }
+            loadActivitySummaries(for: accountIdentifier)
+            state.phase = .idle
+            state.failureKey = nil
+        } catch {
+            state.vehicles = (try? await repository.loadVehicles(for: accountIdentifier)) ?? state.vehicles
+            state.phase = .failed
+            state.failureKey = "garage.error.save"
+        }
+    }
+
+    /// 指定車両と関連セッションを現在アカウントから削除します。
+    ///
+    /// 責務: 指定IDの車両1件と全関連セッションを削除して表示一覧へ成功結果を反映します。
+    /// - Parameter id: 削除対象のアプリ内車両ID。
+    private func delete(_ id: VehicleID) async {
+        guard let accountIdentifier else { return }
+        guard let deleteVehicleWithSessions else {
+            state.phase = .failed
+            state.failureKey = "garage.error.delete"
+            return
+        }
+        do {
+            try await deleteVehicleWithSessions.execute(
+                vehicleID: id,
+                accountIdentifier: accountIdentifier
+            )
+            state.vehicles.removeAll { $0.id == id }
+            state.activityByVehicleID[id] = nil
+            state.editingVehicle = nil
+            state.phase = .idle
+            state.failureKey = nil
+            vehicleSessionsDidDelete()
+        } catch DeleteVehicleWithSessionsUseCase.Error.activeSession {
+            state.phase = .failed
+            state.failureKey = "garage.error.delete_active_session"
+        } catch {
+            state.phase = .failed
+            state.failureKey = "garage.error.delete"
         }
     }
 }

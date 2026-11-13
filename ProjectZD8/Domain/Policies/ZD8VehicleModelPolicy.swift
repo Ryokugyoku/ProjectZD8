@@ -1,7 +1,7 @@
 import Foundation
 
 /// 登録車両の識別値をZD8型式へ安全に照合します。
-nonisolated struct ZD8VehicleModelPolicy {
+struct ZD8VehicleModelPolicy {
     /// 専用PID表示に使用する型式文字列です。
     static let modelCode = "ZD8"
 
@@ -23,7 +23,7 @@ nonisolated struct ZD8VehicleModelPolicy {
     /// 責務: 1台の登録車両が持つVINとOBD識別子をZD8型式へ照合します。
     /// - Parameter vehicle: 判定する登録車両プロフィール。
     /// - Returns: いずれかの識別値がZD8を示す場合は `true`。
-    func matches(_ vehicle: Vehicle) -> Bool {
+    func matches(_ vehicle: VehicleProfile) -> Bool {
         matches(vehicle.vin) || matches(vehicle.obdIdentifier)
     }
 }

@@ -1,14 +1,11 @@
-/// この端末から接続できる実アダプターを探索する契約です。デモ用アダプターは含みません。
-nonisolated protocol AdapterDiscoveryPort: Sendable {
-    /// 責務: 現在見つかるアダプターを1回探索して返します。
-    /// - Throws: 探索できない場合の `AdapterDiscoveryError`。
-    func discoverAdapters() async throws -> [AdapterDescriptor]
-}
-
-/// アダプター探索の失敗です。
-nonisolated enum AdapterDiscoveryError: Error, Equatable, Sendable {
-    case bluetoothPoweredOff
-    case bluetoothUnauthorized
-    case bluetoothUnsupported
-    case failed
+/// アダプター候補をシステムのデバイス情報から取得する境界です。
+@MainActor
+protocol AdapterDiscoveryPort {
+    /// 指定された接続方式で現在参照できるアダプター候補を取得します。
+    ///
+    /// 責務: 1種類の接続方式に対応する現在のアダプター候補一覧を返します。
+    /// - Parameter mode: 探索対象の物理接続方式。
+    /// - Returns: システムから取得できたアダプター候補。
+    /// - Throws: システムのデバイス情報へアクセスできない場合の探索エラー。
+    func discoverAdapters(for mode: AdapterTransportMode) async throws -> [DiscoveredAdapter]
 }
