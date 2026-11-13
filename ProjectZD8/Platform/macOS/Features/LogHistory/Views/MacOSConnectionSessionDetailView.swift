@@ -24,21 +24,17 @@ struct MacOSConnectionSessionDetailView: View {
     ///
     /// 責務: 1件の接続セッションをMac保管済みRawログと車両別学習準備へ分けて描画します。
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20 * metrics.scale) {
-                detailActions
-                hero
-                stopReviewCard
-                HStack(alignment: .top, spacing: 16 * metrics.scale) {
-                    rawDataCard
-                    analysisCard
-                    integrityCard
-                }
-                trainingCard
-                lineageCard
+        // 戻る・削除操作は固定し、詳細カードだけをスクロールさせる。
+        VStack(alignment: .leading, spacing: 0) {
+            detailActions
+                .padding([.horizontal, .top], 28 * metrics.scale)
+                .padding(.bottom, 16 * metrics.scale)
+            ScrollView {
+                detailContent
+                    .padding([.horizontal, .bottom], 28 * metrics.scale)
             }
-            .padding(28 * metrics.scale)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(background)
         .navigationTitle("history.detail.title")
         .navigationDestination(isPresented: $isAnalysisPresented) {
@@ -67,6 +63,21 @@ struct MacOSConnectionSessionDetailView: View {
             Text(downloadConfirmationMessage(prompt))
         }
         .accessibilityIdentifier("macos-connection-session-detail")
+    }
+
+    /// 固定した操作列の下でスクロールするセッション詳細カード群です。
+    private var detailContent: some View {
+        VStack(alignment: .leading, spacing: 20 * metrics.scale) {
+            hero
+            stopReviewCard
+            HStack(alignment: .top, spacing: 16 * metrics.scale) {
+                rawDataCard
+                analysisCard
+                integrityCard
+            }
+            trainingCard
+            lineageCard
+        }
     }
 
     /// 観測済み停止理由とユーザー確認状態を表示します。
