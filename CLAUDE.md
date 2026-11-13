@@ -23,6 +23,8 @@ PYTHONPATH=Tools/VehicleChangeDataQuality python3 -m unittest discover -s Tools/
 ruby .github/testflight_build_publisher_test.rb
 ```
 
+静的解析: SwiftLint(`brew install swiftlint`、設定は `.swiftlint.yml`)。アプリtargetの Run Script フェーズで Debug ビルド時のみ実行され、指摘は Xcode の Issue Navigator に出る(そのため app target は `ENABLE_USER_SCRIPT_SANDBOXING = NO`)。`custom_rules` の層依存違反のみ error でビルドを止める。CLI で実行する場合、`xcode-select` が CommandLineTools を指していると落ちるので `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swiftlint lint` とする。
+
 CI は `.github/workflows/testflight.yml`(iOS/macOS アーカイブ → TestFlight 配布)のみ。
 
 ## アーキテクチャ

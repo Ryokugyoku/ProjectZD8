@@ -1,0 +1,96 @@
+# SwiftLint 設定
+# Xcode のビルド時(Run Script フェーズ)に実行され、指摘はエディタと Issue Navigator に表示される。
+# 方針: 既存コードの指摘は warning として可視化し、ビルドは止めない。
+#       層の依存ルール違反(custom_rules)だけは error としてビルドを止める。
+
+included:
+  - ProjectZD8
+  - ProjectZD8Tests
+  - ProjectZD8UITests
+
+excluded:
+  - Tools
+  - DerivedData
+  - .build
+
+disabled_rules:
+  # DocC を付けるために明示的な init を書く慣習があるため無効化する。
+  - unneeded_synthesized_initializer
+
+# このプロジェクトは説明的な長い型名・日本語 DocC を採用しているため閾値を緩める。
+line_length:
+  warning: 200
+  error: 1000
+  ignores_comments: true
+  ignores_urls: true
+
+type_name:
+  max_length:
+    warning: 60
+    error: 1000
+
+identifier_name:
+  min_length:
+    warning: 2
+    error: 1
+  max_length:
+    warning: 60
+    error: 1000
+  excluded:
+    - id
+    - x
+    - y
+
+# 巨大な View や型を検出するための指標。ビルドを止めないよう error は事実上無効にする。
+file_length:
+  warning: 500
+  error: 100000
+  ignore_comment_only_lines: true
+
+type_body_length:
+  warning: 300
+  error: 100000
+
+function_body_length:
+  warning: 60
+  error: 100000
+
+function_parameter_count:
+  warning: 6
+  error: 100
+
+cyclomatic_complexity:
+  warning: 12
+  error: 1000
+
+force_try: warning
+force_cast: warning
+
+custom_rules:
+  platform_no_infrastructure_import:
+    name: "Platform層からのインフラ import 禁止"
+    included: "ProjectZD8/Platform/.*\\.swift"
+    regex: "^import (GRDB|CloudKit|CoreBluetooth|ExternalAccessory|SwiftData|IOBluetooth)\\b"
+    message: "Platform 層は Data 層のフレームワークへ直接依存できません。Application のポート経由にしてください。"
+    severity: error
+
+  domain_framework_independent:
+    name: "Domain層のフレームワーク非依存"
+    included: "ProjectZD8/Domain/.*\\.swift"
+    regex: "^import (?!Foundation\\b)\\w+"
+    message: "Domain 層は Foundation 以外を import できません。"
+    severity: error
+
+  application_no_ui_or_infrastructure_import:
+    name: "Application層のUI・インフラ非依存"
+    included: "ProjectZD8/Application/.*\\.swift"
+    regex: "^import (SwiftUI|UIKit|AppKit|GRDB|CloudKit|SwiftData|CoreBluetooth|ExternalAccessory)\\b"
+    message: "Application 層は UI フレームワークや具象インフラに依存できません。"
+    severity: error
+
+  platform_raw_color_literal:
+    name: "View内のRGB直書き"
+    included: "ProjectZD8/Platform/.*\\.swift"
+    regex: "Color\\(\\s*red:"
+    message: "色は Shared/DesignSystem のトークンへ集約してください。"
+    severity: warning

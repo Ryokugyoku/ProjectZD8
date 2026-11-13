@@ -119,6 +119,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 9C6E28FB300C7A9300C839C2 /* Build configuration list for PBXNativeTarget "ProjectZD8" */;
 			buildPhases = (
+				A1B2C3D40000000000000010 /* SwiftLint */,
 				9C6E28D3300C7A9200C839C2 /* Sources */,
 				9C6E28D4300C7A9200C839C2 /* Frameworks */,
 				9C6E28D5300C7A9200C839C2 /* Resources */,
@@ -266,6 +267,28 @@
 		};
 /* End PBXResourcesBuildPhase section */
 
+/* Begin PBXShellScriptBuildPhase section */
+		A1B2C3D40000000000000010 /* SwiftLint */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = SwiftLint;
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# Debug ビルド時のみ SwiftLint を実行し、指摘を Xcode の Issue Navigator に表示する。\nif [ \"${CONFIGURATION}\" != \"Debug\" ]; then\n  exit 0\nfi\nexport PATH=\"/opt/homebrew/bin:/usr/local/bin:${PATH}\"\nif command -v swiftlint >/dev/null 2>&1; then\n  cd \"${SRCROOT}\"\n  swiftlint lint --quiet\nelse\n  echo \"warning: SwiftLint が見つかりません。brew install swiftlint でインストールしてください。\"\nfi\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		9C6E28D3300C7A9200C839C2 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
@@ -319,6 +342,7 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				EXECUTABLE_NAME = "RevTorque Insight";
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = ProjectZD8/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "RevTorque Insight";
@@ -369,6 +393,7 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				EXECUTABLE_NAME = "RevTorque Insight";
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = ProjectZD8/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "RevTorque Insight";
