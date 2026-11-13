@@ -14,7 +14,7 @@ struct MacOSLoginView: View {
 
     /// Macウインドウの利用可能領域へ追従するログイン画面を描画します。
     ///
-    /// 責務: macOS認証状態を落ち着いた自動車コックピットのログイン画面へ表示します。
+    /// 責務: macOS認証状態をウインドウ寸法に応じた一列または二列のログイン画面へ表示します。
     var body: some View {
         GeometryReader { proxy in
             let metrics = MacOSLoginMetrics.resolve(
@@ -23,13 +23,17 @@ struct MacOSLoginView: View {
             )
 
             ZStack {
-                loginBackground
-                if metrics.usesStackedLayout {
-                    stackedLayout(metrics: metrics)
-                } else {
-                    desktopLayout(metrics: metrics)
+                CockpitBackdrop()
+                switch metrics.layout {
+                case .split:
+                    splitLayout(metrics: metrics, height: proxy.size.height)
+                case .singleColumn:
+                    singleColumnLayout(metrics: metrics, height: proxy.size.height)
                 }
             }
+            .environment(\.colorScheme, .dark)
+            .animation(.snappy, value: state.phase)
+            .animation(.snappy, value: state.failure)
         }
         .sheet(isPresented: disclaimerBinding) {
             MacOSLoginDisclaimerView(
@@ -57,85 +61,72 @@ struct MacOSLoginView: View {
         )
     }
 
-    /// 標準以上のウインドウでブランドと認証操作を左右に分けて描画します。
-    ///
-    /// 責務: macOSログイン内容を横長ウインドウ向けの二列構成へ配置します。
-    /// - Parameter metrics: 現在のウインドウ寸法から解決した表示規則。
-    /// - Returns: ブランド領域と認証パネルを持つmacOS標準構成。
-    private func desktopLayout(metrics: MacOSLoginMetrics) -> some View {
-        HStack(spacing: metrics.outerPadding) {
-            VStack(alignment: .leading, spacing: 22 * metrics.scale) {
-                brandHeader(scale: metrics.scale)
-                Spacer(minLength: 10)
-                HStack(spacing: 34 * metrics.scale) {
-                    cockpitHero(diameter: metrics.heroDiameter)
-                    introduction(alignment: .leading, scale: metrics.scale)
-                }
-                Spacer(minLength: 10)
-                capabilityStrip(scale: metrics.scale)
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+    // MARK: - Layouts
 
-            authenticationPanel
-                .frame(maxWidth: metrics.panelMaxWidth)
+    /// 横長ウインドウでブランド領域と認証パネルを左右に分けます。
+    ///
+    /// 責務: 二列構成で各列を独立スクロールさせ、低いウインドウでも見切れない配置にします。
+    /// - Parameters:
+    ///   - metrics: 現在のウインドウ寸法から解決した表示規則。
+    ///   - height: 列の最小高さとして使うウインドウ内の高さ。
+    /// - Returns: ブランド領域と認証パネルを持つmacOS二列構成。
+    private func splitLayout(metrics: MacOSLoginMetrics, height: CGFloat) -> some View {
+        HStack(spacing: metrics.columnSpacing) {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) {
+                    brandHeader(scale: metrics.scale)
+                    Spacer(minLength: 28 * metrics.scale)
+                    heroAndIntroduction(metrics: metrics, alignment: .leading)
+                    Spacer(minLength: 28 * metrics.scale)
+                    capabilityTiles(scale: metrics.scale)
+                }
+                .frame(maxWidth: metrics.contentMaxWidth, alignment: .leading)
+                .padding(.vertical, metrics.outerPadding)
+                .frame(maxWidth: .infinity, minHeight: height, alignment: .leading)
+            }
+            .scrollIndicators(.automatic)
+            .scrollBounceBehavior(.basedOnSize)
+
+            ScrollView {
+                authenticationPanel
+                    .padding(.vertical, metrics.outerPadding)
+                    .frame(minHeight: height)
+            }
+            .scrollIndicators(.automatic)
+            .scrollBounceBehavior(.basedOnSize)
+            .frame(width: metrics.panelWidth)
         }
-        .padding(metrics.outerPadding)
+        .frame(maxWidth: metrics.contentMaxWidth + metrics.columnSpacing + metrics.panelWidth)
+        .padding(.horizontal, metrics.outerPadding)
+        .frame(maxWidth: .infinity)
     }
 
-    /// 小さいウインドウまたは拡大文字で全内容を縦積みにして描画します。
+    /// 小さいウインドウまたは拡大文字で全内容を中央一列に並べます。
     ///
     /// 責務: macOSログイン内容を見切れないスクロール可能な一列構成へ配置します。
-    /// - Parameter metrics: 現在のウインドウ寸法から解決した表示規則。
-    /// - Returns: 最小ウインドウでも操作可能なmacOSコンパクト構成。
-    private func stackedLayout(metrics: MacOSLoginMetrics) -> some View {
+    /// - Parameters:
+    ///   - metrics: 現在のウインドウ寸法から解決した表示規則。
+    ///   - height: 内容を縦中央へ置くためのウインドウ内の高さ。
+    /// - Returns: 最小ウインドウでも操作可能なmacOS一列構成。
+    private func singleColumnLayout(metrics: MacOSLoginMetrics, height: CGFloat) -> some View {
         ScrollView {
-            VStack(spacing: 18 * metrics.scale) {
+            VStack(spacing: 22 * metrics.scale) {
                 brandHeader(scale: metrics.scale)
-                ViewThatFits(in: .horizontal) {
-                    HStack(spacing: 28) {
-                        cockpitHero(diameter: metrics.heroDiameter)
-                        introduction(alignment: .leading, scale: metrics.scale)
-                    }
-                    VStack(spacing: 16) {
-                        cockpitHero(diameter: metrics.heroDiameter)
-                        introduction(alignment: .center, scale: metrics.scale)
-                    }
-                }
+                heroAndIntroduction(
+                    metrics: metrics,
+                    alignment: metrics.placesHeroBesideIntroduction ? .leading : .center
+                )
                 authenticationPanel
-                    .frame(maxWidth: metrics.panelMaxWidth)
-                capabilityStrip(scale: metrics.scale)
+                capabilityTiles(scale: metrics.scale)
             }
+            .frame(maxWidth: metrics.contentMaxWidth)
             .padding(metrics.outerPadding)
-            .frame(maxWidth: .infinity)
+            .frame(maxWidth: .infinity, minHeight: height)
         }
+        .scrollBounceBehavior(.basedOnSize)
     }
 
-    /// 深い車載コックピットを想起させるmacOS背景です。
-    private var loginBackground: some View {
-        ZStack {
-            LinearGradient(
-                colors: [
-                    Color(red: 0.05, green: 0.05, blue: 0.06),
-                    Color(red: 0.025, green: 0.035, blue: 0.055),
-                    Color(red: 0.016, green: 0.018, blue: 0.025)
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            Circle()
-                .fill(Color.accentColor.opacity(0.17))
-                .frame(width: 560, height: 560)
-                .blur(radius: 130)
-                .offset(x: 280, y: -280)
-            Circle()
-                .fill(Color.orange.opacity(0.05))
-                .frame(width: 460, height: 460)
-                .blur(radius: 140)
-                .offset(x: -380, y: 300)
-        }
-        .ignoresSafeArea()
-        .accessibilityHidden(true)
-    }
+    // MARK: - Brand
 
     /// 製品名とコンセプトラベルを指定倍率で表示します。
     ///
@@ -144,32 +135,7 @@ struct MacOSLoginView: View {
     /// - Returns: RevTorque InsightのmacOSブランドヘッダー。
     private func brandHeader(scale: CGFloat) -> some View {
         HStack(spacing: 13 * scale) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 14 * scale, style: .continuous)
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                Color(red: 0.015, green: 0.075, blue: 0.14),
-                                Color(red: 0.025, green: 0.15, blue: 0.23)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                Image(systemName: "gauge.with.dots.needle.50percent")
-                    .font(.system(size: 24 * scale, weight: .semibold))
-                    .foregroundStyle(Color.accentColor)
-                Circle()
-                    .fill(.orange)
-                    .frame(width: 5 * scale, height: 5 * scale)
-                    .offset(x: 13 * scale, y: -12 * scale)
-            }
-            .frame(width: 50 * scale, height: 50 * scale)
-            .overlay {
-                RoundedRectangle(cornerRadius: 14 * scale, style: .continuous)
-                    .stroke(Color.accentColor.opacity(0.32), lineWidth: 1)
-            }
-            .shadow(color: Color.accentColor.opacity(0.3), radius: 14 * scale, y: 6 * scale)
+            RevTorqueBrandMark(size: 48 * scale)
             VStack(alignment: .leading, spacing: 2) {
                 Text("RevTorque Insight")
                     .font(.system(size: 17 * scale, weight: .bold, design: .rounded))
@@ -179,48 +145,33 @@ struct MacOSLoginView: View {
                     .foregroundStyle(Color.accentColor)
                     .tracking(1.4)
             }
+            Spacer(minLength: 0)
         }
         .foregroundStyle(.white)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .combine)
     }
 
-    /// 車両データとの接続を抽象化したコックピット意匠です。
+    /// コックピット意匠と価値提案を、幅に応じて横並びまたは縦積みで表示します。
     ///
-    /// 責務: 指定直径でmacOSログイン画面の中心となる静的な計器意匠を描画します。
-    /// - Parameter diameter: ウインドウ寸法から解決した意匠の直径。
-    /// - Returns: 運用状態を示さない装飾的な計器表示。
-    private func cockpitHero(diameter: CGFloat) -> some View {
-        ZStack {
-            Circle()
-                .stroke(.white.opacity(0.07), lineWidth: max(12, diameter * 0.07))
-            Circle()
-                .trim(from: 0.08, to: 0.72)
-                .stroke(
-                    AngularGradient(
-                        colors: [Color.accentColor.opacity(0.2), Color.accentColor, .cyan, Color.accentColor.opacity(0.2)],
-                        center: .center
-                    ),
-                    style: StrokeStyle(lineWidth: max(4, diameter * 0.018), lineCap: .round)
-                )
-                .rotationEffect(.degrees(135))
-            Circle()
-                .stroke(.white.opacity(0.18), style: StrokeStyle(lineWidth: 1, dash: [2, 9]))
-                .padding(diameter * 0.12)
-            HStack(spacing: -diameter * 0.03) {
-                Text("R")
-                    .font(.system(size: diameter * 0.30, weight: .bold, design: .rounded))
-                Image(systemName: "waveform.path.ecg")
-                    .font(.system(size: diameter * 0.23, weight: .semibold))
+    /// 責務: 表示規則に従って計器意匠と見出しの相対配置を決めます。
+    /// - Parameters:
+    ///   - metrics: 意匠直径と配置方向を決める表示規則。
+    ///   - alignment: 縦積み時のテキスト配置。
+    /// - Returns: 計器意匠と製品説明の組み合わせ。
+    @ViewBuilder
+    private func heroAndIntroduction(metrics: MacOSLoginMetrics, alignment: TextAlignment) -> some View {
+        if metrics.placesHeroBesideIntroduction {
+            HStack(spacing: 34 * metrics.scale) {
+                CockpitGaugeEmblem(diameter: metrics.heroDiameter)
+                introduction(alignment: .leading, scale: metrics.scale)
             }
-            .foregroundStyle(Color.accentColor)
-            Circle()
-                .fill(.orange)
-                .frame(width: diameter * 0.035, height: diameter * 0.035)
-                .offset(x: diameter * 0.19, y: -diameter * 0.03)
+        } else {
+            VStack(alignment: alignment == .center ? .center : .leading, spacing: 20 * metrics.scale) {
+                CockpitGaugeEmblem(diameter: metrics.heroDiameter)
+                introduction(alignment: alignment, scale: metrics.scale)
+            }
+            .frame(maxWidth: .infinity, alignment: alignment == .center ? .center : .leading)
         }
-        .frame(width: diameter, height: diameter)
-        .shadow(color: Color.accentColor.opacity(0.2), radius: 30)
-        .accessibilityHidden(true)
     }
 
     /// 製品の価値提案を指定配置と倍率で表示します。
@@ -236,36 +187,69 @@ struct MacOSLoginView: View {
                 .font(.system(size: 38 * scale, weight: .bold, design: .rounded))
                 .multilineTextAlignment(alignment)
                 .foregroundStyle(.white)
+                .fixedSize(horizontal: false, vertical: true)
             Text("auth.subtitle")
                 .font(.system(size: 15 * scale, weight: .regular))
                 .multilineTextAlignment(alignment)
                 .foregroundStyle(.white.opacity(0.66))
                 .fixedSize(horizontal: false, vertical: true)
         }
+        .frame(maxWidth: .infinity, alignment: alignment == .center ? .center : .leading)
     }
 
-    /// 静的な製品特性をウインドウ幅に応じて並べます。
+    /// 静的な製品特性を計器パネル風のタイルで並べます。
     ///
-    /// 責務: ログイン前に説明できる3件の製品特性をレスポンシブに表示します。
+    /// 責務: ログイン前に説明できる3件の製品特性を等幅タイルで表示します。
     /// - Parameter scale: ウインドウ寸法から解決した内部コンテンツ倍率。
     /// - Returns: 3件の静的な製品特性表示。
-    private func capabilityStrip(scale: CGFloat) -> some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(spacing: 10 * scale) {
-                capabilityItem(symbol: "waveform.path.ecg", key: "auth.capability.telemetry", scale: scale)
-                capabilityItem(symbol: "doc.text.magnifyingglass", key: "auth.capability.logs", scale: scale)
-                capabilityItem(symbol: "chart.xyaxis.line", key: "auth.capability.analysis", scale: scale)
-            }
-            VStack(alignment: .leading, spacing: 8 * scale) {
-                capabilityItem(symbol: "waveform.path.ecg", key: "auth.capability.telemetry", scale: scale)
-                capabilityItem(symbol: "doc.text.magnifyingglass", key: "auth.capability.logs", scale: scale)
-                capabilityItem(symbol: "chart.xyaxis.line", key: "auth.capability.analysis", scale: scale)
-            }
+    private func capabilityTiles(scale: CGFloat) -> some View {
+        HStack(alignment: .top, spacing: 10 * scale) {
+            capabilityTile(symbol: "waveform.path.ecg", key: "auth.capability.telemetry", scale: scale)
+            capabilityTile(symbol: "doc.text.magnifyingglass", key: "auth.capability.logs", scale: scale)
+            capabilityTile(symbol: "chart.xyaxis.line", key: "auth.capability.analysis", scale: scale)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .fixedSize(horizontal: false, vertical: true)
     }
 
-    /// 現在の認証段階に対応する進捗、失敗、ログイン操作を表示します。
+    /// 静的な製品特性を1件のmacOSタイルとして描画します。
+    ///
+    /// 責務: 1件の製品特性をアイコン付きの計器風タイルへ変換します。
+    /// - Parameters:
+    ///   - symbol: 特性を補助するSF Symbol名。
+    ///   - key: ローカライズ済み特性名のキー。
+    ///   - scale: ウインドウ寸法から解決した内部コンテンツ倍率。
+    /// - Returns: macOS向け製品特性タイル。
+    private func capabilityTile(
+        symbol: String,
+        key: LocalizedStringKey,
+        scale: CGFloat
+    ) -> some View {
+        HStack(spacing: 10 * scale) {
+            Image(systemName: symbol)
+                .font(.system(size: 15 * scale, weight: .semibold))
+                .foregroundStyle(Color.accentColor)
+                .frame(width: 30 * scale, height: 30 * scale)
+                .background(Color.accentColor.opacity(0.12), in: RoundedRectangle(cornerRadius: 8 * scale, style: .continuous))
+                .accessibilityHidden(true)
+            Text(key)
+                .font(.system(size: 12 * scale, weight: .semibold))
+                .foregroundStyle(.white.opacity(0.8))
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+        }
+        .padding(12 * scale)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+        .background(.white.opacity(0.055), in: RoundedRectangle(cornerRadius: 13 * scale, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 13 * scale, style: .continuous)
+                .stroke(.white.opacity(0.08), lineWidth: 1)
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    // MARK: - Authentication
+
+    /// 見出し、認証操作、信頼要素、同意案内を持つmacOSのガラス調認証パネルです。
     private var authenticationPanel: some View {
         VStack(alignment: .leading, spacing: 18) {
             VStack(alignment: .leading, spacing: 7) {
@@ -276,6 +260,7 @@ struct MacOSLoginView: View {
                 Text("auth.panel.title")
                     .font(.title2.weight(.bold))
                     .foregroundStyle(.white)
+                    .fixedSize(horizontal: false, vertical: true)
                 Text("auth.panel.subtitle")
                     .font(.subheadline)
                     .foregroundStyle(.white.opacity(0.62))
@@ -284,74 +269,126 @@ struct MacOSLoginView: View {
 
             Divider().overlay(.white.opacity(0.1))
 
-            switch state.phase {
-            case .checkingSession:
-                ProgressView("auth.checking")
-                    .tint(.white)
-                    .foregroundStyle(.white.opacity(0.8))
-            case .signingIn:
-                ProgressView("auth.signing_in")
-                    .tint(.white)
-                    .foregroundStyle(.white.opacity(0.8))
-            case .signedOut:
-                if let failure = state.failure {
-                    Label(failureMessage(for: failure), systemImage: "exclamationmark.triangle.fill")
-                        .font(.footnote)
-                        .foregroundStyle(.orange)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                Button {
-                    send(state.failure == nil ? .loginTapped : .retryTapped)
-                } label: {
-                    Label("auth.continue_with_apple", systemImage: "apple.logo")
-                        .font(.headline)
-                        .frame(maxWidth: .infinity, minHeight: 46)
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(.black)
-                .background(.white, in: RoundedRectangle(cornerRadius: 13, style: .continuous))
-                .keyboardShortcut(.defaultAction)
-                .accessibilityIdentifier("macos-auth-login")
-            case .signedIn:
-                EmptyView()
+            authenticationControls
+
+            VStack(alignment: .leading, spacing: 7) {
+                trustItem(symbol: "lock.shield", key: "auth.trust.private")
+                trustItem(symbol: "checkmark.shield", key: "auth.trust.apple_only")
+                trustItem(symbol: "externaldrive", key: "auth.trust.local")
             }
 
-            Label("auth.trust.apple_only", systemImage: "checkmark.shield")
-                .font(.caption)
-                .foregroundStyle(.white.opacity(0.62))
             Text("auth.consent_hint")
                 .font(.caption)
                 .foregroundStyle(.white.opacity(0.45))
                 .fixedSize(horizontal: false, vertical: true)
         }
         .padding(26)
-        .background(.ultraThinMaterial.opacity(0.78), in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 24, style: .continuous)
                 .stroke(.white.opacity(0.1), lineWidth: 1)
         }
-        .shadow(color: .black.opacity(0.22), radius: 32, y: 14)
+        .shadow(color: .black.opacity(0.25), radius: 32, y: 14)
     }
 
-    /// 静的な製品特性を1件のmacOSラベルとして描画します。
+    /// 現在の認証段階に対応する失敗表示、進捗、ログイン操作です。
+    private var authenticationControls: some View {
+        VStack(spacing: 10) {
+            if state.phase == .signedOut, let failure = state.failure {
+                failureBanner(for: failure)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            }
+            Group {
+                switch state.phase {
+                case .checkingSession:
+                    progressIndicator("auth.checking")
+                case .signingIn:
+                    progressIndicator("auth.signing_in")
+                case .signedOut:
+                    signInButton
+                case .signedIn:
+                    EmptyView()
+                }
+            }
+            .frame(minHeight: 46)
+        }
+    }
+
+    /// Appleアカウントでのログインまたは再試行を通知するボタンです。
+    private var signInButton: some View {
+        Button {
+            send(state.failure == nil ? .loginTapped : .retryTapped)
+        } label: {
+            Label("auth.continue_with_apple", systemImage: "apple.logo")
+                .font(.headline)
+                .frame(maxWidth: .infinity, minHeight: 46)
+                .contentShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(.black)
+        .background(.white, in: RoundedRectangle(cornerRadius: 13, style: .continuous))
+        .shadow(color: Color.accentColor.opacity(0.22), radius: 16, y: 5)
+        .keyboardShortcut(.defaultAction)
+        .accessibilityIdentifier("macos-auth-login")
+    }
+
+    /// ボタンと同じ高さを保つ進捗表示です。
     ///
-    /// 責務: 1件の製品特性をアイコン付きの小型カードへ変換します。
+    /// 責務: 1件の進行中段階をレイアウトを揺らさない進捗表示へ変換します。
+    /// - Parameter key: 進行中段階を説明するローカライズ文字列キー。
+    /// - Returns: ログインボタンと同寸の進捗表示。
+    private func progressIndicator(_ key: LocalizedStringKey) -> some View {
+        HStack(spacing: 10) {
+            ProgressView()
+                .controlSize(.small)
+            Text(key)
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(.white.opacity(0.8))
+        }
+        .frame(maxWidth: .infinity, minHeight: 46)
+        .background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 13, style: .continuous))
+        .accessibilityElement(children: .combine)
+    }
+
+    /// 認証失敗と再試行可能であることを伝える警告表示です。
+    ///
+    /// 責務: 1件の認証失敗をオレンジの小さな警告バナーへ変換します。
+    /// - Parameter failure: Applicationが保持する区別可能な認証失敗。
+    /// - Returns: macOS向け認証失敗バナー。
+    private func failureBanner(for failure: AuthenticationFailure) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            WarningTriangleIcon(size: 13)
+            Text(failureMessage(for: failure))
+                .font(.footnote)
+                .foregroundStyle(.white.opacity(0.88))
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+        }
+        .padding(12)
+        .background(Color.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(Color.orange.opacity(0.35), lineWidth: 1)
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    /// 静的な信頼要素を1件描画します。
+    ///
+    /// 責務: 1件のログイン前説明をアイコン付きの小型ラベルへ変換します。
     /// - Parameters:
-    ///   - symbol: 特性を補助するSF Symbol名。
-    ///   - key: ローカライズ済み特性名のキー。
-    ///   - scale: ウインドウ寸法から解決した内部コンテンツ倍率。
-    /// - Returns: macOS向け製品特性ラベル。
-    private func capabilityItem(
-        symbol: String,
-        key: LocalizedStringKey,
-        scale: CGFloat
-    ) -> some View {
-        Label(key, systemImage: symbol)
-            .font(.system(size: 11 * scale, weight: .medium))
-            .foregroundStyle(.white.opacity(0.72))
-            .padding(.horizontal, 13 * scale)
-            .padding(.vertical, 10 * scale)
-            .background(.white.opacity(0.065), in: RoundedRectangle(cornerRadius: 11, style: .continuous))
+    ///   - symbol: 説明を補助するSF Symbol名。
+    ///   - key: ローカライズ済み説明文のキー。
+    /// - Returns: macOS向け信頼要素ラベル。
+    private func trustItem(symbol: String, key: LocalizedStringKey) -> some View {
+        Label {
+            Text(key)
+        } icon: {
+            Image(systemName: symbol)
+                .foregroundStyle(Color.accentColor.opacity(0.9))
+        }
+        .font(.caption)
+        .foregroundStyle(.white.opacity(0.64))
     }
 
     /// Applicationの認証失敗をローカライズ表示キーへ変換します。
