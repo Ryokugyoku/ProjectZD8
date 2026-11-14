@@ -31,6 +31,19 @@ jobs:
       - name: Show toolchain
         run: xcodebuild -version
 
+      - name: Resolve Swift package dependencies
+        run: |
+          for attempt in 1 2 3; do
+            if xcodebuild -resolvePackageDependencies \
+              -project ProjectZD8.xcodeproj \
+              -scheme ProjectZD8; then
+              exit 0
+            fi
+            echo "::warning::Package resolution attempt ${attempt} failed; retrying."
+            sleep $((attempt * 15))
+          done
+          exit 1
+
       - name: Run unit tests
         run: |
           set -o pipefail
