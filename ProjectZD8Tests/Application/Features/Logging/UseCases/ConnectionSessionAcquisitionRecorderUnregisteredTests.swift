@@ -33,4 +33,29 @@ final class ConnectionSessionAcquisitionRecorderUnregisteredTests: XCTestCase {
         XCTAssertEqual(try fixture.storedRaws().map(\.payload), [[7]])
         XCTAssertNil(try fixture.sessions.sessions(for: "account").first { $0.id == fixture.sessionID }?.vehicle)
     }
+
+    /// 未登録車両用の証跡でも、定義より証跡が少なければmanifestを確定せずに証跡不足で失敗し、区間も始めません。
+    ///
+    /// 責務: 未登録車両の経路で証跡と定義の照合が省かれていないことを確認します。
+    func testMissingUnregisteredEvidenceIsRejected() async throws {
+        let fixture = try Fixture(storage: .grdb)
+        let requests = Fixture.definitions.map { OBDPIDRequest(service: $0.service, pid: $0.pid) }
+
+        do {
+            try await fixture.recorder.start(
+                LiveTelemetryAcquisitionStartInput(
+                    generation: 1,
+                    definitions: Fixture.definitions,
+                    capabilities: [ConnectionSessionAcquisitionPIDCapabilityInput.unregisteredVehicleSupported(requests[0])],
+                    orderedRequests: requests
+                )
+            )
+            XCTFail("証跡が足りないのに開始が成功しました")
+        } catch {
+            XCTAssertEqual(error as? CreateConnectionSessionAcquisitionManifestError, .capabilityEvidenceMissing)
+        }
+
+        XCTAssertThrowsError(try fixture.acquisition.manifest(for: fixture.sessionID))
+        XCTAssertEqual(try fixture.segments.segments(for: fixture.sessionID), [])
+    }
 }

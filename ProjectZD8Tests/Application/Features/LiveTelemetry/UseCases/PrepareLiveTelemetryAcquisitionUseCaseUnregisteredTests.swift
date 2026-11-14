@@ -23,6 +23,7 @@ final class PrepareLiveTelemetryAcquisitionUseCaseUnregisteredTests: XCTestCase 
             ConnectionSessionAcquisitionPIDCapabilityInput.unregisteredVehicleSupported(LiveTelemetryTestDefinitions.request($0))
         })
         XCTAssertTrue(prepared.capabilities.allSatisfy { $0.isCollectionEnabled && $0.support == .supported })
+        XCTAssertEqual(prepared.capabilities.map(\.request), prepared.definitions.map(LiveTelemetryTestDefinitions.request))
         XCTAssertEqual(telemetry.vehicleSpecificCallCount, 0)
     }
 
