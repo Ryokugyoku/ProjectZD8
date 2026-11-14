@@ -181,7 +181,8 @@ final class DemoOBDAdaptersTests: XCTestCase {
 }
 
 /// PID振分け先と呼出回数を返すテスト用取得境界です。
-private actor FixedRoutingTelemetryFake: OBDPIDTelemetryPort {
+@MainActor
+private final class FixedRoutingTelemetryFake: OBDPIDTelemetryPort {
     /// 応答へ格納する固定バイトです。
     private let byte: UInt8
     /// PID読取を受けた回数です。

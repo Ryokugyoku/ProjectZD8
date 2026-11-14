@@ -315,7 +315,8 @@ private struct ZD8ExtendedPIDDefinitionRepository: OBDPIDDefinitionRepository {
 }
 
 /// 標準PIDとZD8専用PIDへ固定応答を返す通信境界です。
-private actor ZD8ExtendedPIDTelemetryFake: OBDPIDTelemetryPort {
+@MainActor
+private final class ZD8ExtendedPIDTelemetryFake: OBDPIDTelemetryPort {
 
     /// 空の読取履歴を生成します。
     ///
@@ -404,7 +405,8 @@ private struct FixedOdometerDefinitionRepository: OBDPIDDefinitionRepository {
 }
 
 /// 固定の累積走行距離応答を返すテスト用PID境界です。
-private actor FixedOdometerTelemetryFake: OBDPIDTelemetryPort {
+@MainActor
+private final class FixedOdometerTelemetryFake: OBDPIDTelemetryPort {
     /// A6通知テスト用の空状態を生成します。
     ///
     /// 責務: 固定累積走行距離応答を提供するテスト境界を構築します。
@@ -468,7 +470,8 @@ private struct FixedDistanceSinceCodesClearedDefinitionRepository: OBDPIDDefinit
 }
 
 /// 固定のコード消去後走行距離応答を返すテスト用PID境界です。
-private actor FixedDistanceSinceCodesClearedTelemetryFake: OBDPIDTelemetryPort {
+@MainActor
+private final class FixedDistanceSinceCodesClearedTelemetryFake: OBDPIDTelemetryPort {
     /// PID 31通知テスト用の空状態を生成します。
     ///
     /// 責務: 固定コード消去後走行距離応答を提供するテスト境界を構築します。
@@ -532,7 +535,8 @@ private struct FixedPIDDefinitionRepository: OBDPIDDefinitionRepository {
 }
 
 /// 読取回数を記録して固定回転数バイトを返します。
-private actor CountingPIDTelemetryFake: OBDPIDTelemetryPort {
+@MainActor
+private final class CountingPIDTelemetryFake: OBDPIDTelemetryPort {
     /// 受け取った読取要求の回数です。
     private(set) var readCount = 0
 
@@ -558,7 +562,8 @@ private actor CountingPIDTelemetryFake: OBDPIDTelemetryPort {
 }
 
 /// 終了通知回数を記録する固定応答PID境界です。
-private actor EndTrackingPIDTelemetryFake: OBDPIDTelemetryPort {
+@MainActor
+private final class EndTrackingPIDTelemetryFake: OBDPIDTelemetryPort {
     /// 受け取った終了通知の回数です。
     private(set) var endCount = 0
 
@@ -590,7 +595,8 @@ private actor EndTrackingPIDTelemetryFake: OBDPIDTelemetryPort {
 }
 
 /// 初回だけ応答し、その後はECU無応答を再現するPID境界です。
-private actor InitialResponseThenEmptyPIDTelemetryFake: OBDPIDTelemetryPort {
+@MainActor
+private final class InitialResponseThenEmptyPIDTelemetryFake: OBDPIDTelemetryPort {
     /// 受け取った読取回数です。
     private var readCount = 0
     /// 受け取った終了通知の回数です。

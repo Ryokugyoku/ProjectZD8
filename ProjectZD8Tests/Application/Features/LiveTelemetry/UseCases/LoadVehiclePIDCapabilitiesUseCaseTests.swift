@@ -126,7 +126,8 @@ private struct DefinitionRepositoryFake: OBDPIDDefinitionRepository {
 }
 
 /// 専用PIDの一部だけへ正応答を返すテスト通信境界です。
-private actor VehicleSpecificTelemetryFake: OBDPIDTelemetryPort {
+@MainActor
+private final class VehicleSpecificTelemetryFake: OBDPIDTelemetryPort {
     /// 専用探索で要求されたPIDです。
     private(set) var requestedPIDs: [UInt8] = []
 
@@ -201,7 +202,8 @@ private final class CapabilityRepositoryFake: VehiclePIDCapabilityRepository, @u
 }
 
 /// 対応ビットマップをPID範囲別に返すテスト境界です。
-private actor CapabilityTelemetryFake: OBDPIDTelemetryPort {
+@MainActor
+private final class CapabilityTelemetryFake: OBDPIDTelemetryPort {
     /// 範囲先頭PID別の固定応答です。
     private let responses: [UInt8: [UInt8]]
     /// 照会された範囲先頭PIDです。
