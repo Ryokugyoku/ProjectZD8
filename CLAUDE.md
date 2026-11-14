@@ -56,6 +56,23 @@ Platform ──▶ Application ──▶ Domain ◀── Data
 - Feature 間は具象型に依存しない。横断ワークフローは所有 Feature を1つ決め、Domain 型か狭いポートで連携する。
 - `Helpers` / `Utils` / `Common` / 広い `Manager` は作らない。新しい Feature やトップレベルのディレクトリは作る前にユーザーへ提案する。
 
+## 画面の分割とフォルダ構成(単一責任)
+
+型もファイルも「変更理由は1つ」を基準に分ける。View に判定・整形・文言選択を溜めない。
+
+- **1画面=1フォルダ**: 画面を複数ファイルへ分割する時は `Platform/<OS>/Features/<F>/Views/<画面名>/` にまとめる。フォルダ名は OS 接頭辞と `View` 接尾辞を除いた画面名(例: `Views/ConnectionHistory/`)。1ファイルで収まる画面は `Views/` 直下のままでよい。
+- **フォルダの中身**: 画面ルート(`<OS接頭辞><画面名>View.swift`)と、その画面専用の部品 View だけを置く。部品も1ファイル1型で、ファイル名は画面名を接頭辞に持つ(例: `MacOSConnectionHistoryHeroCard.swift`)。
+- **画面ルートの責務**: 部品の配置、ナビゲーション、alert / sheet の接続、Action の送出だけ。カードや行の描画は部品 View へ出す。
+- **部品 View の入力**: 描画に必要な値と Action 送出クロージャだけを受け取る。画面全体の state を丸ごと渡すのは、実際に複数の項目を読む部品に限る。
+- **表示ロジックの置き場所**(SwiftUI を import しない純粋な型にしてメソッド単位でテストする):
+  - iOS / macOS 共通の判定・整形・文言キー・alert 内容 → `Application/Features/<F>/State/`(ローカライズキーは `String` で返し、View 側で `LocalizedStringKey` にする)
+  - 片方の OS だけの遷移状態・表示変換 → `Platform/<OS>/Features/<F>/Presentation/`
+- **複数画面・複数 Feature で使う部品**: 同一 Feature・同一 OS 内は `Views/Components/`。Feature や OS をまたぐ場合は、機能知識を持たない汎用部品にして `Shared/DesignSystem/Components/` へ置く。
+- **重複の扱い**: iOS と macOS に同じロジックをコピーしない。共通化できるのはロジックと汎用部品であり、画面レイアウトは OS ごとに別型のまま保つ。
+- **大きさの目安**: 1行は160文字以内(静的解析 SourceScan の上限)、View ファイルは 250 行程度まで。超えたら責務の分割を検討する。
+- **テスト**: 分離した純粋型は、公開メソッド・計算プロパティごとに分岐と境界値を網羅する。SwiftUI の `body` は単体テスト対象にせず、判定を純粋型へ出してそちらを検証する。
+- **適用範囲**: 新規画面と、分割・改修で手を入れる画面に適用する。未着手の既存画面は、触る時に移行する。
+
 ## Feature 一覧(Application と Platform で同名)
 
 | Feature | 責務 |
