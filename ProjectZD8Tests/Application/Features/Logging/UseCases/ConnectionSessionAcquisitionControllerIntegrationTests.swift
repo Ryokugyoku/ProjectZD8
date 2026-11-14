@@ -37,7 +37,9 @@ final class ConnectionSessionAcquisitionControllerIntegrationTests: XCTestCase {
         do {
             try await fixture.controller.start(fixture.startInput)
             XCTFail("session不在の開始が成功しました")
-        } catch {}
+        } catch {
+            XCTAssertEqual(error as? ConnectionSessionRepositoryError, .invalidState)
+        }
 
         let readCount = await fixture.telemetry.readCount
         XCTAssertEqual(readCount, 0)
