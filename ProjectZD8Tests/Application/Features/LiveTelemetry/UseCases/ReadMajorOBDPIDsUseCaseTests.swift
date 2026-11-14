@@ -261,7 +261,8 @@ private final class MonotonicClockFake: @unchecked Sendable {
 }
 
 /// 主要PIDユースケースへ固定バイト辞書を返す境界です。
-private actor MajorPIDTelemetryFake: OBDPIDTelemetryPort {
+@MainActor
+private final class MajorPIDTelemetryFake: OBDPIDTelemetryPort {
     /// 要求別に返す固定バイトです。
     private let values: [OBDPIDRequest: [UInt8]]
     /// 直近に受け取った要求順です。

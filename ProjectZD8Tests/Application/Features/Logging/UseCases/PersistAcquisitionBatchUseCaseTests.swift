@@ -529,7 +529,8 @@ private final class AcquisitionBatchRepositoryFake: ConnectionSessionAcquisition
 }
 
 /// request順にtyped Transport結果を返すfake telemetryです。
-private actor AcquisitionTelemetryFake: OBDPIDTelemetryPort {
+@MainActor
+private final class AcquisitionTelemetryFake: OBDPIDTelemetryPort {
     /// 未返却のtyped outcome列です。
     private var outcomes: [OBDPIDRequestTransportOutcome]
     /// PID単位読取回数です。

@@ -41,6 +41,36 @@ final class AcquisitionBatchEvidenceTests: XCTestCase {
         XCTAssertNotEqual(cancelled, terminated)
     }
 
+    /// 開始・確定日時を永続化と同じmicrosecond精度へ正規化します。
+    ///
+    /// 責務: 実時間の端数がSQLite readback照合と食い違わない値で保持されることを確認します。
+    func testTimestampsAreCanonicalizedToMicroseconds() throws {
+        let request = try PIDRequestEvidence(
+            requestOrdinal: 0,
+            manifestPIDOrdinal: 0,
+            dispatchState: .terminal,
+            transportOutcome: .timedOut,
+            valueOutcome: .notEvaluated,
+            rawSequence: nil,
+            elapsedNanoseconds: 1,
+            reasonCode: "response_timeout"
+        )
+        let evidence = try AcquisitionBatchEvidence(
+            identity: AcquisitionBatchIdentity(ordinal: 0),
+            generation: 1,
+            policyTick: 0,
+            isSelectionEvaluationComplete: true,
+            startedAt: Date(timeIntervalSince1970: 10.123_456_789),
+            completionState: .completed,
+            completedAt: Date(timeIntervalSince1970: 10.123_457_2),
+            failure: nil,
+            requests: [request]
+        )
+
+        XCTAssertEqual(evidence.startedAt, Date(timeIntervalSince1970: Double(10_123_457) / 1_000_000))
+        XCTAssertEqual(evidence.completedAt, Date(timeIntervalSince1970: Double(10_123_457) / 1_000_000))
+    }
+
     /// completed batchは全要求のterminal結果を必要とします。
     ///
     /// 責務: selected-only要求を含むbatchが完全成功へ確定されないことを確認します。

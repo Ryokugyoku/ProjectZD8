@@ -44,11 +44,11 @@ nonisolated struct AcquisitionBatchEvidence: Equatable, Sendable {
     let policyTick: UInt
     /// policy evaluationが完了して選択集合を確定できたかを示します。
     let isSelectionEvaluationComplete: Bool
-    /// batch開始を観測した実時間です。
+    /// batch開始を観測した実時間です。永続化と同じmicrosecond精度へ正規化済みです。
     let startedAt: Date
     /// batchのterminal状態です。`nil` は未確定batchを表します。
     let completionState: AcquisitionBatchCompletionState?
-    /// terminal状態を確定した実時間です。
+    /// terminal状態を確定した実時間です。永続化と同じmicrosecond精度へ正規化済みです。
     let completedAt: Date?
     /// batch全体の失敗分類です。
     let failure: AcquisitionBatchFailure?
@@ -80,6 +80,8 @@ nonisolated struct AcquisitionBatchEvidence: Equatable, Sendable {
         failure: AcquisitionBatchFailure?,
         requests: [PIDRequestEvidence]
     ) throws {
+        let startedAt = Self.canonicalMicrosecondDate(startedAt)
+        let completedAt = completedAt.map(Self.canonicalMicrosecondDate)
         guard requests.enumerated().allSatisfy({ $0.offset == $0.element.requestOrdinal }),
               Set(requests.map(\.manifestPIDOrdinal)).count == requests.count else {
             throw AcquisitionBatchEvidenceError.invalidRequestOrdinal
@@ -109,6 +111,22 @@ nonisolated struct AcquisitionBatchEvidence: Equatable, Sendable {
         self.completedAt = completedAt
         self.failure = failure
         self.requests = requests
+    }
+
+    /// 実時間を取得証拠のcanonical精度であるUnix epoch基準microsecondへ丸めます。
+    ///
+    /// 責務: 実機の時計が返すmicrosecond未満の端数を除き、永続化readbackと一致する日時へ変換します。
+    /// - Parameter date: 正規化する日時。
+    /// - Returns: 最近傍microsecondへ丸めた日時。非有限または表現範囲外の場合は入力値。
+    private static func canonicalMicrosecondDate(_ date: Date) -> Date {
+        let scaled = date.timeIntervalSince1970 * 1_000_000
+        guard scaled.isFinite,
+              scaled >= -9_223_372_036_854_775_808.0,
+              scaled < 9_223_372_036_854_775_808.0 else {
+            return date
+        }
+        let microseconds = Int64(scaled.rounded(.toNearestOrAwayFromZero))
+        return Date(timeIntervalSince1970: Double(microseconds) / 1_000_000)
     }
 
     /// manifest PID位置がこのbatchで選択されたかを返します。
