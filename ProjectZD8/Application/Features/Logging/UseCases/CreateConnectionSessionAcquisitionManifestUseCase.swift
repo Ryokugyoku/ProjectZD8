@@ -206,7 +206,9 @@ actor CreateConnectionSessionAcquisitionManifestUseCase {
                 startedAt: startedAt,
                 for: input.sessionID
             )
-        } catch ConnectionSessionAcquisitionRepositoryError.duplicate {
+        } catch ConnectionSessionAcquisitionRepositoryError.duplicate, ConnectionSessionAcquisitionRepositoryError.conflict {
+            // 同じsessionの続き(再試行・プロセス復帰後の続行)では開始境界の時刻が異なり `.conflict` になります。
+            // 保存済みmanifestと同一なら既存の開始境界をそのまま使い、異なる場合だけ競合として扱います。
             guard try acquisitionRepository.manifest(for: input.sessionID) == manifest else {
                 throw ConnectionSessionAcquisitionRepositoryError.conflict
             }

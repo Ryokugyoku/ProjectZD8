@@ -9,19 +9,24 @@ import Foundation
 /// - `await` をまたぐのは `start` だけです。`start` は再開後に世代が現在のままかを確かめ、
 ///   途中で `finish` や別世代の `start` が来ていれば記録状態を作らずに失敗します。
 /// - `finish` は記録状態を同期的に片付けてから最後に `await` するため、後続の `start` と状態を共有しません。
+/// - 区間の切替(`endSegment` / `beginSegment` / `switchMode`)も同期処理だけで、途中に `await` を挟みません。
+///   flushと区間の切替は交互に実行され、`endSegment` は未完了batchの打切りと残りのcommitを済ませてから区間を閉じるため、
+///   閉じた区間へ後からRawが入ることはありません。区間が閉じている間のflushは保存するものが無く何もしません。
 actor ConnectionSessionAcquisitionRecorder: LiveTelemetryAcquisitionRecordingPort {
     /// manifestと開始境界を原子的に保存するuse caseです。
     private let createManifest: CreateConnectionSessionAcquisitionManifestUseCase
     /// Rawと取得証跡をチャンク単位で保存する境界です。
     private let chunkRepository: any ConnectionSessionAcquisitionChunkRepository
-    /// 連続取得区間を保存する境界です。
-    private let segmentRepository: any ConnectionSessionSegmentRepository
     /// 区間開始と欠損番号の続きを求める部品です。
     private let segmentOpener: AcquisitionSegmentOpener
+    /// 取得中の区間を閉じ、欠損を挟んで次の区間を開く部品です。
+    private let segmentSwitcher: AcquisitionSegmentSwitcher
     /// 破棄したチャンクを欠損として記録する部品です。
     private let lossRecorder: AcquisitionChunkLossRecorder
     /// セッションに保存済みのRawの次の記録順序を返す境界です。
     private let nextRawSequence: @Sendable (ConnectionSessionID) async throws -> Int64
+    /// セッションに保存済みのbatchの次のbatch番号を返す境界です。
+    private let nextBatchOrdinal: @Sendable (ConnectionSessionID) async throws -> Int64
     /// 現在Logging sessionの識別子を返す境界です。
     private let activeSessionID: @Sendable () async -> ConnectionSessionID?
     /// manifestへ記録する取得契約のversion一式です。
@@ -54,6 +59,7 @@ actor ConnectionSessionAcquisitionRecorder: LiveTelemetryAcquisitionRecordingPor
     ///   - segmentRepository: 連続取得区間を保存する境界。
     ///   - gapRepository: 欠損を保存する境界。
     ///   - nextRawSequence: セッションに保存済みのRawの次の記録順序を返す境界。
+    ///   - nextBatchOrdinal: セッションに保存済みのbatchの次のbatch番号を返す境界。省略時は常に0。
     ///   - activeSessionID: 現在Logging sessionの識別子を返す境界。
     ///   - versions: manifestへ記録する取得契約のversion一式。
     ///   - now: Raw観測日時とbatch時刻を供給するclock。
@@ -66,6 +72,7 @@ actor ConnectionSessionAcquisitionRecorder: LiveTelemetryAcquisitionRecordingPor
         segmentRepository: any ConnectionSessionSegmentRepository,
         gapRepository: any ConnectionSessionGapRepository,
         nextRawSequence: @escaping @Sendable (ConnectionSessionID) async throws -> Int64,
+        nextBatchOrdinal: @escaping @Sendable (ConnectionSessionID) async throws -> Int64 = { _ in 0 },
         activeSessionID: @escaping @Sendable () async -> ConnectionSessionID?,
         versions: AcquisitionManifestVersions,
         now: @escaping @Sendable () -> Date = Date.init,
@@ -75,10 +82,11 @@ actor ConnectionSessionAcquisitionRecorder: LiveTelemetryAcquisitionRecordingPor
     ) {
         self.createManifest = createManifest
         self.chunkRepository = chunkRepository
-        self.segmentRepository = segmentRepository
         segmentOpener = AcquisitionSegmentOpener(segmentRepository: segmentRepository, gapRepository: gapRepository)
+        segmentSwitcher = AcquisitionSegmentSwitcher(segmentRepository: segmentRepository, gapRepository: gapRepository)
         lossRecorder = AcquisitionChunkLossRecorder(gapRepository: gapRepository)
         self.nextRawSequence = nextRawSequence
+        self.nextBatchOrdinal = nextBatchOrdinal
         self.activeSessionID = activeSessionID
         self.versions = versions
         self.now = now
@@ -104,8 +112,9 @@ actor ConnectionSessionAcquisitionRecorder: LiveTelemetryAcquisitionRecordingPor
             await createManifest.activate(generation: generation)
             let permission = try await createManifest.execute(manifestInput(input, sessionID: sessionID))
             let firstSequence = try await nextRawSequence(sessionID)
+            let batchOrdinalBase = try await nextBatchOrdinal(sessionID)
             try ensureActive(generation)
-            try openSession(permission: permission, firstSequence: firstSequence)
+            try openSession(permission: permission, firstSequence: firstSequence, batchOrdinalBase: batchOrdinalBase)
             performanceEvents.end(interval, outcome: .succeeded)
         } catch {
             if activeGeneration == generation { activeGeneration = nil }
@@ -121,7 +130,7 @@ actor ConnectionSessionAcquisitionRecorder: LiveTelemetryAcquisitionRecordingPor
     /// - Parameter input: 周回の識別子と要求列。
     /// - Throws: 世代不一致、manifestに無い要求、重複要求、未完了batchの残存、または記録不能状態。
     func beginRound(_ input: LiveTelemetryAcquisitionRoundInput) async throws {
-        let session = try activeSession(input.generation)
+        let session = try openSegmentSession(input.generation)
         let ordinals = try input.requests.map { request in
             guard let ordinal = session.manifestOrdinalByRequest[request] else {
                 throw LiveTelemetryAcquisitionRecordingError.invalidInput
@@ -133,7 +142,7 @@ actor ConnectionSessionAcquisitionRecorder: LiveTelemetryAcquisitionRecordingPor
         }
         try buffer.begin(
             AcquisitionBufferedBatch(
-                identity: try AcquisitionBatchIdentity(ordinal: input.batchOrdinal),
+                identity: try AcquisitionBatchIdentity(ordinal: session.storedBatchOrdinal(input.batchOrdinal)),
                 generation: input.generation,
                 policyTick: input.policyTick,
                 startedAt: input.startedAt,
@@ -148,7 +157,7 @@ actor ConnectionSessionAcquisitionRecorder: LiveTelemetryAcquisitionRecordingPor
     /// - Parameter result: 要求1件の結果。
     /// - Throws: 世代不一致、順序不正、または保存も欠損記録もできない場合。
     func record(_ result: LiveTelemetryRequestResult) async throws {
-        var session = try activeSession(result.generation)
+        var session = try openSegmentSession(result.generation)
         guard let manifestOrdinal = session.manifestOrdinalByRequest[result.request] else {
             throw LiveTelemetryAcquisitionRecordingError.invalidInput
         }
@@ -164,7 +173,7 @@ actor ConnectionSessionAcquisitionRecorder: LiveTelemetryAcquisitionRecordingPor
                 payload: payload
             )
         }
-        try buffer.updateOpenBatch(ordinal: result.batchOrdinal) { batch in
+        try buffer.updateOpenBatch(ordinal: session.storedBatchOrdinal(result.batchOrdinal)) { batch in
             guard batch.requests.indices.contains(result.requestOrdinal),
                   batch.requests[result.requestOrdinal].manifestPIDOrdinal == manifestOrdinal else {
                 throw LiveTelemetryAcquisitionRecordingError.invalidInput
@@ -190,9 +199,9 @@ actor ConnectionSessionAcquisitionRecorder: LiveTelemetryAcquisitionRecordingPor
     ///   - batchOrdinal: 終える周回のbatch番号。
     /// - Throws: 世代不一致、未終了要求の残存、または保存も欠損記録もできない場合。
     func finishRound(generation: UInt, batchOrdinal: Int64) async throws {
-        _ = try activeSession(generation)
+        let session = try openSegmentSession(generation)
         let completedAt = now()
-        try buffer.updateOpenBatch(ordinal: batchOrdinal) { batch in
+        try buffer.updateOpenBatch(ordinal: session.storedBatchOrdinal(batchOrdinal)) { batch in
             try batch.complete(at: completedAt, classifier: classifier)
         }
         try commitIfDue()
@@ -209,6 +218,48 @@ actor ConnectionSessionAcquisitionRecorder: LiveTelemetryAcquisitionRecordingPor
         guard activeGeneration == generation, session?.generation == generation else { return }
         guard !hasStorageFailed else { throw LiveTelemetryAcquisitionRecordingError.storageFailed }
         try commitPending()
+    }
+
+    /// 取得が途切れたため、現在の連続取得区間を閉じます。
+    ///
+    /// 責務: 未完了batchを打ち切って保存待ちの記録をcommitし(flush契機 `segmentEnded`)、区間を指定原因で終了します。
+    /// - Parameters:
+    ///   - generation: 取得ループが所有する世代。
+    ///   - reason: 区間が終わった直接原因。
+    ///   - lastReceivedAt: 最後に正応答を受信した実時間。区間の終了時刻に使います。
+    /// - Throws: 世代不一致・区間が閉じている場合は `.inactiveGeneration` / `.invalidInput`、保存できない場合は `.storageFailed`。
+    func endSegment(generation: UInt, reason: ConnectionSessionSegmentEndReason, lastReceivedAt: Date) async throws {
+        _ = try openSegmentSession(generation)
+        try closeCurrentSegment(endedAt: lastReceivedAt, reason: reason)
+    }
+
+    /// 途絶から復帰したため、欠損を挟んで次の連続取得区間を開きます。
+    ///
+    /// 責務: 欠損と次の区間を保存し、Rawの記録順序と単調時計の起点を新しい区間へ切り替えます。
+    /// - Parameter input: 世代、開始理由、欠損の原因と開始時刻。
+    /// - Throws: 世代不一致は `.inactiveGeneration`、区間が開いたままなら `.invalidInput`、保存できない場合は `.storageFailed`。
+    func beginSegment(_ input: LiveTelemetryAcquisitionSegmentResumption) async throws {
+        var session = try activeSession(input.generation)
+        guard !session.isSegmentOpen else { throw LiveTelemetryAcquisitionRecordingError.invalidInput }
+        let gap = AcquisitionSegmentSwitcher.Gap(
+            ordinal: session.takeGapOrdinal(),
+            startedAt: input.gapStartedAt,
+            cause: input.gapCause
+        )
+        try openNextSegment(&session, startReason: input.startReason, gap: gap)
+    }
+
+    /// 取得モードの切替のため、現在の区間を閉じて次の区間を開きます。
+    ///
+    /// 責務: 保存待ちの記録をcommitして区間を `modeSwitched` で終了し、欠損なしで `modeSwitched` の区間を開始します。
+    /// 欠損原因にモード切替が無い(DBのCHECK制約で許されない)ため、欠損は記録しません。
+    /// - Parameter generation: 取得ループが所有する世代。
+    /// - Throws: 世代不一致・区間が閉じている場合、または保存できない場合。
+    func switchMode(generation: UInt) async throws {
+        _ = try openSegmentSession(generation)
+        try closeCurrentSegment(endedAt: now(), reason: .modeSwitched)
+        guard var session else { throw LiveTelemetryAcquisitionRecordingError.inactiveGeneration }
+        try openNextSegment(&session, startReason: .modeSwitched, gap: nil)
     }
 
     /// 取得を終え、保存待ちの記録と連続取得区間を閉じます。
@@ -264,16 +315,22 @@ actor ConnectionSessionAcquisitionRecorder: LiveTelemetryAcquisitionRecordingPor
     /// - Parameters:
     ///   - permission: manifestとRaw開始境界の保存済み許可。
     ///   - firstSequence: 新しい区間の最初の行へ割り当てる記録順序。
+    ///   - batchOrdinalBase: セッションに保存済みのbatchの次のbatch番号。
     /// - Throws: manifestに要求順が無い場合は `.invalidInput`、区間の保存に失敗した場合の保存先エラー。
-    private func openSession(permission: ConnectionSessionRawAcquisitionPermission, firstSequence: Int64) throws {
+    private func openSession(
+        permission: ConnectionSessionRawAcquisitionPermission,
+        firstSequence: Int64,
+        batchOrdinalBase: Int64
+    ) throws {
         guard let ordered = permission.manifest.orderedRequestedPIDs else {
             throw LiveTelemetryAcquisitionRecordingError.invalidInput
         }
         let anchor = clock.nowNanoseconds()
+        let startedAt = now()
         let opened = try segmentOpener.open(
             for: permission.sessionID,
             firstSequence: firstSequence,
-            startedAt: now(),
+            startedAt: startedAt,
             monotonicAnchorNanoseconds: anchor
         )
         session = AcquisitionRecordingSession(
@@ -282,8 +339,10 @@ actor ConnectionSessionAcquisitionRecorder: LiveTelemetryAcquisitionRecordingPor
             orderedRequests: ordered.requests,
             segmentOrdinal: opened.segmentOrdinal,
             segmentFirstSequence: firstSequence,
+            segmentStartedAt: startedAt,
             nextGapOrdinal: opened.nextGapOrdinal,
-            anchorNanoseconds: anchor
+            anchorNanoseconds: anchor,
+            batchOrdinalBase: batchOrdinalBase
         )
         buffer = AcquisitionChunkBuffer(nextSequence: firstSequence)
     }
@@ -300,6 +359,78 @@ actor ConnectionSessionAcquisitionRecorder: LiveTelemetryAcquisitionRecordingPor
         }
         guard !hasStorageFailed else { throw LiveTelemetryAcquisitionRecordingError.storageFailed }
         return session
+    }
+
+    /// 区間が開いていて受信を記録できる世代の記録状態を返します。
+    ///
+    /// 責務: 世代・記録可否に加えて、途絶中(区間が閉じている間)の記録を拒否します。
+    /// - Parameter generation: 呼び出し側の世代。
+    /// - Returns: 現在の記録状態。
+    /// - Throws: 世代不一致は `.inactiveGeneration`、区間が閉じている場合は `.invalidInput`、記録不能状態は `.storageFailed`。
+    private func openSegmentSession(_ generation: UInt) throws -> AcquisitionRecordingSession {
+        let session = try activeSession(generation)
+        guard session.isSegmentOpen else { throw LiveTelemetryAcquisitionRecordingError.invalidInput }
+        return session
+    }
+
+    /// 未完了batchを打ち切って保存待ちをcommitし、現在の区間を閉じます。
+    ///
+    /// 責務: 区間を閉じる前のflushと区間終了を途中に `await` を挟まず行い、失敗を記録不能状態へ反映します。
+    /// - Parameters:
+    ///   - endedAt: 区間を閉じる実時間の候補。
+    ///   - reason: 区間が終わった直接原因。
+    /// - Throws: 保存も欠損記録もできない場合、または区間を終了できない場合は `.storageFailed`。
+    private func closeCurrentSegment(endedAt: Date, reason: ConnectionSessionSegmentEndReason) throws {
+        buffer.abandonOpenBatch(at: now(), classifier: classifier)
+        try commitPending()
+        guard var session else { throw LiveTelemetryAcquisitionRecordingError.inactiveGeneration }
+        do {
+            try segmentSwitcher.close(
+                session,
+                endedAt: endedAt,
+                reason: reason,
+                lastCommittedSequence: buffer.lastCommittedSequence
+            )
+        } catch {
+            hasStorageFailed = true
+            throw LiveTelemetryAcquisitionRecordingError.storageFailed
+        }
+        session.closeSegment()
+        self.session = session
+    }
+
+    /// 閉じた区間の続きとして次の区間を開き、記録状態を切り替えます。
+    ///
+    /// 責務: 欠損と区間の保存に成功した時だけ記録状態を新しい区間へ進め、失敗を記録不能状態へ反映します。
+    /// - Parameters:
+    ///   - session: 直前の区間を閉じた記録状態。欠損番号の払い出し後の値。
+    ///   - startReason: 次の区間が始まった直接原因。
+    ///   - gap: 区間の間に挟む欠損。記録しない切替では `nil`。
+    /// - Throws: 欠損または区間を保存できない場合は `.storageFailed`。
+    private func openNextSegment(
+        _ session: inout AcquisitionRecordingSession,
+        startReason: ConnectionSessionSegmentStartReason,
+        gap: AcquisitionSegmentSwitcher.Gap?
+    ) throws {
+        let anchor = clock.nowNanoseconds()
+        let startedAt = now()
+        let firstSequence = buffer.nextSequence
+        do {
+            let ordinal = try segmentSwitcher.open(
+                after: session,
+                startReason: startReason,
+                startedAt: startedAt,
+                anchorNanoseconds: anchor,
+                firstSequence: firstSequence,
+                gap: gap
+            )
+            session.openSegment(ordinal: ordinal, firstSequence: firstSequence, startedAt: startedAt, anchorNanoseconds: anchor)
+            self.session = session
+        } catch {
+            self.session = session
+            hasStorageFailed = true
+            throw LiveTelemetryAcquisitionRecordingError.storageFailed
+        }
     }
 
     /// 開始中の世代が入れ替わっていないことを確かめます。
@@ -369,6 +500,7 @@ actor ConnectionSessionAcquisitionRecorder: LiveTelemetryAcquisitionRecordingPor
     ///   - session: 終える世代の記録状態。
     ///   - reason: 取得が終わった直接原因。
     /// - Returns: 最終commit(または欠損記録)と区間終了がどちらも成功した場合は `true`。
+    ///   途絶中で区間が既に閉じている場合は区間を終了しません。
     private func closeSession(_ session: AcquisitionRecordingSession, reason: ConnectionSessionEndReason) -> Bool {
         var succeeded = true
         if !hasStorageFailed {
@@ -379,14 +511,13 @@ actor ConnectionSessionAcquisitionRecorder: LiveTelemetryAcquisitionRecordingPor
                 succeeded = false
             }
         }
-        let lastSequence = buffer.lastCommittedSequence.flatMap { $0 >= session.segmentFirstSequence ? $0 : nil }
+        guard session.isSegmentOpen else { return succeeded }
         do {
-            try segmentRepository.finishSegment(
-                ordinal: session.segmentOrdinal,
-                for: session.sessionID,
+            try segmentSwitcher.close(
+                session,
                 endedAt: now(),
                 reason: reason == .connectionLost ? .linkLost : .sessionEnded,
-                lastSequence: lastSequence
+                lastCommittedSequence: buffer.lastCommittedSequence
             )
         } catch {
             succeeded = false

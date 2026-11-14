@@ -1,7 +1,11 @@
+import Foundation
+
 /// 応答駆動の取得ループが受信した要求結果を取得証跡として記録する能力です。
 ///
 /// 呼び出し側は1つの世代について `start` → (`beginRound` → `record`… → `finishRound`)… → `finish` の順に呼びます。
-/// `flush` はその間の任意の時点で呼べます。
+/// `flush` はその間の任意の時点で呼べます。取得が途切れた場合は周回の途中でも `endSegment` を呼び、
+/// 復帰したら `beginSegment` を呼んでから周回の記録を再開します(区間が閉じている間は周回を記録しません)。
+/// `endSegment` 後に復帰せず終わる場合も `finish` を呼びます。
 nonisolated protocol LiveTelemetryAcquisitionRecordingPort: Sendable {
     /// manifestを確定し、セッションの連続取得区間を開始します。
     ///
@@ -41,6 +45,24 @@ nonisolated protocol LiveTelemetryAcquisitionRecordingPort: Sendable {
     ///   - generation: 取得ループが所有する世代。開始前・終了後の世代では何もしません。
     /// - Throws: 保存も欠損記録もできない場合。
     func flush(_ trigger: LiveTelemetryAcquisitionFlushTrigger, generation: UInt) async throws
+
+    /// 取得が途切れたため、現在の連続取得区間を閉じます。
+    ///
+    /// 責務: 未完了のbatchを打ち切って保存待ちの記録をすべて保存し、区間を指定原因で終了します。
+    /// 以後 `beginSegment` まで周回・受信の記録を受け付けません。
+    /// - Parameters:
+    ///   - generation: 取得ループが所有する世代。
+    ///   - reason: 区間が終わった直接原因(`responseStall` または `linkLost`)。
+    ///   - lastReceivedAt: 最後に正応答を受信した実時間。区間の終了時刻に使います。
+    /// - Throws: 世代不一致、区間が開いていない場合、または保存も欠損記録もできない場合。
+    func endSegment(generation: UInt, reason: ConnectionSessionSegmentEndReason, lastReceivedAt: Date) async throws
+
+    /// 途絶から復帰したため、欠損を挟んで次の連続取得区間を開きます。
+    ///
+    /// 責務: 欠損1件と次の区間1件を保存し、Rawの記録順序を前の区間から続けます。
+    /// - Parameter input: 世代、開始理由、欠損の原因と開始時刻。
+    /// - Throws: 世代不一致、区間が開いたままの場合、または保存失敗。
+    func beginSegment(_ input: LiveTelemetryAcquisitionSegmentResumption) async throws
 
     /// 取得を終え、保存待ちの記録と連続取得区間を閉じます。
     ///
