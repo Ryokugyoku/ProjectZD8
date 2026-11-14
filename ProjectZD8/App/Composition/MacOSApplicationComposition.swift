@@ -4,7 +4,7 @@ import AuthenticationServices
 
 /// macOSアプリケーションで使用する実装依存関係を組み立てます。
 @MainActor
-enum MacOSApplicationComposition {
+enum MacOSApplicationComposition: ApplicationPlatformComposing {
     /// PID定義DB、EX USB／MX+ Bluetooth読取、接続中スリープ抑止を結び付けます。
     ///
     /// 責務: macOSのPID取得依存関係と接続中スリープ抑止を1件のLiveTelemetry構成へ注入します。

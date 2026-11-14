@@ -4,7 +4,7 @@ import UIKit
 
 /// iOSアプリケーションで使用する実装依存関係を組み立てます。
 @MainActor
-enum IOSApplicationComposition {
+enum IOSApplicationComposition: ApplicationPlatformComposing {
     /// PID定義DB、iOS Bluetooth読取境界、接続中の画面自動ロック抑止を結び付けます。
     ///
     /// 責務: iOSのPID取得依存関係と接続中の画面自動ロック抑止を1件のLiveTelemetry構成へ注入します。

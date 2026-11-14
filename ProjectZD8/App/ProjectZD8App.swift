@@ -54,229 +54,31 @@ struct ProjectZD8App: App {
     /// 責務: 現在のプラットフォーム用Compositionからアプリケーションルート依存関係を構築します。
     init() {
         #if os(iOS)
-        let acquisitionPerformanceEvents = IOSApplicationComposition.makeAcquisitionPerformanceEventPort()
-        let database = ApplicationDatabaseConnection()
-        let connectionSessionStorage = ConnectionSessionStorageDependencies.makeProduction(
-            openDatabaseQueue: database.databaseQueue,
-            performanceEvents: acquisitionPerformanceEvents
-        )
-        let connectionSessionRepository = connectionSessionStorage.sessions
-        let connectionSessionSynchronization = IOSApplicationComposition.makeConnectionSessionSynchronization(
-            storage: connectionSessionRepository
-        )
-        let connectionHistoryModel = ConnectionHistoryModel(
-            repository: connectionSessionRepository,
-            synchronizeSessions: connectionSessionSynchronization,
-            releaseRawCache: ReleaseConnectionSessionRawCacheUseCase(
-                repository: connectionSessionRepository
-            ),
-            deleteSessionEverywhere: DeleteConnectionSessionEverywhereUseCase(
-                localRepository: connectionSessionRepository,
-                transferRepository: CloudKitConnectionSessionTransferRepository()
-            ),
-            reviewInterruptedSession: ReviewInterruptedConnectionSessionUseCase(
-                repository: connectionSessionRepository
-            ),
-            evictStaleRawLogs: EvictStaleConnectionSessionRawLogsUseCase(
-                sessionRepository: connectionSessionRepository,
-                rawLogRepository: connectionSessionRepository
-            )
-        )
-        let sessionLogAnalysisModel = SessionLogAnalysisModel(
-            state: .init(),
-            decodeTimeline: DecodeSessionLogTimelineUseCase(
-                rawLogRepository: connectionSessionRepository,
-                definitionRepository: IOSApplicationComposition.makeOBDPIDDefinitionRepository(database: database)
-            ),
-            prepareRawLog: PrepareConnectionSessionRawLogUseCase(
-                sessionRepository: connectionSessionRepository,
-                rawLogRepository: connectionSessionRepository,
-                transferRepository: CloudKitConnectionSessionTransferRepository()
-            )
-        )
-        let connectionSessionLifecycleModel = ConnectionSessionLifecycleModel(
-            repository: connectionSessionRepository,
-            rawLogRepository: connectionSessionRepository,
-            acquisitionTerminationRepository: connectionSessionStorage.acquisition,
-            acquisitionDevice: IOSApplicationComposition.makeConnectionSessionAcquisitionDevice(),
-            historyDidChange: { connectionHistoryModel.send(.localDataChanged) },
-            endedSessionUploadRequested: { session in
-                connectionHistoryModel.send(.sessionUploadRequested(session.id))
-            },
-            recoverRelaunchedSession: connectionSessionStorage.makeRelaunchRecovery()
-        )
-        let liveTelemetryModel = IOSApplicationComposition.makeLiveTelemetryModel(
-            database: database,
-            connectionSessionStorage: connectionSessionStorage,
-            activeSessionID: { await connectionSessionLifecycleModel.activeSession?.id },
-            performanceEvents: acquisitionPerformanceEvents,
-            sessionDidEnd: { reason, endedAt in connectionSessionLifecycleModel.send(.endRequested(reason, endedAt: endedAt)) },
-            distanceDidChange: { connectionSessionLifecycleModel.send(.distanceObserved($0)) }
-        )
-        let vehicleManagementModel = IOSApplicationComposition.makeVehicleManagementModel(
-            database: database,
-            connectionSessionRepository: connectionSessionRepository,
-            vehicleSessionsDidDelete: { connectionHistoryModel.send(.refreshRequested) },
-            connectionVehicleDidResolve: { vehicle, endpoint, identification in
-                VehicleConnectionStartWiring.startRegistered(
-                    vehicle,
-                    endpoint: endpoint,
-                    identification: identification,
-                    lifecycle: connectionSessionLifecycleModel,
-                    liveTelemetry: liveTelemetryModel
-                )
-            },
-            unregisteredConnectionDidStart: { endpoint, _ in
-                VehicleConnectionStartWiring.startUnregistered(
-                    endpoint: endpoint,
-                    lifecycle: connectionSessionLifecycleModel,
-                    liveTelemetry: liveTelemetryModel
-                )
-            },
-            unregisteredConnectionVehicleDidRegister: { connectionSessionLifecycleModel.send(.unregisteredVehicleRegistered($0)) }
-        )
-        let maintenanceModel = IOSApplicationComposition.makeMaintenanceModel(database: database)
-        let authenticationModel = IOSApplicationComposition.makeAuthenticationSessionModel(
-            database: database,
-            connectionSessionStorage: connectionSessionRepository
-        )
-        _authenticationModel = State(initialValue: authenticationModel)
-        _accountSettingsModel = State(
-            initialValue: IOSApplicationComposition.makeAccountSettingsModel()
-        )
-        _iOSSettingsModel = State(
-            initialValue: IOSApplicationComposition.makeSettingsPresentationModel()
-        )
-        _vehicleManagementModel = State(
-            initialValue: vehicleManagementModel
-        )
-        _maintenanceModel = State(initialValue: maintenanceModel)
-        _liveTelemetryModel = State(
-            initialValue: liveTelemetryModel
-        )
-        _connectionSessionLifecycleModel = State(initialValue: connectionSessionLifecycleModel)
-        _connectionHistoryModel = State(initialValue: connectionHistoryModel)
-        _sessionLogAnalysisModel = State(initialValue: sessionLogAnalysisModel)
-        let startVehicleConnection = StartVehicleConnectionUseCase(
-            identifyVehicle: { vehicleManagementModel.send(.identifyRequested($0)) }
-        )
-        self.startVehicleConnection = startVehicleConnection
+        let models = ApplicationRootAssembly.makeModels(IOSApplicationComposition.self)
+        #elseif os(macOS)
+        let models = ApplicationRootAssembly.makeModels(MacOSApplicationComposition.self)
+        #endif
+        _authenticationModel = State(initialValue: models.authentication)
+        _accountSettingsModel = State(initialValue: models.accountSettings)
+        #if os(iOS)
+        _iOSSettingsModel = State(initialValue: IOSApplicationComposition.makeSettingsPresentationModel())
+        #elseif os(macOS)
+        _macOSSettingsModel = State(initialValue: MacOSApplicationComposition.makeSettingsPresentationModel())
+        #endif
+        _vehicleManagementModel = State(initialValue: models.vehicleManagement)
+        _maintenanceModel = State(initialValue: models.maintenance)
+        _liveTelemetryModel = State(initialValue: models.liveTelemetry)
+        _connectionSessionLifecycleModel = State(initialValue: models.connectionSessionLifecycle)
+        _connectionHistoryModel = State(initialValue: models.connectionHistory)
+        _sessionLogAnalysisModel = State(initialValue: models.sessionLogAnalysis)
+        startVehicleConnection = ApplicationRootAssembly.makeStartVehicleConnection(vehicleManagement: models.vehicleManagement)
+        #if os(iOS)
         let promptedVehicleConnectionRequest = PromptedVehicleConnectionRequestBuffer()
         _promptedVehicleConnectionRequest = State(initialValue: promptedVehicleConnectionRequest)
         promptForDefaultAdapterConnection =
             IOSApplicationComposition.makeDefaultAdapterConnectionPromptUseCase {
                 promptedVehicleConnectionRequest.store($0)
             }
-        #endif
-
-        #if os(macOS)
-        let acquisitionPerformanceEvents = MacOSApplicationComposition.makeAcquisitionPerformanceEventPort()
-        let database = ApplicationDatabaseConnection()
-        let connectionSessionStorage = ConnectionSessionStorageDependencies.makeProduction(
-            openDatabaseQueue: database.databaseQueue,
-            performanceEvents: acquisitionPerformanceEvents
-        )
-        let connectionSessionRepository = connectionSessionStorage.sessions
-        let connectionSessionSynchronization = MacOSApplicationComposition.makeConnectionSessionSynchronization(
-            storage: connectionSessionRepository
-        )
-        let connectionHistoryModel = ConnectionHistoryModel(
-            repository: connectionSessionRepository,
-            synchronizeSessions: connectionSessionSynchronization,
-            releaseRawCache: ReleaseConnectionSessionRawCacheUseCase(
-                repository: connectionSessionRepository
-            ),
-            deleteSessionEverywhere: DeleteConnectionSessionEverywhereUseCase(
-                localRepository: connectionSessionRepository,
-                transferRepository: CloudKitConnectionSessionTransferRepository()
-            ),
-            reviewInterruptedSession: ReviewInterruptedConnectionSessionUseCase(
-                repository: connectionSessionRepository
-            ),
-            evictStaleRawLogs: EvictStaleConnectionSessionRawLogsUseCase(
-                sessionRepository: connectionSessionRepository,
-                rawLogRepository: connectionSessionRepository
-            )
-        )
-        let sessionLogAnalysisModel = SessionLogAnalysisModel(
-            state: .init(),
-            decodeTimeline: DecodeSessionLogTimelineUseCase(
-                rawLogRepository: connectionSessionRepository,
-                definitionRepository: MacOSApplicationComposition.makeOBDPIDDefinitionRepository(database: database)
-            ),
-            prepareRawLog: PrepareConnectionSessionRawLogUseCase(
-                sessionRepository: connectionSessionRepository,
-                rawLogRepository: connectionSessionRepository,
-                transferRepository: CloudKitConnectionSessionTransferRepository()
-            )
-        )
-        let connectionSessionLifecycleModel = ConnectionSessionLifecycleModel(
-            repository: connectionSessionRepository,
-            rawLogRepository: connectionSessionRepository,
-            acquisitionTerminationRepository: connectionSessionStorage.acquisition,
-            acquisitionDevice: MacOSApplicationComposition.makeConnectionSessionAcquisitionDevice(),
-            historyDidChange: { connectionHistoryModel.send(.localDataChanged) },
-            endedSessionUploadRequested: { session in
-                connectionHistoryModel.send(.sessionUploadRequested(session.id))
-            },
-            recoverRelaunchedSession: connectionSessionStorage.makeRelaunchRecovery()
-        )
-        let liveTelemetryModel = MacOSApplicationComposition.makeLiveTelemetryModel(
-            database: database,
-            connectionSessionStorage: connectionSessionStorage,
-            activeSessionID: { await connectionSessionLifecycleModel.activeSession?.id },
-            performanceEvents: acquisitionPerformanceEvents,
-            sessionDidEnd: { reason, endedAt in connectionSessionLifecycleModel.send(.endRequested(reason, endedAt: endedAt)) },
-            distanceDidChange: { connectionSessionLifecycleModel.send(.distanceObserved($0)) }
-        )
-        let vehicleManagementModel = MacOSApplicationComposition.makeVehicleManagementModel(
-            database: database,
-            connectionSessionRepository: connectionSessionRepository,
-            vehicleSessionsDidDelete: { connectionHistoryModel.send(.refreshRequested) },
-            connectionVehicleDidResolve: { vehicle, endpoint, identification in
-                VehicleConnectionStartWiring.startRegistered(
-                    vehicle,
-                    endpoint: endpoint,
-                    identification: identification,
-                    lifecycle: connectionSessionLifecycleModel,
-                    liveTelemetry: liveTelemetryModel
-                )
-            },
-            unregisteredConnectionDidStart: { endpoint, _ in
-                VehicleConnectionStartWiring.startUnregistered(
-                    endpoint: endpoint,
-                    lifecycle: connectionSessionLifecycleModel,
-                    liveTelemetry: liveTelemetryModel
-                )
-            },
-            unregisteredConnectionVehicleDidRegister: { connectionSessionLifecycleModel.send(.unregisteredVehicleRegistered($0)) }
-        )
-        let maintenanceModel = MacOSApplicationComposition.makeMaintenanceModel(database: database)
-        _authenticationModel = State(
-            initialValue: MacOSApplicationComposition.makeAuthenticationSessionModel(
-                database: database,
-                connectionSessionStorage: connectionSessionRepository
-            )
-        )
-        _accountSettingsModel = State(
-            initialValue: MacOSApplicationComposition.makeAccountSettingsModel()
-        )
-        _macOSSettingsModel = State(
-            initialValue: MacOSApplicationComposition.makeSettingsPresentationModel()
-        )
-        _vehicleManagementModel = State(
-            initialValue: vehicleManagementModel
-        )
-        _maintenanceModel = State(initialValue: maintenanceModel)
-        _liveTelemetryModel = State(
-            initialValue: liveTelemetryModel
-        )
-        _connectionSessionLifecycleModel = State(initialValue: connectionSessionLifecycleModel)
-        _connectionHistoryModel = State(initialValue: connectionHistoryModel)
-        _sessionLogAnalysisModel = State(initialValue: sessionLogAnalysisModel)
-        startVehicleConnection = StartVehicleConnectionUseCase(
-            identifyVehicle: { vehicleManagementModel.send(.identifyRequested($0)) }
-        )
         #endif
     }
 
