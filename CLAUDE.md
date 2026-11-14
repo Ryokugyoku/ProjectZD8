@@ -21,7 +21,7 @@ PYTHONPATH=Tools/VehicleChangeDataQuality python3 -m unittest discover -s Tools/
 ruby .github/testflight_build_publisher_test.rb
 ```
 
-CI は `.github/workflows/testflight.yml`(iOS/macOS アーカイブ → TestFlight 配布)のみ。
+CI は2本: `.github/workflows/tests.yml`(pull_request と main への push で、macOS 単体テスト全件・Ruby 補助スクリプトテスト・Python データ品質ツールテストを実行。Xcode 26.6、署名なし `CODE_SIGNING_ALLOWED=NO`)と `.github/workflows/testflight.yml`(main で手動実行する iOS/macOS アーカイブ → TestFlight 配布)。
 ローカルのビルド/テスト成功を、見た目・実機・実アダプター・CloudKit 本番・CI の成功として報告しない。
 
 ### 単体テストの必須ルール

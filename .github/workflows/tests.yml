@@ -1,0 +1,88 @@
+name: Tests
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  xcode-unit-tests:
+    name: Xcode unit tests (macOS)
+    runs-on: macos-26
+    timeout-minutes: 60
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - name: Select Xcode 26.6
+        run: sudo xcode-select --switch /Applications/Xcode_26.6.app
+
+      - name: Show toolchain
+        run: xcodebuild -version
+
+      - name: Run unit tests
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -project ProjectZD8.xcodeproj \
+            -scheme ProjectZD8 \
+            -destination 'platform=macOS' \
+            -resultBundlePath "${RUNNER_TEMP}/ProjectZD8Tests.xcresult" \
+            CODE_SIGNING_ALLOWED=NO \
+            | tee "${RUNNER_TEMP}/xcodebuild-test.log"
+
+      - name: Summarize test results
+        if: ${{ always() }}
+        run: |
+          result_bundle="${RUNNER_TEMP}/ProjectZD8Tests.xcresult"
+          if [ ! -d "$result_bundle" ]; then
+            echo "No result bundle was produced." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          {
+            echo "## Xcode unit tests"
+            echo '```json'
+            xcrun xcresulttool get test-results summary --path "$result_bundle" --compact || true
+            echo
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload test results
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: xcode-test-results
+          path: |
+            ${{ runner.temp }}/ProjectZD8Tests.xcresult
+            ${{ runner.temp }}/xcodebuild-test.log
+          retention-days: 7
+
+  script-tests:
+    name: Ruby and Python tool tests
+    runs-on: macos-26
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - name: TestFlight publisher script tests (Ruby)
+        run: ruby .github/testflight_build_publisher_test.rb
+
+      - name: Vehicle change data quality tool tests (Python)
+        env:
+          PYTHONPATH: Tools/VehicleChangeDataQuality
+        run: python3 -m unittest discover -s Tools/VehicleChangeDataQuality/Tests -v
