@@ -55,7 +55,9 @@ struct ProjectZD8App: App {
     init() {
         #if os(iOS)
         let acquisitionPerformanceEvents = IOSApplicationComposition.makeAcquisitionPerformanceEventPort()
+        let database = ApplicationDatabaseConnection()
         let connectionSessionStorage = ConnectionSessionStorageDependencies.makeProduction(
+            openDatabaseQueue: database.databaseQueue,
             performanceEvents: acquisitionPerformanceEvents
         )
         let connectionSessionRepository = connectionSessionStorage.sessions
@@ -84,7 +86,7 @@ struct ProjectZD8App: App {
             state: .init(),
             decodeTimeline: DecodeSessionLogTimelineUseCase(
                 rawLogRepository: connectionSessionRepository,
-                definitionRepository: IOSApplicationComposition.makeOBDPIDDefinitionRepository()
+                definitionRepository: IOSApplicationComposition.makeOBDPIDDefinitionRepository(database: database)
             ),
             prepareRawLog: PrepareConnectionSessionRawLogUseCase(
                 sessionRepository: connectionSessionRepository,
@@ -103,6 +105,7 @@ struct ProjectZD8App: App {
             }
         )
         let liveTelemetryModel = IOSApplicationComposition.makeLiveTelemetryModel(
+            database: database,
             acquisitionStorage: connectionSessionStorage.acquisition,
             activeSessionID: { await connectionSessionLifecycleModel.activeSession?.id },
             performanceEvents: acquisitionPerformanceEvents,
@@ -110,6 +113,7 @@ struct ProjectZD8App: App {
             distanceDidChange: { connectionSessionLifecycleModel.send(.distanceObserved($0)) }
         )
         let vehicleManagementModel = IOSApplicationComposition.makeVehicleManagementModel(
+            database: database,
             connectionSessionRepository: connectionSessionRepository,
             vehicleSessionsDidDelete: { connectionHistoryModel.send(.refreshRequested) }
         ) { vehicle, endpoint, identification in
@@ -121,8 +125,9 @@ struct ProjectZD8App: App {
                 : nil
             liveTelemetryModel.send(.startRequested(endpoint, vehicle.id, vehicleModelCode: vehicleModelCode))
         }
-        let maintenanceModel = IOSApplicationComposition.makeMaintenanceModel()
+        let maintenanceModel = IOSApplicationComposition.makeMaintenanceModel(database: database)
         let authenticationModel = IOSApplicationComposition.makeAuthenticationSessionModel(
+            database: database,
             connectionSessionStorage: connectionSessionRepository
         )
         _authenticationModel = State(initialValue: authenticationModel)
@@ -156,7 +161,9 @@ struct ProjectZD8App: App {
 
         #if os(macOS)
         let acquisitionPerformanceEvents = MacOSApplicationComposition.makeAcquisitionPerformanceEventPort()
+        let database = ApplicationDatabaseConnection()
         let connectionSessionStorage = ConnectionSessionStorageDependencies.makeProduction(
+            openDatabaseQueue: database.databaseQueue,
             performanceEvents: acquisitionPerformanceEvents
         )
         let connectionSessionRepository = connectionSessionStorage.sessions
@@ -185,7 +192,7 @@ struct ProjectZD8App: App {
             state: .init(),
             decodeTimeline: DecodeSessionLogTimelineUseCase(
                 rawLogRepository: connectionSessionRepository,
-                definitionRepository: MacOSApplicationComposition.makeOBDPIDDefinitionRepository()
+                definitionRepository: MacOSApplicationComposition.makeOBDPIDDefinitionRepository(database: database)
             ),
             prepareRawLog: PrepareConnectionSessionRawLogUseCase(
                 sessionRepository: connectionSessionRepository,
@@ -204,6 +211,7 @@ struct ProjectZD8App: App {
             }
         )
         let liveTelemetryModel = MacOSApplicationComposition.makeLiveTelemetryModel(
+            database: database,
             acquisitionStorage: connectionSessionStorage.acquisition,
             activeSessionID: { await connectionSessionLifecycleModel.activeSession?.id },
             performanceEvents: acquisitionPerformanceEvents,
@@ -211,6 +219,7 @@ struct ProjectZD8App: App {
             distanceDidChange: { connectionSessionLifecycleModel.send(.distanceObserved($0)) }
         )
         let vehicleManagementModel = MacOSApplicationComposition.makeVehicleManagementModel(
+            database: database,
             connectionSessionRepository: connectionSessionRepository,
             vehicleSessionsDidDelete: { connectionHistoryModel.send(.refreshRequested) }
         ) { vehicle, endpoint, identification in
@@ -222,9 +231,10 @@ struct ProjectZD8App: App {
                 : nil
             liveTelemetryModel.send(.startRequested(endpoint, vehicle.id, vehicleModelCode: vehicleModelCode))
         }
-        let maintenanceModel = MacOSApplicationComposition.makeMaintenanceModel()
+        let maintenanceModel = MacOSApplicationComposition.makeMaintenanceModel(database: database)
         _authenticationModel = State(
             initialValue: MacOSApplicationComposition.makeAuthenticationSessionModel(
+                database: database,
                 connectionSessionStorage: connectionSessionRepository
             )
         )

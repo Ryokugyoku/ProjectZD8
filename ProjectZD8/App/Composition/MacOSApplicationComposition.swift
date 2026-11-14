@@ -11,10 +11,12 @@ enum MacOSApplicationComposition {
     /// - Returns: DB登録済みPIDを読み取れるモデル。
     /// - Parameter sessionDidEnd: PID取得終了原因をLoggingへ通知する処理。
     /// - Parameter distanceDidChange: 取得元付き累積距離をLoggingへ通知する処理。
+    /// - Parameter database: PID定義と車両別対応PIDの保存先が共有する製品DB接続。
     /// - Parameter acquisitionStorage: session保存先と同じGRDB Queueを共有する取得証拠の保存先。
     /// - Parameter activeSessionID: 現在Logging sessionの識別子を返す境界。
     /// - Parameter performanceEvents: 方式B取得区間を通知する匿名計測境界。
     static func makeLiveTelemetryModel(
+        database: ApplicationDatabaseConnection,
         acquisitionStorage: ConnectionSessionStorageDependencies.AcquisitionStorage,
         activeSessionID: @escaping @Sendable () async -> ConnectionSessionID?,
         performanceEvents: any AcquisitionPerformanceEventPort = NoOpAcquisitionPerformanceEventPort(),
@@ -27,7 +29,7 @@ enum MacOSApplicationComposition {
             },
             demo: DemoOBDPIDTelemetryAdapter()
         )
-        let definitionRepository = makeOBDPIDDefinitionRepository()
+        let definitionRepository = makeOBDPIDDefinitionRepository(database: database)
         let configuration = ProductionConnectionSessionAcquisitionConfiguration.phase4G
         let acquisitionController = ConnectionSessionAcquisitionController(
             createManifest: CreateConnectionSessionAcquisitionManifestUseCase(
@@ -56,7 +58,7 @@ enum MacOSApplicationComposition {
                 telemetry: telemetry
             ),
             loadVehicleCapabilities: LoadVehiclePIDCapabilitiesUseCase(
-                repository: makeVehiclePIDCapabilityRepository(),
+                repository: makeVehiclePIDCapabilityRepository(database: database),
                 telemetry: telemetry,
                 definitionRepository: definitionRepository
             ),
@@ -67,13 +69,16 @@ enum MacOSApplicationComposition {
         )
     }
 
-    /// 製品PID DBを開き、確認済みseedを非破壊登録します。
+    /// 共有製品DB接続からPID定義保存先を生成し、確認済みseedを非破壊登録します。
     ///
     /// 責務: macOSのPID定義永続化を利用可能なGRDB実装または明示的利用不能境界へ変換します。
+    /// - Parameter database: プロセス内で共有する製品DB接続。
     /// - Returns: seed登録済みPID Repository。準備失敗時は利用不能Repository。
-    static func makeOBDPIDDefinitionRepository() -> any OBDPIDDefinitionRepository {
+    static func makeOBDPIDDefinitionRepository(
+        database: ApplicationDatabaseConnection
+    ) -> any OBDPIDDefinitionRepository {
         do {
-            let repository = try GRDBOBDPIDDefinitionRepository.openApplicationRepository()
+            let repository = try GRDBOBDPIDDefinitionRepository(databaseQueue: database.databaseQueue())
             try StandardOBDPIDSeed.install(into: repository)
             try ZD8OBDPIDSeed.install(into: repository)
             return repository
@@ -82,12 +87,15 @@ enum MacOSApplicationComposition {
         }
     }
 
-    /// 製品DBの車両別対応PID保存先を生成します。
+    /// 共有製品DB接続から車両別対応PID保存先を生成します。
     ///
     /// 責務: macOSの車両別対応PID永続化を利用可能または明示的利用不能境界へ変換します。
-    /// - Returns: 車両別対応PID Repository。
-    static func makeVehiclePIDCapabilityRepository() -> any VehiclePIDCapabilityRepository & AccountVehiclePIDCapabilityErasureRepository {
-        (try? GRDBVehiclePIDCapabilityRepository.openApplicationRepository())
+    /// - Parameter database: プロセス内で共有する製品DB接続。
+    /// - Returns: 車両別対応PID Repository。準備失敗時は利用不能Repository。
+    static func makeVehiclePIDCapabilityRepository(
+        database: ApplicationDatabaseConnection
+    ) -> any VehiclePIDCapabilityRepository & AccountVehiclePIDCapabilityErasureRepository {
+        (try? GRDBVehiclePIDCapabilityRepository(databaseQueue: database.databaseQueue()))
             ?? UnavailableVehiclePIDCapabilityRepository()
     }
 
@@ -95,10 +103,12 @@ enum MacOSApplicationComposition {
     ///
     /// 責務: macOSの車両保存、写真読込、USB／Bluetooth識別をVehicleManagementへ結び付けます。
     /// - Returns: private database同期を使用する車両管理モデル。
+    /// - Parameter database: PID定義と車両別対応PIDの保存先が共有する製品DB接続。
     /// - Parameter connectionSessionRepository: Garageの車両別ログ集計に使用する接続履歴取得先。
     /// - Parameter vehicleSessionsDidDelete: 車両関連セッション削除後に履歴表示へ再読込を通知する処理。
     /// - Parameter connectionVehicleDidResolve: 接続対象車両、終端、OBD識別観測をLoggingと監視開始へ通知する処理。
     static func makeVehicleManagementModel(
+        database: ApplicationDatabaseConnection,
         connectionSessionRepository: any ConnectionSessionRepository & ConnectionSessionErasureRepository,
         vehicleSessionsDidDelete: @escaping @MainActor () -> Void = {},
         connectionVehicleDidResolve: @escaping @MainActor (
@@ -120,8 +130,8 @@ enum MacOSApplicationComposition {
                 )
             ),
             photoImporter: VehiclePhotoFileImporter(),
-            pidCapabilityRepository: makeVehiclePIDCapabilityRepository(),
-            pidDefinitionRepository: makeOBDPIDDefinitionRepository(),
+            pidCapabilityRepository: makeVehiclePIDCapabilityRepository(database: database),
+            pidDefinitionRepository: makeOBDPIDDefinitionRepository(database: database),
             loadVehicleActivitySummaries: LoadVehicleActivitySummariesUseCase(
                 repository: connectionSessionRepository
             ),
@@ -139,10 +149,11 @@ enum MacOSApplicationComposition {
     /// GRDBとCloudKitを注入したmacOS向け整備モデルを生成します。
     ///
     /// 責務: Macの車両別整備保存、写真取込、端末間同期をMaintenanceへ結び付けます。
-    /// - Returns: オフライン保存とCloudKit双方向同期を使用する整備モデル。
-    static func makeMaintenanceModel() -> MaintenanceModel {
+    /// - Parameter database: プロセス内で共有する製品DB接続。
+    /// - Returns: オフライン保存とCloudKit双方向同期を使用する整備モデル。DB準備失敗時は保存先が利用不能境界になります。
+    static func makeMaintenanceModel(database: ApplicationDatabaseConnection) -> MaintenanceModel {
         let repository: any MaintenanceRecordRepository =
-            (try? GRDBMaintenanceRecordRepository.openApplicationRepository())
+            (try? GRDBMaintenanceRecordRepository(databaseQueue: database.databaseQueue()))
             ?? UnavailableMaintenanceRecordRepository()
         return MaintenanceModel(
             state: MaintenanceState(),
@@ -216,9 +227,11 @@ enum MacOSApplicationComposition {
     /// 実Apple認証とKeychain保存を注入した認証セッションモデルを生成します。
     ///
     /// 責務: macOS表示ウインドウ、Apple認証、Keychain保存をAuthenticationユースケースへ結び付けます。
+    /// - Parameter database: アカウント削除時に消去する車両別対応PIDの保存先が共有する製品DB接続。
     /// - Parameter connectionSessionStorage: アカウント削除時に接続履歴とRawログを消去する共通保存先。
     /// - Returns: 実Appleアカウント認証を使用する認証セッションモデル。
     static func makeAuthenticationSessionModel(
+        database: ApplicationDatabaseConnection,
         connectionSessionStorage: any AccountConnectionSessionErasureRepository
     ) -> AuthenticationSessionModel {
         let authorization = AuthenticationServicesAppleAccountAuthorizationClient {
@@ -230,7 +243,7 @@ enum MacOSApplicationComposition {
         let defaultAdapterStore = UserDefaultsDefaultAdapterPreferenceStore()
         let sessionRevocation = UbiquitousKeyValueStoreAccountSessionRevocationStore()
         let vehicleDataEraser = CloudKitVehicleRepository()
-        let vehiclePIDCapabilityEraser = makeVehiclePIDCapabilityRepository()
+        let vehiclePIDCapabilityEraser = makeVehiclePIDCapabilityRepository(database: database)
         let dataEraser = ProjectZD8AccountDataEraser(
             accountSettingsStore: accountSettingsStore,
             defaultAdapterStore: defaultAdapterStore,
