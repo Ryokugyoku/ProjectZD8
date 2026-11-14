@@ -11,11 +11,11 @@ enum MacOSApplicationComposition {
     /// - Returns: DB登録済みPIDを読み取れるモデル。
     /// - Parameter sessionDidEnd: PID取得終了原因をLoggingへ通知する処理。
     /// - Parameter distanceDidChange: 取得元付き累積距離をLoggingへ通知する処理。
-    /// - Parameter connectionSessionStorage: sessionと取得証拠で同じGRDB Queueを共有する保存先。
+    /// - Parameter acquisitionStorage: session保存先と同じGRDB Queueを共有する取得証拠の保存先。
     /// - Parameter activeSessionID: 現在Logging sessionの識別子を返す境界。
     /// - Parameter performanceEvents: 方式B取得区間を通知する匿名計測境界。
     static func makeLiveTelemetryModel(
-        connectionSessionStorage: any ConnectionSessionRepository & ConnectionSessionRawLogRepository & ConnectionSessionAcquisitionRepository & ConnectionSessionAcquisitionBatchRepository & ConnectionSessionAcquisitionTerminationRepository,
+        acquisitionStorage: ConnectionSessionStorageDependencies.AcquisitionStorage,
         activeSessionID: @escaping @Sendable () async -> ConnectionSessionID?,
         performanceEvents: any AcquisitionPerformanceEventPort = NoOpAcquisitionPerformanceEventPort(),
         sessionDidEnd: @escaping @MainActor (ConnectionSessionEndReason) -> Void = { _ in },
@@ -31,14 +31,14 @@ enum MacOSApplicationComposition {
         let configuration = ProductionConnectionSessionAcquisitionConfiguration.phase4G
         let acquisitionController = ConnectionSessionAcquisitionController(
             createManifest: CreateConnectionSessionAcquisitionManifestUseCase(
-                acquisitionRepository: connectionSessionStorage,
+                acquisitionRepository: acquisitionStorage,
                 evidencePort: BundleConnectionSessionAcquisitionEvidenceAdapter(
                     schemaContractVersion: configuration.schemaContractVersion,
                     acquisitionPlatform: .macOS
                 )
             ),
             persistBatch: PersistAcquisitionBatchUseCase(
-                repository: connectionSessionStorage,
+                repository: acquisitionStorage,
                 telemetry: telemetry,
                 monotonicNanoseconds: { DispatchTime.now().uptimeNanoseconds },
                 performanceEvents: performanceEvents
@@ -153,18 +153,6 @@ enum MacOSApplicationComposition {
             ),
             photoImporter: MaintenancePhotoFileImporter()
         )
-    }
-
-    /// 製品用の接続セッション保存先を生成します。
-    ///
-    /// 責務: macOSの接続履歴を利用可能なGRDB実装または明示的利用不能境界へ変換します。
-    /// - Parameter performanceEvents: 取得証拠writeを通知する匿名計測境界。
-    /// - Returns: Application Support内の接続セッション保存先。
-    static func makeConnectionSessionRepository(
-        performanceEvents: any AcquisitionPerformanceEventPort = NoOpAcquisitionPerformanceEventPort()
-    ) -> any ConnectionSessionRepository & ConnectionSessionRawLogRepository & ConnectionSessionErasureRepository & AccountConnectionSessionErasureRepository & ConnectionSessionAcquisitionRepository & ConnectionSessionAcquisitionBatchRepository & ConnectionSessionAcquisitionTerminationRepository {
-        (try? GRDBConnectionSessionRepository.openApplicationRepository(performanceEvents: performanceEvents))
-            ?? UnavailableConnectionSessionRepository()
     }
 
     /// 明示測定buildだけに匿名signpost adapterを生成します。

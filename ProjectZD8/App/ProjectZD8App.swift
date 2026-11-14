@@ -55,9 +55,10 @@ struct ProjectZD8App: App {
     init() {
         #if os(iOS)
         let acquisitionPerformanceEvents = IOSApplicationComposition.makeAcquisitionPerformanceEventPort()
-        let connectionSessionRepository = IOSApplicationComposition.makeConnectionSessionRepository(
+        let connectionSessionStorage = ConnectionSessionStorageDependencies.makeProduction(
             performanceEvents: acquisitionPerformanceEvents
         )
+        let connectionSessionRepository = connectionSessionStorage.sessions
         let connectionSessionSynchronization = IOSApplicationComposition.makeConnectionSessionSynchronization(
             storage: connectionSessionRepository
         )
@@ -94,7 +95,7 @@ struct ProjectZD8App: App {
         let connectionSessionLifecycleModel = ConnectionSessionLifecycleModel(
             repository: connectionSessionRepository,
             rawLogRepository: connectionSessionRepository,
-            acquisitionTerminationRepository: connectionSessionRepository,
+            acquisitionTerminationRepository: connectionSessionStorage.acquisition,
             acquisitionDevice: IOSApplicationComposition.makeConnectionSessionAcquisitionDevice(),
             historyDidChange: { connectionHistoryModel.send(.localDataChanged) },
             endedSessionUploadRequested: { session in
@@ -102,7 +103,7 @@ struct ProjectZD8App: App {
             }
         )
         let liveTelemetryModel = IOSApplicationComposition.makeLiveTelemetryModel(
-            connectionSessionStorage: connectionSessionRepository,
+            acquisitionStorage: connectionSessionStorage.acquisition,
             activeSessionID: { await connectionSessionLifecycleModel.activeSession?.id },
             performanceEvents: acquisitionPerformanceEvents,
             sessionDidEnd: { connectionSessionLifecycleModel.send(.endRequested($0)) },
@@ -155,9 +156,10 @@ struct ProjectZD8App: App {
 
         #if os(macOS)
         let acquisitionPerformanceEvents = MacOSApplicationComposition.makeAcquisitionPerformanceEventPort()
-        let connectionSessionRepository = MacOSApplicationComposition.makeConnectionSessionRepository(
+        let connectionSessionStorage = ConnectionSessionStorageDependencies.makeProduction(
             performanceEvents: acquisitionPerformanceEvents
         )
+        let connectionSessionRepository = connectionSessionStorage.sessions
         let connectionSessionSynchronization = MacOSApplicationComposition.makeConnectionSessionSynchronization(
             storage: connectionSessionRepository
         )
@@ -194,7 +196,7 @@ struct ProjectZD8App: App {
         let connectionSessionLifecycleModel = ConnectionSessionLifecycleModel(
             repository: connectionSessionRepository,
             rawLogRepository: connectionSessionRepository,
-            acquisitionTerminationRepository: connectionSessionRepository,
+            acquisitionTerminationRepository: connectionSessionStorage.acquisition,
             acquisitionDevice: MacOSApplicationComposition.makeConnectionSessionAcquisitionDevice(),
             historyDidChange: { connectionHistoryModel.send(.localDataChanged) },
             endedSessionUploadRequested: { session in
@@ -202,7 +204,7 @@ struct ProjectZD8App: App {
             }
         )
         let liveTelemetryModel = MacOSApplicationComposition.makeLiveTelemetryModel(
-            connectionSessionStorage: connectionSessionRepository,
+            acquisitionStorage: connectionSessionStorage.acquisition,
             activeSessionID: { await connectionSessionLifecycleModel.activeSession?.id },
             performanceEvents: acquisitionPerformanceEvents,
             sessionDidEnd: { connectionSessionLifecycleModel.send(.endRequested($0)) },

@@ -22,7 +22,7 @@ final class ConnectionSessionAcquisitionControllerIntegrationTests: XCTestCase {
         XCTAssertEqual(countAfterAcquire, 1)
         XCTAssertEqual(samples.map(\.value), [42])
         XCTAssertEqual(try fixture.storage.entries(for: fixture.session.id).map(\.payload), [[42]])
-        let batches = try fixture.storage.batches(for: fixture.session.id)
+        let batches = try fixture.acquisition.batches(for: fixture.session.id)
         XCTAssertEqual(batches.map(\.identity.ordinal), [0])
         XCTAssertEqual(batches.map(\.policyTick), [0])
         XCTAssertEqual(batches[0].requests.map(\.transportOutcome), [.responded])
@@ -57,7 +57,7 @@ final class ConnectionSessionAcquisitionControllerIntegrationTests: XCTestCase {
 
         XCTAssertTrue(samples.isEmpty)
         XCTAssertTrue(try fixture.storage.entries(for: fixture.session.id).isEmpty)
-        let batch = try XCTUnwrap(fixture.storage.batches(for: fixture.session.id).first)
+        let batch = try XCTUnwrap(fixture.acquisition.batches(for: fixture.session.id).first)
         XCTAssertEqual(batch.completionState, .failed)
         XCTAssertEqual(batch.requests[0].transportOutcome, .timedOut)
     }
@@ -77,7 +77,7 @@ final class ConnectionSessionAcquisitionControllerIntegrationTests: XCTestCase {
         let readCount = await fixture.telemetry.readCount
         XCTAssertEqual(readCount, 1)
         XCTAssertEqual(try fixture.storage.entries(for: fixture.session.id).map(\.payload), [[42]])
-        XCTAssertEqual(try fixture.storage.batches(for: fixture.session.id).count, 1)
+        XCTAssertEqual(try fixture.acquisition.batches(for: fixture.session.id).count, 1)
     }
 
     /// controller、transport、GRDB writeが同じ匿名event境界へ順序付きで到達します。
@@ -136,7 +136,8 @@ final class ConnectionSessionAcquisitionControllerIntegrationTests: XCTestCase {
         addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
         let queue = try DatabaseQueue(path: directory.appending(path: "integration.sqlite").path)
         let performanceEvents = ControllerIntegrationPerformanceEventSpy()
-        let storage = try GRDBConnectionSessionRepository(
+        let storage = try GRDBConnectionSessionRepository(databaseQueue: queue)
+        let acquisition = try GRDBConnectionSessionAcquisitionRepository(
             databaseQueue: queue,
             performanceEvents: performanceEvents
         )
@@ -161,11 +162,11 @@ final class ConnectionSessionAcquisitionControllerIntegrationTests: XCTestCase {
         )
         let controller = ConnectionSessionAcquisitionController(
             createManifest: CreateConnectionSessionAcquisitionManifestUseCase(
-                acquisitionRepository: storage,
+                acquisitionRepository: acquisition,
                 evidencePort: ControllerIntegrationEvidencePort()
             ),
             persistBatch: PersistAcquisitionBatchUseCase(
-                repository: storage,
+                repository: acquisition,
                 telemetry: telemetry,
                 now: { Date(timeIntervalSince1970: 20) },
                 monotonicNanoseconds: ControllerIntegrationClock().next,
@@ -180,6 +181,7 @@ final class ConnectionSessionAcquisitionControllerIntegrationTests: XCTestCase {
         )
         return ControllerIntegrationFixture(
             storage: storage,
+            acquisition: acquisition,
             telemetry: telemetry,
             performanceEvents: performanceEvents,
             controller: controller,
@@ -193,6 +195,8 @@ final class ConnectionSessionAcquisitionControllerIntegrationTests: XCTestCase {
 private struct ControllerIntegrationFixture {
     /// session、Raw、取得証拠が同じQueueを使うProduction storageです。
     let storage: GRDBConnectionSessionRepository
+    /// `storage` と同じQueueで取得証拠を保存するProduction storageです。
+    let acquisition: GRDBConnectionSessionAcquisitionRepository
     /// typed結果と送信回数を保持するfake transportです。
     let telemetry: ControllerIntegrationTelemetry
     /// controller、transport、GRDB Queueの匿名性能event記録先です。

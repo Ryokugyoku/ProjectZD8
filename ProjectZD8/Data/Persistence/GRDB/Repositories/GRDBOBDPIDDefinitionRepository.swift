@@ -22,17 +22,7 @@ final class GRDBOBDPIDDefinitionRepository: OBDPIDDefinitionRepository {
     /// - Returns: Migration済みのPID定義リポジトリ。
     /// - Throws: 保存先作成、DB接続、Migrationに失敗した場合のエラー。
     static func openApplicationRepository() throws -> GRDBOBDPIDDefinitionRepository {
-        let fileManager = FileManager.default
-        let support = try fileManager.url(
-            for: .applicationSupportDirectory,
-            in: .userDomainMask,
-            appropriateFor: nil,
-            create: true
-        )
-        let directory = support.appending(path: "ProjectZD8", directoryHint: .isDirectory)
-        try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
-        let queue = try DatabaseQueue(path: directory.appending(path: "projectzd8.sqlite").path)
-        return try GRDBOBDPIDDefinitionRepository(databaseQueue: queue)
+        try GRDBOBDPIDDefinitionRepository(databaseQueue: ProjectZD8DatabaseLocation.openApplicationDatabaseQueue())
     }
 
     /// 登録済みの現在PID定義を識別子順で取得します。
