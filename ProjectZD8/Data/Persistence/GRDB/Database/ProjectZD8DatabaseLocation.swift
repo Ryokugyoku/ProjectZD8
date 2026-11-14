@@ -24,7 +24,7 @@ enum ProjectZD8DatabaseLocation {
 
     /// 指定した基底ディレクトリ配下の製品DBを開きます。
     ///
-    /// 責務: 製品DB用ディレクトリを準備し、その中のDBファイルへの未Migration接続を返します。
+    /// 責務: 製品DB用ディレクトリを準備し、製品DB設定を適用したDBファイルへの未Migration接続を返します。
     /// - Parameters:
     ///   - baseDirectory: 製品DB用ディレクトリを作成する基底ディレクトリ。
     ///   - fileManager: ディレクトリ作成に使用するFileManager。
@@ -32,7 +32,25 @@ enum ProjectZD8DatabaseLocation {
     /// - Throws: ディレクトリ作成またはDB接続に失敗した場合のエラー。
     static func openDatabaseQueue(in baseDirectory: URL, fileManager: FileManager) throws -> DatabaseQueue {
         let fileURL = try prepareDatabaseFileURL(in: baseDirectory, fileManager: fileManager)
-        return try DatabaseQueue(path: fileURL.path)
+        return try DatabaseQueue(path: fileURL.path, configuration: makeConfiguration())
+    }
+
+    /// 製品DB接続に適用するGRDB設定を生成します。
+    ///
+    /// 責務: 製品DBの `journal_mode=WAL`、`synchronous=NORMAL`、`foreign_keys=ON` を1件の接続設定として明示します。
+    ///
+    /// `journal_mode` はトランザクション外でしか変更できないため、GRDBが接続を開いた直後に
+    /// トランザクション外で `PRAGMA journal_mode = WAL` を実行する `journalMode = .wal` へ委ねます。
+    /// `foreign_keys` は `foreignKeysEnabled` によりGRDBが接続準備時に `PRAGMA foreign_keys = ON` を実行します。
+    /// - Returns: 書込み可能な製品DB Queueを開くための設定。
+    static func makeConfiguration() -> Configuration {
+        var configuration = Configuration()
+        configuration.foreignKeysEnabled = true
+        configuration.journalMode = .wal
+        configuration.prepareDatabase { database in
+            try database.execute(sql: "PRAGMA synchronous = NORMAL")
+        }
+        return configuration
     }
 
     /// Application Support内の製品DBを開きます。

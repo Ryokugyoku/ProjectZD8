@@ -28,7 +28,108 @@ enum ProjectZD8DatabaseMigrator {
         migrator.registerMigration("release_v1_add_connection_session_acquisition_batch_evidence") { database in
             try createConnectionSessionAcquisitionBatchEvidence(in: database)
         }
+        migrator.registerMigration("release_v1_add_connection_session_segments_gaps_can_frames") { database in
+            try createConnectionSessionSegments(in: database)
+            try createConnectionSessionGaps(in: database)
+            try createConnectionSessionCANFrames(in: database)
+            try addConnectionSessionRawLogSegmentColumns(in: database)
+        }
         return migrator
+    }
+
+    /// 接続セッション内の連続取得区間を保持する表を追加します。
+    ///
+    /// 責務: 開始理由、取得モード、終了状態の組み合わせをCHECKで守るセグメント表を1件作成します。
+    /// - Parameter database: テーブルを追加するSQLite接続。
+    /// - Throws: テーブル作成に失敗した場合のGRDBエラー。
+    nonisolated private static func createConnectionSessionSegments(in database: Database) throws {
+        try database.execute(sql: """
+            CREATE TABLE connection_session_segments (
+                sessionID TEXT NOT NULL
+                    REFERENCES connection_sessions(id) ON DELETE CASCADE,
+                segmentOrdinal INTEGER NOT NULL CHECK (segmentOrdinal >= 0),
+                startReason TEXT NOT NULL CHECK (startReason IN (
+                    'initial', 'reconnected', 'processRelaunched', 'modeSwitched'
+                )),
+                acquisitionMode TEXT NOT NULL CHECK (acquisitionMode IN ('pidPolling', 'canMonitor')),
+                startedAtMicroseconds INTEGER NOT NULL,
+                monotonicAnchorNanoseconds INTEGER NOT NULL CHECK (monotonicAnchorNanoseconds >= 0),
+                firstSequence INTEGER NOT NULL CHECK (firstSequence >= 0),
+                endedAtMicroseconds INTEGER,
+                endReason TEXT CHECK (endReason IN (
+                    'linkLost', 'processTerminated', 'responseStall', 'adapterBufferFull',
+                    'bufferOverflow', 'modeSwitched', 'sessionEnded'
+                )),
+                lastSequence INTEGER CHECK (lastSequence >= firstSequence),
+                PRIMARY KEY (sessionID, segmentOrdinal),
+                CHECK (
+                    (endedAtMicroseconds IS NULL AND endReason IS NULL AND lastSequence IS NULL)
+                    OR
+                    (endedAtMicroseconds IS NOT NULL AND endReason IS NOT NULL
+                        AND endedAtMicroseconds >= startedAtMicroseconds)
+                )
+            );
+            """)
+    }
+
+    /// 連続取得区間の間の空白を保持する表を追加します。
+    ///
+    /// 責務: 前後セグメントへの複合外部キーと欠損原因のCHECKを持つ欠損表を1件作成します。
+    /// - Parameter database: テーブルを追加するSQLite接続。
+    /// - Throws: テーブル作成に失敗した場合のGRDBエラー。
+    nonisolated private static func createConnectionSessionGaps(in database: Database) throws {
+        try database.execute(sql: """
+            CREATE TABLE connection_session_gaps (
+                sessionID TEXT NOT NULL,
+                gapOrdinal INTEGER NOT NULL CHECK (gapOrdinal >= 0),
+                precedingSegmentOrdinal INTEGER NOT NULL,
+                followingSegmentOrdinal INTEGER,
+                startedAtMicroseconds INTEGER NOT NULL,
+                endedAtMicroseconds INTEGER CHECK (endedAtMicroseconds >= startedAtMicroseconds),
+                cause TEXT NOT NULL CHECK (cause IN (
+                    'linkLost', 'processTerminated', 'responseStall', 'adapterBufferFull', 'bufferOverflow'
+                )),
+                PRIMARY KEY (sessionID, gapOrdinal),
+                FOREIGN KEY (sessionID, precedingSegmentOrdinal)
+                    REFERENCES connection_session_segments(sessionID, segmentOrdinal) ON DELETE CASCADE,
+                FOREIGN KEY (sessionID, followingSegmentOrdinal)
+                    REFERENCES connection_session_segments(sessionID, segmentOrdinal) ON DELETE CASCADE
+            );
+            """)
+    }
+
+    /// セグメントに属する受信CANフレームを保持する表を追加します。
+    ///
+    /// 責務: 29bit識別子と64バイト以下のpayloadをCHECKで守るCANフレーム表を1件作成します。
+    /// - Parameter database: テーブルを追加するSQLite接続。
+    /// - Throws: テーブル作成に失敗した場合のGRDBエラー。
+    nonisolated private static func createConnectionSessionCANFrames(in database: Database) throws {
+        try database.execute(sql: """
+            CREATE TABLE connection_session_can_frames (
+                sessionID TEXT NOT NULL,
+                sequence INTEGER NOT NULL CHECK (sequence >= 0),
+                segmentOrdinal INTEGER NOT NULL,
+                receivedAtMicroseconds INTEGER NOT NULL,
+                monotonicNanoseconds INTEGER NOT NULL CHECK (monotonicNanoseconds >= 0),
+                canIdentifier INTEGER NOT NULL CHECK (canIdentifier BETWEEN 0 AND 536870911),
+                payload BLOB NOT NULL CHECK (length(payload) <= 64),
+                PRIMARY KEY (sessionID, sequence),
+                FOREIGN KEY (sessionID, segmentOrdinal)
+                    REFERENCES connection_session_segments(sessionID, segmentOrdinal) ON DELETE CASCADE
+            );
+            """)
+    }
+
+    /// 既存Raw表へ所属セグメントと単調時刻のNULL可列を追加します。
+    ///
+    /// 責務: 既存Raw行を変更せず `segmentOrdinal` と `monotonicNanoseconds` の2列だけを追加します。
+    /// - Parameter database: 列を追加するSQLite接続。
+    /// - Throws: 列追加に失敗した場合のGRDBエラー。
+    nonisolated private static func addConnectionSessionRawLogSegmentColumns(in database: Database) throws {
+        try database.execute(sql: """
+            ALTER TABLE connection_session_raw_logs ADD COLUMN segmentOrdinal INTEGER;
+            ALTER TABLE connection_session_raw_logs ADD COLUMN monotonicNanoseconds INTEGER;
+            """)
     }
 
     /// 取得batchとPID request evidenceの正規化表を追加します。

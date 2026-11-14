@@ -133,4 +133,38 @@ final class ProjectZD8DatabaseLocationTests: XCTestCase {
         let contents = try FileManager.default.contentsOfDirectory(atPath: temporaryRoot.path)
         XCTAssertEqual(contents, [ProjectZD8DatabaseLocation.directoryName])
     }
+
+    /// ファイルDBを開いた直後の接続設定が仕様どおりです。
+    ///
+    /// 責務: 製品DBの `journal_mode=wal`、`synchronous=1(NORMAL)`、`foreign_keys=1` を実PRAGMAで確認します。
+    func testOpenDatabaseQueueAppliesWALNormalSynchronousAndForeignKeys() throws {
+        let queue = try ProjectZD8DatabaseLocation.openDatabaseQueue(in: temporaryRoot, fileManager: .default)
+
+        let pragmas = try queue.read { database in
+            (
+                journalMode: try String.fetchOne(database, sql: "PRAGMA journal_mode"),
+                synchronous: try Int.fetchOne(database, sql: "PRAGMA synchronous"),
+                foreignKeys: try Int.fetchOne(database, sql: "PRAGMA foreign_keys")
+            )
+        }
+
+        XCTAssertEqual(pragmas.journalMode, "wal")
+        XCTAssertEqual(pragmas.synchronous, 1)
+        XCTAssertEqual(pragmas.foreignKeys, 1)
+    }
+
+    /// 再オープンしても接続設定が維持されます。
+    ///
+    /// 責務: 既存DBファイルを開き直した接続にもWAL・NORMAL・外部キー有効が適用されることを確認します。
+    func testReopenedDatabaseQueueKeepsConnectionSettings() throws {
+        _ = try ProjectZD8DatabaseLocation.openDatabaseQueue(in: temporaryRoot, fileManager: .default)
+
+        let reopened = try ProjectZD8DatabaseLocation.openDatabaseQueue(in: temporaryRoot, fileManager: .default)
+
+        try reopened.read { database in
+            XCTAssertEqual(try String.fetchOne(database, sql: "PRAGMA journal_mode"), "wal")
+            XCTAssertEqual(try Int.fetchOne(database, sql: "PRAGMA synchronous"), 1)
+            XCTAssertEqual(try Int.fetchOne(database, sql: "PRAGMA foreign_keys"), 1)
+        }
+    }
 }

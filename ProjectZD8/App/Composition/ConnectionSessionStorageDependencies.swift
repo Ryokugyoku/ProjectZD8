@@ -18,15 +18,15 @@ struct ConnectionSessionStorageDependencies {
     /// 取得証拠の保存先です。`sessions` と同じDB Queueを共有します。
     let acquisition: AcquisitionStorage
 
-    /// Application Support内の製品DBを1つ開き、session側と取得証拠側で共有します。
+    /// 共有製品DB Queueをsession側と取得証拠側へ注入します。
     ///
     /// 責務: 製品DB Queueを両Repositoryへ注入し、準備失敗時は両方を明示的利用不能境界へ揃えます。
     /// - Parameters:
-    ///   - openDatabaseQueue: 製品DB Queueを開く処理。既定はApplication Support内の製品DB。
+    ///   - openDatabaseQueue: 共有製品DB Queueを返す処理。製品では `ApplicationDatabaseConnection.databaseQueue` を渡します。
     ///   - performanceEvents: 取得証拠writeを通知する匿名計測境界。
     /// - Returns: 同じQueueを共有する保存先、または両方とも利用不能な保存先。
     static func makeProduction(
-        openDatabaseQueue: () throws -> DatabaseQueue = ProjectZD8DatabaseLocation.openApplicationDatabaseQueue,
+        openDatabaseQueue: () throws -> DatabaseQueue,
         performanceEvents: any AcquisitionPerformanceEventPort = NoOpAcquisitionPerformanceEventPort()
     ) -> ConnectionSessionStorageDependencies {
         do {
