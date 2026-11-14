@@ -3,6 +3,7 @@ import XCTest
 @testable import ProjectZD8
 
 /// ELMコマンド直列化境界の応答保持と境界喪失を検証します。
+@MainActor
 final class SerializedELMCommandChannelTests: XCTestCase {
     /// プロンプトだけを除いて加工前応答を返します。
     ///
@@ -45,7 +46,8 @@ final class SerializedELMCommandChannelTests: XCTestCase {
 }
 
 /// 直列チャネルへ固定応答または固定エラーを返すTransportです。
-private actor SerializedChannelTransportFake: OBDCommandTransport {
+@MainActor
+private final class SerializedChannelTransportFake: OBDCommandTransport {
     /// read時に返す固定結果です。
     private let result: Result<Data, Error>
     /// 書込み済みASCIIコマンドです。

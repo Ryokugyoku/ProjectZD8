@@ -331,7 +331,8 @@ private final class ControllerIntegrationPerformanceEventSpy: @unchecked Sendabl
 }
 
 /// typed結果を要求順に返すfake transportです。
-private actor ControllerIntegrationTelemetry: OBDPIDTelemetryPort {
+@MainActor
+private final class ControllerIntegrationTelemetry: OBDPIDTelemetryPort {
     /// 未返却のtyped結果です。
     private var outcomes: [OBDPIDRequestTransportOutcome]
     /// 実行したphysical request数です。

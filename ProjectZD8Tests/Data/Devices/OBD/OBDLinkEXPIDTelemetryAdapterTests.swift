@@ -216,7 +216,8 @@ final class OBDLinkEXPIDTelemetryAdapterTests: XCTestCase {
 }
 
 /// PID読取テストへ固定応答列を返すTransportです。
-private actor PIDTransportFake: OBDCommandTransport {
+@MainActor
+private final class PIDTransportFake: OBDCommandTransport {
     /// 未使用の固定応答列です。
     private var responses: [String]
     /// 送信されたコマンド履歴です。

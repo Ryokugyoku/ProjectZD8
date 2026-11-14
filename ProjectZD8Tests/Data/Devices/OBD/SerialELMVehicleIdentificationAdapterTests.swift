@@ -133,7 +133,8 @@ final class SerialELMVehicleIdentificationAdapterTests: XCTestCase {
 }
 
 /// EX識別テストへ決定的なコマンド応答列を返します。
-private actor OBDCommandTransportFake: OBDCommandTransport {
+@MainActor
+private final class OBDCommandTransportFake: OBDCommandTransport {
     /// 順番に返す加工前応答です。
     private var responses: [String]
     /// 書き込まれたASCIIコマンドです。

@@ -47,63 +47,67 @@ final class DemoOBDPIDTelemetryAdapter: OBDPIDTelemetryPort {
     /// - Returns: 登録済み主要PIDでは正常域の応答バイト、未登録PIDでは `nil`。
     private func responseBytes(pid: UInt8, speed: UInt8, rpm: Int, coolant: Int) -> [UInt8]? {
         if pid % 0x20 == 0 { return supportedPIDBitmap(base: pid) }
-        return switch pid {
-        case 0x04: [UInt8(clamping: 55 + Int(speed))]
+        if let offset = Self.speedOffsetResponses[pid] { return [UInt8(clamping: offset + Int(speed))] }
+        return stateResponseBytes(pid: pid, speed: speed, rpm: rpm, coolant: coolant)
+            ?? Self.fixedResponses[pid]
+    }
+
+    /// 車速・回転数・水温・更新番号に連動するPIDの応答バイトを生成します。
+    ///
+    /// 責務: 単純な車速加算では表せない合成走行状態依存PIDだけを応答バイトへ符号化します。
+    /// - Parameters:
+    ///   - pid: 応答するService 01 PID番号。
+    ///   - speed: 現在の合成車速。
+    ///   - rpm: 現在の合成エンジン回転数。
+    ///   - coolant: 現在の合成冷却水温。
+    /// - Returns: 状態連動PIDでは応答バイト、それ以外では `nil`。
+    private func stateResponseBytes(pid: UInt8, speed: UInt8, rpm: Int, coolant: Int) -> [UInt8]? {
+        switch pid {
         case 0x05: [UInt8(clamping: coolant + 40)]
-        case 0x06...0x09: [128]
-        case 0x0A: [100]
-        case 0x0B: [42]
-        case 0x0C: twoBytes(rpm * 4)
+        case 0x0C: Self.twoBytes(rpm * 4)
         case 0x0D: [speed]
-        case 0x0E: [148]
-        case 0x0F: [70]
-        case 0x10: twoBytes(1_200 + Int(speed) * 18)
-        case 0x11: [UInt8(clamping: 42 + Int(speed))]
-        case 0x14...0x1B: [140, 128]
-        case 0x1F: twoBytes(Int(tick % 3_600))
-        case 0x21: [0, 0]
-        case 0x22: twoBytes(3_797)
-        case 0x23: twoBytes(400)
-        case 0x24...0x2B: [0x80, 0x00, 0x00, 0x00]
-        case 0x2C: [77]
-        case 0x2D: [128]
-        case 0x2E: [38]
-        case 0x2F: [166]
-        case 0x30: [2]
-        case 0x31: twoBytes(120)
-        case 0x32: [0x80, 0x00]
-        case 0x33: [100]
-        case 0x34...0x3B: [0x80, 0x00, 0x00, 0x00]
-        case 0x3C...0x3F: twoBytes(4_900)
-        case 0x42: twoBytes(14_200)
-        case 0x43: twoBytes(64 + Int(speed) * 2)
-        case 0x44: [0x80, 0x00]
-        case 0x45, 0x47, 0x48: [UInt8(clamping: 40 + Int(speed))]
-        case 0x46: [65]
-        case 0x49...0x4C: [UInt8(clamping: 35 + Int(speed))]
-        case 0x4D: [0, 0]
-        case 0x4E: [0, 0]
-        case 0x50: [20]
-        case 0x52: [128]
-        case 0x53: [0x27, 0x10]
-        case 0x54: [0x7F, 0xFF]
-        case 0x59: [0x01, 0x90]
-        case 0x5A, 0x5B: [128]
-        case 0x5C: [120]
-        case 0x5D: [0x6E, 0x00]
-        case 0x5E: [0x00, 0xC8]
-        case 0x61, 0x62: [125]
-        case 0x63: [0x01, 0x90]
-        case 0x7C: [0x11, 0x30]
-        case 0x8D: [128]
-        case 0x8E: [125]
-        case 0xA2: [0x01, 0x00]
-        case 0xA4: [0x00, 0x00, 0x03, 0xE8]
-        case 0xA5: [0x00, 0x80]
-        case 0xA6: fourBytes(123_456 + tick / 10)
+        case 0x10: Self.twoBytes(1_200 + Int(speed) * 18)
+        case 0x1F: Self.twoBytes(Int(tick % 3_600))
+        case 0x43: Self.twoBytes(64 + Int(speed) * 2)
+        case 0xA6: Self.fourBytes(123_456 + tick / 10)
         default: nil
         }
     }
+
+    /// 合成車速へ固定オフセットを加えた1バイトを返すPIDとそのオフセットです。
+    private static let speedOffsetResponses: [UInt8: Int] = [
+        0x04: 55, 0x11: 42,
+        0x45: 40, 0x47: 40, 0x48: 40,
+        0x49: 35, 0x4A: 35, 0x4B: 35, 0x4C: 35
+    ]
+
+    /// 走行状態に依存せず常に同じ正常域バイトを返すPIDの応答表です。
+    private static let fixedResponses: [UInt8: [UInt8]] = {
+        var table: [UInt8: [UInt8]] = [
+            0x0A: [100], 0x0B: [42], 0x0E: [148], 0x0F: [70],
+            0x21: [0, 0], 0x22: twoBytes(3_797), 0x23: twoBytes(400),
+            0x2C: [77], 0x2D: [128], 0x2E: [38], 0x2F: [166], 0x30: [2],
+            0x31: twoBytes(120), 0x32: [0x80, 0x00], 0x33: [100],
+            0x42: twoBytes(14_200), 0x44: [0x80, 0x00], 0x46: [65],
+            0x4D: [0, 0], 0x4E: [0, 0], 0x50: [20], 0x52: [128],
+            0x53: [0x27, 0x10], 0x54: [0x7F, 0xFF], 0x59: [0x01, 0x90],
+            0x5A: [128], 0x5B: [128], 0x5C: [120], 0x5D: [0x6E, 0x00], 0x5E: [0x00, 0xC8],
+            0x61: [125], 0x62: [125], 0x63: [0x01, 0x90], 0x7C: [0x11, 0x30],
+            0x8D: [128], 0x8E: [125], 0xA2: [0x01, 0x00],
+            0xA4: [0x00, 0x00, 0x03, 0xE8], 0xA5: [0x00, 0x80]
+        ]
+        let rangeResponses: [(pids: ClosedRange<UInt8>, bytes: [UInt8])] = [
+            (0x06...0x09, [128]),
+            (0x14...0x1B, [140, 128]),
+            (0x24...0x2B, [0x80, 0x00, 0x00, 0x00]),
+            (0x34...0x3B, [0x80, 0x00, 0x00, 0x00]),
+            (0x3C...0x3F, twoBytes(4_900))
+        ]
+        for range in rangeResponses {
+            for pid in range.pids { table[pid] = range.bytes }
+        }
+        return table
+    }()
 
     /// デモが数値化して返せるPIDをService 01対応ビットマップへ符号化します。
     ///
@@ -129,7 +133,7 @@ final class DemoOBDPIDTelemetryAdapter: OBDPIDTelemetryPort {
     /// 責務: 1件のデモ用整数をUInt16範囲へ制限した未加工バイトへ変換します。
     /// - Parameter value: 符号化する非負整数。
     /// - Returns: 上位、下位の順に並ぶ2バイト。
-    private func twoBytes(_ value: Int) -> [UInt8] {
+    nonisolated private static func twoBytes(_ value: Int) -> [UInt8] {
         let encoded = UInt16(clamping: value)
         return [UInt8(encoded >> 8), UInt8(encoded & 0xFF)]
     }
@@ -139,7 +143,7 @@ final class DemoOBDPIDTelemetryAdapter: OBDPIDTelemetryPort {
     /// 責務: 1件のデモ用累積値をUInt32範囲へ制限した未加工バイトへ変換します。
     /// - Parameter value: 符号化する非負整数。
     /// - Returns: 上位から下位の順に並ぶ4バイト。
-    private func fourBytes(_ value: UInt64) -> [UInt8] {
+    nonisolated private static func fourBytes(_ value: UInt64) -> [UInt8] {
         let encoded = UInt32(clamping: value)
         return [
             UInt8(encoded >> 24),

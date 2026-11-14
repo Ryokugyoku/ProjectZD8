@@ -309,7 +309,8 @@ private struct LiveTelemetryProductionCapabilityRepository: VehiclePIDCapability
 }
 
 /// capability探索では呼ばれない通信境界です。
-private actor LiveTelemetryProductionCapabilityTelemetry: OBDPIDTelemetryPort {
+@MainActor
+private final class LiveTelemetryProductionCapabilityTelemetry: OBDPIDTelemetryPort {
     /// 空状態の通信境界を生成します。
     ///
     /// 責務: 保存済みcapability test用の非通信境界を初期化します。

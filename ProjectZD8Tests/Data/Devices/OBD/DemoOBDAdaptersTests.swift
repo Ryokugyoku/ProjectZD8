@@ -59,6 +59,40 @@ final class DemoOBDAdaptersTests: XCTestCase {
         }
     }
 
+    /// 初回読取で全Service 01 PIDへ従来どおりの応答バイトを返します。
+    ///
+    /// 責務: 対応ビットマップ以外の全PIDについて、初回更新時の合成応答と未登録PIDの欠落を固定値で確認します。
+    func testTelemetryReturnsExpectedBytesForEveryPIDOnFirstRead() async throws {
+        // 初回更新(tick 1)では車速2、回転数908、冷却水温72になる。
+        var expected: [UInt8: [UInt8]] = [
+            0x04: [57], 0x05: [112], 0x0A: [100], 0x0B: [42], 0x0C: [0x0E, 0x30], 0x0D: [2],
+            0x0E: [148], 0x0F: [70], 0x10: [0x04, 0xD4], 0x11: [44], 0x1F: [0x00, 0x01],
+            0x21: [0, 0], 0x22: [0x0E, 0xD5], 0x23: [0x01, 0x90], 0x2C: [77], 0x2D: [128],
+            0x2E: [38], 0x2F: [166], 0x30: [2], 0x31: [0x00, 0x78], 0x32: [0x80, 0x00], 0x33: [100],
+            0x42: [0x37, 0x78], 0x43: [0x00, 0x44], 0x44: [0x80, 0x00], 0x45: [42], 0x46: [65],
+            0x47: [42], 0x48: [42], 0x4D: [0, 0], 0x4E: [0, 0], 0x50: [20], 0x52: [128],
+            0x53: [0x27, 0x10], 0x54: [0x7F, 0xFF], 0x59: [0x01, 0x90], 0x5A: [128], 0x5B: [128],
+            0x5C: [120], 0x5D: [0x6E, 0x00], 0x5E: [0x00, 0xC8], 0x61: [125], 0x62: [125],
+            0x63: [0x01, 0x90], 0x7C: [0x11, 0x30], 0x8D: [128], 0x8E: [125], 0xA2: [0x01, 0x00],
+            0xA4: [0x00, 0x00, 0x03, 0xE8], 0xA5: [0x00, 0x80], 0xA6: [0x00, 0x01, 0xE2, 0x40]
+        ]
+        for pid in UInt8(0x06)...0x09 { expected[pid] = [128] }
+        for pid in UInt8(0x14)...0x1B { expected[pid] = [140, 128] }
+        for pid in UInt8(0x24)...0x2B { expected[pid] = [0x80, 0x00, 0x00, 0x00] }
+        for pid in UInt8(0x34)...0x3B { expected[pid] = [0x80, 0x00, 0x00, 0x00] }
+        for pid in UInt8(0x3C)...0x3F { expected[pid] = [0x13, 0x24] }
+        for pid in UInt8(0x49)...0x4C { expected[pid] = [37] }
+        let requests = (UInt8(0)...0xFF)
+            .filter { $0 % 0x20 != 0 }
+            .map { OBDPIDRequest(service: 0x01, pid: $0) }
+
+        let readings = try await DemoOBDPIDTelemetryAdapter().read(requests, using: endpoint)
+
+        for request in requests {
+            XCTAssertEqual(readings[request], expected[request.pid], "PID \(request.pid)")
+        }
+    }
+
     /// Bluetoothデモ終端もUSBデモと同じ合成車両へ接続されることを検証します。
     ///
     /// 責務: iOS向けBluetoothデモ終端が通常の識別・PID境界でVINと車速を返すことを確認します。
@@ -181,7 +215,8 @@ final class DemoOBDAdaptersTests: XCTestCase {
 }
 
 /// PID振分け先と呼出回数を返すテスト用取得境界です。
-private actor FixedRoutingTelemetryFake: OBDPIDTelemetryPort {
+@MainActor
+private final class FixedRoutingTelemetryFake: OBDPIDTelemetryPort {
     /// 応答へ格納する固定バイトです。
     private let byte: UInt8
     /// PID読取を受けた回数です。
