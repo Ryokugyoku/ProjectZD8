@@ -1,18 +1,24 @@
 import Foundation
 @testable import ProjectZD8
 
-/// 取得ループと、要求を待たせるフェイク・記録ポートのスパイ・手動時計をまとめたテスト部品です。
+/// 取得ループと、要求を待たせるフェイク・記録ポートのスパイ・回復ポートのフェイク・期限待ちのフェイク・手動時計をまとめたテスト部品です。
 @MainActor
 final class LiveTelemetryAcquisitionLoopFixture {
-    /// 表示用観測とbatch開始に付く固定日時です。
+    /// 実時刻clockの初期日時です。
     static let fixedNow = Date(timeIntervalSince1970: 1_000)
 
     /// 要求を記録して応答を待たせるPID取得境界です。
     let telemetry = GatedOBDPIDTelemetryFake()
     /// 記録ポートのスパイです。記録しない経路では `nil` です。
     let recorder: LiveTelemetryRecordingPortSpy?
-    /// 要求ごとの経過を測る手動時計です。
+    /// 要求ごとの経過・途絶・猶予を測る手動の単調時計です。
     let clock = ManualMonotonicClock()
+    /// batch開始・観測・最後の受信に付く手動の実時刻clockです。
+    let dates = ManualDateClock(LiveTelemetryAcquisitionLoopFixture.fixedNow)
+    /// 回復操作を記録して予約した結果を返すフェイクです。
+    let linkRecovery = LinkRecoveryPortFake()
+    /// 一時停止中の期限待ちをテストが解放するまで待たせるフェイクです。
+    let deadlineWaiter = ControlledDeadlineWaiterFake()
     /// 検証対象の取得ループです。
     let loop: LiveTelemetryAcquisitionLoop
     /// 開始した世代の購読です。
@@ -24,11 +30,14 @@ final class LiveTelemetryAcquisitionLoopFixture {
     /// - Parameter recorder: 記録ポートのスパイ。`nil` なら記録しない経路にします。
     init(recorder: LiveTelemetryRecordingPortSpy? = LiveTelemetryRecordingPortSpy()) {
         self.recorder = recorder
+        let dates = dates
         loop = LiveTelemetryAcquisitionLoop(
             telemetry: telemetry,
             recorder: recorder,
-            now: { LiveTelemetryAcquisitionLoopFixture.fixedNow },
-            clock: clock
+            now: { dates.now() },
+            clock: clock,
+            linkRecovery: linkRecovery,
+            deadlineWaiter: deadlineWaiter
         )
     }
 
@@ -90,9 +99,54 @@ final class LiveTelemetryAcquisitionLoopFixture {
 
     /// 動いている世代を止め、購読をやめます。
     ///
-    /// 責務: テスト終了時に応答待ちの要求を取消で解放し、取得Taskを残さないようにします。
+    /// 責務: テスト終了時に応答待ちの要求と期限待ちを解放し、取得Taskを残さないようにします。
     func tearDown() async {
         _ = await loop.stop()
+        deadlineWaiter.releaseAll()
         collectors.forEach { $0.cancel() }
+    }
+
+    /// PID 0x0C だけの取得を始め、正応答1件の後に途絶させて、回復を使い切った一時停止まで進めます。
+    ///
+    /// 責務: 回復操作をすべて失敗させ、原因に応じた途絶(通信失敗、または途絶閾値の経過後のタイムアウト)を起こします。
+    /// 最後の正応答は現在の実時刻で受けます。
+    /// - Parameter cause: 起こす途絶の原因。
+    /// - Returns: 購読と、一時停止に入った時点の単調時計の値。
+    func startAndPause(
+        cause: LiveTelemetryInterruptionCause,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) async -> (LiveTelemetryAcquisitionEventCollector, UInt64) {
+        let collector = await start(definitions: [LiveTelemetryTestDefinitions.standard(0x0C)])
+        await telemetry.release(.responded([1]), file: file, line: line)
+        switch cause {
+        case .linkLost:
+            await telemetry.release(.transportFailure, file: file, line: line)
+        case .responseStall:
+            await telemetry.waitForSentRequests(2, file: file, line: line)
+            clock.advance(byNanoseconds: AcquisitionStallPolicy.stallThresholdNanoseconds)
+            await telemetry.release(.timedOut, file: file, line: line)
+        }
+        await waitForPause(of: collector, file: file, line: line)
+        return (collector, clock.nowNanoseconds())
+    }
+
+    /// 購読が一時停止の出来事を受けるまで上限付きで待ちます。
+    ///
+    /// 責務: 回復を使い切って一時停止に入ったことを待ち、上限を超えたら失敗させます。
+    /// - Parameters:
+    ///   - collector: 待つ購読。
+    ///   - file: 失敗を報告するファイル。
+    ///   - line: 失敗を報告する行。
+    /// - Returns: 一時停止に入った場合は `true`。
+    @discardableResult
+    func waitForPause(
+        of collector: LiveTelemetryAcquisitionEventCollector,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) async -> Bool {
+        await LiveTelemetryBoundedWaiter.waitUntil("一時停止", file: file, line: line) {
+            collector.phases.contains { if case .paused = $0 { true } else { false } }
+        }
     }
 }

@@ -142,13 +142,43 @@ final class LiveTelemetryAcquisitionLoopRecordingTests: XCTestCase {
         XCTAssertEqual(fixture.telemetry.endSessionCount, 1)
     }
 
-    /// 記録の終了に失敗すると、無応答による終了も保存失敗になります。
+    /// 記録の終了に失敗すると、猶予切れによる終了も保存失敗になります。
     ///
     /// 責務: 取得側の終了理由より記録の失敗を優先することを確認します。
-    func testFinishFailureTurnsNoVehicleResponseIntoRecordingFailed() async {
-        let (_, termination) = await runUntilTermination(failing: .finish, responses: 0, silentResponses: 1)
+    func testFinishFailureTurnsGracePeriodExpiryIntoRecordingFailed() async {
+        let fixture = makeFixture(failing: .finish)
+        let (collector, pausedAt) = await fixture.startAndPause(cause: .linkLost)
+        fixture.clock.advance(byNanoseconds: 180 * 1_000_000_000 + 1)
 
+        await fixture.loop.notify(.foregroundEntered)
+        let termination = await fixture.waitForTermination(of: collector)
+
+        XCTAssertGreaterThan(fixture.clock.nowNanoseconds(), pausedAt)
         XCTAssertEqual(termination, .recordingFailed)
+    }
+
+    /// 区間の終了・開始の記録に失敗すると保存失敗で終わります。
+    ///
+    /// 責務: 途絶時の区間終了と、復帰時の区間開始の失敗をどちらも成功扱いしないことを確認します。
+    func testSegmentRecordingFailuresEndAsRecordingFailed() async {
+        let ending = makeFixture(failing: .endSegment)
+        let endingCollector = await ending.start(definitions: [LiveTelemetryTestDefinitions.standard(0x0C)])
+        await ending.telemetry.release(.responded([1]))
+        await ending.telemetry.release(.transportFailure)
+        let endingTermination = await ending.waitForTermination(of: endingCollector)
+        XCTAssertEqual(ending.linkRecovery.calls, [])
+
+        let beginning = LiveTelemetryAcquisitionLoopFixture(recorder: LiveTelemetryRecordingPortSpy(failing: .beginSegment))
+        beginning.linkRecovery.schedule([true])
+        let beginningCollector = await beginning.start(definitions: [LiveTelemetryTestDefinitions.standard(0x0C)])
+        await beginning.telemetry.release(.responded([1]))
+        await beginning.telemetry.release(.transportFailure)
+        await beginning.telemetry.release(.responded([2]))
+        let beginningTermination = await beginning.waitForTermination(of: beginningCollector)
+        await beginning.tearDown()
+
+        XCTAssertEqual(endingTermination, .recordingFailed)
+        XCTAssertEqual(beginningTermination, .recordingFailed)
     }
 
     /// 定義とcapabilityの件数が揃わなければ記録を開始せず、要求も送りません。
@@ -225,24 +255,20 @@ final class LiveTelemetryAcquisitionLoopRecordingTests: XCTestCase {
         return fixture
     }
 
-    /// 2PIDの取得を指定件数の正応答と無応答で進め、終了を待ちます。
+    /// 2PIDの取得を指定件数の正応答で進め、終了を待ちます。
     ///
     /// 責務: 記録の失敗指定付きでループを開始し、応答を解放して終了理由を返します。
     /// - Parameters:
     ///   - failurePoint: 失敗させる記録の呼び出し。
     ///   - responses: 返す正応答の件数。
-    ///   - silentResponses: 正応答の後に返すタイムアウトの件数。
     /// - Returns: ループ部品と終了理由。
     private func runUntilTermination(
         failing failurePoint: LiveTelemetryRecordingFailurePoint,
-        responses: Int,
-        silentResponses: Int = 0
+        responses: Int
     ) async -> (LiveTelemetryAcquisitionLoopFixture, LiveTelemetryAcquisitionTermination?) {
         let fixture = makeFixture(failing: failurePoint)
-        let definitions = LiveTelemetryTestDefinitions.standard(silentResponses > 0 ? [0x0C] : [0x0C, 0x0D])
-        let collector = await fixture.start(definitions: definitions)
+        let collector = await fixture.start(definitions: LiveTelemetryTestDefinitions.standard([0x0C, 0x0D]))
         await fixture.telemetry.answer(responses) { _ in .responded([1]) }
-        await fixture.telemetry.answer(silentResponses) { _ in .timedOut }
         return (fixture, await fixture.waitForTermination(of: collector))
     }
 }

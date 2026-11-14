@@ -10,6 +10,10 @@ enum LiveTelemetryRecordingFailurePoint: Equatable, Sendable {
     case finishRound
     /// `flush` を失敗させます。
     case flush
+    /// `endSegment` を失敗させます。
+    case endSegment
+    /// `beginSegment` を失敗させます。
+    case beginSegment
     /// `finish` を失敗させます。
     case finish
 }

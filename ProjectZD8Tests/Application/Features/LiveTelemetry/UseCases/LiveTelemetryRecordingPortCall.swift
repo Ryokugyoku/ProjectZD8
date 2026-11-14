@@ -13,6 +13,10 @@ enum LiveTelemetryRecordingPortCall: Equatable {
     case finishRound(generation: UInt, batchOrdinal: Int64)
     /// 件数や経過によらない保存の指示です。
     case flush(LiveTelemetryAcquisitionFlushTrigger, generation: UInt)
+    /// 区間の終了です。
+    case endSegment(generation: UInt, reason: ConnectionSessionSegmentEndReason, lastReceivedAt: Date)
+    /// 欠損を挟んだ次の区間の開始です。
+    case beginSegment(LiveTelemetryAcquisitionSegmentResumption)
     /// 取得記録の終了です。
     case finish(generation: UInt, reason: ConnectionSessionEndReason)
 }

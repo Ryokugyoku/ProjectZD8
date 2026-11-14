@@ -49,6 +49,11 @@ final class LiveTelemetryAcquisitionEventCollector {
         events.compactMap { if case let .targetsConfirmed(definitions) = $0 { definitions } else { nil } }
     }
 
+    /// 受けた取得フェーズの変化です。受けた順に並びます。
+    var phases: [LiveTelemetryAcquisitionPhase] {
+        events.compactMap { if case let .phaseChanged(phase) = $0 { phase } else { nil } }
+    }
+
     /// 購読をやめます。
     ///
     /// 責務: 購読Taskを取り消し、ストリームの購読終了を取得ループへ伝えます。

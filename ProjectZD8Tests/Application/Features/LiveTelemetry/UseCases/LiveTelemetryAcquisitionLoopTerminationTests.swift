@@ -17,54 +17,21 @@ final class LiveTelemetryAcquisitionLoopTerminationTests: XCTestCase {
         try await super.tearDown()
     }
 
-    /// 2周目がまるごと無応答なら無応答で終わり、記録の終了とendSessionが呼ばれます。
+    /// 正応答の周回がまだ無い間は、無応答でも終わらずに全定義を周回0として送り続けます。
     ///
-    /// 責務: 正応答0件の周回を `noVehicleResponse` へ変換し、終了処理を1回ずつ行うことを確認します。
-    func testRoundWithoutAnyResponseEndsAsNoVehicleResponse() async {
+    /// 責務: 確定前の無応答の周回が終了・取得対象の確定を起こさず、batch番号だけ進めて同じ要求列を送ることを確認します。
+    func testUnconfirmedTargetsKeepSendingBaseRoundWithoutTerminating() async {
         let (fixture, collector) = await startTwoPIDLoop()
-        await fixture.telemetry.answer(2) { _ in .responded([1]) }
-        await fixture.telemetry.release(.timedOut)
-        await fixture.telemetry.release(.unclassifiedResponse)
+        await fixture.telemetry.answer(4) { _ in .timedOut }
+        await fixture.waitForSentRequests(5)
 
-        let termination = await fixture.waitForTermination(of: collector)
-
-        XCTAssertEqual(termination, .noVehicleResponse)
-        XCTAssertEqual(collector.events.last, .ended(.noVehicleResponse))
-        XCTAssertEqual(fixture.telemetry.sentRequests.count, 4)
-        XCTAssertEqual(fixture.telemetry.endSessionCount, 1)
-        let finishes = await fixture.recorder?.finishCalls
-        XCTAssertEqual(finishes, [.finish(generation: 1, reason: .vehicleNoResponse)])
-    }
-
-    /// 初回周回がまるごと無応答なら、取得対象を確定せずに無応答で終わります。
-    ///
-    /// 責務: 初回周回の正応答0件を `noVehicleResponse` へ変換し、取得対象の確定を流さないことを確認します。
-    func testInitialRoundWithoutAnyResponseEndsBeforeTargetsAreConfirmed() async {
-        let (fixture, collector) = await startTwoPIDLoop()
-        await fixture.telemetry.answer(2) { _ in .timedOut }
-
-        let termination = await fixture.waitForTermination(of: collector)
-
-        XCTAssertEqual(termination, .noVehicleResponse)
+        XCTAssertNil(collector.termination)
         XCTAssertTrue(collector.confirmedTargets.isEmpty)
-        XCTAssertEqual(fixture.telemetry.endSessionCount, 1)
-    }
-
-    /// 正応答0件の周回に通信失敗があれば接続断で終わり、記録の終了とendSessionが呼ばれます。
-    ///
-    /// 責務: 通信境界の喪失を含む無応答周回を `connectionLost` へ変換することを確認します。
-    func testRoundWithTransportFailureEndsAsConnectionLost() async {
-        let (fixture, collector) = await startTwoPIDLoop()
-        await fixture.telemetry.answer(2) { _ in .responded([1]) }
-        await fixture.telemetry.release(.transportFailure)
-        await fixture.telemetry.release(.timedOut)
-
-        let termination = await fixture.waitForTermination(of: collector)
-
-        XCTAssertEqual(termination, .connectionLost)
-        XCTAssertEqual(fixture.telemetry.endSessionCount, 1)
-        let finishes = await fixture.recorder?.finishCalls
-        XCTAssertEqual(finishes, [.finish(generation: 1, reason: .connectionLost)])
+        XCTAssertEqual(fixture.telemetry.sentRequests, [0x0C, 0x0D, 0x0C, 0x0D, 0x0C].map(LiveTelemetryTestDefinitions.request))
+        let rounds = await fixture.recorder?.roundInputs ?? []
+        XCTAssertEqual(rounds.map(\.policyTick), [0, 0, 0])
+        XCTAssertEqual(rounds.map(\.batchOrdinal), [0, 1, 2])
+        XCTAssertEqual(fixture.linkRecovery.calls, [])
     }
 
     /// 停止すると応答待ちの要求が取り消され、以後は要求が送られません。

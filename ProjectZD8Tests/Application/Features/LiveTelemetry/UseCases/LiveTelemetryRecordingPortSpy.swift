@@ -97,6 +97,37 @@ final class LiveTelemetryRecordingPortSpy: LiveTelemetryAcquisitionRecordingPort
         try append(.flush(trigger, generation: generation), at: .flush)
     }
 
+    /// 区間の終了を記録します。
+    ///
+    /// 責務: 区間の終了理由と最後の受信日時を記録し、指定時は保存失敗を送出します。
+    /// - Parameters:
+    ///   - generation: 世代。
+    ///   - reason: 区間の終了理由。
+    ///   - lastReceivedAt: 最後に正応答を受けた実時刻。
+    /// - Throws: `endSegment` を失敗させる場合は `.storageFailed`。
+    func endSegment(generation: UInt, reason: ConnectionSessionSegmentEndReason, lastReceivedAt: Date) async throws {
+        try append(.endSegment(generation: generation, reason: reason, lastReceivedAt: lastReceivedAt), at: .endSegment)
+    }
+
+    /// 次の区間の開始を記録します。
+    ///
+    /// 責務: 区間の再開入力を記録し、指定時は保存失敗を送出します。
+    /// - Parameter input: 区間の再開入力。
+    /// - Throws: `beginSegment` を失敗させる場合は `.storageFailed`。
+    func beginSegment(_ input: LiveTelemetryAcquisitionSegmentResumption) async throws {
+        try append(.beginSegment(input), at: .beginSegment)
+    }
+
+    /// 受けた区間の終了と開始です。受けた順に並びます。
+    var segmentCalls: [LiveTelemetryRecordingPortCall] {
+        calls.filter {
+            switch $0 {
+            case .endSegment, .beginSegment: true
+            default: false
+            }
+        }
+    }
+
     /// 終了を記録します。
     ///
     /// 責務: 終了の世代と原因を記録し、指定時は保存失敗を送出します。
