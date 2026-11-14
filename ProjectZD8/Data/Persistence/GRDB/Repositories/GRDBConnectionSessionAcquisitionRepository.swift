@@ -240,23 +240,10 @@ final class GRDBConnectionSessionAcquisitionRepository: ConnectionSessionAcquisi
                 ) != nil else {
                     throw ConnectionSessionAcquisitionRepositoryError.startEvidenceMissing
                 }
-                let generation = try exactInt64(evidence.generation)
-                let policyTick = try exactInt64(evidence.policyTick)
-                try ConnectionSessionAcquisitionBatchRecord(
-                    sessionID: key,
-                    batchOrdinal: evidence.identity.ordinal,
-                    generation: generation,
-                    policyTick: policyTick,
-                    selectionEvaluationComplete: evidence.isSelectionEvaluationComplete,
-                    startedAtMicroseconds: try canonicalMicroseconds(for: evidence.startedAt),
-                    completionState: nil,
-                    completedAtMicroseconds: nil,
-                    failureCode: nil,
-                    isSealed: false
-                ).insert(database)
+                try ConnectionSessionAcquisitionBatchRecord(evidence: evidence, sessionID: key).insert(database)
                 for request in evidence.requests {
-                    try requestRecord(
-                        request,
+                    try ConnectionSessionAcquisitionPIDRequestRecord(
+                        request: request,
                         sessionID: key,
                         batchOrdinal: evidence.identity.ordinal
                     ).insert(database)
@@ -982,19 +969,6 @@ final class GRDBConnectionSessionAcquisitionRepository: ConnectionSessionAcquisi
         return readback
     }
 
-    /// UInt値をSQLiteの非負Int64へ変換します。
-    ///
-    /// 責務: 取得世代、tick、経過時間を表現範囲検証済みSQLite整数へ変換します。
-    /// - Parameter value: 変換する非負値。
-    /// - Returns: 同じ値を持つInt64。
-    /// - Throws: Int64範囲外の場合は `.unavailable`。
-    private func exactInt64(_ value: UInt) throws -> Int64 {
-        guard let converted = Int64(exactly: value) else {
-            throw ConnectionSessionAcquisitionRepositoryError.unavailable
-        }
-        return converted
-    }
-
     /// UInt64値をSQLiteの非負Int64へ変換します。
     ///
     /// 責務: 単調経過時間を表現範囲検証済みSQLite整数へ変換します。
@@ -1006,35 +980,6 @@ final class GRDBConnectionSessionAcquisitionRepository: ConnectionSessionAcquisi
             throw ConnectionSessionAcquisitionRepositoryError.unavailable
         }
         return converted
-    }
-
-    /// Domain request evidenceをGRDB行へ変換します。
-    ///
-    /// 責務: 1件の要求証拠を親session/batch付き永続化表現へ変換します。
-    /// - Parameters:
-    ///   - request: 変換する要求証拠。
-    ///   - sessionID: 親session DB key。
-    ///   - batchOrdinal: 親batch番号。
-    /// - Returns: 挿入可能なrequest record。
-    /// - Throws: 経過時間がInt64範囲外の場合は `.unavailable`。
-    private func requestRecord(
-        _ request: PIDRequestEvidence,
-        sessionID: String,
-        batchOrdinal: Int64
-    ) throws -> ConnectionSessionAcquisitionPIDRequestRecord {
-        try ConnectionSessionAcquisitionPIDRequestRecord(
-            sessionID: sessionID,
-            batchOrdinal: batchOrdinal,
-            requestOrdinal: request.requestOrdinal,
-            manifestPIDOrdinal: request.manifestPIDOrdinal,
-            dispatchState: request.dispatchState.rawValue,
-            transportOutcome: request.transportOutcome?.rawValue,
-            valueOutcome: request.valueOutcome.rawValue,
-            rawSequence: request.rawSequence,
-            elapsedNanoseconds: request.elapsedNanoseconds.map(exactInt64),
-            reasonCode: request.reasonCode,
-            isSealed: request.dispatchState == .terminal
-        )
     }
 
     /// terminal遷移対象の親manifest、open batch、requestを読み取ります。
