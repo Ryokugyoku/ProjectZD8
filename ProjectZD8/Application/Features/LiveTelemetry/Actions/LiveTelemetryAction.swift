@@ -8,4 +8,8 @@ enum LiveTelemetryAction: Equatable {
     case stopRequested
     /// アプリがバックグラウンドへ移行したことを通知し、保存待ちの取得記録を保存させます。
     case backgroundTransitionOccurred
+    /// アプリがフォアグラウンドへ戻ったことを通知し、一時停止中なら復帰を試させます。
+    case foregroundTransitionOccurred
+    /// アダプターとのリンクが送受信可能(`true`)または切断(`false`)になったことを通知します。
+    case adapterLinkAvailabilityChanged(isAvailable: Bool)
 }

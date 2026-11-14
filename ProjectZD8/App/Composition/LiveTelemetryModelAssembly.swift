@@ -1,3 +1,5 @@
+import Foundation
+
 /// iOSとmacOSで共通の、応答駆動の取得ループと取得記録を組み立てる手順です。
 ///
 /// OS固有の値(PID取得境界、PID定義・対応PIDの保存先、取得platform、スリープ抑止)は各OSのCompositionから受け取ります。
@@ -8,25 +10,27 @@ enum LiveTelemetryModelAssembly {
     /// 責務: 取得ループ、Loggingの取得記録、単調時計、表示モデルを1組の構成へ結び付けます。
     /// - Parameters:
     ///   - telemetry: PID単位のtyped Transport観測を返す取得境界。
+    ///   - linkRecovery: 途切れた後の回復操作の境界。
     ///   - definitionRepository: PID定義の保存先。
     ///   - capabilityRepository: 車両別対応PIDの保存先。
     ///   - storage: 接続session・取得証拠・チャンク・区間・欠損の保存先。
     ///   - acquisitionPlatform: manifestへ記録する取得platform。
     ///   - activeSessionID: 現在Logging sessionの識別子を返す境界。
     ///   - performanceEvents: 取得区間を通知する匿名計測境界。
-    ///   - sessionDidEnd: PID取得終了原因をLoggingへ通知する処理。
+    ///   - sessionDidEnd: PID取得終了原因と終了時刻(`nil` は処理時刻)をLoggingへ通知する処理。
     ///   - distanceDidChange: 取得元付き累積距離をLoggingへ通知する処理。
     ///   - systemSleepInhibitor: 車両接続中だけシステムスリープを抑止する境界。
     /// - Returns: 取得記録付きの取得ループを購読するモデル。
     static func makeModel(
         telemetry: any OBDPIDTelemetryPort,
+        linkRecovery: any LiveTelemetryLinkRecoveryPort,
         definitionRepository: any OBDPIDDefinitionRepository,
         capabilityRepository: any VehiclePIDCapabilityRepository,
         storage: ConnectionSessionStorageDependencies,
         acquisitionPlatform: ConnectionSessionAcquisitionPlatform,
         activeSessionID: @escaping @Sendable () async -> ConnectionSessionID?,
         performanceEvents: any AcquisitionPerformanceEventPort,
-        sessionDidEnd: @escaping @MainActor (ConnectionSessionEndReason) -> Void,
+        sessionDidEnd: @escaping @MainActor (ConnectionSessionEndReason, Date?) -> Void,
         distanceDidChange: @escaping @MainActor (ConnectionSessionDistanceObservation) -> Void,
         systemSleepInhibitor: (any VehicleConnectionSystemSleepInhibiting)?
     ) -> LiveTelemetryModel {
@@ -49,7 +53,13 @@ enum LiveTelemetryModelAssembly {
                     definitionRepository: definitionRepository
                 )
             ),
-            acquisitionLoop: LiveTelemetryAcquisitionLoop(telemetry: telemetry, recorder: recorder, clock: clock),
+            acquisitionLoop: LiveTelemetryAcquisitionLoop(
+                telemetry: telemetry,
+                recorder: recorder,
+                clock: clock,
+                linkRecovery: linkRecovery,
+                deadlineWaiter: ContinuousMonotonicDeadlineWaiter(clock: clock)
+            ),
             clock: clock,
             sessionDidEnd: sessionDidEnd,
             distanceDidChange: distanceDidChange,
@@ -59,7 +69,7 @@ enum LiveTelemetryModelAssembly {
 
     /// 取得チャンクを保存するLoggingの取得記録を組み立てます。
     ///
-    /// 責務: manifest作成、チャンク・区間・欠損の保存先、Raw記録順序の続き、clockを取得記録へ注入します。
+    /// 責務: manifest作成、チャンク・区間・欠損の保存先、Raw記録順序とbatch番号の続き、clockを取得記録へ注入します。
     /// - Parameters:
     ///   - storage: 接続session・取得証拠・チャンク・区間・欠損の保存先。
     ///   - acquisitionPlatform: manifestへ記録する取得platform。
@@ -76,6 +86,7 @@ enum LiveTelemetryModelAssembly {
     ) -> ConnectionSessionAcquisitionRecorder {
         let configuration = ProductionConnectionSessionAcquisitionConfiguration.phase4G
         let sessions = storage.sessions
+        let acquisition = storage.acquisition
         return ConnectionSessionAcquisitionRecorder(
             createManifest: CreateConnectionSessionAcquisitionManifestUseCase(
                 acquisitionRepository: storage.acquisition,
@@ -89,6 +100,9 @@ enum LiveTelemetryModelAssembly {
             gapRepository: storage.gaps,
             nextRawSequence: { sessionID in
                 try await MainActor.run { Int64(try sessions.entryCount(for: sessionID)) }
+            },
+            nextBatchOrdinal: { sessionID in
+                try await MainActor.run { (try acquisition.batches(for: sessionID).map(\.identity.ordinal).max() ?? -1) + 1 }
             },
             activeSessionID: activeSessionID,
             versions: AcquisitionManifestVersions(

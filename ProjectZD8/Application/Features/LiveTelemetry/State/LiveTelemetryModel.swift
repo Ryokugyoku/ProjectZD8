@@ -15,8 +15,8 @@ final class LiveTelemetryModel {
     @ObservationIgnored private let pollingPolicy: OBDPIDPollingPolicy
     /// 表示更新の間引きを測る単調時計です。
     @ObservationIgnored private let clock: any MonotonicClockPort
-    /// PID取得セッションが終了した原因をLoggingへ通知する処理です。
-    @ObservationIgnored private let sessionDidEnd: @MainActor (ConnectionSessionEndReason) -> Void
+    /// PID取得セッションが終了した原因と終了時刻をLoggingへ通知する処理です。終了時刻が `nil` なら処理した時刻を使います。
+    @ObservationIgnored private let sessionDidEnd: @MainActor (ConnectionSessionEndReason, Date?) -> Void
     /// 取得できた取得元付き累積距離をLoggingへ通知する処理です。
     @ObservationIgnored private let distanceDidChange: @MainActor (ConnectionSessionDistanceObservation) -> Void
     /// 車両接続中のシステムスリープ抑止を切り替えるOS境界です。
@@ -39,7 +39,7 @@ final class LiveTelemetryModel {
     ///   - acquisitionLoop: PIDを1件ずつ送る応答駆動の取得ループ。
     ///   - pollingPolicy: 表示順を決める方針。
     ///   - clock: 表示更新の間引きを測る単調時計。
-    ///   - sessionDidEnd: PID取得終了原因をLoggingへ通知する処理。
+    ///   - sessionDidEnd: PID取得終了原因と終了時刻(猶予切れでは最後に受信した時刻、それ以外は `nil`)をLoggingへ通知する処理。
     ///   - distanceDidChange: 車種専用PID、Service 01 PID A6、またはPID 31の累積距離をLoggingへ通知する処理。
     ///   - systemSleepInhibitor: 車両接続中だけシステムスリープを抑止する境界。
     init(
@@ -48,7 +48,7 @@ final class LiveTelemetryModel {
         acquisitionLoop: LiveTelemetryAcquisitionLoop,
         pollingPolicy: OBDPIDPollingPolicy = OBDPIDPollingPolicy(),
         clock: any MonotonicClockPort,
-        sessionDidEnd: @escaping @MainActor (ConnectionSessionEndReason) -> Void = { _ in },
+        sessionDidEnd: @escaping @MainActor (ConnectionSessionEndReason, Date?) -> Void = { _, _ in },
         distanceDidChange: @escaping @MainActor (ConnectionSessionDistanceObservation) -> Void = { _ in },
         systemSleepInhibitor: (any VehicleConnectionSystemSleepInhibiting)? = nil
     ) {
@@ -64,7 +64,7 @@ final class LiveTelemetryModel {
 
     /// 型付き操作を取得ワークフローへ変換します。
     ///
-    /// 責務: 1件のLiveTelemetry操作を開始・再開・停止・バックグラウンド移行の処理へ振り分けます。
+    /// 責務: 1件のLiveTelemetry操作を開始・再開・停止・アプリ状態とリンク状態の通知へ振り分けます。
     /// - Parameter action: Platformから通知された型付き操作。
     func send(_ action: LiveTelemetryAction) {
         switch action {
@@ -77,7 +77,14 @@ final class LiveTelemetryModel {
         case .stopRequested:
             stop()
         case .backgroundTransitionOccurred:
-            Task { [acquisitionLoop] in await acquisitionLoop.flush(.backgroundTransition) }
+            Task { [acquisitionLoop] in
+                await acquisitionLoop.flush(.backgroundTransition)
+                await acquisitionLoop.notify(.backgroundEntered)
+            }
+        case .foregroundTransitionOccurred:
+            Task { [acquisitionLoop] in await acquisitionLoop.notify(.foregroundEntered) }
+        case let .adapterLinkAvailabilityChanged(isAvailable):
+            Task { [acquisitionLoop] in await acquisitionLoop.notify(isAvailable ? .linkRestored : .linkLost) }
         }
     }
 
@@ -98,6 +105,7 @@ final class LiveTelemetryModel {
         state.vehicleModelCode = vehicleModelCode
         state.phase = .reading
         state.failureKey = nil
+        state.pauseStatus = nil
         state.samples = []
         state.supportedPIDCount = 0
         refreshThrottle = LiveTelemetryDisplayRefreshThrottle()
@@ -126,6 +134,7 @@ final class LiveTelemetryModel {
         let generation = generation
         state.phase = .stopping
         state.failureKey = nil
+        state.pauseStatus = nil
         Task { [weak self, acquisitionLoop, prepareAcquisition] in
             _ = await previousTask?.value
             let termination = await acquisitionLoop.stop()
@@ -147,11 +156,11 @@ final class LiveTelemetryModel {
         if termination == .recordingFailed {
             state.phase = .failed
             state.failureKey = "telemetry.error.read_failed"
-            sessionDidEnd(.acquisitionFailed)
+            sessionDidEnd(.acquisitionFailed, nil)
             return
         }
         state.phase = .idle
-        if notifiesSessionEnd { sessionDidEnd(.userDisconnected) }
+        if notifiesSessionEnd { sessionDidEnd(.userDisconnected, nil) }
     }
 
     /// 取得対象を確定して取得ループを始め、その出来事を購読します。
@@ -198,7 +207,7 @@ final class LiveTelemetryModel {
 
     /// 取得ループの出来事を表示状態へ反映します。
     ///
-    /// 責務: 観測は間引いて反映し、取得対象の確定と終了は間引かずに反映します。
+    /// 責務: 観測は間引いて反映し、取得対象の確定・段階の変化・終了は間引かずに反映します。
     /// - Parameter event: 取得ループが流した出来事。
     private func apply(_ event: LiveTelemetryAcquisitionEvent) {
         switch event {
@@ -210,10 +219,28 @@ final class LiveTelemetryModel {
         case let .sampleDecoded(sample):
             refreshThrottle.hold(sample)
             if state.phase == .loaded { applyPendingSamples(force: false) }
+        case let .phaseChanged(acquisitionPhase):
+            applyPhase(acquisitionPhase)
         case let .ended(termination):
             applyPendingSamples(force: true)
             handleTermination(termination)
         }
+    }
+
+    /// 取得ループの段階を表示状態へ反映します。
+    ///
+    /// 責務: 回復中・一時停止中を `paused` へ、取得中への復帰を確定前なら `reading`、確定後なら `loaded` へ変換します。
+    /// - Parameter acquisitionPhase: 取得ループが報告した段階。
+    private func applyPhase(_ acquisitionPhase: LiveTelemetryAcquisitionPhase) {
+        guard state.phase != .stopping else { return }
+        if let pauseStatus = LiveTelemetryPauseStatus(acquisitionPhase) {
+            applyPendingSamples(force: true)
+            state.pauseStatus = pauseStatus
+            state.phase = .paused
+            return
+        }
+        state.pauseStatus = nil
+        state.phase = supportedDefinitions.isEmpty ? .reading : .loaded
     }
 
     /// 保持中の観測をPIDごとの最新値へまとめて反映します。
@@ -233,27 +260,27 @@ final class LiveTelemetryModel {
     /// 取得ループの終了理由を表示状態と終了通知へ反映します。
     ///
     /// 責務: 停止以外の終了をスリープ抑止解除済みの終了状態とLogging通知へ変換します。
+    /// 猶予切れでは最後に受信した時刻をセッションの終了時刻として通知します。
     /// - Parameter termination: 取得ループの終了理由。
     private func handleTermination(_ termination: LiveTelemetryAcquisitionTermination) {
         guard termination != .stopped else { return }
         acquisitionTask = nil
+        state.pauseStatus = nil
         systemSleepInhibitor?.setVehicleConnectionActive(false)
         switch termination {
         case .stopped:
             return
-        case .noVehicleResponse:
+        case .gracePeriodExpired(.responseStall, _):
             state.phase = .idle
             state.failureKey = "telemetry.disconnected.no_response"
-            sessionDidEnd(.vehicleNoResponse)
-        case .connectionLost:
+        case .gracePeriodExpired(.linkLost, _):
             state.phase = .idle
             state.failureKey = "telemetry.disconnected.connection_lost"
-            sessionDidEnd(.connectionLost)
         case .recordingFailed:
             state.phase = .failed
             state.failureKey = "telemetry.error.read_failed"
-            sessionDidEnd(.acquisitionFailed)
         }
+        sessionDidEnd(termination.sessionEndReason, termination.sessionEndedAt)
     }
 
     /// 取得対象を確定できなかった失敗を表示状態へ反映します。
@@ -266,25 +293,25 @@ final class LiveTelemetryModel {
         case OBDPIDTelemetryError.definitionCatalogUnavailable:
             state.phase = .failed
             state.failureKey = "telemetry.error.pid_catalog_unavailable"
-            sessionDidEnd(.acquisitionFailed)
+            sessionDidEnd(.acquisitionFailed, nil)
         case OBDPIDTelemetryError.unavailable:
             state.phase = .failed
             state.failureKey = "telemetry.error.unavailable"
-            sessionDidEnd(.acquisitionFailed)
+            sessionDidEnd(.acquisitionFailed, nil)
         case OBDPIDTelemetryError.noVehicleResponse:
             acquisitionTask = nil
             state.phase = .idle
             state.failureKey = "telemetry.disconnected.no_response"
-            sessionDidEnd(.vehicleNoResponse)
+            sessionDidEnd(.vehicleNoResponse, nil)
         case OBDPIDTelemetryError.connectionLost:
             acquisitionTask = nil
             state.phase = .idle
             state.failureKey = "telemetry.disconnected.connection_lost"
-            sessionDidEnd(.connectionLost)
+            sessionDidEnd(.connectionLost, nil)
         default:
             state.phase = .failed
             state.failureKey = "telemetry.error.read_failed"
-            sessionDidEnd(.acquisitionFailed)
+            sessionDidEnd(.acquisitionFailed, nil)
         }
     }
 

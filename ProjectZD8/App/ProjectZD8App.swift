@@ -109,7 +109,7 @@ struct ProjectZD8App: App {
             connectionSessionStorage: connectionSessionStorage,
             activeSessionID: { await connectionSessionLifecycleModel.activeSession?.id },
             performanceEvents: acquisitionPerformanceEvents,
-            sessionDidEnd: { connectionSessionLifecycleModel.send(.endRequested($0)) },
+            sessionDidEnd: { reason, endedAt in connectionSessionLifecycleModel.send(.endRequested(reason, endedAt: endedAt)) },
             distanceDidChange: { connectionSessionLifecycleModel.send(.distanceObserved($0)) }
         )
         let vehicleManagementModel = IOSApplicationComposition.makeVehicleManagementModel(
@@ -215,7 +215,7 @@ struct ProjectZD8App: App {
             connectionSessionStorage: connectionSessionStorage,
             activeSessionID: { await connectionSessionLifecycleModel.activeSession?.id },
             performanceEvents: acquisitionPerformanceEvents,
-            sessionDidEnd: { connectionSessionLifecycleModel.send(.endRequested($0)) },
+            sessionDidEnd: { reason, endedAt in connectionSessionLifecycleModel.send(.endRequested(reason, endedAt: endedAt)) },
             distanceDidChange: { connectionSessionLifecycleModel.send(.distanceObserved($0)) }
         )
         let vehicleManagementModel = MacOSApplicationComposition.makeVehicleManagementModel(
@@ -340,12 +340,14 @@ struct ProjectZD8App: App {
         }
     }
 
-    /// バックグラウンド移行時に保存待ちの取得記録を保存させ、操作可能へ戻ったとき認証済みセッション概要と整備記録を再同期します。
+    /// バックグラウンド移行時に保存待ちの取得記録を保存させ、操作可能へ戻ったとき取得の一時停止へ復帰の機会を伝え、
+    /// 認証済みセッション概要と整備記録を再同期します。
     ///
-    /// 責務: 1件のScene段階変更を取得記録のflush要求、または認証済み接続履歴と整備記録の更新要求へ変換します。
+    /// 責務: 1件のScene段階変更を取得記録のflush要求・取得ループの起床通知、または認証済み接続履歴と整備記録の更新要求へ変換します。
     /// - Parameter phase: 現在のScene段階。
     private func handleScenePhaseChange(_ phase: ScenePhase) {
         if phase == .background { liveTelemetryModel.send(.backgroundTransitionOccurred) }
+        if phase == .active { liveTelemetryModel.send(.foregroundTransitionOccurred) }
         guard phase == .active, authenticationModel.state.phase == .signedIn else { return }
         connectionHistoryModel.send(.refreshRequested)
         maintenanceModel.send(.refreshRequested)

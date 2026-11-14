@@ -8,6 +8,8 @@ struct LiveTelemetryState: Equatable {
         case reading
         /// 応答済みPIDを継続取得しています。
         case loaded
+        /// 取得が途切れ、回復段階を試しているか、猶予内の復帰を待っています。セッションは続いています。
+        case paused
         /// 取得停止と通信資源の解放完了を待っています。
         case stopping
         /// PID読取または数値化に失敗しました。
@@ -28,10 +30,17 @@ struct LiveTelemetryState: Equatable {
     var vehicleModelCode: String?
     /// 直近の失敗を表示するローカライズキーです。
     var failureKey: String?
+    /// 回復中または一時停止中の表示状態です。`phase == .paused` の間だけ値を持ちます。
+    var pauseStatus: LiveTelemetryPauseStatus?
 
     /// HOMEで切断操作を提供する接続中段階かどうかです。
     var isConnectionActive: Bool {
-        phase == .reading || phase == .loaded || phase == .stopping
+        phase == .reading || phase == .loaded || phase == .paused || phase == .stopping
+    }
+
+    /// 車両から応答を受信し続けている段階かどうかです。「接続済み」と読める表示はこの値の裏付けがある時だけ出します。
+    var isReceiving: Bool {
+        phase == .loaded
     }
 
     /// 通信資源の安全な終了完了を待っているかどうかです。

@@ -9,7 +9,7 @@ enum MacOSApplicationComposition {
     ///
     /// 責務: macOSのPID取得依存関係と接続中スリープ抑止を1件のLiveTelemetry構成へ注入します。
     /// - Returns: DB登録済みPIDを読み取れるモデル。
-    /// - Parameter sessionDidEnd: PID取得終了原因をLoggingへ通知する処理。
+    /// - Parameter sessionDidEnd: PID取得終了原因と終了時刻(`nil` は処理時刻)をLoggingへ通知する処理。
     /// - Parameter distanceDidChange: 取得元付き累積距離をLoggingへ通知する処理。
     /// - Parameter database: PID定義と車両別対応PIDの保存先が共有する製品DB接続。
     /// - Parameter connectionSessionStorage: 同じGRDB Queueを共有する接続session・取得証拠・チャンク・区間・欠損の保存先。
@@ -20,17 +20,16 @@ enum MacOSApplicationComposition {
         connectionSessionStorage: ConnectionSessionStorageDependencies,
         activeSessionID: @escaping @Sendable () async -> ConnectionSessionID?,
         performanceEvents: any AcquisitionPerformanceEventPort = NoOpAcquisitionPerformanceEventPort(),
-        sessionDidEnd: @escaping @MainActor (ConnectionSessionEndReason) -> Void = { _ in },
+        sessionDidEnd: @escaping @MainActor (ConnectionSessionEndReason, Date?) -> Void = { _, _ in },
         distanceDidChange: @escaping @MainActor (ConnectionSessionDistanceObservation) -> Void = { _ in }
     ) -> LiveTelemetryModel {
-        let telemetry = DemoAwareOBDPIDTelemetryAdapter(
-            live: OBDLinkEXPIDTelemetryAdapter { endpoint in
-                try makeOBDCommandTransport(for: endpoint)
-            },
-            demo: DemoOBDPIDTelemetryAdapter()
-        )
+        let live = OBDLinkEXPIDTelemetryAdapter { endpoint in
+            try makeOBDCommandTransport(for: endpoint)
+        }
+        let telemetry = DemoAwareOBDPIDTelemetryAdapter(live: live, demo: DemoOBDPIDTelemetryAdapter())
         return LiveTelemetryModelAssembly.makeModel(
             telemetry: telemetry,
+            linkRecovery: DemoAwareLiveTelemetryLinkRecoveryAdapter(live: live),
             definitionRepository: makeOBDPIDDefinitionRepository(database: database),
             capabilityRepository: makeVehiclePIDCapabilityRepository(database: database),
             storage: connectionSessionStorage,

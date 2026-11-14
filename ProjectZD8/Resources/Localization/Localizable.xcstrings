@@ -19836,6 +19836,50 @@
         }
       }
     },
+    "telemetry.status.paused.link_lost" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Waiting for the adapter connection to return. Logging continues if it returns within 3 minutes."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esperando a que vuelva la conexión del adaptador. El registro continúa si vuelve en 3 minutos."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "アダプターとの接続が戻るのを待っています。3分以内に戻れば記録を続けます"
+          }
+        }
+      }
+    },
+    "telemetry.status.paused.no_response" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Waiting for the vehicle to respond. Logging continues if it responds within 3 minutes."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esperando la respuesta del vehículo. El registro continúa si responde en 3 minutos."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "車両の応答を待っています。3分以内に応答すれば記録を続けます"
+          }
+        }
+      }
+    },
     "telemetry.status.polling" : {
       "localizations" : {
         "en" : {
@@ -19876,6 +19920,72 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "対応PIDを確認中…"
+          }
+        }
+      }
+    },
+    "telemetry.status.recovering.prompt_resync" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No response. Resynchronizing with the adapter…"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sin respuesta. Resincronizando con el adaptador…"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "応答がありません。アダプターとの区切りを合わせ直しています…"
+          }
+        }
+      }
+    },
+    "telemetry.status.recovering.reconnect" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No response. Reconnecting to the adapter…"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sin respuesta. Reconectando con el adaptador…"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "応答がありません。アダプターに接続し直しています…"
+          }
+        }
+      }
+    },
+    "telemetry.status.recovering.reinitialize" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No response. Reinitializing the adapter…"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sin respuesta. Reiniciando el adaptador…"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "応答がありません。アダプターを初期化し直しています…"
           }
         }
       }

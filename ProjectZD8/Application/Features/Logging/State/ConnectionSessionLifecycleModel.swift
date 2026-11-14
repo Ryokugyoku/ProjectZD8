@@ -76,7 +76,7 @@ final class ConnectionSessionLifecycleModel {
         case .startRequested: startSession()
         case let .vehicleResolved(vehicle): bindVehicle(vehicle)
         case let .distanceObserved(observation): recordDistance(observation)
-        case let .endRequested(reason): endSession(reason: reason)
+        case let .endRequested(reason, endedAt): endSession(reason: reason, endedAt: endedAt)
         }
     }
 
@@ -202,10 +202,12 @@ final class ConnectionSessionLifecycleModel {
     /// 現在セッションへ終了日時と原因を保存します。
     ///
     /// 責務: 1件の未終了セッションを指定原因で終端状態へ遷移させます。
-    /// - Parameter reason: セッションが終了した直接原因。
-    private func endSession(reason: ConnectionSessionEndReason) {
+    /// - Parameters:
+    ///   - reason: セッションが終了した直接原因。
+    ///   - requestedEndedAt: 終了時刻。猶予切れでは最後に受信した時刻。`nil` なら処理した時刻を使います。
+    private func endSession(reason: ConnectionSessionEndReason, endedAt requestedEndedAt: Date? = nil) {
         guard let currentSession = activeSession else { return }
-        let endedAt = now()
+        let endedAt = requestedEndedAt.map { max($0, currentSession.startedAt) } ?? now()
         do {
             let session: ConnectionSession
             if let acquisitionTerminationRepository {

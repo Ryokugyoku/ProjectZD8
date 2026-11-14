@@ -9,7 +9,7 @@ enum IOSApplicationComposition {
     ///
     /// 責務: iOSのPID取得依存関係と接続中の画面自動ロック抑止を1件のLiveTelemetry構成へ注入します。
     /// - Returns: デモ、既知BLE UART、または構成済みBluetooth Classic終端で取得できるモデル。
-    /// - Parameter sessionDidEnd: PID取得終了原因をLoggingへ通知する処理。
+    /// - Parameter sessionDidEnd: PID取得終了原因と終了時刻(`nil` は処理時刻)をLoggingへ通知する処理。
     /// - Parameter distanceDidChange: 取得元付き累積距離をLoggingへ通知する処理。
     /// - Parameter database: PID定義と車両別対応PIDの保存先が共有する製品DB接続。
     /// - Parameter connectionSessionStorage: 同じGRDB Queueを共有する接続session・取得証拠・チャンク・区間・欠損の保存先。
@@ -20,21 +20,20 @@ enum IOSApplicationComposition {
         connectionSessionStorage: ConnectionSessionStorageDependencies,
         activeSessionID: @escaping @Sendable () async -> ConnectionSessionID?,
         performanceEvents: any AcquisitionPerformanceEventPort = NoOpAcquisitionPerformanceEventPort(),
-        sessionDidEnd: @escaping @MainActor (ConnectionSessionEndReason) -> Void = { _ in },
+        sessionDidEnd: @escaping @MainActor (ConnectionSessionEndReason, Date?) -> Void = { _, _ in },
         distanceDidChange: @escaping @MainActor (ConnectionSessionDistanceObservation) -> Void = { _ in }
     ) -> LiveTelemetryModel {
         let externalAccessoryConfiguration = IOSExternalAccessoryProtocolConfiguration()
-        let telemetry = DemoAwareOBDPIDTelemetryAdapter(
-            live: OBDLinkEXPIDTelemetryAdapter { endpoint in
-                try makeBluetoothOBDTransport(
-                    for: endpoint,
-                    configuration: externalAccessoryConfiguration
-                )
-            },
-            demo: DemoOBDPIDTelemetryAdapter()
-        )
+        let live = OBDLinkEXPIDTelemetryAdapter { endpoint in
+            try makeBluetoothOBDTransport(
+                for: endpoint,
+                configuration: externalAccessoryConfiguration
+            )
+        }
+        let telemetry = DemoAwareOBDPIDTelemetryAdapter(live: live, demo: DemoOBDPIDTelemetryAdapter())
         return LiveTelemetryModelAssembly.makeModel(
             telemetry: telemetry,
+            linkRecovery: DemoAwareLiveTelemetryLinkRecoveryAdapter(live: live),
             definitionRepository: makeOBDPIDDefinitionRepository(database: database),
             capabilityRepository: makeVehiclePIDCapabilityRepository(database: database),
             storage: connectionSessionStorage,
