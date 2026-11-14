@@ -173,6 +173,29 @@ struct UnavailableConnectionSessionRepository: ConnectionSessionRepository, Conn
     ) throws -> [ConnectionSession] {
         throw ConnectionSessionAcquisitionRepositoryError.unavailable
     }
+
+    /// 中断sessionのbatch回復を利用不能として失敗させます。
+    ///
+    /// 責務: 続行可能sessionのbatch回復要求を明示的な保存先利用不能へ変換します。
+    /// - Parameters:
+    ///   - sessionID: 回復できないsession。
+    ///   - completedAt: 保存できない日時。
+    /// - Throws: 常に `.unavailable`。
+    func sealInterruptedBatches(for sessionID: ConnectionSessionID, completedAt: Date) throws {
+        throw ConnectionSessionAcquisitionRepositoryError.unavailable
+    }
+
+    /// 中断sessionの終了を利用不能として失敗させます。
+    ///
+    /// 責務: 猶予切れsessionの終了要求を明示的な保存先利用不能へ変換します。
+    /// - Parameters:
+    ///   - session: 終了保存できないsession。
+    ///   - endedAt: 保存できない終了日時。
+    /// - Returns: この実装は値を返しません。
+    /// - Throws: 常に `.unavailable`。
+    func finishInterruptedSessionAcquisition(_ session: ConnectionSession, endedAt: Date) throws -> ConnectionSession {
+        throw ConnectionSessionAcquisitionRepositoryError.unavailable
+    }
     /// 保存先利用不能を返します。
     ///
     /// 責務: セッション保存要求を利用不能エラーとして失敗させます。

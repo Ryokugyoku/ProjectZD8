@@ -102,7 +102,8 @@ struct ProjectZD8App: App {
             historyDidChange: { connectionHistoryModel.send(.localDataChanged) },
             endedSessionUploadRequested: { session in
                 connectionHistoryModel.send(.sessionUploadRequested(session.id))
-            }
+            },
+            recoverRelaunchedSession: connectionSessionStorage.makeRelaunchRecovery()
         )
         let liveTelemetryModel = IOSApplicationComposition.makeLiveTelemetryModel(
             database: database,
@@ -208,7 +209,8 @@ struct ProjectZD8App: App {
             historyDidChange: { connectionHistoryModel.send(.localDataChanged) },
             endedSessionUploadRequested: { session in
                 connectionHistoryModel.send(.sessionUploadRequested(session.id))
-            }
+            },
+            recoverRelaunchedSession: connectionSessionStorage.makeRelaunchRecovery()
         )
         let liveTelemetryModel = MacOSApplicationComposition.makeLiveTelemetryModel(
             database: database,

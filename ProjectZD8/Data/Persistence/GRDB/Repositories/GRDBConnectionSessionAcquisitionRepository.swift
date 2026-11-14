@@ -693,23 +693,7 @@ final class GRDBConnectionSessionAcquisitionRepository: ConnectionSessionAcquisi
                     guard let session = record.makeDomainSession() else {
                         throw ConnectionSessionAcquisitionRepositoryError.unavailable
                     }
-                    try recoverOpenBatchesAfterProcessTermination(
-                        sessionID: session.id,
-                        completedAt: recoveredAt,
-                        database: database
-                    )
-                    try appendEndIfAcquisitionStarted(
-                        sessionID: session.id,
-                        endedAt: recoveredAt,
-                        reason: .unexpectedTermination,
-                        database: database
-                    )
-                    return try finishSessionRecord(
-                        session,
-                        endedAt: recoveredAt,
-                        reason: .unexpectedTermination,
-                        database: database
-                    )
+                    return try finishInterrupted(session, endedAt: recoveredAt, database: database)
                 }
             }
         } catch let error as ConnectionSessionAcquisitionRepositoryError {
@@ -718,6 +702,75 @@ final class GRDBConnectionSessionAcquisitionRepository: ConnectionSessionAcquisi
             logger.error("中断session取得回復失敗: \(String(describing: error), privacy: .private)")
             throw ConnectionSessionAcquisitionRepositoryError.unavailable
         }
+    }
+
+    /// process終了後に残った1件のsessionのopen batchだけを1 transactionで回復します。
+    ///
+    /// 責務: 猶予内で続行可能なsessionの未確定batchを再送なしのtermination証拠へ確定します。
+    /// - Parameters:
+    ///   - sessionID: 回復対象session。
+    ///   - completedAt: batchの終端を確定する日時。
+    /// - Throws: 保存値不正またはSQLite回復失敗。
+    func sealInterruptedBatches(for sessionID: ConnectionSessionID, completedAt: Date) throws {
+        do {
+            try measuredWrite(operation: .terminationRecoveryPersistence) { database in
+                try recoverOpenBatchesAfterProcessTermination(
+                    sessionID: sessionID,
+                    completedAt: completedAt,
+                    database: database
+                )
+            }
+        } catch let error as ConnectionSessionAcquisitionRepositoryError {
+            throw error
+        } catch {
+            logger.error("中断session batch回復失敗: \(String(describing: error), privacy: .private)")
+            throw ConnectionSessionAcquisitionRepositoryError.unavailable
+        }
+    }
+
+    /// process終了後に残った1件のsessionを1 transactionで指定日時の異常終了へ確定します。
+    ///
+    /// 責務: 猶予を超えたsessionのopen batch回復・終了境界・session終了を部分成功なしで保存します。
+    /// - Parameters:
+    ///   - session: 終了する未終了session。
+    ///   - endedAt: sessionと取得境界へ共通で使用する終了日時。
+    /// - Returns: transaction内でcanonical readbackした終了済みsession。
+    /// - Throws: session不在・既終了、保存値不正、またはSQLite回復失敗。
+    func finishInterruptedSessionAcquisition(_ session: ConnectionSession, endedAt: Date) throws -> ConnectionSession {
+        do {
+            return try measuredWrite(operation: .terminationRecoveryPersistence) { database in
+                try finishInterrupted(session, endedAt: endedAt, database: database)
+            }
+        } catch let error as ConnectionSessionAcquisitionRepositoryError {
+            throw error
+        } catch {
+            logger.error("中断session終了失敗: \(String(describing: error), privacy: .private)")
+            throw ConnectionSessionAcquisitionRepositoryError.unavailable
+        }
+    }
+
+    /// 親transaction内で1件の中断sessionをopen batch回復付きで異常終了させます。
+    ///
+    /// 責務: アカウント単位の回復と1件単位の回復で同じ終了手順を共有します。
+    /// - Parameters:
+    ///   - session: 終了する未終了session。
+    ///   - endedAt: sessionと取得境界へ共通で使用する終了日時。
+    ///   - database: 親transactionのSQLite境界。
+    /// - Returns: 保存済み終了session。
+    /// - Throws: batch回復・境界追記・session終了のいずれかの失敗。
+    private func finishInterrupted(
+        _ session: ConnectionSession,
+        endedAt: Date,
+        database: Database
+    ) throws -> ConnectionSession {
+        try recoverOpenBatchesAfterProcessTermination(sessionID: session.id, completedAt: endedAt, database: database)
+        try appendEndIfAcquisitionStarted(
+            sessionID: session.id,
+            endedAt: endedAt,
+            reason: .unexpectedTermination,
+            database: database
+        )
+        return try finishSessionRecord(session, endedAt: endedAt, reason: .unexpectedTermination, database: database)
     }
 
     /// 1回のGRDB writeをQueue通過点付きperformance区間として実行します。

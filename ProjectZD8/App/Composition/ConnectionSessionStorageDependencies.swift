@@ -60,4 +60,17 @@ struct ConnectionSessionStorageDependencies {
             )
         }
     }
+
+    /// プロセス復帰時の未終了セッションを処理するuse caseを組み立てます。
+    ///
+    /// 責務: Rawログ・区間・欠損・中断session終了の保存先を同じ保存先一式から注入します。
+    /// - Returns: プロセス復帰時の未終了セッションを処理するuse case。
+    func makeRelaunchRecovery() -> RecoverRelaunchedConnectionSessionUseCase {
+        RecoverRelaunchedConnectionSessionUseCase(
+            rawLogRepository: sessions,
+            segmentRepository: segments,
+            gapRepository: gaps,
+            terminationRepository: acquisition
+        )
+    }
 }
