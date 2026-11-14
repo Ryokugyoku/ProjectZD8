@@ -30,21 +30,42 @@ final class RecoverRelaunchedConnectionSessionUseCaseTests: XCTestCase {
         XCTAssertEqual(segment.lastSequence, 1)
     }
 
-    /// 猶予内で続行可能になった場合も、欠損の終了は復帰処理の現在時刻です(仕様D-1)。
+    /// 猶予内で続行可能になった直後は、欠損は終了時刻も後続区間も未設定のまま開いています。
     ///
-    /// 責務: 続行可能の経路で、processTerminated の欠損の終了が現在時刻で記録されることを確認します。
-    func testResumableRecoveryRecordsGapEndingNow() async throws {
+    /// 責務: 取得が再開するまでの空白を欠損に含められるよう、続行可能の経路で欠損を閉じないことを確認します。
+    func testResumableRecoveryLeavesGapOpen() async throws {
         let fixture = try await makeInterruptedSession()
-        let now = lastCommittedAt.addingTimeInterval(60)
 
-        _ = try useCase(fixture).recover(try session(fixture), now: now)
+        _ = try useCase(fixture).recover(try session(fixture), now: lastCommittedAt.addingTimeInterval(60))
 
-        XCTAssertEqual(try fixture.gaps.gaps(for: fixture.sessionID).first?.endedAt, now)
+        let gap = try XCTUnwrap(fixture.gaps.gaps(for: fixture.sessionID).first)
+        XCTAssertNil(gap.endedAt)
+        XCTAssertNil(gap.followingSegmentOrdinal)
+        XCTAssertNil(try session(fixture).endedAt)
     }
 
-    /// 猶予ちょうどで続行可能になり、次の取得では processRelaunched の区間がちょうど1件開き、Rawの連番とbatch番号が既存の続きになります。
+    /// 続行可能になったまま取得を再開せずに終了すると、開いた欠損を終了時刻付き・後続区間なしで閉じ、セッションは最後のcommitの時刻で終了します。
     ///
-    /// 責務: 続行後の区間の開始理由・欠損の後続区間・連番・batch番号を確認します。
+    /// 責務: `end` の欠損の閉じ方とセッションの終了時刻を確認します。
+    func testEndWithoutResumptionClosesOpenGap() async throws {
+        let fixture = try await makeInterruptedSession()
+        let recovery = useCase(fixture)
+        _ = try recovery.recover(try session(fixture), now: lastCommittedAt.addingTimeInterval(60))
+        let endedAt = lastCommittedAt.addingTimeInterval(120)
+
+        let ended = try recovery.end(try session(fixture), lastCommittedAt: lastCommittedAt, now: endedAt)
+
+        let gaps = try fixture.gaps.gaps(for: fixture.sessionID)
+        XCTAssertEqual(gaps.count, 1)
+        XCTAssertEqual(gaps.first?.endedAt, endedAt)
+        XCTAssertNil(gaps.first?.followingSegmentOrdinal)
+        XCTAssertEqual(ended.endedAt, lastCommittedAt)
+        XCTAssertEqual(try session(fixture).endedAt, lastCommittedAt)
+    }
+
+    /// 猶予ちょうどで続行可能になり、次の取得では processRelaunched の区間がちょうど1件開いて開いた欠損がその開始時刻で閉じ、Rawの連番とbatch番号が既存の続きになります。
+    ///
+    /// 責務: 続行後の区間の開始理由・欠損の件数・終了・後続区間・連番・batch番号を確認します。
     func testResumedSessionContinuesWithProcessRelaunchedSegment() async throws {
         let fixture = try await makeInterruptedSession()
         let outcome = try useCase(fixture).recover(try session(fixture), now: lastCommittedAt.addingTimeInterval(180))
@@ -62,6 +83,8 @@ final class RecoverRelaunchedConnectionSessionUseCaseTests: XCTestCase {
         let gaps = try fixture.gaps.gaps(for: fixture.sessionID)
         XCTAssertEqual(gaps.count, 1)
         XCTAssertEqual(gaps.first?.followingSegmentOrdinal, 1)
+        XCTAssertEqual(gaps.first?.endedAt, Date(timeIntervalSince1970: 1_150))
+        XCTAssertEqual(segments.last?.startedAt, Date(timeIntervalSince1970: 1_150))
         XCTAssertEqual(try fixture.storedRaws().map(\.sequence), [0, 1, 2])
         XCTAssertEqual(try fixture.acquisition.batches(for: fixture.sessionID).map(\.identity.ordinal), [0, 1, 2])
     }
@@ -80,6 +103,7 @@ final class RecoverRelaunchedConnectionSessionUseCaseTests: XCTestCase {
         XCTAssertNotNil(ended.endReason)
         XCTAssertEqual(try session(fixture).endedAt, lastCommittedAt)
         XCTAssertEqual(try fixture.gaps.gaps(for: fixture.sessionID).map(\.endedAt), [now])
+        XCTAssertEqual(try fixture.gaps.gaps(for: fixture.sessionID).map(\.startedAt), [lastCommittedAt])
     }
 
     /// 同じ復帰処理を2回実行しても欠損は二重に記録されません。
@@ -93,6 +117,24 @@ final class RecoverRelaunchedConnectionSessionUseCaseTests: XCTestCase {
         _ = try recovery.recover(try session(fixture), now: lastCommittedAt.addingTimeInterval(40))
 
         XCTAssertEqual(try fixture.gaps.gaps(for: fixture.sessionID).count, 1)
+    }
+
+    /// 開いた欠損が残った状態で猶予切れの復帰処理を行っても、欠損は増えずにその欠損が現在時刻で閉じます。
+    ///
+    /// 責務: 続行可能の後の猶予切れの再実行で、欠損が1件のまま閉じることを確認します。
+    func testExpiredRecoveryAfterResumableClosesExistingGap() async throws {
+        let fixture = try await makeInterruptedSession()
+        let recovery = useCase(fixture)
+        _ = try recovery.recover(try session(fixture), now: lastCommittedAt.addingTimeInterval(30))
+        let now = lastCommittedAt.addingTimeInterval(400)
+
+        _ = try recovery.recover(try session(fixture), now: now)
+
+        let gaps = try fixture.gaps.gaps(for: fixture.sessionID)
+        XCTAssertEqual(gaps.count, 1)
+        XCTAssertEqual(gaps.first?.startedAt, lastCommittedAt)
+        XCTAssertEqual(gaps.first?.endedAt, now)
+        XCTAssertEqual(try session(fixture).endedAt, lastCommittedAt)
     }
 
     /// 区間が1件も無いセッションでは欠損を記録しません。
