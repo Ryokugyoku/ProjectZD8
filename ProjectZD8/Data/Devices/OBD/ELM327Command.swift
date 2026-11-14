@@ -8,7 +8,9 @@ protocol ELM327CommandEncoding: Sendable {
     var encodedData: Data { get }
 }
 
-/// 車両識別フローで許可する読取専用ELM/STNコマンドです。
+/// 車両識別、アダプター種別判定、CANバス受信監視で許可する固定ELM/STNコマンドです。
+///
+/// いずれも車両ECUへ書込みを行わず、アダプター設定の変更か読取り・受信監視だけを要求します。
 enum ELM327Command: String, CaseIterable, Sendable, ELM327CommandEncoding {
     /// アダプターを既知の初期状態へ戻します。
     case reset = "ATZ"
@@ -28,6 +30,18 @@ enum ELM327Command: String, CaseIterable, Sendable, ELM327CommandEncoding {
     case protocolDescription = "ATDP"
     /// OBD Service 09 PID 02のVINを要求します。
     case vehicleIdentificationNumber = "0902"
+    /// STN系チップの識別文字列を要求します。ELM327系は`?`を返します。
+    case stnIdentity = "STI"
+    /// CANバス上の全フレームを受信専用で監視します。
+    case monitorAll = "ATMA"
+    /// 応答ヘッダー(CAN ID)表示を有効化します。
+    case headersOn = "ATH1"
+    /// STN系チップの拡張受信監視を開始します。
+    case stnMonitor = "STM"
+    /// ELM327純正/クローン判別の追加プローブとして、プログラマブルパラメーター一覧を要求します。
+    ///
+    /// 純正ELM327は応答し、多くのクローンは`?`を返すという想定に基づく仮のプローブで、実機では未確認です。
+    case programmableParameterSummary = "ATPPS"
 
     /// 未加工観測で使用する安定要求識別子です。
     var requestID: String { String(describing: self) }
