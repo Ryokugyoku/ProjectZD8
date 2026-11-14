@@ -35,4 +35,12 @@ final class AcquisitionGracePeriodPolicyTests: XCTestCase {
         let decision = AcquisitionGracePeriodPolicy().decision(elapsedSincePauseNanoseconds: threeMinutes + 1)
         XCTAssertEqual(decision, .terminate)
     }
+
+    /// 猶予は3分、一時停止中の定期試行の間隔は10秒です。
+    ///
+    /// 責務: 猶予と定期試行の間隔の値を確認します。
+    func testGraceAndRetryIntervalValues() {
+        XCTAssertEqual(AcquisitionGracePeriodPolicy.gracePeriodNanoseconds, 180 * 1_000_000_000)
+        XCTAssertEqual(AcquisitionGracePeriodPolicy.retryIntervalNanoseconds, 10 * 1_000_000_000)
+    }
 }
