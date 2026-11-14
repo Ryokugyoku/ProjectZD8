@@ -63,11 +63,11 @@ final class LiveTelemetryAcquisitionLoopRoundTests: XCTestCase {
                     capabilities: catalog.map { StubVehiclePIDCapabilityRepository.capability($0, enabled: $0.pid != 0x05) }
                 ),
                 telemetry: fixture.telemetry
-            )
+            ),
+            discoverSupportedStandardPIDs: DiscoverSupportedStandardPIDsUseCase(telemetry: fixture.telemetry)
         )
         let prepared = try await prepare.execute(
-            vehicleID: LiveTelemetryTestDefinitions.vehicleID,
-            vehicleModelCode: nil,
+            vehicle: .registered(LiveTelemetryTestDefinitions.vehicleID, vehicleModelCode: nil),
             endpoint: LiveTelemetryTestDefinitions.endpoint
         )
 

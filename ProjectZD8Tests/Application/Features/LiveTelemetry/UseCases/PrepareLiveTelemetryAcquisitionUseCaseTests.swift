@@ -73,7 +73,8 @@ final class PrepareLiveTelemetryAcquisitionUseCaseTests: XCTestCase {
                 definitionRepository: StubOBDPIDDefinitionRepository(definitions: catalog),
                 telemetry: ScriptedOBDPIDTelemetryFake()
             ),
-            loadVehicleCapabilities: nil
+            loadVehicleCapabilities: nil,
+            discoverSupportedStandardPIDs: DiscoverSupportedStandardPIDsUseCase(telemetry: ScriptedOBDPIDTelemetryFake())
         )
 
         let prepared = try await execute(useCase)
@@ -91,7 +92,8 @@ final class PrepareLiveTelemetryAcquisitionUseCaseTests: XCTestCase {
                 definitionRepository: StubOBDPIDDefinitionRepository(definitions: [], failsRead: true),
                 telemetry: ScriptedOBDPIDTelemetryFake()
             ),
-            loadVehicleCapabilities: nil
+            loadVehicleCapabilities: nil,
+            discoverSupportedStandardPIDs: DiscoverSupportedStandardPIDsUseCase(telemetry: ScriptedOBDPIDTelemetryFake())
         )
 
         do {
@@ -109,7 +111,8 @@ final class PrepareLiveTelemetryAcquisitionUseCaseTests: XCTestCase {
         let telemetry = ScriptedOBDPIDTelemetryFake()
         let useCase = PrepareLiveTelemetryAcquisitionUseCase(
             readMajorPIDs: ReadMajorOBDPIDsUseCase(definitionRepository: StubOBDPIDDefinitionRepository(definitions: []), telemetry: telemetry),
-            loadVehicleCapabilities: nil
+            loadVehicleCapabilities: nil,
+            discoverSupportedStandardPIDs: DiscoverSupportedStandardPIDsUseCase(telemetry: telemetry)
         )
 
         await useCase.endSession()
@@ -134,13 +137,14 @@ final class PrepareLiveTelemetryAcquisitionUseCaseTests: XCTestCase {
             loadVehicleCapabilities: LoadVehiclePIDCapabilitiesUseCase(
                 repository: StubVehiclePIDCapabilityRepository(capabilities: capabilities),
                 telemetry: telemetry
-            )
+            ),
+            discoverSupportedStandardPIDs: DiscoverSupportedStandardPIDsUseCase(telemetry: telemetry)
         )
     }
 
     /// テスト車両・終端で取得準備を実行します。
     ///
-    /// 責務: 固定の車両ID・型式なし・テスト終端で `execute` を呼びます。
+    /// 責務: 型式なしの登録済みテスト車両・テスト終端で `execute` を呼びます。
     /// - Parameter useCase: 実行する取得準備。
     /// - Returns: 取得対象の定義とcapability。
     /// - Throws: 取得準備のエラー。
@@ -148,8 +152,7 @@ final class PrepareLiveTelemetryAcquisitionUseCaseTests: XCTestCase {
         _ useCase: PrepareLiveTelemetryAcquisitionUseCase
     ) async throws -> (definitions: [OBDPIDDefinition], capabilities: [ConnectionSessionAcquisitionPIDCapabilityInput]) {
         try await useCase.execute(
-            vehicleID: LiveTelemetryTestDefinitions.vehicleID,
-            vehicleModelCode: nil,
+            vehicle: .registered(LiveTelemetryTestDefinitions.vehicleID, vehicleModelCode: nil),
             endpoint: LiveTelemetryTestDefinitions.endpoint
         )
     }

@@ -171,14 +171,14 @@ final class LiveTelemetryModelTests: XCTestCase {
     func testZD8VehicleSpecificOdometerIsDisplayedAndNotified() async {
         let catalog = LiveTelemetryTestDefinitions.standard([0x0C, 0xA6]) + ZD8OBDPIDSeed.definitions
         let fixture = make(catalog: catalog)
-        fixture.start(vehicleModelCode: ZD8VehicleModelPolicy.modelCode)
+        fixture.start(vehicle: .registered(LiveTelemetryTestDefinitions.vehicleID, vehicleModelCode: ZD8VehicleModelPolicy.modelCode))
         await fixture.telemetry.answer(catalog.count) { request in
             request.service == 0x21 ? .responded([0x00, 0x01, 0xE2, 0x40]) : .responded([10])
         }
 
         await fixture.waitUntil("読み込み済み") { fixture.model.state.phase == .loaded }
 
-        XCTAssertEqual(fixture.model.state.vehicleModelCode, ZD8VehicleModelPolicy.modelCode)
+        XCTAssertEqual(fixture.model.state.vehicle?.vehicleModelCode, ZD8VehicleModelPolicy.modelCode)
         XCTAssertEqual(Set(fixture.model.state.samples.map(\.request)), Set(catalog.map(LiveTelemetryTestDefinitions.request)))
         XCTAssertEqual(
             fixture.notifications.distances.first,

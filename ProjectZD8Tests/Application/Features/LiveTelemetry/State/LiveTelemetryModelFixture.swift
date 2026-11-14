@@ -57,7 +57,11 @@ final class LiveTelemetryModelFixture {
         )
         model = LiveTelemetryModel(
             state: LiveTelemetryState(),
-            prepareAcquisition: PrepareLiveTelemetryAcquisitionUseCase(readMajorPIDs: readMajorPIDs, loadVehicleCapabilities: capabilities),
+            prepareAcquisition: PrepareLiveTelemetryAcquisitionUseCase(
+                readMajorPIDs: readMajorPIDs,
+                loadVehicleCapabilities: capabilities,
+                discoverSupportedStandardPIDs: DiscoverSupportedStandardPIDsUseCase(telemetry: telemetry)
+            ),
             acquisitionLoop: loop,
             clock: clock,
             sessionDidEnd: { notifications.recordEnd($0, endedAt: $1) },
@@ -68,10 +72,10 @@ final class LiveTelemetryModelFixture {
 
     /// テスト車両で取得を始めます。
     ///
-    /// 責務: 固定の終端・車両IDで開始操作を送ります。
-    /// - Parameter vehicleModelCode: 型式コード。
-    func start(vehicleModelCode: String? = nil) {
-        model.send(.startRequested(LiveTelemetryTestDefinitions.endpoint, LiveTelemetryTestDefinitions.vehicleID, vehicleModelCode: vehicleModelCode))
+    /// 責務: 固定の終端と指定の車両で開始操作を送ります。
+    /// - Parameter vehicle: 開始する車両。既定は型式なしの登録済みテスト車両。
+    func start(vehicle: LiveTelemetryVehicleContext = .registered(LiveTelemetryTestDefinitions.vehicleID, vehicleModelCode: nil)) {
+        model.send(.startRequested(LiveTelemetryTestDefinitions.endpoint, vehicle))
     }
 
     /// 表示中のPIDごとの値です。
