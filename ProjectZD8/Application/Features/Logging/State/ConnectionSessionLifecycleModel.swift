@@ -15,7 +15,7 @@ final class ConnectionSessionLifecycleModel {
     private(set) var activeSession: ConnectionSession?
     /// セッションの永続化境界です。
     @ObservationIgnored private let repository: any ConnectionSessionRepository
-    /// 未デコードOBD応答の永続化境界です。
+    /// 未デコードOBD応答の永続化境界です。取得記録はチャンク単位の保存へ移ったため、現在は読み書きしません。
     @ObservationIgnored private let rawLogRepository: (any ConnectionSessionRawLogRepository)?
     /// sessionと取得証拠を部分成功なしで終了・回復する境界です。
     @ObservationIgnored private let acquisitionTerminationRepository: (any ConnectionSessionAcquisitionTerminationRepository)?
@@ -99,18 +99,6 @@ final class ConnectionSessionLifecycleModel {
         case let .distanceObserved(observation): recordDistance(observation)
         case let .endRequested(reason, endedAt): endSession(reason: reason, endedAt: endedAt)
         }
-    }
-
-    /// 数値化前のOBD応答を現在セッションへ追記します。
-    ///
-    /// 責務: 1件の未デコードOBD応答を現在の接続セッションへ関連付けて永続化します。
-    /// - Parameter observation: 取得境界から受け取った未デコードOBD応答。
-    /// - Throws: 接続セッション不在またはRawログ永続化に失敗した場合のエラー。
-    func recordRawResponse(_ observation: OBDRawResponseObservation) throws {
-        guard let sessionID = activeSession?.id, let rawLogRepository else {
-            throw ConnectionSessionRepositoryError.invalidState
-        }
-        try rawLogRepository.append(observation, to: sessionID)
     }
 
     /// 新しいアカウントを有効化し、残存中セッションを異常終了へ閉じます。
