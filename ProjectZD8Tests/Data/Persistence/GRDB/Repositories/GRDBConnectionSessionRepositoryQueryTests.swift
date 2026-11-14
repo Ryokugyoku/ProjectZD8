@@ -56,7 +56,7 @@ final class GRDBConnectionSessionRepositoryQueryTests: XCTestCase {
         let fixtures = try GRDBConnectionSessionRepositoryFixtures()
         let session = ConnectionSession(accountIdentifier: "account")
         try fixtures.repository.save(session)
-        try fixtures.updateSessionRow("localRawState = 'corrupted'", id: session.id)
+        try fixtures.updateSessionRow([Column("localRawState").set(to: "corrupted")], id: session.id)
 
         XCTAssertThrowsError(try fixtures.repository.sessions(for: "account")) { error in
             XCTAssertTrue(error is DatabaseError, "実際のエラー: \(error)")
@@ -69,7 +69,7 @@ final class GRDBConnectionSessionRepositoryQueryTests: XCTestCase {
     func testSessionsThrowDatabaseErrorWhenEndReasonIsUnknown() throws {
         let fixtures = try GRDBConnectionSessionRepositoryFixtures()
         let session = try fixtures.seedEndedSession(rawCount: 0)
-        try fixtures.updateSessionRow("endReason = 'unknownReason'", id: session.id)
+        try fixtures.updateSessionRow([Column("endReason").set(to: "unknownReason")], id: session.id)
 
         XCTAssertThrowsError(try fixtures.repository.sessions(for: "account")) { error in
             XCTAssertTrue(error is DatabaseError, "実際のエラー: \(error)")
@@ -83,7 +83,20 @@ final class GRDBConnectionSessionRepositoryQueryTests: XCTestCase {
         let fixtures = try GRDBConnectionSessionRepositoryFixtures()
         let session = ConnectionSession(accountIdentifier: "account")
         try fixtures.repository.save(session)
-        try fixtures.updateSessionRow("rawRecordCount = 99, rawByteCount = 999, localRawState = 'available'", id: session.id)
+        try fixtures.updateSessionRow(
+            [
+                Column("rawRecordCount").set(to: 99),
+                Column("rawByteCount").set(to: 999),
+                Column("localRawState").set(to: "available")
+            ],
+            id: session.id
+        )
+
+        // 前提: 壊れた概要値が実際にDBへ書き込まれていること(更新が空振りしても通るテストを防ぐ)。
+        let stored = try fixtures.storedRecord(session.id)
+        XCTAssertEqual(stored.rawRecordCount, 99)
+        XCTAssertEqual(stored.rawByteCount, 999)
+        XCTAssertEqual(stored.localRawState, "available")
 
         let loaded = try XCTUnwrap(fixtures.repository.sessions(for: "account").first)
 
@@ -98,7 +111,14 @@ final class GRDBConnectionSessionRepositoryQueryTests: XCTestCase {
         let fixtures = try GRDBConnectionSessionRepositoryFixtures()
         let session = ConnectionSession(accountIdentifier: "account")
         try fixtures.repository.save(session)
-        try fixtures.updateSessionRow("rawRecordCount = 7, rawByteCount = 70, localRawState = 'removed'", id: session.id)
+        try fixtures.updateSessionRow(
+            [
+                Column("rawRecordCount").set(to: 7),
+                Column("rawByteCount").set(to: 70),
+                Column("localRawState").set(to: "removed")
+            ],
+            id: session.id
+        )
 
         let loaded = try XCTUnwrap(fixtures.repository.sessions(for: "account").first)
 
@@ -313,7 +333,7 @@ final class GRDBConnectionSessionRepositoryQueryTests: XCTestCase {
         let vehicle = ConnectionSessionVehicle(profile: VehicleProfile(vin: "VIN-BAD", name: "BRZ"))
         let session = ConnectionSession(accountIdentifier: "account", vehicle: vehicle)
         try fixtures.repository.save(session)
-        try fixtures.updateSessionRow("cloudSyncState = 'corrupted'", id: session.id)
+        try fixtures.updateSessionRow([Column("cloudSyncState").set(to: "corrupted")], id: session.id)
 
         assertThrowsError(ConnectionSessionRepositoryError.integrityConflict) {
             _ = try fixtures.repository.entries(for: vehicle.id, accountIdentifier: "account")

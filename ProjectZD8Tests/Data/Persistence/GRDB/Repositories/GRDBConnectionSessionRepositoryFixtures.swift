@@ -90,19 +90,18 @@ struct GRDBConnectionSessionRepositoryFixtures {
         try XCTUnwrap(try queue.read { try ConnectionSessionRecord.fetchOne($0, key: id.rawValue.uuidString.lowercased()) })
     }
 
-    /// 保存済みセッションの1列を直接更新します。
+    /// 保存済みセッションの列を直接更新します。
     ///
-    /// 責務: 不正値や期待外状態を作るため、指定SQLをCHECK制約込みで1件のセッション行へ実行します。
+    /// 責務: 不正値や期待外状態を作るため、指定した列への代入をCHECK制約込みで1件のセッション行へ適用します。
     /// - Parameters:
-    ///   - assignments: `SET` 句の内容。
+    ///   - assignments: 列への代入リスト。
     ///   - id: 更新対象のセッションID。
     /// - Throws: SQLite更新失敗。
-    func updateSessionRow(_ assignments: String, id: ConnectionSessionID) throws {
+    func updateSessionRow(_ assignments: [ColumnAssignment], id: ConnectionSessionID) throws {
         try queue.write { database in
-            try database.execute(
-                sql: "UPDATE connection_sessions SET \(assignments) WHERE id = ?",
-                arguments: [id.rawValue.uuidString.lowercased()]
-            )
+            _ = try ConnectionSessionRecord
+                .filter(key: id.rawValue.uuidString.lowercased())
+                .updateAll(database, assignments)
         }
     }
 
