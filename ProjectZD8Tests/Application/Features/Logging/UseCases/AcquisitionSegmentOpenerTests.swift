@@ -84,6 +84,53 @@ final class AcquisitionSegmentOpenerTests: XCTestCase {
         XCTAssertEqual(try segments.segments(for: sessionID).count, 1)
     }
 
+    /// 最後の欠損が未終了の processTerminated なら、プロセス復帰の区間で開き、その欠損を後続区間と開始日時付きで閉じます。
+    ///
+    /// 責務: プロセス復帰の開始理由と、欠損の終了内容・次の欠損番号を確認します。
+    func testOpenAfterProcessTerminationStartsRelaunchedAndClosesGap() throws {
+        let ended = ConnectionSessionSegment(
+            segmentOrdinal: 0, startReason: .initial, acquisitionMode: .pidPolling, startedAt: date(1),
+            monotonicAnchorNanoseconds: 1, firstSequence: 0, endedAt: date(5), endReason: .processTerminated, lastSequence: 3
+        )
+        let segments = AcquisitionSegmentRepositorySpy(segments: [ended])
+        let gaps = AcquisitionGapRepositorySpy(gaps: [
+            ConnectionSessionGap(gapOrdinal: 2, precedingSegmentOrdinal: 0, startedAt: date(5), cause: .processTerminated)
+        ])
+        let opener = AcquisitionSegmentOpener(segmentRepository: segments, gapRepository: gaps)
+
+        let opened = try opener.open(for: sessionID, firstSequence: 4, startedAt: date(60), monotonicAnchorNanoseconds: 1)
+
+        XCTAssertEqual(opened, AcquisitionSegmentOpener.Opened(segmentOrdinal: 1, nextGapOrdinal: 3))
+        XCTAssertEqual(try segments.segments(for: sessionID).last?.startReason, .processRelaunched)
+        let gap = try XCTUnwrap(gaps.gaps(for: sessionID).first)
+        XCTAssertEqual(gap.endedAt, date(60))
+        XCTAssertEqual(gap.followingSegmentOrdinal, 1)
+    }
+
+    /// 最後の欠損が終了済み、または原因が processTerminated でなければ、再接続の区間で開き、欠損を変えません。
+    ///
+    /// 責務: プロセス復帰の分岐に入らない2つの場合を確認します。
+    func testOpenWithoutOpenProcessTerminatedGapStartsReconnected() throws {
+        let cases = [
+            ConnectionSessionGap(gapOrdinal: 0, precedingSegmentOrdinal: 0, startedAt: date(5), endedAt: date(6), cause: .processTerminated),
+            ConnectionSessionGap(gapOrdinal: 0, precedingSegmentOrdinal: 0, startedAt: date(5), cause: .linkLost)
+        ]
+        for existing in cases {
+            let ended = ConnectionSessionSegment(
+                segmentOrdinal: 0, startReason: .initial, acquisitionMode: .pidPolling, startedAt: date(1),
+                monotonicAnchorNanoseconds: 1, firstSequence: 0, endedAt: date(5), endReason: .linkLost, lastSequence: nil
+            )
+            let segments = AcquisitionSegmentRepositorySpy(segments: [ended])
+            let gaps = AcquisitionGapRepositorySpy(gaps: [existing])
+
+            _ = try AcquisitionSegmentOpener(segmentRepository: segments, gapRepository: gaps)
+                .open(for: sessionID, firstSequence: 0, startedAt: date(60), monotonicAnchorNanoseconds: 1)
+
+            XCTAssertEqual(try segments.segments(for: sessionID).last?.startReason, .reconnected, "\(existing.cause)")
+            XCTAssertEqual(try gaps.gaps(for: sessionID), [existing])
+        }
+    }
+
     /// テスト用のセッションIDです。
     private let sessionID = ConnectionSessionID()
 

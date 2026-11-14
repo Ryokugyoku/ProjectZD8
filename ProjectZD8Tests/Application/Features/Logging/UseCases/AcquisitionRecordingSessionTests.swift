@@ -1,3 +1,4 @@
+import Foundation
 import XCTest
 @testable import ProjectZD8
 
@@ -53,6 +54,44 @@ final class AcquisitionRecordingSessionTests: XCTestCase {
         XCTAssertEqual(session.nextGapOrdinal, 5)
     }
 
+    /// 生成直後の区間は開いていて、区間の開始日時を保持します。
+    ///
+    /// 責務: 区間の初期状態を確認します。
+    func testInitialSegmentIsOpen() {
+        let session = makeSession()
+
+        XCTAssertTrue(session.isSegmentOpen)
+        XCTAssertEqual(session.segmentStartedAt, Date(timeIntervalSince1970: 7))
+    }
+
+    /// 保存するbatch番号は、起点にループのbatch番号を足した値です。
+    ///
+    /// 責務: 起点0とプロセス復帰後の起点での変換を確認します。
+    func testStoredBatchOrdinalAddsBase() {
+        XCTAssertEqual(makeSession().storedBatchOrdinal(3), 3)
+        XCTAssertEqual(makeSession(batchOrdinalBase: 12).storedBatchOrdinal(0), 12)
+        XCTAssertEqual(makeSession(batchOrdinalBase: 12).storedBatchOrdinal(4), 16)
+    }
+
+    /// 区間を閉じて次の区間を開くと、番号・最初の連番・開始日時が置き換わり、単調時刻とcommit経過の起点が新しい区間の起点になります。
+    ///
+    /// 責務: `closeSegment` と `openSegment` の状態遷移と、前の区間より小さい起点での刻印を確認します。
+    func testCloseAndOpenSegmentResetsBaselines() {
+        var session = makeSession(anchor: 9_000)
+        _ = session.stamp(9_500)
+        session.closeSegment()
+        XCTAssertFalse(session.isSegmentOpen)
+
+        session.openSegment(ordinal: 3, firstSequence: 55, startedAt: Date(timeIntervalSince1970: 20), anchorNanoseconds: 4_000)
+
+        XCTAssertTrue(session.isSegmentOpen)
+        XCTAssertEqual(session.segmentOrdinal, 3)
+        XCTAssertEqual(session.segmentFirstSequence, 55)
+        XCTAssertEqual(session.segmentStartedAt, Date(timeIntervalSince1970: 20))
+        XCTAssertEqual(session.stamp(4_100), 4_100)
+        XCTAssertEqual(session.elapsedSinceLastCommit(at: 4_200), 200)
+    }
+
     /// テスト用の記録状態を生成します。
     ///
     /// 責務: 要求列・起点・欠損番号だけを差し替えた記録状態を返します。
@@ -60,11 +99,18 @@ final class AcquisitionRecordingSessionTests: XCTestCase {
     ///   - requests: manifest順の Service 01 PID。
     ///   - anchor: 単調時計の起点。
     ///   - nextGapOrdinal: 次の欠損番号。
+    ///   - batchOrdinalBase: 保存するbatch番号の起点。
     /// - Returns: 記録状態。
-    private func makeSession(requests: [UInt8] = [0x0C], anchor: UInt64 = 0, nextGapOrdinal: Int = 0) -> AcquisitionRecordingSession {
+    private func makeSession(
+        requests: [UInt8] = [0x0C],
+        anchor: UInt64 = 0,
+        nextGapOrdinal: Int = 0,
+        batchOrdinalBase: Int64 = 0
+    ) -> AcquisitionRecordingSession {
         AcquisitionRecordingSession(
             sessionID: ConnectionSessionID(), generation: 1, orderedRequests: requests.map(request),
-            segmentOrdinal: 2, segmentFirstSequence: 40, nextGapOrdinal: nextGapOrdinal, anchorNanoseconds: anchor
+            segmentOrdinal: 2, segmentFirstSequence: 40, segmentStartedAt: Date(timeIntervalSince1970: 7),
+            nextGapOrdinal: nextGapOrdinal, anchorNanoseconds: anchor, batchOrdinalBase: batchOrdinalBase
         )
     }
 

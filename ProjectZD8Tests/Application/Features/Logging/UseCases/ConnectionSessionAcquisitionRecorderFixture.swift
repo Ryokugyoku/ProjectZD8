@@ -46,8 +46,8 @@ final class ConnectionSessionAcquisitionRecorderFixture {
     let dates: ManualDateClock
     /// 性能eventのスパイです。
     let performance: AcquisitionPerformanceEventSpy
-    /// 検証対象の取得記録です。
-    let recorder: ConnectionSessionAcquisitionRecorder
+    /// 検証対象の取得記録です。プロセス復帰の再現では作り直します。
+    private(set) var recorder: ConnectionSessionAcquisitionRecorder
 
     /// 保存先の種類と失敗指定を固定して生成します。
     ///
@@ -199,6 +199,47 @@ final class ConnectionSessionAcquisitionRecorderFixture {
         try sessions.entries(for: sessionID)
     }
 
+    /// プロセス復帰後の取得記録へ作り直します。
+    ///
+    /// 責務: 同じ保存先・時計で、次の記録順序を保存済みRawの件数、次のbatch番号を保存済みbatchの最大+1にした取得記録を作ります。
+    func relaunchRecorder() {
+        let sessionID = sessionID
+        let acquisition = acquisition
+        recorder = Self.makeRecorder(
+            acquisition: acquisition, chunks: chunks, segments: segments, gaps: gaps,
+            nextRawSequence: Self.nextRawSequence(sessions: sessions, fixed: nil),
+            nextBatchOrdinal: { id in
+                try await MainActor.run { (try acquisition.batches(for: id).map(\.identity.ordinal).max() ?? -1) + 1 }
+            },
+            activeSessionID: { sessionID },
+            clock: clock, dates: dates, performance: performance
+        )
+    }
+
+    /// 区間の終了を記録します。
+    ///
+    /// 責務: 世代1の現在の区間を指定理由と最後の受信日時で閉じます。
+    /// - Parameters:
+    ///   - reason: 区間の終了理由。
+    ///   - lastReceivedAt: 最後に正応答を受けた実時刻。
+    /// - Throws: 取得記録の失敗。
+    func endSegment(_ reason: ConnectionSessionSegmentEndReason, lastReceivedAt: Date) async throws {
+        try await recorder.endSegment(generation: 1, reason: reason, lastReceivedAt: lastReceivedAt)
+    }
+
+    /// 欠損を挟んで次の区間を開始します。
+    ///
+    /// 責務: 世代1で、開始理由 reconnected と指定の欠損原因・欠損開始で `beginSegment` を呼びます。
+    /// - Parameters:
+    ///   - cause: 欠損の原因。
+    ///   - gapStartedAt: 欠損の開始日時。
+    /// - Throws: 取得記録の失敗。
+    func beginSegment(cause: ConnectionSessionGapCause, gapStartedAt: Date) async throws {
+        try await recorder.beginSegment(
+            LiveTelemetryAcquisitionSegmentResumption(generation: 1, startReason: .reconnected, gapCause: cause, gapStartedAt: gapStartedAt)
+        )
+    }
+
     /// 取得記録を組み立てます。
     ///
     /// 責務: 保存先・時計・方針・性能eventを取得記録へ注入します。
@@ -209,6 +250,7 @@ final class ConnectionSessionAcquisitionRecorderFixture {
         segments: any ConnectionSessionSegmentRepository,
         gaps: any ConnectionSessionGapRepository,
         nextRawSequence: @escaping @Sendable (ConnectionSessionID) async throws -> Int64,
+        nextBatchOrdinal: @escaping @Sendable (ConnectionSessionID) async throws -> Int64 = { _ in 0 },
         activeSessionID: @escaping @Sendable () async -> ConnectionSessionID?,
         clock: SettableMonotonicClock,
         dates: ManualDateClock,
@@ -224,6 +266,7 @@ final class ConnectionSessionAcquisitionRecorderFixture {
             segmentRepository: segments,
             gapRepository: gaps,
             nextRawSequence: nextRawSequence,
+            nextBatchOrdinal: nextBatchOrdinal,
             activeSessionID: activeSessionID,
             versions: AcquisitionManifestVersions(
                 manifestVersion: 1, pollingPolicyVersion: 1, modelInputManifestVersion: 1, formulaCanonicalizationVersion: 1
