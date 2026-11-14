@@ -47,15 +47,25 @@ nonisolated struct OBDAdapterChipClassificationPolicy: Sendable {
 
     /// 生応答から評価対象の最初の行を取り出します。
     ///
-    /// 責務: 行分割・プロンプト除去・trim・空行とエコー行の除去を行い、最初の行を大文字で返します。
+    /// 責務: `\r`・`\n`・`\r\n`での行分割・プロンプト除去・trim・空行とエコー行の除去を行い、最初の行を大文字で返します。
     /// - Parameter response: アダプターの生応答。
     /// - Returns: 大文字化した最初の有効行。なければnil。
     private static func firstMeaningfulLine(of response: String) -> String? {
-        response
+        // `"\r\n"`は1つの`Character`になるため、Unicodeスカラー単位で`\r`/`\n`を区切りにします。
+        response.unicodeScalars
             .split(whereSeparator: { $0 == "\r" || $0 == "\n" })
             .lazy
-            .map { $0.replacingOccurrences(of: ">", with: "").trimmingCharacters(in: .whitespaces).uppercased() }
+            .map { normalize(String(String.UnicodeScalarView($0))) }
             .first { !$0.isEmpty && !echoCommands.contains($0) }
+    }
+
+    /// 1行を評価用に正規化します。
+    ///
+    /// 責務: プロンプト`>`を除去し、前後の空白を取り除いて大文字化します。
+    /// - Parameter line: 改行を含まない1行。
+    /// - Returns: 正規化した行。
+    private static func normalize(_ line: String) -> String {
+        line.replacingOccurrences(of: ">", with: "").trimmingCharacters(in: .whitespaces).uppercased()
     }
 
     /// `ATI`応答からELM327のバージョン部を取り出します。
