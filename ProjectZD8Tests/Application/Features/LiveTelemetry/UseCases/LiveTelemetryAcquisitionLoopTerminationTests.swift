@@ -42,7 +42,7 @@ final class LiveTelemetryAcquisitionLoopTerminationTests: XCTestCase {
         await fixture.telemetry.answer(3) { _ in .responded([1]) }
         await fixture.waitForSentRequests(4)
 
-        let termination = await fixture.loop.stop()
+        let termination = await fixture.stopLoop()
         await LiveTelemetryBoundedWaiter.settle(polls: 100)
 
         XCTAssertEqual(termination, .stopped)
@@ -53,7 +53,7 @@ final class LiveTelemetryAcquisitionLoopTerminationTests: XCTestCase {
         XCTAssertEqual(collector.termination, .stopped)
         let finishes = await fixture.recorder?.finishCalls
         XCTAssertEqual(finishes, [.finish(generation: 1, reason: .userDisconnected)])
-        let secondStop = await fixture.loop.stop()
+        let secondStop = await fixture.stopLoop()
         XCTAssertNil(secondStop)
     }
 

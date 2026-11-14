@@ -34,25 +34,32 @@ final class ContinuousMonotonicDeadlineWaiterTests: XCTestCase {
 
     /// 処理が上限時間内に戻るかを確かめます。
     ///
-    /// 責務: 処理と上限時間の待ちを競わせ、先に終わった方で判定し、残りを取り消します。
+    /// 責務: 処理を別Taskで実行し、1ミリ秒ごとの確認を上限時間ぶんだけ行って完了を判定します。
+    /// 上限を超えたらTaskを取り消して `false` を返し、処理が取消に応じなくても待ち続けません。
     /// - Parameters:
     ///   - limit: 上限時間。
     ///   - operation: 確かめる処理。
     /// - Returns: 上限内に戻った場合は `true`。
     /// - Throws: 処理が失敗した場合のエラー。
     private func returnsWithin(_ limit: Duration, _ operation: @escaping @Sendable () async throws -> Void) async throws -> Bool {
-        try await withThrowingTaskGroup(of: Bool.self) { group in
-            group.addTask {
+        let flag = DeadlineWaiterCompletionFlag()
+        let task = Task {
+            do {
                 try await operation()
-                return true
+                flag.finish(with: nil)
+            } catch {
+                flag.finish(with: error)
             }
-            group.addTask {
-                try await Task.sleep(for: limit)
-                return false
-            }
-            let first = try await group.next() ?? false
-            group.cancelAll()
-            return first
         }
+        let polls = Int(limit.components.seconds) * 1_000
+        for _ in 0..<polls where !flag.isFinished {
+            try? await Task.sleep(for: .milliseconds(1))
+        }
+        guard flag.isFinished else {
+            task.cancel()
+            return false
+        }
+        if let error = flag.error { throw error }
+        return true
     }
 }

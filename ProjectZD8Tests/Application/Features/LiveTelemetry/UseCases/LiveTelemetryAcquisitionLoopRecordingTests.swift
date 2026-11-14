@@ -134,7 +134,7 @@ final class LiveTelemetryAcquisitionLoopRecordingTests: XCTestCase {
         let collector = await fixture.start(definitions: LiveTelemetryTestDefinitions.standard([0x0C]))
         await fixture.waitForSentRequests(1)
 
-        let termination = await fixture.loop.stop()
+        let termination = await fixture.stopLoop()
 
         XCTAssertEqual(termination, .recordingFailed)
         _ = await fixture.waitForTermination(of: collector)

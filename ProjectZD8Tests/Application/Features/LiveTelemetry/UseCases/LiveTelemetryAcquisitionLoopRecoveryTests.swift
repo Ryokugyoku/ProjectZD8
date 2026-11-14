@@ -141,7 +141,7 @@ final class LiveTelemetryAcquisitionLoopRecoveryTests: XCTestCase {
         await fixture.telemetry.release(.transportFailure)
         await fixture.telemetry.waitForSentRequests(3)
 
-        let termination = await fixture.loop.stop()
+        let termination = await fixture.stopLoop()
 
         XCTAssertEqual(termination, .stopped)
         XCTAssertEqual(collector.phases, [.recovering(cause: .linkLost, stage: .promptResync, attempt: 1)])

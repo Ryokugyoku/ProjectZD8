@@ -249,7 +249,10 @@ final class CreateConnectionSessionAcquisitionManifestUseCaseTests: XCTestCase {
         let fixture = makeFixture(evidencePort: port)
         await fixture.useCase.activate(generation: fixture.input.generation)
         let task = Task { try await fixture.useCase.execute(fixture.input) }
-        while !(await port.isWaiting) { await Task.yield() }
+        guard await waitUntilSuspended(port) else {
+            task.cancel()
+            return
+        }
 
         await fixture.useCase.activate(generation: fixture.input.generation + 1)
         await port.resume()
@@ -267,7 +270,10 @@ final class CreateConnectionSessionAcquisitionManifestUseCaseTests: XCTestCase {
         let fixture = makeFixture(evidencePort: port)
         await fixture.useCase.activate(generation: fixture.input.generation)
         let task = Task { try await fixture.useCase.execute(fixture.input) }
-        while !(await port.isWaiting) { await Task.yield() }
+        guard await waitUntilSuspended(port) else {
+            task.cancel()
+            return
+        }
 
         await fixture.useCase.cancel(generation: fixture.input.generation)
         await port.resume()
@@ -306,6 +312,27 @@ final class CreateConnectionSessionAcquisitionManifestUseCaseTests: XCTestCase {
                 .inactiveGeneration
             )
         }
+    }
+
+    /// 証跡の取得が保留状態に入るまで、回数上限付きで待ちます。
+    ///
+    /// 責務: 保留状態を最大2,000回確認し、入らなければ `XCTFail` して `false` を返します。
+    /// - Parameters:
+    ///   - port: 保留する証跡ポート。
+    ///   - file: 失敗を報告するファイル。
+    ///   - line: 失敗を報告する行。
+    /// - Returns: 上限内に保留状態に入った場合は `true`。
+    private func waitUntilSuspended(
+        _ port: SuspendedAcquisitionEvidencePort,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) async -> Bool {
+        for _ in 0..<2_000 {
+            if await port.isWaiting { return true }
+            try? await Task.sleep(for: .milliseconds(1))
+        }
+        XCTFail("証跡の取得が保留状態に入りませんでした", file: file, line: line)
+        return false
     }
 
     /// manifest versionだけを変えた入力を返します。

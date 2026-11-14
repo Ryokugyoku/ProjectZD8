@@ -97,11 +97,23 @@ final class LiveTelemetryAcquisitionLoopFixture {
         return collector.termination
     }
 
+    /// 取得ループを止め、上限内に終われば終了理由を返します。
+    ///
+    /// 責務: `stop` の完了を上限付きで待ち、実装が止まらなくてもテストが待ち続けないようにします。
+    /// - Parameters:
+    ///   - file: 失敗を報告するファイル。
+    ///   - line: 失敗を報告する行。
+    /// - Returns: `stop` の結果。上限を超えた場合(失敗済み)と、動いていなかった場合は `nil`。
+    func stopLoop(file: StaticString = #filePath, line: UInt = #line) async -> LiveTelemetryAcquisitionTermination? {
+        let loop = loop
+        return await LiveTelemetryBoundedWaiter.value("取得ループの停止", file: file, line: line) { await loop.stop() } ?? nil
+    }
+
     /// 動いている世代を止め、購読をやめます。
     ///
     /// 責務: テスト終了時に応答待ちの要求と期限待ちを解放し、取得Taskを残さないようにします。
     func tearDown() async {
-        _ = await loop.stop()
+        _ = await stopLoop()
         deadlineWaiter.releaseAll()
         collectors.forEach { $0.cancel() }
     }

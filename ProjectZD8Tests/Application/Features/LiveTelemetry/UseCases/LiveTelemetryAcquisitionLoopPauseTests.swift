@@ -206,7 +206,7 @@ final class LiveTelemetryAcquisitionLoopPauseTests: XCTestCase {
         _ = await fixture.startAndPause(cause: .responseStall)
         await fixture.deadlineWaiter.waitForPending(fixture.clock.nowNanoseconds() + retry)
 
-        let termination = await fixture.loop.stop()
+        let termination = await fixture.stopLoop()
 
         XCTAssertEqual(termination, .stopped)
         XCTAssertEqual(fixture.deadlineWaiter.pendingDeadlines, [])

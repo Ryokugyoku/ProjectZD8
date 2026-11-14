@@ -36,6 +36,31 @@ enum LiveTelemetryBoundedWaiter {
         return false
     }
 
+    /// 非同期処理を別Taskで実行し、上限内に終われば結果を返します。
+    ///
+    /// 責務: 処理の終了を回数上限付きで待ち、上限を超えたら `XCTFail` して処理のTaskを取り消し、`nil` を返します。
+    /// 処理が取消に応じなくても、テストは待ち続けません。
+    /// - Parameters:
+    ///   - description: 失敗時に出す待機内容。
+    ///   - file: 失敗を報告するファイル。
+    ///   - line: 失敗を報告する行。
+    ///   - operation: 実行する処理。
+    /// - Returns: 上限内に終わった場合は処理の結果。
+    static func value<Value: Sendable>(
+        _ description: String,
+        file: StaticString = #filePath,
+        line: UInt = #line,
+        of operation: @escaping @Sendable () async -> Value
+    ) async -> Value? {
+        let box = LiveTelemetryAsyncResultBox<Value>()
+        let task = Task { box.set(await operation()) }
+        guard await waitUntil(description, file: file, line: line, condition: { box.isSet }) else {
+            task.cancel()
+            return nil
+        }
+        return box.value
+    }
+
     /// 起きてはいけない非同期処理が走り得る時間だけ待ちます。
     ///
     /// 責務: 否定の確認の前に、固定回数だけ他のタスクへ実行機会を渡します。
