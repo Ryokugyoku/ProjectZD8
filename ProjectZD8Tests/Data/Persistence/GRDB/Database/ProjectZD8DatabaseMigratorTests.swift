@@ -26,14 +26,15 @@ final class ProjectZD8DatabaseMigratorTests: XCTestCase {
 
     /// 製品版baselineと取得証拠のforward-only Migration識別子を登録します。
     ///
-    /// 責務: 既存baselineを変更せず取得証拠migrationが後続登録されることを確認します。
+    /// 責務: 既存baselineを変更せず取得証拠・セグメントmigrationが後続登録されることを確認します。
     func testMigratorPreservesBaselineAndAddsAcquisitionEvidenceMigration() {
         XCTAssertEqual(
             ProjectZD8DatabaseMigrator.migrator.migrations,
             [
                 "release_v1_create_schema",
                 "release_v1_add_connection_session_acquisition_evidence",
-                "release_v1_add_connection_session_acquisition_batch_evidence"
+                "release_v1_add_connection_session_acquisition_batch_evidence",
+                "release_v1_add_connection_session_segments_gaps_can_frames"
             ]
         )
     }
@@ -56,6 +57,11 @@ final class ProjectZD8DatabaseMigratorTests: XCTestCase {
                     Date(timeIntervalSince1970: 101)
                 ]
             )
+            try database.drop(table: ConnectionSessionCANFrameRecord.databaseTableName)
+            try database.drop(table: ConnectionSessionGapRecord.databaseTableName)
+            try database.drop(table: ConnectionSessionSegmentRecord.databaseTableName)
+            try database.execute(sql: "ALTER TABLE connection_session_raw_logs DROP COLUMN segmentOrdinal")
+            try database.execute(sql: "ALTER TABLE connection_session_raw_logs DROP COLUMN monotonicNanoseconds")
             try database.drop(table: MaintenanceRecordRecord.databaseTableName)
             try database.drop(table: ConnectionSessionAcquisitionPIDRequestRecord.databaseTableName)
             try database.drop(table: ConnectionSessionAcquisitionBatchRecord.databaseTableName)
@@ -84,6 +90,7 @@ final class ProjectZD8DatabaseMigratorTests: XCTestCase {
                 [
                     "release_v1_add_connection_session_acquisition_batch_evidence",
                     "release_v1_add_connection_session_acquisition_evidence",
+                    "release_v1_add_connection_session_segments_gaps_can_frames",
                     "release_v1_create_schema",
                     "v8_add_connection_session_raw_last_accessed_at"
                 ]
