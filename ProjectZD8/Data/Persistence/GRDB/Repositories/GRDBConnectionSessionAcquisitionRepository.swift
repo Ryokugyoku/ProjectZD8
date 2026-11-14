@@ -418,7 +418,8 @@ final class GRDBConnectionSessionAcquisitionRepository: ConnectionSessionAcquisi
                     sessionID: sessionID,
                     database: database
                 ), canonical == expected,
-                      try rawEntryForSequence(rawEntry.sequence, sessionID: sessionID, database: database) == rawEntry else {
+                      let storedRaw = try rawEntryForSequence(rawEntry.sequence, sessionID: sessionID, database: database),
+                      try rawEntriesMatchAtStoragePrecision(storedRaw, rawEntry, sessionID: sessionID) else {
                     throw ConnectionSessionAcquisitionRepositoryError.unavailable
                 }
                 return canonical
@@ -970,9 +971,12 @@ final class GRDBConnectionSessionAcquisitionRepository: ConnectionSessionAcquisi
         ended.rawLogSummary = storedDomain.rawLogSummary
         ended.endedAt = endedAt
         ended.endReason = reason
-        try ConnectionSessionRecord(session: ended).save(database)
-        guard let readback = try ConnectionSessionRecord.fetchOne(database, key: key)?.makeDomainSession(),
-              readback == ended else {
+        let expected = ConnectionSessionRecord(session: ended)
+        try expected.save(database)
+        // 日時列はSQLiteの保存精度(millisecond)へ丸められるため、Domain値ではなく保存表現同士で照合します。
+        guard let stored = try ConnectionSessionRecord.fetchOne(database, key: key),
+              try stored.databaseDictionary == expected.databaseDictionary,
+              let readback = stored.makeDomainSession() else {
             throw ConnectionSessionAcquisitionRepositoryError.unavailable
         }
         return readback
@@ -1128,7 +1132,7 @@ final class GRDBConnectionSessionAcquisitionRepository: ConnectionSessionAcquisi
               stored.reasonCode == reasonCode,
               let sequence = stored.rawSequence,
               let raw = try rawEntryForSequence(sequence, sessionID: sessionID, database: database),
-              raw.observedAt == observation.observedAt,
+              raw.observedAt.databaseValue == observation.observedAt.databaseValue,
               raw.batchElapsedNanoseconds == observation.batchElapsedNanoseconds,
               raw.service == observation.request.service,
               raw.pid == observation.request.pid,
@@ -1202,6 +1206,24 @@ final class GRDBConnectionSessionAcquisitionRepository: ConnectionSessionAcquisi
             ]
         ) else { return nil }
         return try requestEvidence(from: record)
+    }
+
+    /// 2件のRaw entryをSQLite保存表現の精度で比較します。
+    ///
+    /// 責務: 日時列のmillisecond丸めを除いた全保存列が一致するかを判定します。
+    /// - Parameters:
+    ///   - lhs: 比較するRaw entry。
+    ///   - rhs: 比較するもう一方のRaw entry。
+    ///   - sessionID: 両entryを所有するsession。
+    /// - Returns: 保存表現が完全一致する場合は `true`。
+    /// - Throws: 保存表現へ変換できない場合のGRDBエラー。
+    private func rawEntriesMatchAtStoragePrecision(
+        _ lhs: ConnectionSessionRawLogEntry,
+        _ rhs: ConnectionSessionRawLogEntry,
+        sessionID: ConnectionSessionID
+    ) throws -> Bool {
+        try ConnectionSessionRawLogRecord(entry: lhs, sessionID: sessionID).databaseDictionary
+            == ConnectionSessionRawLogRecord(entry: rhs, sessionID: sessionID).databaseDictionary
     }
 
     /// 保存済みRaw sequenceをDomain entryへ復元します。

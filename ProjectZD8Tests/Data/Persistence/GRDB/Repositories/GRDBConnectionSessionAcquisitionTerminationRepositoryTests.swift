@@ -92,11 +92,62 @@ final class GRDBConnectionSessionAcquisitionTerminationRepositoryTests: XCTestCa
         XCTAssertTrue(try fixture.storage.entries(for: fixture.session.id).isEmpty)
     }
 
+    /// 実機の時計が返すmillisecond未満の端数を持つ日時でもsessionを終了できます。
+    ///
+    /// 責務: SQLite日時列の精度で丸められたreadbackを理由に終了が失敗しないことを確認します。
+    func testFinishSucceedsWithSubMillisecondTimestamps() throws {
+        let fixture = try makeFixture(
+            sessionStartedAt: Date(timeIntervalSince1970: 1.123_456_789),
+            endedAt: Date(timeIntervalSince1970: 10.987_654_321)
+        )
+
+        let ended = try fixture.storage.finishSessionAcquisition(
+            fixture.session,
+            endedAt: fixture.endedAt,
+            reason: .connectionLost
+        )
+
+        XCTAssertEqual(ended.endReason, .connectionLost)
+        let stored = try XCTUnwrap(
+            fixture.storage.sessions(for: fixture.session.accountIdentifier).first
+        )
+        XCTAssertNotNil(stored.endedAt)
+        XCTAssertEqual(stored.endReason, .connectionLost)
+        XCTAssertEqual(ended, stored)
+    }
+
+    /// 実機の時計が返すmillisecond未満の端数を持つ日時でも中断sessionを回復できます。
+    ///
+    /// 責務: 回復日時の丸めを理由に未終了sessionが残り続けないことを確認します。
+    func testRecoverySucceedsWithSubMillisecondTimestamps() throws {
+        let fixture = try makeFixture(
+            sessionStartedAt: Date(timeIntervalSince1970: 1.123_456_789),
+            endedAt: Date(timeIntervalSince1970: 10.987_654_321)
+        )
+
+        let recovered = try fixture.storage.recoverInterruptedSessionAcquisitions(
+            for: fixture.session.accountIdentifier,
+            recoveredAt: fixture.endedAt
+        )
+
+        XCTAssertEqual(recovered.count, 1)
+        XCTAssertEqual(recovered[0].endReason, .unexpectedTermination)
+        XCTAssertNotNil(
+            try fixture.storage.sessions(for: fixture.session.accountIdentifier).first?.endedAt
+        )
+    }
+
     /// file-backed共有Queueへopen取得fixtureを作成します。
     ///
     /// 責務: 親session、manifest、started境界、dispatch済みopen batchを同じDBへ保存します。
+    /// - Parameters:
+    ///   - sessionStartedAt: 親sessionの開始日時。
+    ///   - endedAt: 終了・回復へ使用する日時。
     /// - Returns: 原子終了・回復を実行できるfixture。
-    private func makeFixture() throws -> TerminationRepositoryFixture {
+    private func makeFixture(
+        sessionStartedAt: Date = Date(timeIntervalSince1970: 1),
+        endedAt: Date = Date(timeIntervalSince1970: 10)
+    ) throws -> TerminationRepositoryFixture {
         let directory = FileManager.default.temporaryDirectory
             .appending(path: UUID().uuidString, directoryHint: .isDirectory)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -106,7 +157,7 @@ final class GRDBConnectionSessionAcquisitionTerminationRepositoryTests: XCTestCa
         let session = ConnectionSession(
             id: ConnectionSessionID(rawValue: UUID()),
             accountIdentifier: "phase4g-recovery",
-            startedAt: Date(timeIntervalSince1970: 1)
+            startedAt: sessionStartedAt
         )
         try storage.save(session)
         let request = OBDPIDRequest(service: 1, pid: 12)
@@ -170,7 +221,7 @@ final class GRDBConnectionSessionAcquisitionTerminationRepositoryTests: XCTestCa
             queue: queue,
             storage: storage,
             session: session,
-            endedAt: Date(timeIntervalSince1970: 10)
+            endedAt: endedAt
         )
     }
 }

@@ -279,6 +279,54 @@ final class GRDBConnectionSessionAcquisitionBatchRepositoryTests: XCTestCase {
         XCTAssertEqual(try fixture.acquisition.batches(for: fixture.session.id), [open])
     }
 
+    /// 実機の時計が返すmicrosecond未満の端数を持つ日時でもbatchを開始・確定できます。
+    ///
+    /// 責務: SQLiteのmicrosecond整数列で丸められたreadbackを理由にbatch保存が失敗しないことを確認します。
+    func testSubMicrosecondTimestampsBeginAndFinishBatch() throws {
+        let fixture = try makeFixture()
+        let open = try AcquisitionBatchEvidence(
+            identity: AcquisitionBatchIdentity(ordinal: 0),
+            generation: 1,
+            policyTick: 0,
+            isSelectionEvaluationComplete: true,
+            startedAt: Date(timeIntervalSince1970: 10.123_456_789),
+            completionState: nil,
+            completedAt: nil,
+            failure: nil,
+            requests: [try pendingRequest(requestOrdinal: 0, manifestPIDOrdinal: 0)]
+        )
+
+        try fixture.acquisition.beginBatch(open, for: fixture.session.id)
+        try fixture.acquisition.markRequestDispatchBegun(
+            requestOrdinal: 0,
+            in: open.identity,
+            for: fixture.session.id
+        )
+        let request = try saveResponded(
+            in: fixture,
+            observation: OBDRawResponseObservation(
+                observedAt: Date(timeIntervalSince1970: 11.234_567_891),
+                batchElapsedNanoseconds: 100,
+                request: OBDPIDRequest(service: 1, pid: 12),
+                payload: [0x1F, 0x40]
+            )
+        )
+        let completed = try AcquisitionBatchEvidence(
+            identity: open.identity,
+            generation: open.generation,
+            policyTick: open.policyTick,
+            isSelectionEvaluationComplete: true,
+            startedAt: open.startedAt,
+            completionState: .completed,
+            completedAt: Date(timeIntervalSince1970: 12.345_678_912),
+            failure: nil,
+            requests: [request]
+        )
+        try fixture.acquisition.finishBatch(completed, for: fixture.session.id)
+
+        XCTAssertEqual(try fixture.acquisition.batches(for: fixture.session.id), [completed])
+    }
+
     /// test用DB、session、manifest、両repositoryを生成します。
     ///
     /// 責務: batch repository testを完全な親aggregate付きfixtureへ固定します。
