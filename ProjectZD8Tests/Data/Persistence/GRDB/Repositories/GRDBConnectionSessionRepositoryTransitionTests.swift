@@ -55,7 +55,7 @@ final class GRDBConnectionSessionRepositoryTransitionTests: XCTestCase {
         let fixtures = try GRDBConnectionSessionRepositoryFixtures()
         let session = ConnectionSession(accountIdentifier: "account")
         try fixtures.repository.save(session)
-        try fixtures.updateSessionRow("localRawState = 'corrupted'", id: session.id)
+        try fixtures.updateSessionRow([Column("localRawState").set(to: "corrupted")], id: session.id)
 
         assertThrowsError(ConnectionSessionRepositoryError.integrityConflict) {
             try fixtures.repository.save(session)
@@ -336,7 +336,7 @@ final class GRDBConnectionSessionRepositoryTransitionTests: XCTestCase {
     func testUpdateOnInvalidStoredRowThrowsIntegrityConflict() throws {
         let fixtures = try GRDBConnectionSessionRepositoryFixtures()
         let session = try fixtures.seedEndedSession(rawCount: 1)
-        try fixtures.updateSessionRow("cloudSyncState = 'corrupted'", id: session.id)
+        try fixtures.updateSessionRow([Column("cloudSyncState").set(to: "corrupted")], id: session.id)
 
         assertThrowsError(ConnectionSessionRepositoryError.integrityConflict) {
             try fixtures.repository.markRawLogAccessed(at: Date(), sessionID: session.id)

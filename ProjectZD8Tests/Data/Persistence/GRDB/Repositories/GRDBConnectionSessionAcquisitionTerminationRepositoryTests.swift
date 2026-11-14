@@ -148,11 +148,7 @@ final class GRDBConnectionSessionAcquisitionTerminationRepositoryTests: XCTestCa
         sessionStartedAt: Date = Date(timeIntervalSince1970: 1),
         endedAt: Date = Date(timeIntervalSince1970: 10)
     ) throws -> TerminationRepositoryFixture {
-        let directory = FileManager.default.temporaryDirectory
-            .appending(path: UUID().uuidString, directoryHint: .isDirectory)
-        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
-        let queue = try DatabaseQueue(path: directory.appending(path: "termination.sqlite").path)
+        let queue = try makeTemporaryQueue()
         let storage = try GRDBConnectionSessionRepository(databaseQueue: queue)
         let acquisition = try GRDBConnectionSessionAcquisitionRepository(databaseQueue: queue)
         let session = ConnectionSession(
@@ -161,8 +157,44 @@ final class GRDBConnectionSessionAcquisitionTerminationRepositoryTests: XCTestCa
             startedAt: sessionStartedAt
         )
         try storage.save(session)
-        let request = OBDPIDRequest(service: 1, pid: 12)
-        let manifest = try ConnectionSessionAcquisitionManifest(
+        try acquisition.saveStartOnce(
+            manifest: Self.makeManifest(request: OBDPIDRequest(service: 1, pid: 12)),
+            startedAt: Date(timeIntervalSince1970: 2),
+            for: session.id
+        )
+        let identity = try AcquisitionBatchIdentity(ordinal: 0)
+        try acquisition.beginBatch(try Self.makeOpenBatchEvidence(identity: identity), for: session.id)
+        try acquisition.markRequestDispatchBegun(requestOrdinal: 0, in: identity, for: session.id)
+        return TerminationRepositoryFixture(
+            queue: queue,
+            storage: storage,
+            acquisition: acquisition,
+            session: session,
+            endedAt: endedAt
+        )
+    }
+
+    /// test終了時に削除される一時directory上のfile-backed Queueを作成します。
+    ///
+    /// 責務: 一時directoryの作成と削除登録、およびそこへのDatabaseQueue生成だけを行います。
+    /// - Returns: 一時directory内のSQLiteファイルを指すQueue。
+    /// - Throws: directory作成またはQueue生成の失敗。
+    private func makeTemporaryQueue() throws -> DatabaseQueue {
+        let directory = FileManager.default.temporaryDirectory
+            .appending(path: UUID().uuidString, directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
+        return try DatabaseQueue(path: directory.appending(path: "termination.sqlite").path)
+    }
+
+    /// 単一PIDを要求する取得manifestを作成します。
+    ///
+    /// 責務: fixture用の固定値でmanifest全体を組み立てます。
+    /// - Parameter request: manifestへ登録する唯一のPID要求。
+    /// - Returns: 要求と同じPID定義を1件持つmanifest。
+    /// - Throws: 値域またはmanifestの検証失敗。
+    private static func makeManifest(request: OBDPIDRequest) throws -> ConnectionSessionAcquisitionManifest {
+        try ConnectionSessionAcquisitionManifest(
             manifestVersion: 1,
             applicationVersion: AcquisitionApplicationVersion(marketingVersion: "phase4g", buildVersion: "local"),
             schemaContractVersion: 1,
@@ -186,44 +218,36 @@ final class GRDBConnectionSessionAcquisitionTerminationRepositoryTests: XCTestCa
             acquisitionPlatform: .macOS,
             modelInputManifestVersion: 1
         )
-        try acquisition.saveStartOnce(
-            manifest: manifest,
-            startedAt: Date(timeIntervalSince1970: 2),
-            for: session.id
-        )
-        let identity = try AcquisitionBatchIdentity(ordinal: 0)
-        try acquisition.beginBatch(
-            AcquisitionBatchEvidence(
-                identity: identity,
-                generation: 1,
-                policyTick: 0,
-                isSelectionEvaluationComplete: true,
-                startedAt: Date(timeIntervalSince1970: 3),
-                completionState: nil,
-                completedAt: nil,
-                failure: nil,
-                requests: [
-                    PIDRequestEvidence(
-                        requestOrdinal: 0,
-                        manifestPIDOrdinal: 0,
-                        dispatchState: .selectedOnly,
-                        transportOutcome: nil,
-                        valueOutcome: .notEvaluated,
-                        rawSequence: nil,
-                        elapsedNanoseconds: nil,
-                        reasonCode: nil
-                    )
-                ]
-            ),
-            for: session.id
-        )
-        try acquisition.markRequestDispatchBegun(requestOrdinal: 0, in: identity, for: session.id)
-        return TerminationRepositoryFixture(
-            queue: queue,
-            storage: storage,
-            acquisition: acquisition,
-            session: session,
-            endedAt: endedAt
+    }
+
+    /// 未完了のopen batch証拠を作成します。
+    ///
+    /// 責務: 選択のみで未dispatchの要求1件を持つ、完了前のbatch証拠を組み立てます。
+    /// - Parameter identity: batchの識別子。
+    /// - Returns: 完了状態・失敗を持たないopen batch証拠。
+    /// - Throws: 証拠の検証失敗。
+    private static func makeOpenBatchEvidence(identity: AcquisitionBatchIdentity) throws -> AcquisitionBatchEvidence {
+        try AcquisitionBatchEvidence(
+            identity: identity,
+            generation: 1,
+            policyTick: 0,
+            isSelectionEvaluationComplete: true,
+            startedAt: Date(timeIntervalSince1970: 3),
+            completionState: nil,
+            completedAt: nil,
+            failure: nil,
+            requests: [
+                try PIDRequestEvidence(
+                    requestOrdinal: 0,
+                    manifestPIDOrdinal: 0,
+                    dispatchState: .selectedOnly,
+                    transportOutcome: nil,
+                    valueOutcome: .notEvaluated,
+                    rawSequence: nil,
+                    elapsedNanoseconds: nil,
+                    reasonCode: nil
+                )
+            ]
         )
     }
 }
