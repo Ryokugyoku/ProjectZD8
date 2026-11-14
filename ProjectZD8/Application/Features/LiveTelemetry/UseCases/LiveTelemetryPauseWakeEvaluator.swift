@@ -1,7 +1,8 @@
 /// 一時停止中に起きた理由と単調時計の現在値から、次の動作を決めます。
 ///
-/// 猶予の判定を常に先に行います。猶予内(ちょうど3分を含む)なら、フォアグラウンド復帰とリンク復帰で
-/// 回復を1回試します。期限待ちが早く返った場合は期限待ちをやり直し、遅く返った場合も経過で判定します。
+/// 猶予の判定を常に先に行います。猶予内(ちょうど3分を含む)なら、フォアグラウンド復帰とリンク復帰、
+/// および定期試行の時刻への到達(`AcquisitionGracePeriodPolicy.retryIntervalNanoseconds` ごと)で回復を1回試します。
+/// 待ちが早く返った場合は待ちをやり直し、遅く返った場合も単調時計の経過で判定します。
 nonisolated struct LiveTelemetryPauseWakeEvaluator: Sendable {
     /// 状態を持たない判定を生成します。
     ///
@@ -27,6 +28,8 @@ nonisolated struct LiveTelemetryPauseWakeEvaluator: Sendable {
         switch reason {
         case .deadlineReached:
             return .rearmDeadline
+        case .retryDue:
+            return window.isRetryDue(nowNanoseconds: nowNanoseconds) ? .attemptResume(resumeStage(for: cause)) : .rearmRetry
         case .signal(.foregroundEntered), .signal(.linkRestored):
             return .attemptResume(resumeStage(for: cause))
         case .signal(.backgroundEntered), .signal(.linkLost):

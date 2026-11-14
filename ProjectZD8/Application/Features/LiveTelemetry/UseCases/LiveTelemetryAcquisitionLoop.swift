@@ -9,8 +9,8 @@ import Foundation
 /// 状態遷移: 取得中 → (途切れ) 回復中(段階と試行回数) → (段階を使い切る) 一時停止(猶予待ち) →
 /// 復帰して取得中へ戻る、または猶予切れで終了。停止の指示(取消)はどの状態からでも即座に終了します。
 /// 途切れの判定は要求1件の結果を受けるたびに `LiveTelemetryReceiveTracker`(単調時計と `AcquisitionStallPolicy`)で行い、
-/// 回復と一時停止は `LiveTelemetryAcquisitionRecovery` が行います。一時停止中だけは、猶予切れを検知するために
-/// `LiveTelemetryDeadlineWaitPort` の期限待ちを1つ使います(要求の間に待機を挟まない方針の例外)。
+/// 回復と一時停止は `LiveTelemetryAcquisitionRecovery` が行います。一時停止中だけは、猶予切れの検知と
+/// 10秒ごとの定期的な復帰の試行のために `LiveTelemetryDeadlineWaitPort` の待ちを使います(要求の間に待機を挟まない方針の例外)。
 ///
 /// actor再入の方針:
 /// - 取得処理は1世代につき1つのTaskで直列に進みます。要求の送信・記録・周回の切替は同じTask内の

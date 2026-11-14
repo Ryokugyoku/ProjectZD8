@@ -1,5 +1,8 @@
 /// 取得が途切れた後、回復段階を順に試し、使い切ったら一時停止して猶予内の復帰を待つ手順です。
 ///
+/// 一時停止中は通知(フォアグラウンド復帰・リンク復帰)に加え、`AcquisitionGracePeriodPolicy.retryIntervalNanoseconds`
+/// ごとに復帰を試します。車両の無応答やシリアル接続のように通知が来ない場合も、猶予内の復帰を検知するためです。
+///
 /// 回復段階の進め方は `LiveTelemetryRecoveryProgress`(`AcquisitionStallPolicy`)、一時停止中の判定は
 /// `LiveTelemetryPauseWakeEvaluator`(`AcquisitionGracePeriodPolicy`)に任せ、この型は副作用の順序づけだけを行います。
 /// 回復操作の成功はアダプターとの通信を立て直せたことだけを表すため、続けて1件の要求(確認要求)を送り、
@@ -19,7 +22,7 @@ nonisolated struct LiveTelemetryAcquisitionRecovery: Sendable {
     private let reader: OBDPIDSingleRequestReader
     /// 猶予を判定する単調時計です。
     private let clock: any MonotonicClockPort
-    /// 猶予切れの期限まで待つ境界です。
+    /// 猶予切れの期限と定期試行の時刻まで待つ境界です。
     private let deadlineWaiter: any LiveTelemetryDeadlineWaitPort
     /// 一時停止中の起床判定です。
     private let wakeEvaluator = LiveTelemetryPauseWakeEvaluator()
@@ -31,7 +34,7 @@ nonisolated struct LiveTelemetryAcquisitionRecovery: Sendable {
     ///   - linkRecovery: 回復操作の境界。
     ///   - reader: 確認要求を送る読取部品。
     ///   - clock: 猶予を判定する単調時計。
-    ///   - deadlineWaiter: 猶予切れの期限まで待つ境界。
+    ///   - deadlineWaiter: 猶予切れの期限と定期試行の時刻まで待つ境界。
     init(
         linkRecovery: any LiveTelemetryLinkRecoveryPort,
         reader: OBDPIDSingleRequestReader,
@@ -76,7 +79,8 @@ nonisolated struct LiveTelemetryAcquisitionRecovery: Sendable {
 
     /// 一時停止に入り、猶予内の復帰の機会を待ちます。
     ///
-    /// 責務: 起床理由ごとに猶予を判定し、復帰の機会には回復を1回試し、期限待ちが早く返れば待ち直します。
+    /// 責務: 起床理由ごとに猶予を判定し、復帰の機会(通知・定期試行の時刻)には回復を1回試し、待ちが早く返れば待ち直します。
+    /// 試行の後は契機にかかわらず次の定期試行を1間隔後に予定し、回復操作がすぐ失敗しても間隔を空けます。
     /// - Parameters:
     ///   - cause: 途切れの原因。
     ///   - probe: 復帰の確認に送る定義。
@@ -92,38 +96,55 @@ nonisolated struct LiveTelemetryAcquisitionRecovery: Sendable {
         channel: LiveTelemetryPauseWakeChannel,
         report: @Sendable (LiveTelemetryAcquisitionPhase) -> Void
     ) async throws -> Outcome {
-        let window = LiveTelemetryPauseWindow(pausedAtNanoseconds: clock.nowNanoseconds())
+        var window = LiveTelemetryPauseWindow(pausedAtNanoseconds: clock.nowNanoseconds())
         let reasons = channel.open()
         defer { channel.close() }
         report(.paused(cause: cause))
-        var deadline = armDeadline(window.deadlineNanoseconds, channel: channel)
-        defer { deadline.cancel() }
+        var deadline = arm(.deadlineReached, until: window.deadlineNanoseconds, channel: channel)
+        var retry = arm(.retryDue, until: window.nextRetryNanoseconds, channel: channel)
+        defer {
+            deadline.cancel()
+            retry.cancel()
+        }
         for await reason in reasons {
             switch wakeEvaluator.action(for: reason, window: window, nowNanoseconds: clock.nowNanoseconds(), cause: cause) {
             case .terminate:
                 return .expired
             case .rearmDeadline:
                 deadline.cancel()
-                deadline = armDeadline(window.deadlineNanoseconds, channel: channel)
+                deadline = arm(.deadlineReached, until: window.deadlineNanoseconds, channel: channel)
+            case .rearmRetry:
+                retry.cancel()
+                retry = arm(.retryDue, until: window.nextRetryNanoseconds, channel: channel)
             case .keepWaiting:
                 continue
             case let .attemptResume(stage):
-                guard try await attempt(stage, probe: probe, endpoint: endpoint) else { continue }
-                guard window.decision(nowNanoseconds: clock.nowNanoseconds()) == .continueWaiting else { return .expired }
-                return .resumed(.reconnected)
+                retry.cancel()
+                let resumed = try await attempt(stage, probe: probe, endpoint: endpoint)
+                let endedAt = clock.nowNanoseconds()
+                if resumed {
+                    return window.decision(nowNanoseconds: endedAt) == .continueWaiting ? .resumed(.reconnected) : .expired
+                }
+                window.scheduleNextRetry(afterAttemptEndedAt: endedAt)
+                retry = arm(.retryDue, until: window.nextRetryNanoseconds, channel: channel)
             }
         }
         throw CancellationError()
     }
 
-    /// 猶予切れの期限待ちを始めます。
+    /// 猶予切れの期限、または次の定期試行の時刻までの待ちを始めます。
     ///
-    /// 責務: 期限待ちが返ったら起床理由として通り道へ送ります。取消された場合は送りません。
+    /// 責務: 待ちが返ったら指定の起床理由を通り道へ送ります。取消された場合は送りません。
     /// - Parameters:
+    ///   - reason: 待ちが返ったときに送る起床理由(`.deadlineReached` または `.retryDue`)。
     ///   - deadlineNanoseconds: 待ち終える単調時計の値。
     ///   - channel: 起床理由を送る通り道。
-    /// - Returns: 期限待ちのTask。
-    private func armDeadline(_ deadlineNanoseconds: UInt64, channel: LiveTelemetryPauseWakeChannel) -> Task<Void, Never> {
+    /// - Returns: 待ちのTask。
+    private func arm(
+        _ reason: LiveTelemetryPauseWakeReason,
+        until deadlineNanoseconds: UInt64,
+        channel: LiveTelemetryPauseWakeChannel
+    ) -> Task<Void, Never> {
         let waiter = deadlineWaiter
         return Task {
             do {
@@ -134,7 +155,7 @@ nonisolated struct LiveTelemetryAcquisitionRecovery: Sendable {
                 // 期限待ち自体が失敗した場合も、判定は単調時計で行うため起床させて判定し直させます。
             }
             guard !Task.isCancelled else { return }
-            channel.send(.deadlineReached)
+            channel.send(reason)
         }
     }
 

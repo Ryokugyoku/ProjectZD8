@@ -4,4 +4,6 @@ nonisolated enum LiveTelemetryPauseWakeReason: Equatable, Sendable {
     case signal(LiveTelemetryAcquisitionWakeSignal)
     /// 猶予切れの期限待ちが返りました。早く返った場合も含みます。
     case deadlineReached
+    /// 定期的な復帰の試行時刻までの待ちが返りました。早く返った場合も含みます。
+    case retryDue
 }

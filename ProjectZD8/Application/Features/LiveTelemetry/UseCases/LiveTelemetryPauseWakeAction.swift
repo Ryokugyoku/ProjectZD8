@@ -6,6 +6,8 @@ nonisolated enum LiveTelemetryPauseWakeAction: Equatable, Sendable {
     case attemptResume(AcquisitionRecoveryStage)
     /// 期限待ちが猶予内に返ったため、期限待ちをやり直します。
     case rearmDeadline
+    /// 定期試行の待ちが試行時刻より前に返ったため、試行時刻までの待ちをやり直します。
+    case rearmRetry
     /// 何もせず次の機会を待ちます。
     case keepWaiting
 }
