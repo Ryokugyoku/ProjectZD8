@@ -239,10 +239,8 @@ struct ConnectionHistoryState: Equatable {
     /// - Parameter session: 判定する終了済み接続セッション。
     /// - Returns: 手動アップロード操作を表示する場合は `true`。
     func isManualUploadAvailable(for session: ConnectionSession) -> Bool {
-        guard session.endedAt != nil,
-              session.rawLogSummary.localState != .removed,
-              session.rawLogSummary.cloudState != .uploaded else { return false }
-        return !automaticUploadEnabled || session.rawLogSummary.cloudState == .failed
+        ConnectionHistorySessionActionPolicy()
+            .canUpload(session, automaticUploadEnabled: automaticUploadEnabled)
     }
 
     /// 終了済み履歴を車両単位へ集約して返します。

@@ -73,25 +73,14 @@ struct MacOSSessionLogAnalysisView: View {
     /// セッション詳細へ戻る操作を表示します。
     private var navigationBar: some View {
         HStack {
-            Button {
+            RoundedBackButton(
+                accessibilityLabelKey: "analysis.back.session",
+                identifier: "macos-analysis-session-back",
+                scale: metrics.scale
+            ) {
                 send(.dismissed)
                 dismiss()
-            } label: {
-                Image(systemName: "chevron.left")
-                    .font(.system(size: 14 * metrics.scale, weight: .bold))
-                    .frame(width: 44 * metrics.scale, height: 44 * metrics.scale)
-                    .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
-            .foregroundStyle(.primary)
-            .background(Color.primary.opacity(0.065), in: RoundedRectangle(cornerRadius: 14 * metrics.scale, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: 14 * metrics.scale, style: .continuous)
-                    .stroke(Color.primary.opacity(0.08))
-            }
-            .accessibilityLabel(Text("analysis.back.session"))
-            .accessibilityIdentifier("macos-analysis-session-back")
-            .help(Text("analysis.back.session"))
             Spacer()
         }
     }
@@ -378,7 +367,11 @@ struct MacOSSessionLogAnalysisView: View {
                 .frame(minHeight: 300 * metrics.scale)
             }
         } else {
-            ContentUnavailableView("analysis.relationship.empty.title", systemImage: "chart.dots.scatter", description: Text("analysis.relationship.empty.body"))
+            ContentUnavailableView(
+                "analysis.relationship.empty.title",
+                systemImage: "chart.dots.scatter",
+                description: Text("analysis.relationship.empty.body")
+            )
         }
     }
 

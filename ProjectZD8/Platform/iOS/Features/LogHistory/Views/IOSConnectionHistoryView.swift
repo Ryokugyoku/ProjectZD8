@@ -13,6 +13,17 @@ struct IOSConnectionHistoryView: View {
     /// PID時系列解析操作をApplicationへ通知します。
     let sendAnalysis: (SessionLogAnalysisAction) -> Void
 
+    /// iOSの alert 構成です。アップロード失敗には再試行ボタンを置きます。
+    private let alertFactory = ConnectionHistoryAlertFactory()
+    /// alert 本文のRaw件数と容量を整形します。
+    private let rawSummaryFormatter = ConnectionHistoryRawSummaryMessageFormatter()
+    /// 履歴の距離・時間表示を整形します。
+    private let measurementFormatter = ConnectionHistoryMeasurementFormatter()
+    /// セッションと車両の表示文言を整形します。
+    private let textFormatter = ConnectionHistorySessionTextFormatter()
+    /// セッション操作の表示可否を判定します。
+    private let actionPolicy = ConnectionHistorySessionActionPolicy()
+
     /// iPhone向けの階層化された接続履歴と詳細導線を提供します。
     ///
     /// 責務: 接続履歴状態を進行中表示と車両別アーカイブへ分けて描画します。
@@ -52,130 +63,25 @@ struct IOSConnectionHistoryView: View {
             .refreshable { send(.refreshRequested) }
             .accessibilityIdentifier("ios-connection-history")
         }
-        .alert(
-            removalAlertTitle,
-            isPresented: Binding(
-                get: { state.rawRemovalPrompt != nil },
-                set: { if !$0 { send(.localRawRemovalCancelled) } }
-            ),
-            presenting: state.rawRemovalPrompt
-        ) { _ in
-            Button("history.raw.remove.cancel", role: .cancel) {
-                send(.localRawRemovalCancelled)
-            }
-            Button("history.raw.remove.confirm", role: .destructive) {
-                send(.localRawRemovalConfirmed)
-            }
-        } message: { prompt in
-            Text(removalAlertMessage(prompt))
-        }
-        .alert(
-            "history.delete.warning.title",
-            isPresented: Binding(
-                get: { state.sessionDeletionPrompt != nil },
-                set: { if !$0 { send(.sessionDeletionCancelled) } }
-            ),
-            presenting: state.sessionDeletionPrompt
-        ) { _ in
-            Button("history.delete.cancel", role: .cancel) { send(.sessionDeletionCancelled) }
-            Button("history.delete.confirm", role: .destructive) { send(.sessionDeletionConfirmed) }
-        } message: { prompt in
-            Text(sessionDeletionMessage(prompt))
-        }
-        .alert(
-            "history.delete.error.title",
-            isPresented: Binding(
-                get: { state.sessionDeletionFailureKey != nil },
-                set: { if !$0 { send(.sessionDeletionFailureDismissed) } }
-            )
-        ) {
-            Button("history.delete.error.dismiss") { send(.sessionDeletionFailureDismissed) }
-        } message: {
-            Text("history.delete.error")
-        }
-        .alert(
-            "history.stop_review.title",
-            isPresented: Binding(
-                get: { state.stopReviewPrompt != nil },
-                set: { if !$0 { send(.stopReviewCancelled) } }
-            ),
-            presenting: state.stopReviewPrompt
-        ) { _ in
-            Button("history.stop_review.cancel", role: .cancel) { send(.stopReviewCancelled) }
-            Button("history.stop_review.confirm") { send(.stopReviewConfirmed) }
-        } message: { prompt in
-            Text(stopReviewMessageKey(prompt.observedReason))
-        }
-        .alert(
-            "history.stop_review.error.title",
-            isPresented: Binding(
-                get: { state.stopReviewFailureKey != nil },
-                set: { if !$0 { send(.stopReviewFailureDismissed) } }
-            )
-        ) {
-            Button("history.stop_review.error.dismiss") { send(.stopReviewFailureDismissed) }
-        } message: {
-            Text("history.stop_review.error")
-        }
-        .alert(
-            "history.upload.error.title",
-            isPresented: Binding(
-                get: { state.uploadFailureSessionID != nil },
-                set: { if !$0 { send(.sessionUploadFailureDismissed) } }
-            ),
-            presenting: state.uploadFailureSessionID
-        ) { sessionID in
-            Button("history.upload.error.dismiss", role: .cancel) {
-                send(.sessionUploadFailureDismissed)
-            }
-            Button("history.upload.retry") {
-                send(.sessionUploadRequested(sessionID))
-            }
-        } message: { _ in
-            Text("history.upload.error.message")
-        }
+        .actionAlerts(
+            ConnectionHistoryAlertKind.allCases.map { alertFactory.alert($0, in: state) },
+            send: send,
+            message: alertMessage
+        )
     }
 
-    /// 観測済み終了理由に対応する停止確認本文を返します。
+    /// alert 本文の表示元を `Text` へ変換します。
     ///
-    /// 責務: 1件の確認可能な終了理由を断定を避けたユーザー確認文へ変換します。
-    /// - Parameter reason: アプリが観測した終了理由。
-    /// - Returns: 終了理由に対応するローカライズキー。
-    private func stopReviewMessageKey(_ reason: ConnectionSessionEndReason) -> LocalizedStringKey {
-        reason == .vehicleNoResponse
-            ? "history.stop_review.message.no_response"
-            : "history.stop_review.message.connection_lost"
-    }
-
-    /// 現在の除去判断に対応する警告タイトルです。
-    private var removalAlertTitle: LocalizedStringKey {
-        state.rawRemovalPrompt?.decision == .safe
-            ? "history.raw.remove.safe.title"
-            : "history.raw.remove.warning.title"
-    }
-
-    /// Rawログ除去確認の件数と容量を含む警告本文を返します。
-    ///
-    /// 責務: 1件のローカル除去確認状態をMac取込有無に対応した警告文へ変換します。
-    /// - Parameter prompt: Applicationが準備したローカル除去確認内容。
-    /// - Returns: Raw件数と容量を含むユーザー向け警告本文。
-    private func removalAlertMessage(_ prompt: ConnectionSessionRawRemovalPrompt) -> String {
-        let format = String(localized: prompt.decision == .safe
-            ? "history.raw.remove.safe.message"
-            : "history.raw.remove.warning.message")
-        let bytes = ByteCountFormatter.string(fromByteCount: max(0, prompt.byteCount), countStyle: .file)
-        return String(format: format, locale: .autoupdatingCurrent, prompt.recordCount, bytes)
-    }
-
-    /// 全端末削除警告の件数と容量を含む本文を返します。
-    ///
-    /// 責務: 1件の削除確認状態をiCloudを含む不可逆な削除警告へ変換します。
-    /// - Parameter prompt: Applicationが準備した全端末削除確認内容。
-    /// - Returns: Raw件数と容量を含むユーザー向け警告本文。
-    private func sessionDeletionMessage(_ prompt: ConnectionSessionDeletionPrompt) -> String {
-        let format = String(localized: "history.delete.warning.message")
-        let bytes = ByteCountFormatter.string(fromByteCount: max(0, prompt.byteCount), countStyle: .file)
-        return String(format: format, locale: .autoupdatingCurrent, prompt.recordCount, bytes)
+    /// 責務: 1件の alert 本文をローカライズ文言またはRaw集計入りの警告文へ変換します。
+    /// - Parameter message: Applicationが準備した alert 本文。
+    /// - Returns: alert に表示する本文。
+    private func alertMessage(_ message: ConnectionHistoryAlertMessage) -> Text {
+        switch message {
+        case let .localized(key):
+            Text(LocalizedStringKey(key))
+        case let .rawSummary(formatKey, recordCount, byteCount):
+            Text(rawSummaryFormatter.text(formatKey: formatKey, recordCount: recordCount, byteCount: byteCount))
+        }
     }
 
     /// 履歴総数と記録済み総走行時間を示す画面上部カードです。
@@ -195,7 +101,7 @@ struct IOSConnectionHistoryView: View {
             }
             HStack(spacing: 10) {
                 summaryPill(value: "\(state.sessions.count)", titleKey: "history.summary.total", color: .primary)
-                summaryPill(value: durationText(state.totalRecordedDuration), titleKey: "history.summary.duration", color: .cyan)
+                summaryPill(value: measurementFormatter.durationText(state.totalRecordedDuration), titleKey: "history.summary.duration", color: .cyan)
             }
         }
         .padding(22)
@@ -224,7 +130,7 @@ struct IOSConnectionHistoryView: View {
                 ForEach(state.vehicleGroups) { group in
                     NavigationLink(value: group.id) { vehicleGroupCard(group) }
                         .buttonStyle(.plain)
-                        .accessibilityIdentifier("ios-history-vehicle-\(groupIdentifier(group.id))")
+                        .accessibilityIdentifier("ios-history-vehicle-\(textFormatter.groupIdentifier(group.id))")
                 }
             }
         }
@@ -242,7 +148,7 @@ struct IOSConnectionHistoryView: View {
                     .font(.system(size: 20, weight: .semibold)).foregroundStyle(.green)
                     .frame(width: 46, height: 46).background(.green.opacity(0.13), in: Circle())
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(vehicleName(session)).font(.system(.headline, design: .rounded, weight: .bold))
+                    Text(textFormatter.vehicleName(session)).font(.system(.headline, design: .rounded, weight: .bold))
                     Text("history.active.recording").font(.caption.weight(.bold)).foregroundStyle(.green)
                 }
                 Spacer()
@@ -253,7 +159,7 @@ struct IOSConnectionHistoryView: View {
             HStack {
                 labeledDate("history.started", session.startedAt)
                 Spacer()
-                Text(shortID(session.id)).font(.caption.monospaced().weight(.semibold)).foregroundStyle(.secondary)
+                Text(textFormatter.shortID(session.id)).font(.caption.monospaced().weight(.semibold)).foregroundStyle(.secondary)
             }
         }
         .padding(18)
@@ -276,9 +182,12 @@ struct IOSConnectionHistoryView: View {
                 .font(.system(size: 21, weight: .semibold))
                 .foregroundStyle(group.interruptedCount > 0 ? Color.orange : Color.accentColor)
                 .frame(width: 50, height: 50)
-                .background((group.interruptedCount > 0 ? Color.orange : Color.accentColor).opacity(0.12), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .background(
+                    (group.interruptedCount > 0 ? Color.orange : Color.accentColor).opacity(0.12),
+                    in: RoundedRectangle(cornerRadius: 16, style: .continuous)
+                )
             VStack(alignment: .leading, spacing: 5) {
-                Text(group.vehicle?.name.nonEmpty ?? String(localized: "history.vehicle.unassigned"))
+                Text(textFormatter.vehicleGroupName(group.vehicle))
                     .font(.system(.headline, design: .rounded, weight: .bold)).lineLimit(1)
                 HStack(spacing: 3) {
                     Text(group.sessionCount, format: .number)
@@ -287,12 +196,12 @@ struct IOSConnectionHistoryView: View {
                 .font(.caption.weight(.semibold)).foregroundStyle(.secondary)
                 ViewThatFits(in: .horizontal) {
                     HStack(spacing: 10) {
-                        Label(durationText(group.totalDuration), systemImage: "clock")
-                        Label(distanceText(group.totalDistanceKilometers), systemImage: "road.lanes")
+                        Label(measurementFormatter.durationText(group.totalDuration), systemImage: "clock")
+                        Label(measurementFormatter.distanceText(group.totalDistanceKilometers), systemImage: "road.lanes")
                     }
                     VStack(alignment: .leading, spacing: 3) {
-                        Label(durationText(group.totalDuration), systemImage: "clock")
-                        Label(distanceText(group.totalDistanceKilometers), systemImage: "road.lanes")
+                        Label(measurementFormatter.durationText(group.totalDuration), systemImage: "clock")
+                        Label(measurementFormatter.distanceText(group.totalDistanceKilometers), systemImage: "road.lanes")
                     }
                 }
                 .font(.caption2.monospacedDigit().weight(.semibold))
@@ -306,7 +215,10 @@ struct IOSConnectionHistoryView: View {
         }
         .padding(17)
         .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
-        .overlay { RoundedRectangle(cornerRadius: 22, style: .continuous).stroke(group.interruptedCount > 0 ? .orange.opacity(0.25) : Color.primary.opacity(0.07)) }
+        .overlay {
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(group.interruptedCount > 0 ? .orange.opacity(0.25) : Color.primary.opacity(0.07))
+        }
     }
 
     /// 選択車両の絞り込み可能な終了済みセッション一覧を描画します。
@@ -328,7 +240,7 @@ struct IOSConnectionHistoryView: View {
             .padding(20)
         }
         .scrollIndicators(.hidden)
-        .navigationTitle(group?.vehicle?.name.nonEmpty ?? String(localized: "history.vehicle.unassigned"))
+        .navigationTitle(textFormatter.vehicleGroupName(group?.vehicle))
         .navigationBarTitleDisplayMode(.inline)
     }
 
@@ -342,8 +254,8 @@ struct IOSConnectionHistoryView: View {
             ViewThatFits(in: .horizontal) {
                 HStack {
                     summaryPill(value: "\(group.sessionCount)", titleKey: "history.summary.total", color: .primary)
-                    summaryPill(value: durationText(group.totalDuration), titleKey: "history.summary.duration", color: .cyan)
-                    summaryPill(value: distanceText(group.totalDistanceKilometers), titleKey: "history.summary.distance", color: .mint)
+                    summaryPill(value: measurementFormatter.durationText(group.totalDuration), titleKey: "history.summary.duration", color: .cyan)
+                    summaryPill(value: measurementFormatter.distanceText(group.totalDistanceKilometers), titleKey: "history.summary.distance", color: .mint)
                     if group.interruptedCount > 0 { warningBadge(group.interruptedCount) }
                 }
                 VStack(alignment: .leading, spacing: 8) {
@@ -352,8 +264,8 @@ struct IOSConnectionHistoryView: View {
                         if group.interruptedCount > 0 { warningBadge(group.interruptedCount) }
                     }
                     HStack {
-                        summaryPill(value: durationText(group.totalDuration), titleKey: "history.summary.duration", color: .cyan)
-                        summaryPill(value: distanceText(group.totalDistanceKilometers), titleKey: "history.summary.distance", color: .mint)
+                        summaryPill(value: measurementFormatter.durationText(group.totalDuration), titleKey: "history.summary.duration", color: .cyan)
+                        summaryPill(value: measurementFormatter.distanceText(group.totalDistanceKilometers), titleKey: "history.summary.distance", color: .mint)
                     }
                 }
             }
@@ -432,8 +344,10 @@ struct IOSConnectionHistoryView: View {
             VStack(alignment: .leading, spacing: 5) {
                 Text(session.startedAt, format: .dateTime.year().month().day().hour().minute())
                     .font(.subheadline.monospacedDigit().weight(.semibold))
-                Text(endReasonKey(session.endReason)).font(.caption.weight(.semibold)).foregroundStyle(session.status == .completed ? Color.secondary : Color.orange)
-                Label(acquisitionDeviceText(session), systemImage: "laptopcomputer.and.iphone")
+                Text(LocalizedStringKey(textFormatter.endReasonKey(session.endReason)))
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(session.status == .completed ? Color.secondary : Color.orange)
+                Label(textFormatter.acquisitionDeviceText(session), systemImage: "laptopcomputer.and.iphone")
                     .font(.caption2.weight(.semibold))
                     .foregroundStyle(.secondary)
                 HStack(spacing: 6) {
@@ -443,8 +357,8 @@ struct IOSConnectionHistoryView: View {
             }
             Spacer()
             VStack(alignment: .trailing, spacing: 4) {
-                Label(durationText(sessionDuration(session)), systemImage: "clock")
-                Label(distanceText(session.recordedDistanceKilometers), systemImage: "road.lanes")
+                Label(measurementFormatter.durationText(measurementFormatter.sessionDuration(session)), systemImage: "clock")
+                Label(measurementFormatter.distanceText(session.recordedDistanceKilometers), systemImage: "road.lanes")
             }
             .font(.caption2.monospacedDigit().weight(.semibold))
             .foregroundStyle(.secondary)
@@ -468,7 +382,7 @@ struct IOSConnectionHistoryView: View {
                 Divider().padding(.horizontal, 15)
                 uploadAction(session)
             }
-            if canReleaseRawCache(session) {
+            if actionPolicy.canReleaseRawCache(session) {
                 Divider().padding(.horizontal, 15)
                 Button {
                     send(.localRawRemovalRequested(session.id))
@@ -548,29 +462,13 @@ struct IOSConnectionHistoryView: View {
         .accessibilityIdentifier("ios-history-upload-\(session.id.rawValue.uuidString)")
     }
 
-    /// 1件のセッションで安全な端末容量解放を選択できるかを返します。
-    ///
-    /// 責務: セッションの終了、ローカル保存、iCloud保管状態を容量解放可否へ変換します。
-    /// - Parameter session: 判定対象の接続セッション。
-    /// - Returns: iCloudに保管済みのローカルRawがある場合は`true`。
-    private func canReleaseRawCache(_ session: ConnectionSession) -> Bool {
-        session.endedAt != nil
-            && session.rawLogSummary.localState == .available
-            && session.rawLogSummary.recordCount > 0
-            && session.rawLogSummary.cloudState == .uploaded
-            && session.rawLogSummary.manifestDigest?.isEmpty == false
-    }
-
     /// セッションのiCloud転送状態を一覧用バッジとして描画します。
     ///
     /// 責務: 1件のCloudKit転送状態をアイコン、文言、色を持つバッジへ変換します。
     /// - Parameter session: 表示対象の接続セッション。
     /// - Returns: iCloud転送状態バッジ。
     private func cloudStatusBadge(_ session: ConnectionSession) -> some View {
-        let state = session.rawLogSummary.cloudState
-        return Label(cloudStatusKey(state), systemImage: cloudStatusImage(state))
-            .font(.caption2.weight(.bold))
-            .foregroundStyle(cloudStatusColor(state))
+        rawStatusBadge(ConnectionHistoryRawStatusBadge(cloudState: session.rawLogSummary.cloudState))
     }
 
     /// セッションのRaw取得状態を一覧用バッジとして描画します。
@@ -579,44 +477,18 @@ struct IOSConnectionHistoryView: View {
     /// - Parameter session: 表示対象の接続セッション。
     /// - Returns: Rawダウンロード状態バッジ。
     private func localStatusBadge(_ session: ConnectionSession) -> some View {
-        let available = session.rawLogSummary.localState == .available
-        let empty = session.rawLogSummary.localState == .empty
-        return Label(
-            empty ? "history.raw.local.empty" : (available ? "history.raw.local.available" : "history.raw.local.removed"),
-            systemImage: empty ? "minus.circle" : (available ? "checkmark.circle.fill" : "icloud.and.arrow.down")
-        )
-        .font(.caption2.weight(.bold))
-        .foregroundStyle(available ? Color.blue : Color.secondary)
+        rawStatusBadge(ConnectionHistoryRawStatusBadge(localState: session.rawLogSummary.localState))
     }
 
-    /// CloudKit転送状態に対応する一覧文言を返します。
-    private func cloudStatusKey(_ state: ConnectionSessionCloudSyncState) -> LocalizedStringKey {
-        switch state {
-        case .notUploaded: "history.raw.cloud.not_uploaded"
-        case .pending: "history.raw.cloud.pending"
-        case .uploaded: "history.raw.cloud.uploaded"
-        case .failed: "history.raw.cloud.failed"
-        }
-    }
-
-    /// CloudKit転送状態に対応する一覧アイコンを返します。
-    private func cloudStatusImage(_ state: ConnectionSessionCloudSyncState) -> String {
-        switch state {
-        case .notUploaded: "icloud.slash"
-        case .pending: "icloud.and.arrow.up"
-        case .uploaded: "checkmark.icloud.fill"
-        case .failed: "exclamationmark.icloud.fill"
-        }
-    }
-
-    /// CloudKit転送状態に対応する一覧色を返します。
-    private func cloudStatusColor(_ state: ConnectionSessionCloudSyncState) -> Color {
-        switch state {
-        case .notUploaded: .secondary
-        case .pending: .orange
-        case .uploaded: .green
-        case .failed: .red
-        }
+    /// 共通のRaw状態バッジをiOSの一覧バッジとして描画します。
+    ///
+    /// 責務: 1件のバッジ内容をアイコン、文言、トーン色を持つラベルへ変換します。
+    /// - Parameter badge: 表示するバッジ内容。
+    /// - Returns: Raw状態バッジ。
+    private func rawStatusBadge(_ badge: ConnectionHistoryRawStatusBadge) -> some View {
+        Label(LocalizedStringKey(badge.titleKey), systemImage: badge.systemImage)
+            .font(.caption2.weight(.bold))
+            .foregroundStyle(badge.tone.color)
     }
 
     /// 絞り込み結果が空であることを表示します。
@@ -663,7 +535,10 @@ struct IOSConnectionHistoryView: View {
     ///   - color: 値の表示色。
     /// - Returns: 値と見出しを含む要約ピル。
     private func summaryPill(value: String, titleKey: LocalizedStringKey, color: Color) -> some View {
-        HStack(spacing: 7) { Text(value).font(.headline.monospacedDigit()).foregroundStyle(color); Text(titleKey).font(.caption.weight(.semibold)).foregroundStyle(.secondary) }
+        HStack(spacing: 7) {
+            Text(value).font(.headline.monospacedDigit()).foregroundStyle(color)
+            Text(titleKey).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+        }
             .padding(.horizontal, 13).padding(.vertical, 9).background(Color.primary.opacity(0.055), in: Capsule())
     }
 
@@ -691,73 +566,10 @@ struct IOSConnectionHistoryView: View {
     ///   - date: 表示する日時。
     /// - Returns: 見出しと日時を含む表示。
     private func labeledDate(_ title: LocalizedStringKey, _ date: Date) -> some View {
-        VStack(alignment: .leading, spacing: 3) { Text(title).font(.caption2.weight(.semibold)).foregroundStyle(.tertiary); Text(date, format: .dateTime.month().day().hour().minute()).font(.caption.monospacedDigit().weight(.semibold)) }
-    }
-
-    /// 車両名称を未確定状態も含めて返します。
-    ///
-    /// 責務: 1件のセッションを表示可能な車両名称へ変換します。
-    /// - Parameter session: 車両名称を求めるセッション。
-    /// - Returns: 登録車両名または識別中の文言。
-    private func vehicleName(_ session: ConnectionSession) -> String { session.vehicle?.name.nonEmpty ?? String(localized: "history.vehicle.pending") }
-
-    /// セッションの確定走行時間を返します。
-    ///
-    /// 責務: 1件の終了済みセッションから非負の記録時間を算出します。
-    /// - Parameter session: 時間を求める終了済みセッション。
-    /// - Returns: 秒単位の非負記録時間。
-    private func sessionDuration(_ session: ConnectionSession) -> TimeInterval { max(0, session.endedAt?.timeIntervalSince(session.startedAt) ?? 0) }
-
-    /// 秒数を単位名が明確な時分表記へ変換します。
-    ///
-    /// 責務: 1件の秒数を履歴画面用の固定幅時間文字列へ変換します。
-    /// - Parameter interval: 表示する秒数。
-    /// - Returns: 現在ロケールで時間と分を明記した文字列。
-    private func durationText(_ interval: TimeInterval) -> String {
-        let formatter = DateComponentsFormatter()
-        formatter.allowedUnits = interval >= 3_600 ? [.hour, .minute] : [.minute]
-        formatter.unitsStyle = .short
-        formatter.zeroFormattingBehavior = .pad
-        return formatter.string(from: max(0, interval)) ?? String(localized: "history.duration.zero")
-    }
-
-    /// セッション差分をメートルまたはキロメートルの明確な距離表記へ変換します。
-    ///
-    /// 責務: 1件の任意走行距離を距離単位付き表示または非対応表示へ変換します。
-    /// - Parameter kilometers: A6累積値の差分。確定できない場合は `nil`。
-    /// - Returns: 1 km未満はm、1 km以上はkm、未確定時は走行距離非対応の文字列。
-    private func distanceText(_ kilometers: Double?) -> String {
-        guard let kilometers else { return String(localized: "history.distance.unsupported") }
-        if kilometers < 1 { return String.localizedStringWithFormat("%.0f m", kilometers * 1_000) }
-        return String.localizedStringWithFormat("%.1f km", kilometers)
-    }
-
-    /// セッションIDを短縮表示へ変換します。
-    ///
-    /// 責務: 1件のセッションIDを先頭8文字の大文字表記へ変換します。
-    /// - Parameter id: 短縮するセッションID。
-    /// - Returns: 短縮UUID表記。
-    private func shortID(_ id: ConnectionSessionID) -> String { String(id.rawValue.uuidString.prefix(8)).uppercased() }
-
-    /// セッションの取得元端末をプラットフォーム付き表示名へ変換します。
-    ///
-    /// 責務: 1件の任意取得元端末を一覧表示用文字列または旧履歴向け不明表示へ変換します。
-    /// - Parameter session: 取得元端末を表示するセッション。
-    /// - Returns: 端末名とプラットフォーム、または取得元不明の文言。
-    private func acquisitionDeviceText(_ session: ConnectionSession) -> String {
-        guard let device = session.acquisitionDevice else {
-            return String(localized: "history.device.unknown")
+        VStack(alignment: .leading, spacing: 3) {
+            Text(title).font(.caption2.weight(.semibold)).foregroundStyle(.tertiary)
+            Text(date, format: .dateTime.month().day().hour().minute()).font(.caption.monospacedDigit().weight(.semibold))
         }
-        return "\(device.name) (\(device.platform.rawValue))"
-    }
-
-    /// 車両グループ識別子をアクセシビリティ識別用文字列へ変換します。
-    ///
-    /// 責務: 1件の車両グループ識別子を安定したUI識別文字列へ変換します。
-    /// - Parameter id: 変換する車両グループ識別子。
-    /// - Returns: 登録車両UUIDまたは未関連付け識別子。
-    private func groupIdentifier(_ id: ConnectionHistoryVehicleGroupID) -> String {
-        switch id { case let .registered(vehicleID): vehicleID.rawValue.uuidString; case .unassigned: "unassigned" }
     }
 
     /// 終了理由条件の表示キーを返します。
@@ -773,19 +585,5 @@ struct IOSConnectionHistoryView: View {
     /// - Parameter order: 表示する並び順。
     /// - Returns: 並び順名のローカライズキー。
     private func sortOrderKey(_ order: ConnectionHistorySortOrder) -> LocalizedStringKey { LocalizedStringKey(order.historyLocalizationKey) }
-
-    /// 終了理由の表示キーを返します。
-    ///
-    /// 責務: 1件の終了理由をセッション行用ローカライズキーへ変換します。
-    /// - Parameter reason: 表示する終了理由。
-    /// - Returns: 終了理由名のローカライズキー。
-    private func endReasonKey(_ reason: ConnectionSessionEndReason?) -> LocalizedStringKey {
-        LocalizedStringKey(reason?.historyLocalizationKey ?? ConnectionHistoryEndReasonFilter.all.historyLocalizationKey)
-    }
-}
-
-private extension String {
-    /// 空文字列を未設定として扱った表示可能文字列です。
-    var nonEmpty: String? { isEmpty ? nil : self }
 }
 #endif
