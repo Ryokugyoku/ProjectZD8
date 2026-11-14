@@ -4,6 +4,7 @@ import XCTest
 /// STI/ATI応答からのチップ種別判定を検証します。
 @MainActor
 final class OBDAdapterChipClassificationPolicyTests: XCTestCase {
+    /// 検証対象のチップ判定Policyです。
     private let policy = OBDAdapterChipClassificationPolicy()
 
     /// 判定結果を返します。

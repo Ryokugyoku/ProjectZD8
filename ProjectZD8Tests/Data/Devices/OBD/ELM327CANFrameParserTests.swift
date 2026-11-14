@@ -4,6 +4,7 @@ import XCTest
 /// ATMA受信行のCANフレーム解析を検証します。
 @MainActor
 final class ELM327CANFrameParserTests: XCTestCase {
+    /// 検証対象のパーサーです。
     private let parser = ELM327CANFrameParser()
 
     /// 解析結果が期待どおりのフレームであることを確認します。

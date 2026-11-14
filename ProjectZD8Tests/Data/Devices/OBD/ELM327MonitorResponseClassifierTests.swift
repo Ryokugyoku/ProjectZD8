@@ -4,7 +4,9 @@ import XCTest
 /// ATMA応答行の分類を検証します。
 @MainActor
 final class ELM327MonitorResponseClassifierTests: XCTestCase {
+    /// 検証対象の応答分類器です。
     private let classifier = ELM327MonitorResponseClassifier()
+    /// 成功フレームとして解析できる代表行です。
     private let frame = "7E8 06 41 00 BE 3F A8 13"
 
     /// 6種の結果をそれぞれ確認します。

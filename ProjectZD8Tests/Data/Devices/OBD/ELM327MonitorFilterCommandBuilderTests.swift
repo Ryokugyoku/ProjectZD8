@@ -4,6 +4,7 @@ import XCTest
 /// 受信監視フィルターのコマンド列生成を検証します。
 @MainActor
 final class ELM327MonitorFilterCommandBuilderTests: XCTestCase {
+    /// 検証対象のコマンド列ビルダーです。
     private let builder = ELM327MonitorFilterCommandBuilder()
 
     /// 生成結果のrequestID配列を返します。
@@ -54,6 +55,13 @@ final class ELM327MonitorFilterCommandBuilderTests: XCTestCase {
             requestIDs([0x18DA_F110, 0x18DA_F111], .elm327Genuine),
             ["ATCF18DAF110", "ATCM1FFFFFFE"]
         )
+    }
+
+    /// 29bitで幅いっぱいの8桁出力になることを確認します。
+    ///
+    /// 責務: マスク適用後のfilterが小さい値(0)でも8桁ゼロ埋めで出力されることを確認します。
+    func testELM327ExtendedFilterIsZeroPaddedToEightDigits() {
+        XCTAssertEqual(requestIDs([0x800, 0x1000], .elm327Genuine), ["ATCF00000000", "ATCM1FFFE7FF"])
     }
 
     /// STN系はID昇順のSTFAPになります。
