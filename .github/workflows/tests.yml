@@ -2,9 +2,10 @@ name: Tests
 
 on:
   pull_request:
+  # SourceScan はコミット SHA でカバレッジ artifact を探すため、main と作業ブランチの両方の push で実行する。
   push:
     branches:
-      - main
+      - "**"
 
 concurrency:
   group: tests-${{ github.ref }}
@@ -53,6 +54,7 @@ jobs:
             -destination 'platform=macOS' \
             -only-testing:ProjectZD8Tests \
             -resultBundlePath "${RUNNER_TEMP}/ProjectZD8Tests.xcresult" \
+            -enableCodeCoverage YES \
             CODE_SIGNING_ALLOWED=NO \
             | tee "${RUNNER_TEMP}/xcodebuild-test.log"
 
@@ -71,6 +73,57 @@ jobs:
             echo
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+
+      # カバレッジの書き出しはテストの成否判定に影響させない(失敗しても job を落とさない)。
+      - name: Export coverage report (lcov)
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        env:
+          COVERAGE_DIR: ${{ runner.temp }}/coverage
+        run: |
+          set -euo pipefail
+          derived_data_root="${HOME}/Library/Developer/Xcode/DerivedData"
+          mkdir -p "$COVERAGE_DIR"
+
+          profdata="$(find "$derived_data_root" -path '*/Build/ProfileData/*' -name Coverage.profdata -print0 \
+            | xargs -0 ls -t | head -n 1)"
+          if [ -z "$profdata" ]; then
+            echo "::warning::Coverage.profdata was not found; skipping lcov export."
+            exit 0
+          fi
+          test_bundle="$(find "$derived_data_root" \
+            -path '*/Build/Products/Debug/*.app/Contents/PlugIns/ProjectZD8Tests.xctest' \
+            -type d -print -quit)"
+          if [ -z "$test_bundle" ]; then
+            echo "::warning::ProjectZD8Tests.xctest was not found; skipping lcov export."
+            exit 0
+          fi
+          app_macos_dir="$(dirname "$(dirname "$test_bundle")")/MacOS"
+
+          # アプリ本体(Debug では *.debug.dylib にコードが入る)とテストバンドルを計測対象にする。
+          objects=()
+          while IFS= read -r -d '' binary; do
+            objects+=(-object "$binary")
+          done < <(find "$app_macos_dir" "$test_bundle/Contents/MacOS" -maxdepth 1 -type f \
+            \( -name '*.debug.dylib' -o -perm -u+x \) ! -name '__preview.dylib' -print0)
+
+          # パスはランナー上の絶対パスのまま出力する。依存パッケージとテストコード自体は除外する。
+          xcrun llvm-cov export \
+            -format=lcov \
+            -instr-profile "$profdata" \
+            -ignore-filename-regex '/(DerivedData|SourcePackages|ProjectZD8Tests)/' \
+            "${objects[@]}" \
+            > "$COVERAGE_DIR/lcov.info"
+          echo "Exported $(grep -c '^SF:' "$COVERAGE_DIR/lcov.info") source files to $COVERAGE_DIR/lcov.info"
+
+      - name: Upload coverage report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: coverage
+          path: ${{ runner.temp }}/coverage/lcov.info
+          if-no-files-found: warn
+          retention-days: 30
 
       - name: Upload test results
         if: ${{ failure() }}
