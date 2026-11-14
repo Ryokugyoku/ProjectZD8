@@ -38,6 +38,19 @@ ruby .github/testflight_build_publisher_test.rb
 - Feature 間は具象型に依存しない。横断ワークフローは所有 Feature を1つ決め、Domain 型か狭いポートで連携。
 - `Helpers`/`Utils`/`Common`/広い `Manager` は作らない。新 Feature・トップレベルディレクトリは作る前にユーザーへ提案。
 
+## 画面の分割とフォルダ構成(単一責任)
+
+型もファイルも「変更理由は1つ」で分ける。View に判定・整形・文言選択を溜めない。新規画面と、分割・改修で手を入れる画面に適用(既存画面は触る時に移行)。
+
+- **1画面=1フォルダ**: 複数ファイルに分ける画面は `Platform/<OS>/Features/<F>/Views/<画面名>/`(OS 接頭辞と `View` 接尾辞を除いた名前。例 `Views/ConnectionHistory/`)。1ファイルで収まる画面は `Views/` 直下でよい。
+- フォルダには画面ルート(`<OS接頭辞><画面名>View.swift`)とその画面専用の部品 View だけを置く。部品も1ファイル1型で、画面名を接頭辞に持つ(例 `MacOSConnectionHistoryHeroCard.swift`)。
+- 画面ルートは部品の配置・ナビゲーション・alert/sheet の接続・Action 送出だけ。部品 View は描画に必要な値と Action 送出クロージャだけを受け取る(画面全体の state を渡すのは複数項目を読む部品に限る)。
+- 表示ロジックは SwiftUI を import しない純粋型にする: iOS/macOS 共通の判定・整形・文言キー・alert 内容は `Application/Features/<F>/State/`(ローカライズキーは `String` で返し View で `LocalizedStringKey` に変換)、片方の OS だけのものは `Platform/<OS>/Features/<F>/Presentation/`。
+- 複数画面で使う部品: 同一 Feature・同一 OS 内は `Views/Components/`、Feature/OS をまたぐなら機能知識を持たない汎用部品として `Shared/DesignSystem/Components/`。
+- iOS と macOS に同じロジックをコピーしない。共通化するのはロジックと汎用部品で、画面レイアウトは OS ごとに別型。
+- 目安: 1行160文字以内(SourceScan の上限)、View ファイルは250行程度まで。超えたら分割を検討。
+- テスト: 分離した純粋型は公開メソッド・計算プロパティごとに分岐と境界値を網羅する。SwiftUI の `body` は対象外とし、判定を純粋型へ出して検証する。
+
 ## Feature(Application と Platform で同名)
 
 `Authentication`(Apple サインイン・資格復元・アクセスゲート) / `Settings`(アカウント設定と端末間同期、接続設定除く) / `DeviceConnection`(アダプター探索・接続・切断・接続設定) / `VehicleManagement`(車両の識別・登録・プロフィール・画像・同期・選択) / `Maintenance`(整備記録・写真・同期) / `LiveTelemetry`(リアルタイム表示) / `Logging`(取得セッション開始・記録・終了) / `LogHistory`(記録済みログ照会) / `Analysis`(記録ログの分析実行と結果)
