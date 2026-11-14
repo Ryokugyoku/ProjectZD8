@@ -6,4 +6,6 @@ enum LiveTelemetryAction: Equatable {
     case retryRequested
     /// 現在の継続取得を終了します。
     case stopRequested
+    /// アプリがバックグラウンドへ移行したことを通知し、保存待ちの取得記録を保存させます。
+    case backgroundTransitionOccurred
 }

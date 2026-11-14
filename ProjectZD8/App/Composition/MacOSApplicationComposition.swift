@@ -12,12 +12,12 @@ enum MacOSApplicationComposition {
     /// - Parameter sessionDidEnd: PID取得終了原因をLoggingへ通知する処理。
     /// - Parameter distanceDidChange: 取得元付き累積距離をLoggingへ通知する処理。
     /// - Parameter database: PID定義と車両別対応PIDの保存先が共有する製品DB接続。
-    /// - Parameter acquisitionStorage: session保存先と同じGRDB Queueを共有する取得証拠の保存先。
+    /// - Parameter connectionSessionStorage: 同じGRDB Queueを共有する接続session・取得証拠・チャンク・区間・欠損の保存先。
     /// - Parameter activeSessionID: 現在Logging sessionの識別子を返す境界。
     /// - Parameter performanceEvents: 方式B取得区間を通知する匿名計測境界。
     static func makeLiveTelemetryModel(
         database: ApplicationDatabaseConnection,
-        acquisitionStorage: ConnectionSessionStorageDependencies.AcquisitionStorage,
+        connectionSessionStorage: ConnectionSessionStorageDependencies,
         activeSessionID: @escaping @Sendable () async -> ConnectionSessionID?,
         performanceEvents: any AcquisitionPerformanceEventPort = NoOpAcquisitionPerformanceEventPort(),
         sessionDidEnd: @escaping @MainActor (ConnectionSessionEndReason) -> Void = { _ in },
@@ -29,40 +29,14 @@ enum MacOSApplicationComposition {
             },
             demo: DemoOBDPIDTelemetryAdapter()
         )
-        let definitionRepository = makeOBDPIDDefinitionRepository(database: database)
-        let configuration = ProductionConnectionSessionAcquisitionConfiguration.phase4G
-        let acquisitionController = ConnectionSessionAcquisitionController(
-            createManifest: CreateConnectionSessionAcquisitionManifestUseCase(
-                acquisitionRepository: acquisitionStorage,
-                evidencePort: BundleConnectionSessionAcquisitionEvidenceAdapter(
-                    schemaContractVersion: configuration.schemaContractVersion,
-                    acquisitionPlatform: .macOS
-                )
-            ),
-            persistBatch: PersistAcquisitionBatchUseCase(
-                repository: acquisitionStorage,
-                telemetry: telemetry,
-                monotonicNanoseconds: { DispatchTime.now().uptimeNanoseconds },
-                performanceEvents: performanceEvents
-            ),
+        return LiveTelemetryModelAssembly.makeModel(
+            telemetry: telemetry,
+            definitionRepository: makeOBDPIDDefinitionRepository(database: database),
+            capabilityRepository: makeVehiclePIDCapabilityRepository(database: database),
+            storage: connectionSessionStorage,
+            acquisitionPlatform: .macOS,
             activeSessionID: activeSessionID,
-            manifestVersion: configuration.manifestVersion,
-            pollingPolicyVersion: configuration.pollingPolicyVersion,
-            modelInputManifestVersion: configuration.modelInputManifestVersion,
-            formulaCanonicalizationVersion: configuration.formulaCanonicalizationVersion,
-            performanceEvents: performanceEvents
-        )
-        return LiveTelemetryModel(
-            readMajorPIDs: ReadMajorOBDPIDsUseCase(
-                definitionRepository: definitionRepository,
-                telemetry: telemetry
-            ),
-            loadVehicleCapabilities: LoadVehiclePIDCapabilitiesUseCase(
-                repository: makeVehiclePIDCapabilityRepository(database: database),
-                telemetry: telemetry,
-                definitionRepository: definitionRepository
-            ),
-            acquisitionEvidence: acquisitionController,
+            performanceEvents: performanceEvents,
             sessionDidEnd: sessionDidEnd,
             distanceDidChange: distanceDidChange,
             systemSleepInhibitor: ProcessInfoVehicleConnectionSystemSleepInhibitor()
