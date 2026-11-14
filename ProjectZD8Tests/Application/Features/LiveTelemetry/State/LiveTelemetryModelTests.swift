@@ -1,665 +1,206 @@
+import Foundation
 import XCTest
 @testable import ProjectZD8
 
-/// LiveTelemetryのPID定義DB失敗表示を検証します。
+/// LiveTelemetryModel の開始・失敗表示・終了理由ごとの状態・累積距離通知を検証します。
 @MainActor
 final class LiveTelemetryModelTests: XCTestCase {
-    /// 初回探索後もPID取得を繰り返します。
+    /// 各テストのモデル部品です。
+    private var fixture: LiveTelemetryModelFixture?
+
+    /// 動いている取得を止めます。
     ///
-    /// 責務: 接続開始が単発読取ではなく継続更新へ遷移することを確認します。
-    func testStartContinuesPollingAfterInitialDiscovery() async {
-        let telemetry = CountingPIDTelemetryFake()
-        let model = LiveTelemetryModel(
-            readMajorPIDs: ReadMajorOBDPIDsUseCase(
-                definitionRepository: FixedPIDDefinitionRepository(),
-                telemetry: telemetry
-            )
+    /// 責務: テストごとに応答待ちの要求と取得Taskを片付けます。
+    override func tearDown() async throws {
+        await fixture?.tearDown()
+        fixture = nil
+        try await super.tearDown()
+    }
+
+    /// 初回周回の後も要求を送り続け、停止で待機状態へ戻ります。
+    ///
+    /// 責務: 開始が単発読取ではなく継続取得になり、停止がendSession後に待機状態になることを確認します。
+    func testStartContinuesPollingAfterInitialRound() async {
+        let fixture = make(catalog: LiveTelemetryTestDefinitions.standard([0x0C, 0x0D]))
+        fixture.start()
+        XCTAssertEqual(fixture.model.state.phase, .reading)
+        XCTAssertEqual(fixture.sleepInhibitor.connectionStates, [true])
+
+        await fixture.telemetry.answer(4) { _ in .responded([1]) }
+        await fixture.telemetry.waitForSentRequests(5)
+        XCTAssertEqual(fixture.model.state.phase, .loaded)
+        fixture.model.send(.stopRequested)
+        await fixture.waitUntil("待機状態") { fixture.model.state.phase == .idle }
+
+        XCTAssertEqual(fixture.notifications.endReasons, [.userDisconnected])
+        XCTAssertGreaterThanOrEqual(fixture.telemetry.endSessionCount, 1)
+    }
+
+    /// PIDカタログを読めなければ専用の失敗表示になり、要求を送りません。
+    ///
+    /// 責務: カタログ利用不能をスリープ抑止解除済みの専用失敗表示と取得失敗の通知へ変換することを確認します。
+    func testCatalogFailureMapsToDedicatedMessage() async {
+        let fixture = make(catalog: [], failsCatalog: true)
+        fixture.start()
+
+        await fixture.waitUntil("失敗表示") { fixture.model.state.phase == .failed }
+
+        XCTAssertEqual(fixture.model.state.failureKey, "telemetry.error.pid_catalog_unavailable")
+        XCTAssertEqual(fixture.notifications.endReasons, [.acquisitionFailed])
+        XCTAssertEqual(fixture.sleepInhibitor.connectionStates, [true, false])
+        XCTAssertEqual(fixture.telemetry.sentRequests, [])
+    }
+
+    /// リンク断の猶予切れによる終了は、未接続状態・接続断の表示キーと、最後の受信時刻付きの接続断の通知になります。
+    ///
+    /// 責務: 一時停止から猶予を過ぎた起床で終了し、`sessionDidEnd` が最後に正常応答を受けた実時刻で呼ばれることを確認します。
+    func testGraceExpiryAfterLinkLossMapsToDisconnectedState() async {
+        let fixture = make(catalog: LiveTelemetryTestDefinitions.standard([0x0C]))
+        fixture.start()
+        await fixture.telemetry.release(.responded([1]))
+        await fixture.telemetry.release(.transportFailure)
+        await fixture.waitUntil("一時停止") { fixture.model.state.pauseStatus?.isRecovering == false }
+        fixture.dates.set(Date(timeIntervalSince1970: 9_999))
+        fixture.clock.advance(byNanoseconds: 180 * 1_000_000_000 + 1)
+
+        fixture.model.send(.foregroundTransitionOccurred)
+        await fixture.waitUntil("接続断の終了") { fixture.model.state.failureKey != nil }
+
+        XCTAssertEqual(fixture.model.state.phase, .idle)
+        XCTAssertNil(fixture.model.state.pauseStatus)
+        XCTAssertEqual(fixture.model.state.failureKey, "telemetry.disconnected.connection_lost")
+        XCTAssertEqual(fixture.notifications.endReasons, [.connectionLost])
+        XCTAssertEqual(fixture.notifications.endedAts, [Date(timeIntervalSince1970: 1_000)])
+        XCTAssertEqual(fixture.sleepInhibitor.connectionStates, [true, false])
+    }
+
+    /// 記録の失敗による終了は読取失敗の表示になります。
+    ///
+    /// 責務: `recordingFailed` を失敗状態・読取失敗表示・取得失敗通知へ変換することを確認します。
+    func testRecordingFailureMapsToReadFailed() async {
+        let fixture = make(catalog: LiveTelemetryTestDefinitions.standard([0x0C]), recorder: LiveTelemetryRecordingPortSpy(failing: .record))
+        fixture.start()
+        await fixture.telemetry.release(.responded([1]))
+
+        await fixture.waitUntil("失敗表示") { fixture.model.state.phase == .failed }
+
+        XCTAssertEqual(fixture.model.state.failureKey, "telemetry.error.read_failed")
+        XCTAssertEqual(fixture.notifications.endReasons, [.acquisitionFailed])
+        XCTAssertEqual(fixture.sleepInhibitor.connectionStates, [true, false])
+    }
+
+    /// 記録の開始に失敗すると要求を1件も送らずに読取失敗の表示になります。
+    ///
+    /// 責務: manifest保存相当の開始失敗が物理要求0件の取得失敗になることを確認します。
+    func testRecordingStartFailurePreventsEveryRequest() async {
+        let fixture = make(catalog: LiveTelemetryTestDefinitions.standard([0x0C]), recorder: LiveTelemetryRecordingPortSpy(failing: .start))
+        fixture.start()
+
+        await fixture.waitUntil("失敗表示") { fixture.model.state.phase == .failed }
+
+        XCTAssertEqual(fixture.telemetry.sentRequests, [])
+        XCTAssertEqual(fixture.model.state.failureKey, "telemetry.error.read_failed")
+        XCTAssertEqual(fixture.notifications.endReasons, [.acquisitionFailed])
+    }
+
+    /// 停止時に記録の終了が失敗すると、待機状態ではなく読取失敗の表示になります。
+    ///
+    /// 責務: 停止時の保存失敗を成功扱いせず、取得失敗として通知することを確認します。
+    func testStopWithRecordingFailureMapsToReadFailed() async {
+        let fixture = make(catalog: LiveTelemetryTestDefinitions.standard([0x0C]), recorder: LiveTelemetryRecordingPortSpy(failing: .finish))
+        fixture.start()
+        await fixture.telemetry.waitForSentRequests(1)
+
+        fixture.model.send(.stopRequested)
+        await fixture.waitUntil("停止の完了") { fixture.model.state.phase != .stopping }
+
+        XCTAssertEqual(fixture.model.state.phase, .failed)
+        XCTAssertEqual(fixture.model.state.failureKey, "telemetry.error.read_failed")
+        XCTAssertEqual(fixture.notifications.endReasons, [.acquisitionFailed])
+        XCTAssertEqual(fixture.sleepInhibitor.connectionStates, [true, false])
+    }
+
+    /// バックグラウンド移行で現在の世代の保存待ちをflushさせます。
+    ///
+    /// 責務: バックグラウンド移行の操作が記録ポートへ契機付きのflushとして届くことを確認します。
+    func testBackgroundTransitionFlushesCurrentGeneration() async {
+        let recorder = LiveTelemetryRecordingPortSpy()
+        let fixture = make(catalog: LiveTelemetryTestDefinitions.standard([0x0C]), recorder: recorder)
+        fixture.start()
+        await fixture.telemetry.waitForSentRequests(1)
+
+        fixture.model.send(.backgroundTransitionOccurred)
+
+        let arrived = await LiveTelemetryBoundedWaiter.waitUntil("flushの到着") {
+            let calls = await recorder.calls
+            return calls.contains(.flush(.backgroundTransition, generation: 1))
+        }
+
+        XCTAssertTrue(arrived)
+    }
+
+    /// A6の観測を累積走行距離として通知します。
+    ///
+    /// 責務: 数値化済み Service 01 PID A6 が走行距離の通知になることを確認します。
+    func testOdometerSampleNotifiesDistance() async {
+        let fixture = make(catalog: LiveTelemetryTestDefinitions.standard([0xA6]))
+        fixture.start()
+        await fixture.telemetry.release(.responded([123]))
+
+        await fixture.waitUntil("距離通知") { !fixture.notifications.distances.isEmpty }
+
+        XCTAssertEqual(fixture.notifications.distances.first, .init(source: .odometer, kilometers: 123))
+    }
+
+    /// A6が無ければPID 31の観測を代替の累積距離として通知します。
+    ///
+    /// 責務: 数値化済み Service 01 PID 31 が取得元付きの距離通知になることを確認します。
+    func testDistanceSinceCodesClearedNotifiesFallback() async {
+        let fixture = make(catalog: LiveTelemetryTestDefinitions.standard([0x31]))
+        fixture.start()
+        await fixture.telemetry.release(.responded([200]))
+
+        await fixture.waitUntil("距離通知") { !fixture.notifications.distances.isEmpty }
+
+        XCTAssertEqual(fixture.notifications.distances.first, .init(source: .distanceSinceCodesCleared, kilometers: 200))
+    }
+
+    /// ZD8型式では専用PIDも同じ取得で表示し、専用走行距離をA6より優先して通知します。
+    ///
+    /// 責務: 車種専用PIDの観測が表示と型式付きの距離通知へ反映されることを確認します。
+    func testZD8VehicleSpecificOdometerIsDisplayedAndNotified() async {
+        let catalog = LiveTelemetryTestDefinitions.standard([0x0C, 0xA6]) + ZD8OBDPIDSeed.definitions
+        let fixture = make(catalog: catalog)
+        fixture.start(vehicle: .registered(LiveTelemetryTestDefinitions.vehicleID, vehicleModelCode: ZD8VehicleModelPolicy.modelCode))
+        await fixture.telemetry.answer(catalog.count) { request in
+            request.service == 0x21 ? .responded([0x00, 0x01, 0xE2, 0x40]) : .responded([10])
+        }
+
+        await fixture.waitUntil("読み込み済み") { fixture.model.state.phase == .loaded }
+
+        XCTAssertEqual(fixture.model.state.vehicle?.vehicleModelCode, ZD8VehicleModelPolicy.modelCode)
+        XCTAssertEqual(Set(fixture.model.state.samples.map(\.request)), Set(catalog.map(LiveTelemetryTestDefinitions.request)))
+        XCTAssertEqual(
+            fixture.notifications.distances.first,
+            .init(source: .vehicleSpecificOdometer, kilometers: 12_345.6, vehicleModelCode: ZD8VehicleModelPolicy.modelCode)
         )
-
-        model.send(.startRequested(endpoint, vehicleID, vehicleModelCode: nil))
-        for _ in 0..<100 {
-            if await telemetry.readCount >= 2 { break }
-            try? await Task.sleep(for: .milliseconds(10))
-        }
-
-        XCTAssertEqual(model.state.phase, .loaded)
-        let readCount = await telemetry.readCount
-        XCTAssertGreaterThanOrEqual(readCount, 2)
-        model.send(.stopRequested)
-        XCTAssertEqual(model.state.phase, .stopping)
-        for _ in 0..<100 where model.state.phase != .idle {
-            try? await Task.sleep(for: .milliseconds(10))
-        }
-        XCTAssertEqual(model.state.phase, .idle)
     }
 
-    /// PID定義DB失敗を通信失敗とは異なる表示キーへ反映します。
+    /// モデル部品を生成して後片付けの対象にします。
     ///
-    /// 責務: カタログ利用不能エラーがスリープ抑止解除済みの専用失敗表示になることを確認します。
-    func testReadMapsDefinitionCatalogFailureToDedicatedMessage() async {
-        let systemSleepInhibitor = VehicleConnectionSystemSleepInhibitorSpy()
-        let model = LiveTelemetryModel(
-            readMajorPIDs: ReadMajorOBDPIDsUseCase(
-                definitionRepository: FailingPIDDefinitionRepository(),
-                telemetry: UnavailableOBDPIDTelemetryAdapter()
-            ),
-            systemSleepInhibitor: systemSleepInhibitor
-        )
-
-        model.send(.startRequested(endpoint, vehicleID, vehicleModelCode: nil))
-        for _ in 0..<100 where model.state.phase != .failed {
-            await Task.yield()
-        }
-
-        XCTAssertEqual(model.state.phase, .failed)
-        XCTAssertEqual(model.state.failureKey, "telemetry.error.pid_catalog_unavailable")
-        XCTAssertEqual(systemSleepInhibitor.connectionStates, [true, false])
-    }
-
-    /// 切断要求が通信セッション終了後に待機状態へ戻ることを検証します。
-    ///
-    /// 責務: 手動切断が通信資源解放後にスリープ抑止を解除することを確認します。
-    func testStopWaitsForSessionEndBeforeBecomingIdle() async {
-        let telemetry = EndTrackingPIDTelemetryFake()
-        let systemSleepInhibitor = VehicleConnectionSystemSleepInhibitorSpy()
-        var endReasons: [ConnectionSessionEndReason] = []
-        let model = LiveTelemetryModel(
-            readMajorPIDs: ReadMajorOBDPIDsUseCase(
-                definitionRepository: FixedPIDDefinitionRepository(),
-                telemetry: telemetry
-            ),
-            sessionDidEnd: { endReasons.append($0) },
-            systemSleepInhibitor: systemSleepInhibitor
-        )
-        model.send(.startRequested(endpoint, vehicleID, vehicleModelCode: nil))
-        XCTAssertEqual(systemSleepInhibitor.connectionStates, [true])
-        for _ in 0..<100 where model.state.phase == .reading {
-            try? await Task.sleep(for: .milliseconds(10))
-        }
-
-        model.send(.stopRequested)
-
-        XCTAssertEqual(model.state.phase, .stopping)
-        for _ in 0..<100 where model.state.phase != .idle {
-            try? await Task.sleep(for: .milliseconds(10))
-        }
-        XCTAssertEqual(model.state.phase, .idle)
-        let endCount = await telemetry.endCount
-        XCTAssertGreaterThanOrEqual(endCount, 1)
-        XCTAssertEqual(endReasons, [.userDisconnected])
-        XCTAssertEqual(systemSleepInhibitor.connectionStates, [true, false])
-    }
-
-    /// 継続取得中に全PID応答が消えた場合の自動切断を検証します。
-    ///
-    /// 責務: ECU無応答をスリープ抑止解除済みの未接続状態へ変換することを確認します。
-    func testNoVehicleResponseEndsSessionAndBecomesDisconnected() async {
-        let telemetry = InitialResponseThenEmptyPIDTelemetryFake()
-        let systemSleepInhibitor = VehicleConnectionSystemSleepInhibitorSpy()
-        var endReasons: [ConnectionSessionEndReason] = []
-        let model = LiveTelemetryModel(
-            readMajorPIDs: ReadMajorOBDPIDsUseCase(
-                definitionRepository: FixedPIDDefinitionRepository(),
-                telemetry: telemetry
-            ),
-            sessionDidEnd: { endReasons.append($0) },
-            systemSleepInhibitor: systemSleepInhibitor
-        )
-
-        model.send(.startRequested(endpoint, vehicleID, vehicleModelCode: nil))
-        for _ in 0..<150 where model.state.failureKey == nil {
-            try? await Task.sleep(for: .milliseconds(10))
-        }
-
-        XCTAssertEqual(model.state.phase, .idle)
-        XCTAssertEqual(model.state.failureKey, "telemetry.disconnected.no_response")
-        let endCount = await telemetry.endCount
-        XCTAssertGreaterThanOrEqual(endCount, 1)
-        XCTAssertEqual(endReasons, [.vehicleNoResponse])
-        XCTAssertEqual(systemSleepInhibitor.connectionStates, [true, false])
-    }
-
-    /// A6観測を累積走行距離通知としてLogging境界へ渡します。
-    ///
-    /// 責務: 数値化済みService 01 PID A6が走行距離コールバックへ通知されることを確認します。
-    func testOdometerSampleNotifiesLoggingBoundary() async {
-        var observations: [ConnectionSessionDistanceObservation] = []
-        let model = LiveTelemetryModel(
-            readMajorPIDs: ReadMajorOBDPIDsUseCase(
-                definitionRepository: FixedOdometerDefinitionRepository(),
-                telemetry: FixedOdometerTelemetryFake()
-            ),
-            distanceDidChange: { observations.append($0) }
-        )
-
-        model.send(.startRequested(endpoint, vehicleID, vehicleModelCode: nil))
-        for _ in 0..<100 where observations.isEmpty {
-            try? await Task.sleep(for: .milliseconds(10))
-        }
-
-        XCTAssertEqual(observations.first, .init(source: .odometer, kilometers: 12_345.6))
-        model.send(.stopRequested)
-    }
-
-    /// A6非対応時はPID 31観測を接続履歴の代替累積距離として渡します。
-    ///
-    /// 責務: 数値化済みService 01 PID 31が取得元付き走行距離コールバックへ通知されることを確認します。
-    func testDistanceSinceCodesClearedNotifiesFallbackBoundary() async {
-        var observations: [ConnectionSessionDistanceObservation] = []
-        let model = LiveTelemetryModel(
-            readMajorPIDs: ReadMajorOBDPIDsUseCase(
-                definitionRepository: FixedDistanceSinceCodesClearedDefinitionRepository(),
-                telemetry: FixedDistanceSinceCodesClearedTelemetryFake()
-            ),
-            distanceDidChange: { observations.append($0) }
-        )
-
-        model.send(.startRequested(endpoint, vehicleID, vehicleModelCode: nil))
-        for _ in 0..<100 where observations.isEmpty {
-            try? await Task.sleep(for: .milliseconds(10))
-        }
-
-        XCTAssertEqual(observations.first, .init(source: .distanceSinceCodesCleared, kilometers: 1_234))
-        model.send(.stopRequested)
-    }
-
-    /// ZD8型式を指定すると専用値を含む標準ポーリングを使用します。
-    ///
-    /// 責務: 走行距離とAT油温をリアルタイム表示へ残し専用走行距離をLoggingへ通知することを確認します。
-    func testZD8ExtendedPIDsUseStandardPollingAndNotifyVehicleSpecificOdometer() async {
-        let telemetry = ZD8ExtendedPIDTelemetryFake()
-        var observations: [ConnectionSessionDistanceObservation] = []
-        let model = LiveTelemetryModel(
-            readMajorPIDs: ReadMajorOBDPIDsUseCase(
-                definitionRepository: ZD8ExtendedPIDDefinitionRepository(),
-                telemetry: telemetry
-            ),
-            distanceDidChange: { observations.append($0) }
-        )
-
-        model.send(.startRequested(endpoint, vehicleID, vehicleModelCode: ZD8VehicleModelPolicy.modelCode))
-        for _ in 0..<100 where model.state.phase != .loaded || observations.isEmpty {
-            try? await Task.sleep(for: .milliseconds(10))
-        }
-
-        XCTAssertEqual(model.state.vehicleModelCode, ZD8VehicleModelPolicy.modelCode)
-        XCTAssertEqual(Set(model.state.samples.map(\.request)), Set(ZD8ExtendedPIDDefinitionRepository.requests))
-        XCTAssertEqual(observations.first, .init(source: .vehicleSpecificOdometer, kilometers: 12_345.6, vehicleModelCode: "ZD8"))
-        model.send(.stopRequested)
-    }
-
-    /// テスト用OBD接続終端です。
-    private var endpoint: OBDConnectionEndpoint {
-        .init(transport: .serial, systemIdentifier: "/dev/cu.test", displayName: "Test adapter")
-    }
-
-    /// テスト用のアプリ内車両IDです。
-    private var vehicleID: VehicleID {
-        VehicleID(rawValue: UUID(uuidString: "10000000-0000-0000-0000-000000000001")!)
-    }
-}
-
-/// 車両接続中のシステムスリープ抑止通知を記録します。
-@MainActor
-private final class VehicleConnectionSystemSleepInhibitorSpy: VehicleConnectionSystemSleepInhibiting {
-    /// 通知された車両接続状態です。
-    private(set) var connectionStates: [Bool] = []
-
-    /// 空の通知履歴を生成します。
-    ///
-    /// 責務: スリープ抑止通知の記録先を空状態で構築します。
-    init() {}
-
-    /// 通知された車両接続状態を記録します。
-    ///
-    /// 責務: 1件の車両接続状態を検証用履歴へ追加します。
-    /// - Parameter isActive: 通知された車両接続状態。
-    func setVehicleConnectionActive(_ isActive: Bool) {
-        connectionStates.append(isActive)
-    }
-}
-
-/// 回転数と車速定義を返すテストRepositoryです。
-private struct EngineSpeedAndVehicleSpeedDefinitionRepository: OBDPIDDefinitionRepository {
-    /// 固定定義Repositoryを生成します。
-    ///
-    /// 責務: 標準PIDモデルテスト用の定義供給境界を構築します。
-    init() {}
-
-    /// 回転数と車速の定義を返します。
-    ///
-    /// 責務: 標準ポーリングで数値化する2件の固定定義を返します。
-    /// - Returns: Service 01 PID 0Cと0Dの定義。
-    func definitions() throws -> [OBDPIDDefinition] {
-        [
-            OBDPIDDefinition(
-                service: 0x01,
-                pid: 0x0C,
-                nameKey: "test.engine_speed",
-                requiredByteCount: 2,
-                formula: "(A * 256 + B) / 4",
-                unit: "rpm",
-                minimumValue: 0,
-                maximumValue: nil,
-                sourceURI: "test://engine-speed",
-                revision: 1
-            ),
-            OBDPIDDefinition(
-                service: 0x01,
-                pid: 0x0D,
-                nameKey: "test.vehicle_speed",
-                requiredByteCount: 1,
-                formula: "A",
-                unit: "km/h",
-                minimumValue: 0,
-                maximumValue: nil,
-                sourceURI: "test://vehicle-speed",
-                revision: 1
-            )
-        ]
-    }
-
-    /// テスト対象外の保存要求を受け付けます。
-    ///
-    /// 責務: 未使用のPID定義保存を変更なしで完了します。
-    /// - Parameter definition: テストでは使用しない定義。
-    func upsert(_ definition: OBDPIDDefinition) throws {}
-
-    /// テスト対象外の単一定義読込へ未登録を返します。
-    ///
-    /// 責務: 未使用の単一PID照会を未登録結果へ変換します。
+    /// 責務: カタログ・失敗指定・記録ポートを固定したモデル部品を返します。
     /// - Parameters:
-    ///   - service: テストでは使用しないService番号。
-    ///   - pid: テストでは使用しないPID番号。
-    /// - Returns: 常に `nil`。
-    func definition(service: UInt8, pid: UInt8) throws -> OBDPIDDefinition? { nil }
-}
-
-/// 標準2件とZD8専用2件を返すテストRepositoryです。
-private struct ZD8ExtendedPIDDefinitionRepository: OBDPIDDefinitionRepository {
-    /// リアルタイム表示で期待する全要求です。
-    static let requests: [OBDPIDRequest] = [
-        OBDPIDRequest(service: 0x01, pid: 0x0C),
-        OBDPIDRequest(service: 0x01, pid: 0x0D),
-        OBDPIDRequest(service: 0x21, pid: 0x02),
-        OBDPIDRequest(service: 0x21, pid: 0x17)
-    ]
-
-    /// 固定定義Repositoryを生成します。
-    ///
-    /// 責務: ZD8専用リアルタイム取得テスト用の定義供給境界を構築します。
-    init() {}
-
-    /// 標準2件とZD8専用2件の定義を返します。
-    ///
-    /// 責務: リアルタイム取得へ標準PIDおよび確定済みZD8専用PIDを供給します。
-    /// - Returns: 回転数、車速、走行距離、AT油温の定義。
-    func definitions() throws -> [OBDPIDDefinition] {
-        try EngineSpeedAndVehicleSpeedDefinitionRepository().definitions() + ZD8OBDPIDSeed.definitions
+    ///   - catalog: PIDカタログの定義。
+    ///   - failsCatalog: カタログ読込を失敗させる場合は `true`。
+    ///   - recorder: 記録ポートのスパイ。
+    /// - Returns: モデル部品。
+    private func make(
+        catalog: [OBDPIDDefinition],
+        failsCatalog: Bool = false,
+        recorder: LiveTelemetryRecordingPortSpy? = nil
+    ) -> LiveTelemetryModelFixture {
+        let fixture = LiveTelemetryModelFixture(catalog: catalog, failsCatalog: failsCatalog, recorder: recorder)
+        self.fixture = fixture
+        return fixture
     }
-
-    /// テスト対象外の保存要求を受け付けます。
-    ///
-    /// 責務: 未使用のPID定義保存を変更なしで完了します。
-    /// - Parameter definition: テストでは使用しない定義。
-    func upsert(_ definition: OBDPIDDefinition) throws {}
-
-    /// テスト対象外の単一定義読込へ未登録を返します。
-    ///
-    /// 責務: 未使用の単一PID照会を未登録結果へ変換します。
-    /// - Parameters:
-    ///   - service: テストでは使用しないService番号。
-    ///   - pid: テストでは使用しないPID番号。
-    /// - Returns: 常に `nil`。
-    func definition(service: UInt8, pid: UInt8) throws -> OBDPIDDefinition? { nil }
-}
-
-/// 標準PIDとZD8専用PIDへ固定応答を返す通信境界です。
-@MainActor
-private final class ZD8ExtendedPIDTelemetryFake: OBDPIDTelemetryPort {
-
-    /// 空の読取履歴を生成します。
-    ///
-    /// 責務: ZD8専用リアルタイム取得テスト用の通信境界を構築します。
-    init() {}
-
-    /// 標準要求へ回転数と車速の固定Payloadを返します。
-    ///
-    /// 責務: 受け取った標準要求を数式評価可能な固定応答へ変換します。
-    /// - Parameters:
-    ///   - requests: 標準PID要求。
-    ///   - endpoint: テストでは使用しない終端。
-    /// - Returns: 要求に存在する回転数と車速のPayload。
-    func read(_ requests: [OBDPIDRequest], using endpoint: OBDConnectionEndpoint) async throws -> [OBDPIDRequest: [UInt8]] {
-        var responses: [OBDPIDRequest: [UInt8]] = [:]
-        for request in requests {
-            if request == OBDPIDRequest(service: 0x01, pid: 0x0C) { responses[request] = [0x1F, 0x40] }
-            if request == OBDPIDRequest(service: 0x01, pid: 0x0D) { responses[request] = [60] }
-        }
-        return responses
-    }
-
-    /// ZD8専用要求へ走行距離とAT油温の固定Payloadを返します。
-    ///
-    /// 責務: ヘッダー付き専用定義を数式評価可能な固定応答へ変換します。
-    /// - Parameters:
-    ///   - definitions: ZD8専用PID定義。
-    ///   - endpoint: テストでは使用しない終端。
-    /// - Returns: 走行距離とAT油温のPayload。
-    func readVehicleSpecific(_ definitions: [OBDPIDDefinition], using endpoint: OBDConnectionEndpoint) async throws -> [OBDPIDRequest: [UInt8]] {
-        var responses: [OBDPIDRequest: [UInt8]] = [:]
-        for definition in definitions {
-            let request = OBDPIDRequest(service: definition.service, pid: definition.pid)
-            if request.pid == 0x02 { responses[request] = [0x00, 0x01, 0xE2, 0x40] }
-            if request.pid == 0x17 { responses[request] = [130] }
-        }
-        return responses
-    }
-
-    /// テスト通信セッションを終了します。
-    ///
-    /// 責務: 終了要求を副作用なしで受理します。
-    func endSession() async {}
-}
-
-/// A6定義だけを返すテスト用PID Repositoryです。
-private struct FixedOdometerDefinitionRepository: OBDPIDDefinitionRepository {
-    /// A6通知テスト用の空状態を生成します。
-    ///
-    /// 責務: 固定累積走行距離定義を提供するテスト境界を構築します。
-    init() {}
-
-    /// 累積走行距離定義を1件返します。
-    ///
-    /// 責務: Service 01 PID A6の固定定義一覧を返します。
-    /// - Returns: 4バイトの累積走行距離定義1件。
-    func definitions() throws -> [OBDPIDDefinition] {
-        [OBDPIDDefinition(
-            service: 0x01,
-            pid: 0xA6,
-            nameKey: "obd.pid.odometer",
-            requiredByteCount: 4,
-            formula: "(A * 16777216 + B * 65536 + C * 256 + D) / 10",
-            unit: "km",
-            minimumValue: 0,
-            maximumValue: nil,
-            sourceURI: "test://odometer",
-            revision: 1
-        )]
-    }
-
-    /// テスト対象外の保存要求を受け付けます。
-    ///
-    /// 責務: 未使用のPID定義保存を変更なしで完了します。
-    /// - Parameter definition: テストでは使用しない定義。
-    func upsert(_ definition: OBDPIDDefinition) throws {}
-
-    /// テスト対象外の単一定義読込へ未登録を返します。
-    ///
-    /// 責務: 未使用の単一PID照会を未登録結果へ変換します。
-    /// - Parameters:
-    ///   - service: テストでは使用しないService番号。
-    ///   - pid: テストでは使用しないPID番号。
-    /// - Returns: 常に `nil`。
-    func definition(service: UInt8, pid: UInt8) throws -> OBDPIDDefinition? { nil }
-}
-
-/// 固定の累積走行距離応答を返すテスト用PID境界です。
-@MainActor
-private final class FixedOdometerTelemetryFake: OBDPIDTelemetryPort {
-    /// A6通知テスト用の空状態を生成します。
-    ///
-    /// 責務: 固定累積走行距離応答を提供するテスト境界を構築します。
-    init() {}
-
-    /// 要求PIDへ12,345.6 km相当の固定バイトを返します。
-    ///
-    /// 責務: 1回のA6読取要求を固定累積走行距離応答へ変換します。
-    /// - Parameters:
-    ///   - requests: 応答するPID要求。
-    ///   - endpoint: テストでは使用しない接続終端。
-    /// - Returns: A6へ12,345.6 km相当の4バイトを割り当てた辞書。
-    func read(
-        _ requests: [OBDPIDRequest],
-        using endpoint: OBDConnectionEndpoint
-    ) async throws -> [OBDPIDRequest: [UInt8]] {
-        Dictionary(uniqueKeysWithValues: requests.map { ($0, [0x00, 0x01, 0xE2, 0x40]) })
-    }
-}
-
-/// PID 31定義だけを返すテスト用PID Repositoryです。
-private struct FixedDistanceSinceCodesClearedDefinitionRepository: OBDPIDDefinitionRepository {
-    /// PID 31通知テスト用の空状態を生成します。
-    ///
-    /// 責務: 固定コード消去後走行距離定義を提供するテスト境界を構築します。
-    init() {}
-
-    /// コード消去後走行距離定義を1件返します。
-    ///
-    /// 責務: Service 01 PID 31の固定定義一覧を返します。
-    /// - Returns: 2バイトのコード消去後走行距離定義1件。
-    func definitions() throws -> [OBDPIDDefinition] {
-        [OBDPIDDefinition(
-            service: 0x01,
-            pid: 0x31,
-            nameKey: "obd.pid.distance_since_codes_cleared",
-            requiredByteCount: 2,
-            formula: "A * 256 + B",
-            unit: "km",
-            minimumValue: 0,
-            maximumValue: 65_535,
-            sourceURI: "test://distance-since-codes-cleared",
-            revision: 1
-        )]
-    }
-
-    /// テスト対象外の保存要求を受け付けます。
-    ///
-    /// 責務: 未使用のPID定義保存を変更なしで完了します。
-    /// - Parameter definition: テストでは使用しない定義。
-    func upsert(_ definition: OBDPIDDefinition) throws {}
-
-    /// テスト対象外の単一定義読込へ未登録を返します。
-    ///
-    /// 責務: 未使用の単一PID照会を未登録結果へ変換します。
-    /// - Parameters:
-    ///   - service: テストでは使用しないService番号。
-    ///   - pid: テストでは使用しないPID番号。
-    /// - Returns: 常に `nil`。
-    func definition(service: UInt8, pid: UInt8) throws -> OBDPIDDefinition? { nil }
-}
-
-/// 固定のコード消去後走行距離応答を返すテスト用PID境界です。
-@MainActor
-private final class FixedDistanceSinceCodesClearedTelemetryFake: OBDPIDTelemetryPort {
-    /// PID 31通知テスト用の空状態を生成します。
-    ///
-    /// 責務: 固定コード消去後走行距離応答を提供するテスト境界を構築します。
-    init() {}
-
-    /// 要求PIDへ1,234 km相当の固定バイトを返します。
-    ///
-    /// 責務: 1回のPID 31読取要求を固定コード消去後走行距離応答へ変換します。
-    /// - Parameters:
-    ///   - requests: 応答するPID要求。
-    ///   - endpoint: テストでは使用しない接続終端。
-    /// - Returns: PID 31へ1,234 km相当の2バイトを割り当てた辞書。
-    func read(
-        _ requests: [OBDPIDRequest],
-        using endpoint: OBDConnectionEndpoint
-    ) async throws -> [OBDPIDRequest: [UInt8]] {
-        Dictionary(uniqueKeysWithValues: requests.map { ($0, [0x04, 0xD2]) })
-    }
-}
-
-/// 回転数定義を返すテスト用PID Repositoryです。
-private struct FixedPIDDefinitionRepository: OBDPIDDefinitionRepository {
-    /// 固定定義Repositoryを生成します。
-    ///
-    /// 責務: 継続取得テスト用のPID定義供給境界を構築します。
-    init() {}
-
-    /// 回転数定義を1件返します。
-    ///
-    /// 責務: 継続取得に使用する固定PID定義一覧を返します。
-    /// - Returns: Service 01 PID 0Cの定義1件。
-    func definitions() throws -> [OBDPIDDefinition] {
-        [OBDPIDDefinition(
-            service: 0x01,
-            pid: 0x0C,
-            nameKey: "test.engine_speed",
-            requiredByteCount: 2,
-            formula: "(A * 256 + B) / 4",
-            unit: "rpm",
-            minimumValue: 0,
-            maximumValue: nil,
-            sourceURI: "test://engine-speed",
-            revision: 1
-        )]
-    }
-
-    /// テスト対象外の保存要求を受け付けます。
-    ///
-    /// 責務: 未使用のPID定義保存を変更なしで完了します。
-    /// - Parameter definition: テストでは使用しない定義。
-    func upsert(_ definition: OBDPIDDefinition) throws {}
-
-    /// テスト対象外の単一定義読込へ未登録を返します。
-    ///
-    /// 責務: 未使用の単一PID照会を未登録結果へ変換します。
-    /// - Parameters:
-    ///   - service: テストでは使用しないService番号。
-    ///   - pid: テストでは使用しないPID番号。
-    /// - Returns: 常に `nil`。
-    func definition(service: UInt8, pid: UInt8) throws -> OBDPIDDefinition? { nil }
-}
-
-/// 読取回数を記録して固定回転数バイトを返します。
-@MainActor
-private final class CountingPIDTelemetryFake: OBDPIDTelemetryPort {
-    /// 受け取った読取要求の回数です。
-    private(set) var readCount = 0
-
-    /// 空の読取履歴を生成します。
-    ///
-    /// 責務: 継続取得テストの読取回数を初期化します。
-    init() {}
-
-    /// 読取回数を増やして要求PIDへ固定バイトを返します。
-    ///
-    /// 責務: 1回のPID読取要求を計数済み固定応答へ変換します。
-    /// - Parameters:
-    ///   - requests: 応答するPID要求。
-    ///   - endpoint: テストでは使用しない接続終端。
-    /// - Returns: 各要求に対する800 rpm相当バイト。
-    func read(
-        _ requests: [OBDPIDRequest],
-        using endpoint: OBDConnectionEndpoint
-    ) async throws -> [OBDPIDRequest: [UInt8]] {
-        readCount += 1
-        return Dictionary(uniqueKeysWithValues: requests.map { ($0, [0x0C, 0x80]) })
-    }
-}
-
-/// 終了通知回数を記録する固定応答PID境界です。
-@MainActor
-private final class EndTrackingPIDTelemetryFake: OBDPIDTelemetryPort {
-    /// 受け取った終了通知の回数です。
-    private(set) var endCount = 0
-
-    /// 空の終了通知履歴を生成します。
-    ///
-    /// 責務: 安全終了テスト用のPID境界を初期化します。
-    init() {}
-
-    /// 要求PIDへ固定回転数バイトを返します。
-    ///
-    /// 責務: 1回のPID読取要求を固定応答へ変換します。
-    /// - Parameters:
-    ///   - requests: 応答するPID要求。
-    ///   - endpoint: テストでは使用しない接続終端。
-    /// - Returns: 各要求に対する800 rpm相当バイト。
-    func read(
-        _ requests: [OBDPIDRequest],
-        using endpoint: OBDConnectionEndpoint
-    ) async throws -> [OBDPIDRequest: [UInt8]] {
-        Dictionary(uniqueKeysWithValues: requests.map { ($0, [0x0C, 0x80]) })
-    }
-
-    /// 終了通知回数を増やします。
-    ///
-    /// 責務: 1件の通信セッション終了通知を記録します。
-    func endSession() async {
-        endCount += 1
-    }
-}
-
-/// 初回だけ応答し、その後はECU無応答を再現するPID境界です。
-@MainActor
-private final class InitialResponseThenEmptyPIDTelemetryFake: OBDPIDTelemetryPort {
-    /// 受け取った読取回数です。
-    private var readCount = 0
-    /// 受け取った終了通知の回数です。
-    private(set) var endCount = 0
-
-    /// 空の読取・終了履歴を生成します。
-    ///
-    /// 責務: ECU応答消失テスト用のPID境界を初期化します。
-    init() {}
-
-    /// 初回は固定応答、その後は空応答を返します。
-    ///
-    /// 責務: 継続取得中にECU応答が消失する境界を再現します。
-    /// - Parameters:
-    ///   - requests: 初回だけ応答するPID要求。
-    ///   - endpoint: テストでは使用しない接続終端。
-    /// - Returns: 初回は固定応答、2回目以降は空辞書。
-    func read(
-        _ requests: [OBDPIDRequest],
-        using endpoint: OBDConnectionEndpoint
-    ) async throws -> [OBDPIDRequest: [UInt8]] {
-        readCount += 1
-        guard readCount == 1 else { return [:] }
-        return Dictionary(uniqueKeysWithValues: requests.map { ($0, [0x0C, 0x80]) })
-    }
-
-    /// 終了通知回数を増やします。
-    ///
-    /// 責務: 自動切断による通信セッション終了通知を記録します。
-    func endSession() async {
-        endCount += 1
-    }
-}
-
-/// PID定義一覧の読込に必ず失敗します。
-private struct FailingPIDDefinitionRepository: OBDPIDDefinitionRepository {
-    /// PID定義読込失敗を表します。
-    private struct ReadError: Error {}
-
-    /// 常に失敗するPID定義Repositoryを生成します。
-    ///
-    /// 責務: PID定義読込失敗を再現する境界を生成します。
-    init() {}
-
-    /// PID定義一覧の読込失敗を送出します。
-    ///
-    /// 責務: LiveTelemetryへRepository読込失敗を通知します。
-    /// - Returns: この実装は値を返しません。
-    /// - Throws: 常にテスト用読込エラー。
-    func definitions() throws -> [OBDPIDDefinition] { throw ReadError() }
-
-    /// このテストでは使用しないPID定義保存です。
-    ///
-    /// 責務: テスト対象外の保存要求を変更なしで受け付けます。
-    /// - Parameter definition: 使用しないPID定義。
-    func upsert(_ definition: OBDPIDDefinition) throws {}
-
-    /// このテストでは使用しない単一PID定義読込です。
-    ///
-    /// 責務: テスト対象外の単一読込へ未登録を返します。
-    /// - Parameters:
-    ///   - service: 使用しないOBD Service番号。
-    ///   - pid: 使用しないService内PID番号。
-    /// - Returns: 常に `nil`。
-    func definition(service: UInt8, pid: UInt8) throws -> OBDPIDDefinition? { nil }
 }

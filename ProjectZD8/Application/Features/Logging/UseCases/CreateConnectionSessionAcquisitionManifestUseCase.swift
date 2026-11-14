@@ -25,6 +25,16 @@ nonisolated struct ConnectionSessionAcquisitionPIDCapabilityInput: Equatable, Se
         self.support = support
         self.isCollectionEnabled = isCollectionEnabled
     }
+
+    /// 未登録車両で、ECUが対応PIDビットマップで対応を返した標準PIDの証跡を生成します。
+    ///
+    /// 責務: 対応はECUの応答に基づく `supported`、収集選択は車両別トグルが存在しないため常に有効として固定します。
+    /// 未登録車両であることはセッションの車両が `nil` であることで表され、この証跡は推測した値を含みません。
+    /// - Parameter request: ECUが対応を返したService/PID。
+    /// - Returns: 未登録車両の標準PIDのcapability証跡。
+    static func unregisteredVehicleSupported(_ request: OBDPIDRequest) -> ConnectionSessionAcquisitionPIDCapabilityInput {
+        ConnectionSessionAcquisitionPIDCapabilityInput(request: request, support: .supported, isCollectionEnabled: true)
+    }
 }
 
 /// session取得manifestを作成する決定済みApplication入力です。
@@ -206,7 +216,9 @@ actor CreateConnectionSessionAcquisitionManifestUseCase {
                 startedAt: startedAt,
                 for: input.sessionID
             )
-        } catch ConnectionSessionAcquisitionRepositoryError.duplicate {
+        } catch ConnectionSessionAcquisitionRepositoryError.duplicate, ConnectionSessionAcquisitionRepositoryError.conflict {
+            // 同じsessionの続き(再試行・プロセス復帰後の続行)では開始境界の時刻が異なり `.conflict` になります。
+            // 保存済みmanifestと同一なら既存の開始境界をそのまま使い、異なる場合だけ競合として扱います。
             guard try acquisitionRepository.manifest(for: input.sessionID) == manifest else {
                 throw ConnectionSessionAcquisitionRepositoryError.conflict
             }

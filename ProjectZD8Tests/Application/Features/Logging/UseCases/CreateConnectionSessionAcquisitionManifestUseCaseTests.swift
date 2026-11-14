@@ -183,15 +183,40 @@ final class CreateConnectionSessionAcquisitionManifestUseCaseTests: XCTestCase {
         XCTAssertEqual(fixture.acquisitionRepository.storedStartedAt, fixture.startedAt)
     }
 
-    /// repository conflictを成功へ変換せず伝播します。
+    /// 保存済みと異なる内容のmanifestによる競合は、成功へ変換せず伝播し、保存済みの内容を変えません。
     ///
     /// 責務: 同一sessionの異内容manifest競合をRaw開始許可として扱わないことを確認します。
-    func testPropagatesRepositoryConflict() async {
-        let fixture = makeFixture(repositoryError: .conflict)
-        let error = await capturedError(from: fixture)
+    func testPropagatesRepositoryConflict() async throws {
+        let fixture = makeFixture()
+        _ = try await fixture.execute()
+        let stored = fixture.acquisitionRepository.storedManifest
+
+        let error = await capturedError(from: fixture, input: changingManifestVersion(of: fixture.input, to: 12))
 
         XCTAssertEqual(error, .repository(.conflict))
+        XCTAssertEqual(fixture.acquisitionRepository.storedManifest, stored)
         XCTAssertFalse(fixture.acquisitionRepository.hasObservablePartialSuccess)
+    }
+
+    /// 同じsessionの続き(再試行・プロセス復帰後)で同じ内容のmanifestなら、開始境界の時刻が違っても保存済みの境界で続行します。
+    ///
+    /// 責務: 同一内容の再保存の競合を、保存済みの開始境界を変えない成功として扱うことを確認します。
+    func testSameManifestWithDifferentStartBoundaryContinues() async throws {
+        let fixture = makeFixture()
+        _ = try await fixture.execute()
+        let storedStartedAt = fixture.acquisitionRepository.storedStartedAt
+        let secondUseCase = CreateConnectionSessionAcquisitionManifestUseCase(
+            acquisitionRepository: fixture.acquisitionRepository,
+            evidencePort: FixedAcquisitionEvidencePort(evidence: runtimeEvidence(platform: .macOS)),
+            now: { Date(timeIntervalSinceReferenceDate: 9_000) }
+        )
+        await secondUseCase.activate(generation: fixture.input.generation)
+
+        let permission = try await secondUseCase.execute(fixture.input)
+
+        XCTAssertEqual(permission.manifest, fixture.acquisitionRepository.storedManifest)
+        XCTAssertEqual(fixture.acquisitionRepository.storedStartedAt, storedStartedAt)
+        XCTAssertEqual(fixture.acquisitionRepository.saveStartCallCount, 2)
     }
 
     /// repository unavailableを成功へ変換せず伝播します。
@@ -224,7 +249,10 @@ final class CreateConnectionSessionAcquisitionManifestUseCaseTests: XCTestCase {
         let fixture = makeFixture(evidencePort: port)
         await fixture.useCase.activate(generation: fixture.input.generation)
         let task = Task { try await fixture.useCase.execute(fixture.input) }
-        while !(await port.isWaiting) { await Task.yield() }
+        guard await waitUntilSuspended(port) else {
+            task.cancel()
+            return
+        }
 
         await fixture.useCase.activate(generation: fixture.input.generation + 1)
         await port.resume()
@@ -242,7 +270,10 @@ final class CreateConnectionSessionAcquisitionManifestUseCaseTests: XCTestCase {
         let fixture = makeFixture(evidencePort: port)
         await fixture.useCase.activate(generation: fixture.input.generation)
         let task = Task { try await fixture.useCase.execute(fixture.input) }
-        while !(await port.isWaiting) { await Task.yield() }
+        guard await waitUntilSuspended(port) else {
+            task.cancel()
+            return
+        }
 
         await fixture.useCase.cancel(generation: fixture.input.generation)
         await port.resume()
@@ -283,14 +314,61 @@ final class CreateConnectionSessionAcquisitionManifestUseCaseTests: XCTestCase {
         }
     }
 
+    /// 証跡の取得が保留状態に入るまで、回数上限付きで待ちます。
+    ///
+    /// 責務: 保留状態を最大2,000回確認し、入らなければ `XCTFail` して `false` を返します。
+    /// - Parameters:
+    ///   - port: 保留する証跡ポート。
+    ///   - file: 失敗を報告するファイル。
+    ///   - line: 失敗を報告する行。
+    /// - Returns: 上限内に保留状態に入った場合は `true`。
+    private func waitUntilSuspended(
+        _ port: SuspendedAcquisitionEvidencePort,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) async -> Bool {
+        for _ in 0..<2_000 {
+            if await port.isWaiting { return true }
+            try? await Task.sleep(for: .milliseconds(1))
+        }
+        XCTFail("証跡の取得が保留状態に入りませんでした", file: file, line: line)
+        return false
+    }
+
+    /// manifest versionだけを変えた入力を返します。
+    ///
+    /// 責務: 同じsession・世代・定義で内容の異なるmanifestになる入力を作ります。
+    /// - Parameters:
+    ///   - input: 元の入力。
+    ///   - manifestVersion: 置き換えるmanifest version。
+    /// - Returns: manifest versionだけが異なる入力。
+    private func changingManifestVersion(
+        of input: CreateConnectionSessionAcquisitionManifestInput,
+        to manifestVersion: Int
+    ) -> CreateConnectionSessionAcquisitionManifestInput {
+        CreateConnectionSessionAcquisitionManifestInput(
+            sessionID: input.sessionID, generation: input.generation, manifestVersion: manifestVersion,
+            pollingPolicyVersion: input.pollingPolicyVersion, modelInputManifestVersion: input.modelInputManifestVersion,
+            formulaCanonicalizationVersion: input.formulaCanonicalizationVersion, pidDefinitions: input.pidDefinitions,
+            pidCapabilities: input.pidCapabilities, orderedRequestedPIDs: input.orderedRequestedPIDs
+        )
+    }
+
     /// fixture実行時の型付きerrorを取得します。
     ///
     /// 責務: Raw許可を期待しないtestで排他的な失敗種別を比較可能にします。
-    /// - Parameter fixture: 実行するmanifest作成fixture。
+    /// - Parameters:
+    ///   - fixture: 実行するmanifest作成fixture。
+    ///   - input: fixtureの入力の代わりに使う入力。`nil` ならfixtureの入力。
     /// - Returns: use caseが投げた分類済みtest error。
-    private func capturedError(from fixture: UseCaseFixture) async -> CapturedError? {
+    private func capturedError(from fixture: UseCaseFixture, input: CreateConnectionSessionAcquisitionManifestInput? = nil) async -> CapturedError? {
         do {
-            _ = try await fixture.execute()
+            if let input {
+                await fixture.useCase.activate(generation: input.generation)
+                _ = try await fixture.useCase.execute(input)
+            } else {
+                _ = try await fixture.execute()
+            }
             return nil
         } catch let error as CreateConnectionSessionAcquisitionManifestError {
             return .application(error)

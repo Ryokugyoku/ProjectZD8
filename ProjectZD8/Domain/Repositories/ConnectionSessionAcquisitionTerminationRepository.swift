@@ -29,4 +29,23 @@ nonisolated protocol ConnectionSessionAcquisitionTerminationRepository {
         for accountIdentifier: String,
         recoveredAt: Date
     ) throws -> [ConnectionSession]
+
+    /// process終了後に残った1件のsessionのopen batchだけを、sessionを終了せずに回復します。
+    ///
+    /// 責務: 猶予内で続行可能なsessionの未確定batchを再送なしのtermination証拠へ確定します。
+    /// - Parameters:
+    ///   - sessionID: 回復対象session。
+    ///   - completedAt: batchの終端を確定する日時。
+    /// - Throws: 保存値不正または原子回復失敗。
+    func sealInterruptedBatches(for sessionID: ConnectionSessionID, completedAt: Date) throws
+
+    /// process終了後に残った1件のsessionを、open batchの回復を含めて指定日時で異常終了させます。
+    ///
+    /// 責務: 猶予を超えたsessionを最後にcommitした時刻などの指定日時で `unexpectedTermination` へ確定します。
+    /// - Parameters:
+    ///   - session: 終了する未終了session。
+    ///   - endedAt: sessionと取得境界へ共通で使用する終了日時。
+    /// - Returns: 永続化後にcanonical readbackした終了済みsession。
+    /// - Throws: session不在・既終了、保存値不正、または原子回復失敗。
+    func finishInterruptedSessionAcquisition(_ session: ConnectionSession, endedAt: Date) throws -> ConnectionSession
 }

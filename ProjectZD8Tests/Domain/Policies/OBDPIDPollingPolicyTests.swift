@@ -22,6 +22,39 @@ final class OBDPIDPollingPolicyTests: XCTestCase {
         XCTAssertEqual(selected.map(\.pid), [0x0C, 0x0D, 0x05])
     }
 
+    /// 高優先4件は周回番号によらず毎周回選ばれます。
+    ///
+    /// 責務: 0x04/0x0C/0x0D/0x11が8の倍数でない周回にも含まれ、他のPIDは含まれないことを確認します。
+    func testFourHighPriorityPIDsAreSelectedEveryTick() {
+        let all = [0x04, 0x05, 0x0C, 0x0D, 0x0F, 0x11].map { definition(pid: $0) }
+        for tick in [UInt(1), 7, 9] {
+            let selected = OBDPIDPollingPolicy().definitionsToPoll(from: all, tick: tick)
+            XCTAssertEqual(Set(selected.map(\.pid)), [0x04, 0x0C, 0x0D, 0x11], "tick \(tick)")
+        }
+    }
+
+    /// 8の倍数の周回(0を含む)だけ他のPIDも選ばれます。
+    ///
+    /// 責務: 周回番号0・8・16で全件が選ばれることを確認します。
+    func testMultiplesOfEightIncludeAllDefinitions() {
+        let all = [0x04, 0x05, 0x0C, 0x0D, 0x0F, 0x11].map { definition(pid: $0) }
+        for tick in [UInt(0), 8, 16] {
+            let selected = OBDPIDPollingPolicy().definitionsToPoll(from: all, tick: tick)
+            XCTAssertEqual(Set(selected.map(\.pid)), [0x04, 0x05, 0x0C, 0x0D, 0x0F, 0x11], "tick \(tick)")
+        }
+    }
+
+    /// 高優先が1件も無い定義集合では毎周回すべて選ばれます。
+    ///
+    /// 責務: 高優先なしの集合が8の倍数でない周回にも全件選ばれることを確認します。
+    func testWithoutHighPriorityAllDefinitionsAreSelectedEveryTick() {
+        let others = [0x05, 0x0F].map { definition(pid: $0) }
+        for tick in [UInt(0), 1, 7, 9] {
+            let selected = OBDPIDPollingPolicy().definitionsToPoll(from: others, tick: tick)
+            XCTAssertEqual(Set(selected.map(\.pid)), [0x05, 0x0F], "tick \(tick)")
+        }
+    }
+
     /// 優先度検証に使う3件のPID定義です。
     private var definitions: [OBDPIDDefinition] {
         [definition(pid: 0x05), definition(pid: 0x0C), definition(pid: 0x0D)]

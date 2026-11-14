@@ -1,7 +1,11 @@
 import Foundation
 
-/// OBDLink EXまたはMX+でPID定義DB由来のService 01要求を読み取ります。
-actor OBDLinkEXPIDTelemetryAdapter: OBDPIDTelemetryPort {
+/// OBDLink EXまたはMX+でPID定義DB由来のService 01要求を読み取り、途絶時の回復操作を提供します。
+///
+/// 要求が期限切れになった場合は応答境界を失ったチャネルだけを捨て、トランスポートは開いたまま保持します。
+/// 次の通常の要求は従来どおりトランスポートを開き直して初期化し、回復操作のプロンプト再同期と
+/// `ATZ` 再初期化は保持したトランスポートを使います。
+actor OBDLinkEXPIDTelemetryAdapter: OBDPIDTelemetryPort, LiveTelemetryLinkRecoveryPort {
     /// ELM/STNバイトストリームTransportを生成するFactoryです。
     private let makeTransport: @MainActor @Sendable (OBDConnectionEndpoint) throws -> any OBDCommandTransport
     /// 現在開いているELM/STNバイトストリームTransportです。
@@ -57,7 +61,7 @@ actor OBDLinkEXPIDTelemetryAdapter: OBDPIDTelemetryPort {
                 }
             } catch VehicleIdentificationError.responseTimedOut {
                 observations.append(.init(request: command.request, outcome: .timedOut))
-                await closeActiveSession()
+                abandonChannelKeepingTransport()
                 break
             } catch VehicleIdentificationError.connectionFailed {
                 observations.append(.init(request: command.request, outcome: .transportFailure))
@@ -194,10 +198,7 @@ actor OBDLinkEXPIDTelemetryAdapter: OBDPIDTelemetryPort {
         try await transport.open()
         let channel = SerializedELMCommandChannel(transport: transport)
         do {
-            for command in [ELM327Command.reset, .echoOff, .linefeedsOff, .spacesOn, .headersOff, .automaticProtocol] {
-                let response = try await channel.execute(command)
-                guard isAccepted(response) else { throw OBDPIDTelemetryError.commandRejected }
-            }
+            try await initialize(channel)
         } catch {
             await transport.close()
             throw error
@@ -206,6 +207,87 @@ actor OBDLinkEXPIDTelemetryAdapter: OBDPIDTelemetryPort {
         activeChannel = channel
         activeEndpoint = endpoint
         return channel
+    }
+
+    /// `ATZ` から始まるELM327初期化手順を実行します。
+    ///
+    /// 責務: 接続開始と回復の両方で使う初期化コマンド列を1か所で実行します。
+    /// - Parameter channel: 初期化するELMチャネル。
+    /// - Throws: 送受信失敗、または初期化コマンドを拒否された場合は `OBDPIDTelemetryError.commandRejected`。
+    private func initialize(_ channel: SerializedELMCommandChannel) async throws {
+        for command in [ELM327Command.reset, .echoOff, .linefeedsOff, .spacesOn, .headersOff, .automaticProtocol] {
+            let response = try await channel.execute(command)
+            guard isAccepted(response) else { throw OBDPIDTelemetryError.commandRejected }
+        }
+    }
+
+    /// リンクを保ったまま、次のプロンプトまで読み捨てて応答の境界を合わせ直します。
+    ///
+    /// 責務: 保持中のトランスポートで `ATI` の応答まで読み、新しい応答境界のチャネルへ置き換えます。
+    /// - Parameter endpoint: 取得に使っているOBD終端。
+    /// - Throws: 保持中のトランスポートが無い場合は `.linkUnavailable`、期限切れは `.timedOut`、取消は `CancellationError`。
+    func promptResync(using endpoint: OBDConnectionEndpoint) async throws {
+        guard activeEndpoint == endpoint, let transport = activeTransport else {
+            throw LiveTelemetryLinkRecoveryError.linkUnavailable
+        }
+        do {
+            try await ELM327PromptResynchronizer().resync(transport)
+        } catch {
+            throw recoveryError(from: error)
+        }
+        activeChannel = SerializedELMCommandChannel(transport: transport)
+    }
+
+    /// リンクを保ったまま、`ATZ` からアダプターを初期化し直します。
+    ///
+    /// 責務: 保持中のトランスポートの新しいチャネルで初期化手順を実行し、送信ヘッダーを未設定へ戻します。
+    /// 保持中のトランスポートが無い場合はトランスポートを開いて初期化します。
+    /// - Parameter endpoint: 取得に使っているOBD終端。
+    /// - Throws: 初期化できない場合の `LiveTelemetryLinkRecoveryError`、取消は `CancellationError`。
+    func reinitializeFromReset(using endpoint: OBDConnectionEndpoint) async throws {
+        guard activeEndpoint == endpoint, let transport = activeTransport else {
+            try await reconnectLink(using: endpoint)
+            return
+        }
+        let channel = SerializedELMCommandChannel(transport: transport)
+        activeChannel = nil
+        activeTransmitHeader = nil
+        do {
+            try await initialize(channel)
+        } catch {
+            throw recoveryError(from: error)
+        }
+        activeChannel = channel
+    }
+
+    /// リンクを切断して接続し直し、アダプターを初期化します。
+    ///
+    /// 責務: 保持中のトランスポートを閉じてから、接続開始と同じ手順で開き直して初期化します。
+    /// - Parameter endpoint: 取得に使っているOBD終端。
+    /// - Throws: 接続または初期化できない場合の `LiveTelemetryLinkRecoveryError`、取消は `CancellationError`。
+    func reconnectLink(using endpoint: OBDConnectionEndpoint) async throws {
+        guard endpoint.transport.supportsELMByteStream else { throw LiveTelemetryLinkRecoveryError.linkUnavailable }
+        await closeActiveSession()
+        do {
+            _ = try await channel(for: endpoint)
+        } catch {
+            throw recoveryError(from: error)
+        }
+    }
+
+    /// 回復操作中のエラーを回復操作の失敗理由へ変換します。
+    ///
+    /// 責務: 取消はそのまま返し、期限切れ・拒否・それ以外の通信失敗を区別します。
+    /// - Parameter error: 回復操作中に送出されたエラー。
+    /// - Returns: 送出し直すエラー。
+    private func recoveryError(from error: Error) -> Error {
+        switch error {
+        case is CancellationError: error
+        case let error as LiveTelemetryLinkRecoveryError: error
+        case VehicleIdentificationError.responseTimedOut: LiveTelemetryLinkRecoveryError.timedOut
+        case OBDPIDTelemetryError.commandRejected: LiveTelemetryLinkRecoveryError.rejected
+        default: LiveTelemetryLinkRecoveryError.linkUnavailable
+        }
     }
 
     /// 開かれたチャネルでPIDを読み取ります。
@@ -242,6 +324,13 @@ actor OBDLinkEXPIDTelemetryAdapter: OBDPIDTelemetryPort {
     /// 責務: 保持中のシリアルTransportを1回だけ閉じて接続状態を消去します。
     func endSession() async {
         await closeActiveSession()
+    }
+
+    /// 応答境界を失ったチャネルだけを捨て、トランスポートは開いたまま保持します。
+    ///
+    /// 責務: 次の通常の要求では開き直させ、回復操作では保持したトランスポートを使えるようにします。
+    private func abandonChannelKeepingTransport() {
+        activeChannel = nil
     }
 
     /// 保持中のTransportを閉じて再利用状態を解除します。
