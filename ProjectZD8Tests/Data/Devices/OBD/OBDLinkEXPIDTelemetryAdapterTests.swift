@@ -27,9 +27,9 @@ final class OBDLinkEXPIDTelemetryAdapterTests: XCTestCase {
         ])
     }
 
-    /// 送信後の期限切れを該当要求だけへ対応付けます。
+    /// 送信後の期限切れを該当要求だけへ対応付け、Transportは回復のために閉じずに残します。
     ///
-    /// 責務: 期限切れ要求をtyped結果として残し、未送信の後続要求を観測済みにしないことを確認します。
+    /// 責務: 期限切れ要求をtyped結果として残し、未送信の後続要求を観測済みにせず、Transportを閉じないことを確認します。
     func testReadObservationsStopsAfterTypedTimeout() async throws {
         let transport = PIDTransportFake(responses: [
             "ELM327 v1.4b\r>", "OK\r>", "OK\r>", "OK\r>", "OK\r>", "OK\r>", "OK\r>"
@@ -44,7 +44,7 @@ final class OBDLinkEXPIDTelemetryAdapterTests: XCTestCase {
         let didClose = await transport.didClose
 
         XCTAssertEqual(observations, [.init(request: requests[0], outcome: .timedOut)])
-        XCTAssertTrue(didClose)
+        XCTAssertFalse(didClose)
     }
 
     /// 空のPID要求では物理接続を開きません。
