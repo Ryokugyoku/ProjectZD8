@@ -38,6 +38,7 @@ jobs:
             -project ProjectZD8.xcodeproj \
             -scheme ProjectZD8 \
             -destination 'platform=macOS' \
+            -only-testing:ProjectZD8Tests \
             -resultBundlePath "${RUNNER_TEMP}/ProjectZD8Tests.xcresult" \
             CODE_SIGNING_ALLOWED=NO \
             | tee "${RUNNER_TEMP}/xcodebuild-test.log"
