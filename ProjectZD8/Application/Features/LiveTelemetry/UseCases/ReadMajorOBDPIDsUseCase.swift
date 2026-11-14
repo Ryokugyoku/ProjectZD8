@@ -76,6 +76,21 @@ struct ReadMajorOBDPIDsUseCase {
         return definitions
     }
 
+    /// 未登録車両で、ECUが対応を返した標準PIDに一致する数値化可能定義を読み込みます。
+    ///
+    /// 責務: 車種専用定義を除き、対応PIDビットマップで対応が示されたService/PIDの定義だけを返します。
+    /// - Parameter supported: ECUが対応を返した標準PID。
+    /// - Returns: 対応が示されたService/PIDの標準定義。
+    /// - Throws: PIDカタログ読込に失敗した場合または対象が空の場合は `OBDPIDTelemetryError.definitionCatalogUnavailable`。
+    func loadStandardDefinitions(supported: [OBDPIDRequest]) throws -> [OBDPIDDefinition] {
+        let supportedSet = Set(supported)
+        let definitions = try loadDefinitions().filter {
+            !$0.isVehicleSpecific && supportedSet.contains(OBDPIDRequest(service: $0.service, pid: $0.pid))
+        }
+        guard !definitions.isEmpty else { throw OBDPIDTelemetryError.definitionCatalogUnavailable }
+        return definitions
+    }
+
     /// 指定PID定義を1回読み取り、応答済み項目だけを数値化します。
     ///
     /// 責務: 1回のOBD接続から応答があったPIDだけの数値観測を生成します。

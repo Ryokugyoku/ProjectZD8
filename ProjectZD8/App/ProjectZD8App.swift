@@ -116,16 +116,25 @@ struct ProjectZD8App: App {
         let vehicleManagementModel = IOSApplicationComposition.makeVehicleManagementModel(
             database: database,
             connectionSessionRepository: connectionSessionRepository,
-            vehicleSessionsDidDelete: { connectionHistoryModel.send(.refreshRequested) }
-        ) { vehicle, endpoint, identification in
-            connectionSessionLifecycleModel.send(.startRequested)
-            connectionSessionLifecycleModel.send(.vehicleResolved(vehicle))
-            let vehicleModelCode = ZD8VehicleModelPolicy().matches(identification.vin)
-                || ZD8VehicleModelPolicy().matches(identification.obdIdentifier)
-                ? ZD8VehicleModelPolicy.modelCode
-                : nil
-            liveTelemetryModel.send(.startRequested(endpoint, vehicle.id, vehicleModelCode: vehicleModelCode))
-        }
+            vehicleSessionsDidDelete: { connectionHistoryModel.send(.refreshRequested) },
+            connectionVehicleDidResolve: { vehicle, endpoint, identification in
+                VehicleConnectionStartWiring.startRegistered(
+                    vehicle,
+                    endpoint: endpoint,
+                    identification: identification,
+                    lifecycle: connectionSessionLifecycleModel,
+                    liveTelemetry: liveTelemetryModel
+                )
+            },
+            unregisteredConnectionDidStart: { endpoint, _ in
+                VehicleConnectionStartWiring.startUnregistered(
+                    endpoint: endpoint,
+                    lifecycle: connectionSessionLifecycleModel,
+                    liveTelemetry: liveTelemetryModel
+                )
+            },
+            unregisteredConnectionVehicleDidRegister: { connectionSessionLifecycleModel.send(.unregisteredVehicleRegistered($0)) }
+        )
         let maintenanceModel = IOSApplicationComposition.makeMaintenanceModel(database: database)
         let authenticationModel = IOSApplicationComposition.makeAuthenticationSessionModel(
             database: database,
@@ -223,16 +232,25 @@ struct ProjectZD8App: App {
         let vehicleManagementModel = MacOSApplicationComposition.makeVehicleManagementModel(
             database: database,
             connectionSessionRepository: connectionSessionRepository,
-            vehicleSessionsDidDelete: { connectionHistoryModel.send(.refreshRequested) }
-        ) { vehicle, endpoint, identification in
-            connectionSessionLifecycleModel.send(.startRequested)
-            connectionSessionLifecycleModel.send(.vehicleResolved(vehicle))
-            let vehicleModelCode = ZD8VehicleModelPolicy().matches(identification.vin)
-                || ZD8VehicleModelPolicy().matches(identification.obdIdentifier)
-                ? ZD8VehicleModelPolicy.modelCode
-                : nil
-            liveTelemetryModel.send(.startRequested(endpoint, vehicle.id, vehicleModelCode: vehicleModelCode))
-        }
+            vehicleSessionsDidDelete: { connectionHistoryModel.send(.refreshRequested) },
+            connectionVehicleDidResolve: { vehicle, endpoint, identification in
+                VehicleConnectionStartWiring.startRegistered(
+                    vehicle,
+                    endpoint: endpoint,
+                    identification: identification,
+                    lifecycle: connectionSessionLifecycleModel,
+                    liveTelemetry: liveTelemetryModel
+                )
+            },
+            unregisteredConnectionDidStart: { endpoint, _ in
+                VehicleConnectionStartWiring.startUnregistered(
+                    endpoint: endpoint,
+                    lifecycle: connectionSessionLifecycleModel,
+                    liveTelemetry: liveTelemetryModel
+                )
+            },
+            unregisteredConnectionVehicleDidRegister: { connectionSessionLifecycleModel.send(.unregisteredVehicleRegistered($0)) }
+        )
         let maintenanceModel = MacOSApplicationComposition.makeMaintenanceModel(database: database)
         _authenticationModel = State(
             initialValue: MacOSApplicationComposition.makeAuthenticationSessionModel(

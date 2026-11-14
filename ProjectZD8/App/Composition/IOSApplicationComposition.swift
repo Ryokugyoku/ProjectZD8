@@ -84,6 +84,8 @@ enum IOSApplicationComposition {
     /// - Parameter connectionSessionRepository: Garageの車両別ログ集計に使用する接続履歴取得先。
     /// - Parameter vehicleSessionsDidDelete: 車両関連セッション削除後に履歴表示へ再読込を通知する処理。
     /// - Parameter connectionVehicleDidResolve: 接続対象車両、終端、OBD識別観測をLoggingと監視開始へ通知する処理。
+    /// - Parameter unregisteredConnectionDidStart: 未登録車両の終端と識別観測を、車両なしの接続開始へ通知する処理。
+    /// - Parameter unregisteredConnectionVehicleDidRegister: 車両なしの接続中に登録された車両をLoggingへ通知する処理。
     static func makeVehicleManagementModel(
         database: ApplicationDatabaseConnection,
         connectionSessionRepository: any ConnectionSessionRepository & ConnectionSessionErasureRepository,
@@ -92,7 +94,12 @@ enum IOSApplicationComposition {
             VehicleProfile,
             OBDConnectionEndpoint,
             VehicleIdentificationSnapshot
-        ) -> Void = { _, _, _ in }
+        ) -> Void = { _, _, _ in },
+        unregisteredConnectionDidStart: @escaping @MainActor (
+            OBDConnectionEndpoint,
+            VehicleIdentificationSnapshot
+        ) -> Void = { _, _ in },
+        unregisteredConnectionVehicleDidRegister: @escaping @MainActor (VehicleProfile) -> Void = { _ in }
     ) -> VehicleManagementModel {
         let vehicleRepository = CloudKitVehicleRepository()
         let externalAccessoryConfiguration = IOSExternalAccessoryProtocolConfiguration()
@@ -123,7 +130,9 @@ enum IOSApplicationComposition {
                 vehicleRepository: vehicleRepository
             ),
             vehicleSessionsDidDelete: vehicleSessionsDidDelete,
-            connectionVehicleDidResolve: connectionVehicleDidResolve
+            connectionVehicleDidResolve: connectionVehicleDidResolve,
+            unregisteredConnectionDidStart: unregisteredConnectionDidStart,
+            unregisteredConnectionVehicleDidRegister: unregisteredConnectionVehicleDidRegister
         )
     }
 

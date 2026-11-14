@@ -24,10 +24,8 @@ struct LiveTelemetryState: Equatable {
     var supportedPIDCount = 0
     /// 読取りまたは再試行に使用するOBD終端です。
     var endpoint: OBDConnectionEndpoint?
-    /// 現在監視する車両のアプリ内識別子です。
-    var vehicleID: VehicleID?
-    /// 車種専用PIDの適用に使用する確認済み型式コードです。
-    var vehicleModelCode: String?
+    /// 現在監視する車両(登録済みならIDと確認済み型式コード、または未登録)です。取得を始めていなければ `nil` です。
+    var vehicle: LiveTelemetryVehicleContext?
     /// 直近の失敗を表示するローカライズキーです。
     var failureKey: String?
     /// 回復中または一時停止中の表示状態です。`phase == .paused` の間だけ値を持ちます。

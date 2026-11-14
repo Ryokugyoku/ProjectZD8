@@ -6,6 +6,7 @@ import Observation
 /// プロセス復帰時に未終了だったセッションは `RecoverRelaunchedConnectionSessionUseCase` で処理し、猶予内なら
 /// 続行可能なセッションとして保持します(`activeSession` にはしません)。次の接続開始で同じ車両が確定し、
 /// その時点でも猶予内(実時間)なら同じセッションを続け、そうでなければ続行可能だったセッションを終了して新規に開始します。
+/// 未登録車両の接続(`vehicleUnregistered`)では、続行可能なセッションも車両なしの場合だけ続けます(`ConnectionSessionResumptionMatcher`)。
 /// 取得の一時停止中はLiveTelemetryから終了が通知されないため、セッションは終了扱いになりません。
 @MainActor
 @Observable
@@ -42,8 +43,8 @@ final class ConnectionSessionLifecycleModel {
     @ObservationIgnored private var resumableLastCommittedAt: Date?
     /// 接続開始を受け、続行するかを車両の確定まで保留しているかどうかです。
     @ObservationIgnored private var isAwaitingResumeDecision = false
-    /// 続行可能かを実時間で判定する方針です。
-    @ObservationIgnored private let relaunchPolicy = AcquisitionRelaunchPolicy()
+    /// 続行可能なセッションを次の接続で続けるかの判定です。
+    @ObservationIgnored private let resumptionMatcher = ConnectionSessionResumptionMatcher()
 
     /// セッション保存先と副作用依存を固定して生成します。
     ///
@@ -93,6 +94,8 @@ final class ConnectionSessionLifecycleModel {
         case let .automaticUploadChanged(isEnabled): automaticUploadEnabled = isEnabled
         case .startRequested: startSession()
         case let .vehicleResolved(vehicle): bindVehicle(vehicle)
+        case .vehicleUnregistered: if isAwaitingResumeDecision { resolveResumption(forVehicleID: nil) }
+        case let .unregisteredVehicleRegistered(vehicle): bindLaterRegisteredVehicle(vehicle)
         case let .distanceObserved(observation): recordDistance(observation)
         case let .endRequested(reason, endedAt): endSession(reason: reason, endedAt: endedAt)
         }
@@ -230,7 +233,7 @@ final class ConnectionSessionLifecycleModel {
     /// 責務: 1台の登録車両スナップショットを現在セッションへ関連付けます。続行の判定を保留していれば先に判定します。
     /// - Parameter vehicle: 接続対象として確定した登録車両。
     private func bindVehicle(_ vehicle: VehicleProfile) {
-        if isAwaitingResumeDecision { resolveResumption(for: vehicle) }
+        if isAwaitingResumeDecision { resolveResumption(forVehicleID: vehicle.id) }
         guard var session = activeSession else { return }
         session.vehicle = ConnectionSessionVehicle(profile: vehicle)
         do {
@@ -242,18 +245,32 @@ final class ConnectionSessionLifecycleModel {
         }
     }
 
+    /// 車両なしで始めた現在セッションへ、途中で登録された車両を関連付けます。
+    ///
+    /// 責務: 現在セッションに車両が無い場合だけ車両を保存します。取得対象とセグメントは変えません。
+    /// - Parameter vehicle: 車両なしの接続中に登録された車両。
+    private func bindLaterRegisteredVehicle(_ vehicle: VehicleProfile) {
+        guard activeSession?.vehicle == nil else { return }
+        bindVehicle(vehicle)
+    }
+
     /// 続行可能なセッションを続けるか、終了して新規に開始するかを決めます。
     ///
-    /// 責務: 同じ車両で実時間の猶予内なら続行可能なセッションを現在セッションにし、それ以外は終了して新規セッションを保存します。
-    /// - Parameter vehicle: 接続対象として確定した登録車両。
-    private func resolveResumption(for vehicle: VehicleProfile) {
+    /// 責務: 車両が一致(どちらも車両なしを含む)し実時間の猶予内なら続行可能なセッションを現在セッションにし、
+    /// それ以外は終了して新規セッションを保存します。
+    /// - Parameter vehicleID: 接続対象として確定した登録車両のID。未登録車両なら `nil`。
+    private func resolveResumption(forVehicleID vehicleID: VehicleID?) {
         isAwaitingResumeDecision = false
         guard let resumable = resumableSession, let lastCommittedAt = resumableLastCommittedAt,
               let accountIdentifier, !accountIdentifier.isEmpty else { return }
         clearResumableSession()
         let decidedAt = now()
-        if resumable.vehicle?.id == vehicle.id,
-           relaunchPolicy.decision(lastCommittedAt: lastCommittedAt, now: decidedAt) == .continueWaiting {
+        if resumptionMatcher.canResume(
+            resumableVehicleID: resumable.vehicle?.id,
+            connectingVehicleID: vehicleID,
+            lastCommittedAt: lastCommittedAt,
+            now: decidedAt
+        ) {
             activeSession = resumable
             selectedDistanceSource = nil
             historyDidChange()

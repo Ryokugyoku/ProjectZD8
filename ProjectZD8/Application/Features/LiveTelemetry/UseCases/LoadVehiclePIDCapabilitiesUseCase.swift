@@ -104,41 +104,13 @@ struct LoadVehiclePIDCapabilitiesUseCase: Sendable {
         }
     }
 
-    /// Service 01の対応範囲ビットマップを継続ビットに従って読み取ります。
+    /// 対応PIDビットマップから標準PIDを探索します。
     ///
-    /// 責務: 00からE0までの0x20刻み照会連鎖を対応データPID集合へ変換します。
-    /// - Parameter endpoint: 探索へ使用するOBD終端。
-    /// - Returns: 対応が通知されたデータPIDの昇順一覧。
-    /// - Throws: 通信失敗または4バイト未満の応答の場合のエラー。
+    /// 責務: 未登録車両の取得準備と共有する対応PID探索へ委譲します。
+    /// - Parameter endpoint: OBDアダプターの物理終端。
+    /// - Returns: ECUが対応を返したService 01 PID。
+    /// - Throws: ビットマップの応答が無い場合などの取得境界エラー。
     private func discover(using endpoint: OBDConnectionEndpoint) async throws -> [OBDPIDRequest] {
-        var supported: [OBDPIDRequest] = []
-        var base: UInt8 = 0x00
-        while base <= 0xE0 {
-            let query = OBDPIDRequest(service: 0x01, pid: base)
-            let response = try await telemetry.read([query], using: endpoint)
-            guard let bytes = response[query], bytes.count >= 4 else {
-                throw OBDPIDTelemetryError.noVehicleResponse
-            }
-            for offset in 1...32 where bitIsSet(offset: offset, bytes: bytes) {
-                let value = Int(base) + offset
-                guard value <= 0xFF, value % 0x20 != 0 else { continue }
-                supported.append(OBDPIDRequest(service: 0x01, pid: UInt8(value)))
-            }
-            guard bitIsSet(offset: 32, bytes: bytes), base < 0xE0 else { break }
-            base &+= 0x20
-        }
-        return supported
-    }
-
-    /// 4バイト対応ビットマップ内のPID位置を判定します。
-    ///
-    /// 責務: 1始まりのPIDオフセットをbig-endianビットマップの真偽へ変換します。
-    /// - Parameters:
-    ///   - offset: 1から32のPIDオフセット。
-    ///   - bytes: 対応ビットマップ先頭4バイト。
-    /// - Returns: 対応ビットが立っている場合は `true`。
-    private func bitIsSet(offset: Int, bytes: [UInt8]) -> Bool {
-        let zeroBased = offset - 1
-        return bytes[zeroBased / 8] & (0x80 >> UInt8(zeroBased % 8)) != 0
+        try await DiscoverSupportedStandardPIDsUseCase(telemetry: telemetry).execute(using: endpoint)
     }
 }

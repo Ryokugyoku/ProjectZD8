@@ -68,11 +68,11 @@ final class LiveTelemetryModel {
     /// - Parameter action: Platformから通知された型付き操作。
     func send(_ action: LiveTelemetryAction) {
         switch action {
-        case let .startRequested(endpoint, vehicleID, vehicleModelCode):
-            start(using: endpoint, vehicleID: vehicleID, vehicleModelCode: vehicleModelCode)
+        case let .startRequested(endpoint, vehicle):
+            start(using: endpoint, vehicle: vehicle)
         case .retryRequested:
-            if let endpoint = state.endpoint, let vehicleID = state.vehicleID {
-                start(using: endpoint, vehicleID: vehicleID, vehicleModelCode: state.vehicleModelCode)
+            if let endpoint = state.endpoint, let vehicle = state.vehicle {
+                start(using: endpoint, vehicle: vehicle)
             }
         case .stopRequested:
             stop()
@@ -93,16 +93,14 @@ final class LiveTelemetryModel {
     /// 責務: 以前の取得の購読を無効化し、最新接続のスリープ抑止と取得ループの購読を開始します。
     /// - Parameters:
     ///   - endpoint: OBDアダプターの物理終端。
-    ///   - vehicleID: 対応PID設定を参照する車両ID。
-    ///   - vehicleModelCode: 確認済み車種専用PIDを適用する型式コード。
-    private func start(using endpoint: OBDConnectionEndpoint, vehicleID: VehicleID, vehicleModelCode: String?) {
+    ///   - vehicle: 登録済み車両(ID・型式コード)または未登録。
+    private func start(using endpoint: OBDConnectionEndpoint, vehicle: LiveTelemetryVehicleContext) {
         let previousTask = acquisitionTask
         previousTask?.cancel()
         generation &+= 1
         let generation = generation
         state.endpoint = endpoint
-        state.vehicleID = vehicleID
-        state.vehicleModelCode = vehicleModelCode
+        state.vehicle = vehicle
         state.phase = .reading
         state.failureKey = nil
         state.pauseStatus = nil
@@ -113,12 +111,7 @@ final class LiveTelemetryModel {
         systemSleepInhibitor?.setVehicleConnectionActive(true)
         acquisitionTask = Task { [weak self] in
             _ = await previousTask?.value
-            await self?.acquire(
-                using: endpoint,
-                vehicleID: vehicleID,
-                vehicleModelCode: vehicleModelCode,
-                generation: generation
-            )
+            await self?.acquire(using: endpoint, vehicle: vehicle, generation: generation)
         }
     }
 
@@ -168,22 +161,16 @@ final class LiveTelemetryModel {
     /// 責務: 1世代の取得準備と出来事の購読を行い、古い世代の出来事を捨てます。
     /// - Parameters:
     ///   - endpoint: OBDアダプターの物理終端。
-    ///   - vehicleID: 対応PID設定を参照する車両ID。
-    ///   - vehicleModelCode: 確認済み車種専用PIDを適用する型式コード。
+    ///   - vehicle: 登録済み車両(ID・型式コード)または未登録。
     ///   - generation: この取得開始時の世代。
     private func acquire(
         using endpoint: OBDConnectionEndpoint,
-        vehicleID: VehicleID,
-        vehicleModelCode: String?,
+        vehicle: LiveTelemetryVehicleContext,
         generation: UInt
     ) async {
         let prepared: (definitions: [OBDPIDDefinition], capabilities: [ConnectionSessionAcquisitionPIDCapabilityInput])
         do {
-            prepared = try await prepareAcquisition.execute(
-                vehicleID: vehicleID,
-                vehicleModelCode: vehicleModelCode,
-                endpoint: endpoint
-            )
+            prepared = try await prepareAcquisition.execute(vehicle: vehicle, endpoint: endpoint)
         } catch {
             await prepareAcquisition.endSession()
             guard self.generation == generation, !(error is CancellationError) else { return }

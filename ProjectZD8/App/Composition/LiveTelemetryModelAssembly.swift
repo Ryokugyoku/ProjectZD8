@@ -51,7 +51,8 @@ enum LiveTelemetryModelAssembly {
                     repository: capabilityRepository,
                     telemetry: telemetry,
                     definitionRepository: definitionRepository
-                )
+                ),
+                discoverSupportedStandardPIDs: DiscoverSupportedStandardPIDsUseCase(telemetry: telemetry)
             ),
             acquisitionLoop: LiveTelemetryAcquisitionLoop(
                 telemetry: telemetry,
