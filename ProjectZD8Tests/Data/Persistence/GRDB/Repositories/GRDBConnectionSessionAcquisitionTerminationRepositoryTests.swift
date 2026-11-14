@@ -16,7 +16,7 @@ final class GRDBConnectionSessionAcquisitionTerminationRepositoryTests: XCTestCa
         ] {
             let fixture = try makeFixture()
 
-            let ended = try fixture.storage.finishSessionAcquisition(
+            let ended = try fixture.acquisition.finishSessionAcquisition(
                 fixture.session,
                 endedAt: fixture.endedAt,
                 reason: reason
@@ -24,7 +24,7 @@ final class GRDBConnectionSessionAcquisitionTerminationRepositoryTests: XCTestCa
 
             XCTAssertEqual(ended.endedAt, fixture.endedAt)
             XCTAssertEqual(ended.endReason, reason)
-            let batch = try XCTUnwrap(fixture.storage.batches(for: fixture.session.id).first)
+            let batch = try XCTUnwrap(fixture.acquisition.batches(for: fixture.session.id).first)
             XCTAssertEqual(batch.completionState, .failed)
             XCTAssertEqual(batch.failure, .persistenceFailure)
             XCTAssertEqual(batch.completedAt, fixture.endedAt)
@@ -32,7 +32,7 @@ final class GRDBConnectionSessionAcquisitionTerminationRepositoryTests: XCTestCa
             XCTAssertNil(batch.requests[0].transportOutcome)
             XCTAssertTrue(try fixture.storage.entries(for: fixture.session.id).isEmpty)
             XCTAssertEqual(
-                try fixture.storage.boundaryEvidence(for: fixture.session.id),
+                try fixture.acquisition.boundaryEvidence(for: fixture.session.id),
                 [.started(at: Date(timeIntervalSince1970: 2)), .ended(at: fixture.endedAt, reason: reason)]
             )
         }
@@ -54,7 +54,7 @@ final class GRDBConnectionSessionAcquisitionTerminationRepositoryTests: XCTestCa
         }
 
         XCTAssertThrowsError(
-            try fixture.storage.finishSessionAcquisition(
+            try fixture.acquisition.finishSessionAcquisition(
                 fixture.session,
                 endedAt: fixture.endedAt,
                 reason: .userDisconnected
@@ -62,10 +62,10 @@ final class GRDBConnectionSessionAcquisitionTerminationRepositoryTests: XCTestCa
         )
 
         XCTAssertNil(try fixture.storage.sessions(for: fixture.session.accountIdentifier).first?.endedAt)
-        let boundaries = try fixture.storage.boundaryEvidence(for: fixture.session.id)
+        let boundaries = try fixture.acquisition.boundaryEvidence(for: fixture.session.id)
         XCTAssertEqual(boundaries.count, 1)
         guard case .started = boundaries[0] else { return XCTFail("開始境界が保持されていません") }
-        XCTAssertNil(try fixture.storage.batches(for: fixture.session.id).first?.completionState)
+        XCTAssertNil(try fixture.acquisition.batches(for: fixture.session.id).first?.completionState)
     }
 
     /// process終了回復がdispatch済み要求、batch、境界、sessionを同時に閉じます。
@@ -74,19 +74,19 @@ final class GRDBConnectionSessionAcquisitionTerminationRepositoryTests: XCTestCa
     func testRecoveryAtomicallyClosesInterruptedAcquisition() throws {
         let fixture = try makeFixture()
 
-        let recovered = try fixture.storage.recoverInterruptedSessionAcquisitions(
+        let recovered = try fixture.acquisition.recoverInterruptedSessionAcquisitions(
             for: fixture.session.accountIdentifier,
             recoveredAt: fixture.endedAt
         )
 
         XCTAssertEqual(recovered.count, 1)
         XCTAssertEqual(recovered[0].endReason, .unexpectedTermination)
-        let boundaries = try fixture.storage.boundaryEvidence(for: fixture.session.id)
+        let boundaries = try fixture.acquisition.boundaryEvidence(for: fixture.session.id)
         XCTAssertEqual(boundaries.count, 2)
         guard case .started = boundaries[0], case .ended = boundaries[1] else {
             return XCTFail("開始・終了境界順ではありません")
         }
-        let batch = try XCTUnwrap(fixture.storage.batches(for: fixture.session.id).first)
+        let batch = try XCTUnwrap(fixture.acquisition.batches(for: fixture.session.id).first)
         XCTAssertEqual(batch.completionState, .terminatedUnknown)
         XCTAssertEqual(batch.requests[0].transportOutcome, .unknownAfterTermination)
         XCTAssertTrue(try fixture.storage.entries(for: fixture.session.id).isEmpty)
@@ -101,7 +101,7 @@ final class GRDBConnectionSessionAcquisitionTerminationRepositoryTests: XCTestCa
             endedAt: Date(timeIntervalSince1970: 10.987_654_321)
         )
 
-        let ended = try fixture.storage.finishSessionAcquisition(
+        let ended = try fixture.acquisition.finishSessionAcquisition(
             fixture.session,
             endedAt: fixture.endedAt,
             reason: .connectionLost
@@ -125,7 +125,7 @@ final class GRDBConnectionSessionAcquisitionTerminationRepositoryTests: XCTestCa
             endedAt: Date(timeIntervalSince1970: 10.987_654_321)
         )
 
-        let recovered = try fixture.storage.recoverInterruptedSessionAcquisitions(
+        let recovered = try fixture.acquisition.recoverInterruptedSessionAcquisitions(
             for: fixture.session.accountIdentifier,
             recoveredAt: fixture.endedAt
         )
@@ -154,6 +154,7 @@ final class GRDBConnectionSessionAcquisitionTerminationRepositoryTests: XCTestCa
         addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
         let queue = try DatabaseQueue(path: directory.appending(path: "termination.sqlite").path)
         let storage = try GRDBConnectionSessionRepository(databaseQueue: queue)
+        let acquisition = try GRDBConnectionSessionAcquisitionRepository(databaseQueue: queue)
         let session = ConnectionSession(
             id: ConnectionSessionID(rawValue: UUID()),
             accountIdentifier: "phase4g-recovery",
@@ -185,13 +186,13 @@ final class GRDBConnectionSessionAcquisitionTerminationRepositoryTests: XCTestCa
             acquisitionPlatform: .macOS,
             modelInputManifestVersion: 1
         )
-        try storage.saveStartOnce(
+        try acquisition.saveStartOnce(
             manifest: manifest,
             startedAt: Date(timeIntervalSince1970: 2),
             for: session.id
         )
         let identity = try AcquisitionBatchIdentity(ordinal: 0)
-        try storage.beginBatch(
+        try acquisition.beginBatch(
             AcquisitionBatchEvidence(
                 identity: identity,
                 generation: 1,
@@ -216,10 +217,11 @@ final class GRDBConnectionSessionAcquisitionTerminationRepositoryTests: XCTestCa
             ),
             for: session.id
         )
-        try storage.markRequestDispatchBegun(requestOrdinal: 0, in: identity, for: session.id)
+        try acquisition.markRequestDispatchBegun(requestOrdinal: 0, in: identity, for: session.id)
         return TerminationRepositoryFixture(
             queue: queue,
             storage: storage,
+            acquisition: acquisition,
             session: session,
             endedAt: endedAt
         )
@@ -232,6 +234,8 @@ private struct TerminationRepositoryFixture {
     let queue: DatabaseQueue
     /// sessionと取得証拠でQueueを共有するProduction storageです。
     let storage: GRDBConnectionSessionRepository
+    /// `storage` と同じQueueで取得証拠を保存するProduction storageです。
+    let acquisition: GRDBConnectionSessionAcquisitionRepository
     /// 終了前の親sessionです。
     let session: ConnectionSession
     /// 終了・回復へ使用する固定日時です。

@@ -115,6 +115,83 @@ final class GRDBOBDPIDDefinitionRepositoryTests: XCTestCase {
         }
     }
 
+    /// 未登録のService/PIDは `nil` を返します。
+    ///
+    /// 責務: definition(service:pid:)の未登録分岐が失敗や既定値ではなく `nil` になることを確認します。
+    func testDefinitionReturnsNilWhenNotRegistered() throws {
+        let repository = try GRDBOBDPIDDefinitionRepository(databaseQueue: DatabaseQueue())
+        try repository.upsert(makeDefinition(formula: "A", revision: 1))
+
+        XCTAssertNil(try repository.definition(service: 1, pid: 6))
+        XCTAssertNil(try repository.definition(service: 2, pid: 5))
+        XCTAssertEqual(try repository.definition(service: 1, pid: 5)?.formula, "A")
+    }
+
+    /// ヘッダーがUInt16範囲外の保存行を単体取得で失敗にします。
+    ///
+    /// 責務: definition(service:pid:)が復元不能な行を `nil` や既定値へ潰さずエラーにすることを確認します。
+    func testDefinitionThrowsWhenStoredHeaderIsOutOfRange() throws {
+        let queue = try DatabaseQueue()
+        let repository = try GRDBOBDPIDDefinitionRepository(databaseQueue: queue)
+        try insertRawWithScope(queue, service: 33, pid: 2, header: 70_000)
+
+        XCTAssertThrowsError(try repository.definition(service: 33, pid: 2)) { error in
+            XCTAssertTrue(error is DatabaseError)
+        }
+    }
+
+    /// Service範囲外の保存行を一覧取得で失敗にします。
+    ///
+    /// 責務: definitions()がCHECK制約を迂回して保存されたService 300の行を復元せずエラーにすることを確認します。
+    func testDefinitionsThrowsWhenStoredServiceIsOutOfRange() throws {
+        let queue = try DatabaseQueue()
+        let repository = try GRDBOBDPIDDefinitionRepository(databaseQueue: queue)
+        try insertRawWithScope(queue, service: 300, pid: 1, header: nil)
+
+        XCTAssertThrowsError(try repository.definitions()) { error in
+            XCTAssertTrue(error is DatabaseError)
+        }
+    }
+
+    /// ヘッダーがUInt16範囲外の保存行を一覧取得で失敗にします。
+    ///
+    /// 責務: definitions()が正常行と範囲外行の混在時に全体を失敗させ、部分結果を返さないことを確認します。
+    func testDefinitionsThrowsWhenAnyStoredHeaderIsOutOfRange() throws {
+        let queue = try DatabaseQueue()
+        let repository = try GRDBOBDPIDDefinitionRepository(databaseQueue: queue)
+        try repository.upsert(makeDefinition(formula: "A", revision: 1))
+        try insertRawWithScope(queue, service: 33, pid: 2, header: 70_000)
+
+        XCTAssertThrowsError(try repository.definitions()) { error in
+            XCTAssertTrue(error is DatabaseError)
+        }
+    }
+
+    /// 範囲外の識別子またはヘッダーを持つ行をCHECK制約を外して挿入します。
+    ///
+    /// 責務: 復元失敗経路の入力となる不正行を1件用意します。
+    /// - Parameters:
+    ///   - queue: 挿入先DB Queue。
+    ///   - service: Service列の値。
+    ///   - pid: PID列の値。
+    ///   - header: ヘッダー列の値。指定時は型式も同時に設定する。
+    /// - Throws: SQLite書込みに失敗した場合のエラー。
+    private func insertRawWithScope(_ queue: DatabaseQueue, service: Int, pid: Int, header: Int?) throws {
+        try queue.writeWithoutTransaction { database in
+            try database.execute(sql: "PRAGMA ignore_check_constraints = 1")
+            try database.execute(
+                sql: """
+                    INSERT INTO obd_pid_definitions
+                        (service, pid, nameKey, requiredByteCount, formula, unit, minimumValue, maximumValue,
+                         sourceURI, revision, summaryKey, highValueKey, lowValueKey, correlationKey, header, vehicleModelCode)
+                    VALUES (?, ?, 'x', 1, 'A', '', NULL, NULL, 's', 1, 's', 'h', 'l', 'c', ?, ?)
+                    """,
+                arguments: [service, pid, header, header == nil ? nil : "ZD8"]
+            )
+            try database.execute(sql: "PRAGMA ignore_check_constraints = 0")
+        }
+    }
+
     /// 改訂テスト用のPID定義を生成します。
     ///
     /// 責務: 数式と改訂だけが異なる同一PID定義を提供します。

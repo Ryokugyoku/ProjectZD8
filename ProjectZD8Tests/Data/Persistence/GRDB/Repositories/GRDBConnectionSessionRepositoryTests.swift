@@ -16,6 +16,93 @@ final class GRDBConnectionSessionRepositoryTests: XCTestCase {
         _ = try GRDBOBDPIDDefinitionRepository(databaseQueue: queue)
     }
 
+    /// 取得証拠Repositoryを一切作らない新規DBでも接続セッションを保存して復元できます。
+    ///
+    /// 責務: セッションRepository単独の初期化が製品版スキーマ適用まで担うことを確認します。
+    func testInitAppliesMigrationWithoutAcquisitionRepository() throws {
+        let queue = try DatabaseQueue()
+        let repository = try GRDBConnectionSessionRepository(databaseQueue: queue)
+        let session = ConnectionSession(accountIdentifier: "solo-account", startedAt: Date(timeIntervalSince1970: 300))
+
+        try repository.save(session)
+        let loaded = try repository.sessions(for: "solo-account")
+
+        XCTAssertEqual(loaded.map(\.id), [session.id])
+        XCTAssertEqual(loaded.first, session)
+        XCTAssertTrue(try queue.read { try $0.tableExists("connection_session_acquisition_manifests") })
+    }
+
+    /// セッションRepositoryを先に作った共有Queueで取得証拠Repositoryも動作します。
+    ///
+    /// 責務: 生成順(セッション→取得証拠)に依らず同じDBを共有できることを確認します。
+    func testSessionRepositoryThenAcquisitionRepositoryShareDatabase() throws {
+        let queue = try DatabaseQueue()
+        let sessionRepository = try GRDBConnectionSessionRepository(databaseQueue: queue)
+        let acquisitionRepository = try GRDBConnectionSessionAcquisitionRepository(databaseQueue: queue)
+
+        try assertAcquisitionStartSavedForSavedSession(sessionRepository, acquisitionRepository)
+    }
+
+    /// 取得証拠Repositoryを先に作った共有Queueでセッション保存と証拠保存が動作します。
+    ///
+    /// 責務: 生成順(取得証拠→セッション)でも二重Migrationが問題なく共存することを確認します。
+    func testAcquisitionRepositoryThenSessionRepositoryShareDatabase() throws {
+        let queue = try DatabaseQueue()
+        let acquisitionRepository = try GRDBConnectionSessionAcquisitionRepository(databaseQueue: queue)
+        let sessionRepository = try GRDBConnectionSessionRepository(databaseQueue: queue)
+
+        try assertAcquisitionStartSavedForSavedSession(sessionRepository, acquisitionRepository)
+    }
+
+    /// セッション保存後に取得開始証拠を保存し、両方が読めることを検証します。
+    ///
+    /// 責務: 共有DB上のセッションと取得証拠の親子関係が成立することを確認します。
+    /// - Parameters:
+    ///   - sessionRepository: セッションを保存するRepository。
+    ///   - acquisitionRepository: 取得開始証拠を保存するRepository。
+    /// - Throws: 保存または読込の失敗。
+    private func assertAcquisitionStartSavedForSavedSession(
+        _ sessionRepository: GRDBConnectionSessionRepository,
+        _ acquisitionRepository: GRDBConnectionSessionAcquisitionRepository
+    ) throws {
+        let session = ConnectionSession(accountIdentifier: "shared-account", startedAt: Date(timeIntervalSince1970: 90))
+        try sessionRepository.save(session)
+        let request = OBDPIDRequest(service: 1, pid: 12)
+        let definition = try AcquisitionPIDDefinitionSnapshot(
+            request: request,
+            capabilitySupport: .supported,
+            isCollectionEnabled: true,
+            definitionRevision: 7,
+            requiredByteCount: 2,
+            definitionIdentity: AcquisitionPIDDefinitionIdentity(canonicalizationVersion: 51, expression: "(A * 256 + B) / 4"),
+            unit: "rpm",
+            validityRange: .notDeclared
+        )
+        let manifest = try ConnectionSessionAcquisitionManifest(
+            manifestVersion: 11,
+            applicationVersion: AcquisitionApplicationVersion(marketingVersion: "fixture-marketing", buildVersion: "fixture-build"),
+            schemaContractVersion: 31,
+            pollingPolicyVersion: 21,
+            orderedRequestedPIDs: OrderedAcquisitionPIDSet(requests: [request]),
+            pidDefinitions: [definition],
+            acquisitionPlatform: .iPad,
+            modelInputManifestVersion: 41
+        )
+
+        try acquisitionRepository.saveStartOnce(
+            manifest: manifest,
+            startedAt: Date(timeIntervalSince1970: 100),
+            for: session.id
+        )
+
+        XCTAssertEqual(try sessionRepository.sessions(for: "shared-account").map(\.id), [session.id])
+        let stored = try acquisitionRepository.manifest(for: session.id)
+        XCTAssertEqual(stored.manifestVersion, 11)
+        XCTAssertEqual(stored.orderedRequestedPIDs?.requests, [request])
+        XCTAssertEqual(stored.pidDefinitions.map(\.request), [request])
+        XCTAssertEqual(try acquisitionRepository.boundaryEvidence(for: session.id).count, 1)
+    }
+
     /// 車両と終了原因を含むセッションを安定IDのまま保存して復元します。
     ///
     /// 責務: 1件の完了済み接続セッションがGRDB境界を欠落なく往復することを確認します。

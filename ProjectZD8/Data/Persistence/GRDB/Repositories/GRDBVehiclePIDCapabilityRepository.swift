@@ -22,13 +22,7 @@ final class GRDBVehiclePIDCapabilityRepository: VehiclePIDCapabilityRepository, 
     /// - Returns: Migration済みRepository。
     /// - Throws: 保存先作成、DB接続、Migrationに失敗した場合のエラー。
     static func openApplicationRepository() throws -> GRDBVehiclePIDCapabilityRepository {
-        let fileManager = FileManager.default
-        let support = try fileManager.url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
-        let directory = support.appending(path: "ProjectZD8", directoryHint: .isDirectory)
-        try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
-        return try GRDBVehiclePIDCapabilityRepository(
-            databaseQueue: DatabaseQueue(path: directory.appending(path: "projectzd8.sqlite").path)
-        )
+        try GRDBVehiclePIDCapabilityRepository(databaseQueue: ProjectZD8DatabaseLocation.openApplicationDatabaseQueue())
     }
 
     /// 指定車両で確認済みの対応PIDを取得します。

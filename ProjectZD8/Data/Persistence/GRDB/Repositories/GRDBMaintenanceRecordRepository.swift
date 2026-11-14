@@ -22,17 +22,7 @@ final class GRDBMaintenanceRecordRepository: MaintenanceRecordRepository, @unche
     /// - Returns: Migration済みの整備記録Repository。
     /// - Throws: 保存先作成、DB接続、Migrationに失敗した場合のエラー。
     static func openApplicationRepository() throws -> GRDBMaintenanceRecordRepository {
-        let fileManager = FileManager.default
-        let support = try fileManager.url(
-            for: .applicationSupportDirectory,
-            in: .userDomainMask,
-            appropriateFor: nil,
-            create: true
-        )
-        let directory = support.appending(path: "ProjectZD8", directoryHint: .isDirectory)
-        try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
-        let queue = try DatabaseQueue(path: directory.appending(path: "projectzd8.sqlite").path)
-        return try GRDBMaintenanceRecordRepository(databaseQueue: queue)
+        try GRDBMaintenanceRecordRepository(databaseQueue: ProjectZD8DatabaseLocation.openApplicationDatabaseQueue())
     }
 
     /// 指定アカウントの全整備記録を更新日時順で取得します。
