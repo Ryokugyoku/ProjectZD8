@@ -14,6 +14,12 @@ final class LiveTelemetryModelFixture {
     let sleepInhibitor: VehicleConnectionSystemSleepInhibitorSpy
     /// Logging への通知の記録です。
     let notifications: LiveTelemetryModelNotificationLog
+    /// 実時刻clockです。
+    let dates = ManualDateClock(Date(timeIntervalSince1970: 1_000))
+    /// 回復操作を記録して予約した結果を返すフェイクです。
+    let linkRecovery = LinkRecoveryPortFake()
+    /// 一時停止中の期限待ちをテストが解放するまで待たせるフェイクです。
+    let deadlineWaiter = ControlledDeadlineWaiterFake()
     /// 取得ループです。
     let loop: LiveTelemetryAcquisitionLoop
     /// 検証対象の表示モデルです。
@@ -44,13 +50,17 @@ final class LiveTelemetryModelFixture {
                 telemetry: telemetry
             )
         }
-        loop = LiveTelemetryAcquisitionLoop(telemetry: telemetry, recorder: recorder, clock: clock)
+        let dates = dates
+        loop = LiveTelemetryAcquisitionLoop(
+            telemetry: telemetry, recorder: recorder, now: { dates.now() }, clock: clock,
+            linkRecovery: linkRecovery, deadlineWaiter: deadlineWaiter
+        )
         model = LiveTelemetryModel(
             state: LiveTelemetryState(),
             prepareAcquisition: PrepareLiveTelemetryAcquisitionUseCase(readMajorPIDs: readMajorPIDs, loadVehicleCapabilities: capabilities),
             acquisitionLoop: loop,
             clock: clock,
-            sessionDidEnd: { notifications.recordEnd($0) },
+            sessionDidEnd: { notifications.recordEnd($0, endedAt: $1) },
             distanceDidChange: { notifications.recordDistance($0) },
             systemSleepInhibitor: sleepInhibitor
         )
@@ -90,8 +100,9 @@ final class LiveTelemetryModelFixture {
 
     /// 動いている取得を止めます。
     ///
-    /// 責務: テスト終了時に応答待ちの要求を取消で解放し、取得Taskを残さないようにします。
+    /// 責務: テスト終了時に応答待ちの要求と期限待ちを解放し、取得Taskを残さないようにします。
     func tearDown() async {
         _ = await loop.stop()
+        deadlineWaiter.releaseAll()
     }
 }

@@ -59,21 +59,29 @@ final class LiveTelemetryModelRefreshTests: XCTestCase {
         XCTAssertEqual(fixture.model.state.samples.map(\.request), [distanceSinceCleared, odometer])
     }
 
-    /// 無応答による終了は間引かれず、保留中の観測を反映してから未接続状態になります。
+    /// 一時停止への遷移と応答途絶の猶予切れによる終了は間引かれず、保留中の観測を反映します。
     ///
-    /// 責務: 終了時に間隔内の観測が表示され、無応答の表示キー・終了通知・スリープ抑止解除になることを確認します。
-    func testNoVehicleResponseAppliesHeldSamplesAndDisconnects() async {
+    /// 責務: 間隔内の観測が一時停止の時点で表示され、猶予切れで無応答の表示キー・最後の受信時刻付きの通知・スリープ抑止解除になることを確認します。
+    func testPauseAndStallExpiryApplyHeldSamplesAndDisconnect() async {
         let fixture = await startLoaded()
         await fixture.telemetry.release(.responded([7]))
         await fixture.telemetry.release(.responded([8]))
-        await fixture.telemetry.answer(2) { _ in .timedOut }
+        await fixture.telemetry.waitForSentRequests(5)
+        fixture.clock.advance(byNanoseconds: AcquisitionStallPolicy.stallThresholdNanoseconds)
+        await fixture.telemetry.release(.timedOut)
+        await fixture.waitUntil("一時停止") { fixture.model.state.pauseStatus?.isRecovering == false }
+        XCTAssertEqual(fixture.displayedValues, [distanceSinceCleared: 7, odometer: 8])
+        let pausedAt = fixture.clock.nowNanoseconds()
+        await fixture.deadlineWaiter.waitForPending(pausedAt + 180 * 1_000_000_000 + 1)
+        fixture.clock.advance(byNanoseconds: 180 * 1_000_000_000 + 1)
 
+        XCTAssertGreaterThan(fixture.deadlineWaiter.release(deadline: pausedAt + 180 * 1_000_000_000 + 1), 0)
         await fixture.waitUntil("無応答の終了") { fixture.model.state.failureKey != nil }
 
-        XCTAssertEqual(fixture.displayedValues, [distanceSinceCleared: 7, odometer: 8])
         XCTAssertEqual(fixture.model.state.phase, .idle)
         XCTAssertEqual(fixture.model.state.failureKey, "telemetry.disconnected.no_response")
         XCTAssertEqual(fixture.notifications.endReasons, [.vehicleNoResponse])
+        XCTAssertEqual(fixture.notifications.endedAts, [Date(timeIntervalSince1970: 1_000)])
         XCTAssertEqual(fixture.sleepInhibitor.connectionStates, [true, false])
         XCTAssertEqual(fixture.telemetry.endSessionCount, 1)
     }

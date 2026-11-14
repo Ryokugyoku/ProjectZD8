@@ -51,20 +51,26 @@ final class LiveTelemetryModelTests: XCTestCase {
         XCTAssertEqual(fixture.telemetry.sentRequests, [])
     }
 
-    /// 接続断による終了は未接続状態と接続断の表示キーになります。
+    /// リンク断の猶予切れによる終了は、未接続状態・接続断の表示キーと、最後の受信時刻付きの接続断の通知になります。
     ///
-    /// 責務: `connectionLost` を待機状態・接続断表示・接続断通知へ変換することを確認します。
-    func testConnectionLostMapsToDisconnectedState() async {
+    /// 責務: 一時停止から猶予を過ぎた起床で終了し、`sessionDidEnd` が最後に正常応答を受けた実時刻で呼ばれることを確認します。
+    func testGraceExpiryAfterLinkLossMapsToDisconnectedState() async {
         let fixture = make(catalog: LiveTelemetryTestDefinitions.standard([0x0C]))
         fixture.start()
         await fixture.telemetry.release(.responded([1]))
         await fixture.telemetry.release(.transportFailure)
+        await fixture.waitUntil("一時停止") { fixture.model.state.pauseStatus?.isRecovering == false }
+        fixture.dates.set(Date(timeIntervalSince1970: 9_999))
+        fixture.clock.advance(byNanoseconds: 180 * 1_000_000_000 + 1)
 
+        fixture.model.send(.foregroundTransitionOccurred)
         await fixture.waitUntil("接続断の終了") { fixture.model.state.failureKey != nil }
 
         XCTAssertEqual(fixture.model.state.phase, .idle)
+        XCTAssertNil(fixture.model.state.pauseStatus)
         XCTAssertEqual(fixture.model.state.failureKey, "telemetry.disconnected.connection_lost")
         XCTAssertEqual(fixture.notifications.endReasons, [.connectionLost])
+        XCTAssertEqual(fixture.notifications.endedAts, [Date(timeIntervalSince1970: 1_000)])
         XCTAssertEqual(fixture.sleepInhibitor.connectionStates, [true, false])
     }
 
