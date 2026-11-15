@@ -35,6 +35,13 @@ final class VehicleManagementModel {
     @ObservationIgnored private let connectionIdentificationWillBegin: @MainActor () -> Void
     /// 接続のための車両識別が終わったこと(成功・失敗・登録確認待ちのすべて)を通知する処理です。
     @ObservationIgnored private let connectionIdentificationDidEnd: @MainActor () -> Void
+    /// 識別した車両が未登録のとき、車両なしで接続を始めるよう通知する処理です。
+    @ObservationIgnored private let unregisteredConnectionDidStart: @MainActor (
+        OBDConnectionEndpoint,
+        VehicleIdentificationSnapshot
+    ) -> Void
+    /// 車両なしで始めた接続の途中で、その車両が登録されたことを通知する処理です。
+    @ObservationIgnored private let unregisteredConnectionVehicleDidRegister: @MainActor (VehicleProfile) -> Void
     /// 現在の車両を所有するAppleアカウント識別子です。
     @ObservationIgnored private var accountIdentifier: String?
 
@@ -52,10 +59,12 @@ final class VehicleManagementModel {
     ///   - deleteVehicleWithSessions: 車両と関連セッションを全端末から削除するユースケース。
     ///   - vehicleSessionsDidDelete: 車両関連セッション削除後に履歴表示へ再読込を通知する処理。
     ///   - connectionVehicleDidResolve: 接続対象車両、終端、編集前のOBD識別観測を通知する処理。
+    ///   - unregisteredConnectionDidStart: 識別した車両が未登録のとき、車両なしの接続開始を通知する処理。
+    ///   - unregisteredConnectionVehicleDidRegister: 車両なしで始めた接続の途中で登録された車両を通知する処理。
     ///   - vehicleDidRegister: 新規登録の保存成功後に車両とアカウント識別子を受け取る処理。throw すると保存は成功のまま
     ///     `garage.error.session_assignment` を表示します。
     ///   - connectionIdentificationWillBegin: 接続のための車両識別を始める直前に呼ぶ処理。
-    ///   - connectionIdentificationDidEnd: 接続のための車両識別が終わった時に必ず1回呼ぶ処理(車両確定の通知の後)。
+    ///   - connectionIdentificationDidEnd: 接続のための車両識別が終わった時に必ず1回呼ぶ処理(車両・未登録の通知の後)。
     init(
         state: VehicleManagementState,
         repository: any VehicleRepository,
@@ -71,6 +80,11 @@ final class VehicleManagementModel {
             OBDConnectionEndpoint,
             VehicleIdentificationSnapshot
         ) -> Void = { _, _, _ in },
+        unregisteredConnectionDidStart: @escaping @MainActor (
+            OBDConnectionEndpoint,
+            VehicleIdentificationSnapshot
+        ) -> Void = { _, _ in },
+        unregisteredConnectionVehicleDidRegister: @escaping @MainActor (VehicleProfile) -> Void = { _ in },
         vehicleDidRegister: @escaping @MainActor (VehicleProfile, String) throws -> Void = { _, _ in },
         connectionIdentificationWillBegin: @escaping @MainActor () -> Void = {},
         connectionIdentificationDidEnd: @escaping @MainActor () -> Void = {}
@@ -88,6 +102,8 @@ final class VehicleManagementModel {
         self.vehicleDidRegister = vehicleDidRegister
         self.connectionIdentificationWillBegin = connectionIdentificationWillBegin
         self.connectionIdentificationDidEnd = connectionIdentificationDidEnd
+        self.unregisteredConnectionDidStart = unregisteredConnectionDidStart
+        self.unregisteredConnectionVehicleDidRegister = unregisteredConnectionVehicleDidRegister
     }
 
     /// 1件の型付き操作を車両管理状態と副作用へ反映します。
@@ -285,6 +301,7 @@ final class VehicleManagementModel {
     /// OBD識別結果を登録済み接続または登録確認へ反映します。
     ///
     /// 責務: 1回のHOME接続要求を車両識別子の照合結果に応じた状態へ進めます。
+    /// 未登録なら登録確認へ進めると同時に、車両なしの接続開始を通知します。
     /// - Parameter endpoint: 接続するOBDアダプターの物理終端。
     private func identifyVehicle(using endpoint: OBDConnectionEndpoint) async {
         guard accountIdentifier != nil, state.phase != .identifying else { return }
@@ -304,6 +321,7 @@ final class VehicleManagementModel {
             case let .requiresRegistration(snapshot):
                 state.pendingIdentification = snapshot
                 state.phase = .confirmingIdentification
+                unregisteredConnectionDidStart(endpoint, snapshot)
             }
         } catch VehicleIdentificationError.stageFailed(let stage, let cause) {
             applyIdentificationFailure(stage: stage, cause: cause)
@@ -440,7 +458,8 @@ final class VehicleManagementModel {
 
     /// 1件のプロフィールを現在アカウントへ保存します。
     ///
-    /// 責務: 編集済み車両1件を保存し最新一覧へ置き換えます。
+    /// 責務: 編集済み車両1件を保存し最新一覧へ置き換えます。接続時の識別から登録した場合は、
+    /// 車両なしで始めた接続へ登録した車両を通知します(新しい接続は始めません)。
     /// - Parameter vehicle: 保存する編集済みプロフィール。
     private func save(_ vehicle: VehicleProfile) async {
         guard let accountIdentifier else { return }
@@ -459,11 +478,9 @@ final class VehicleManagementModel {
             state.vehicles.sort { $0.updatedAt > $1.updatedAt }
             state.editingVehicle = nil
             state.pendingIdentification = nil
-            if let connectionIdentification {
+            if connectionIdentification != nil {
                 state.connectionVehicle = saved
-                if let endpoint = state.connectionEndpoint {
-                    connectionVehicleDidResolve(saved, endpoint, connectionIdentification)
-                }
+                unregisteredConnectionVehicleDidRegister(saved)
             }
             loadActivitySummaries(for: accountIdentifier)
             state.phase = .idle

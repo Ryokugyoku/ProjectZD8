@@ -11,11 +11,13 @@ nonisolated struct ProductionConnectionSessionAcquisitionConfiguration: Sendable
     /// formula canonicalization契約versionです。
     let formulaCanonicalizationVersion: Int
 
-    /// Phase 4Gで承認された最初のProduction契約です。
+    /// Phase 4Gで承認されたProduction契約です。
+    ///
+    /// polling policy契約は、`tick` を応答駆動の周回番号と解釈する version 2 です。
     static let phase4G = ProductionConnectionSessionAcquisitionConfiguration(
         manifestVersion: 1,
         schemaContractVersion: 1,
-        pollingPolicyVersion: 1,
+        pollingPolicyVersion: 2,
         modelInputManifestVersion: 1,
         formulaCanonicalizationVersion: 1
     )

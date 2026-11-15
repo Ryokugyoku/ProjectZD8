@@ -14,6 +14,10 @@ nonisolated struct ConnectionSessionRawLogEntry: Codable, Equatable, Sendable {
     let pid: UInt8
     /// 数値化や単位変換を適用していない応答データバイトです。
     let payload: [UInt8]
+    /// 応答を観測した時点の単調時計のナノ秒値です。記録していない既存行では `nil` です。
+    let monotonicNanoseconds: UInt64?
+    /// 応答が属する連続取得区間の番号です。記録していない既存行では `nil` です。
+    let segmentOrdinal: Int?
 
     /// 未デコード応答をセッション内の記録順序へ固定して生成します。
     ///
@@ -25,13 +29,17 @@ nonisolated struct ConnectionSessionRawLogEntry: Codable, Equatable, Sendable {
     ///   - service: OBD Service番号。
     ///   - pid: Service内PID番号。
     ///   - payload: 未デコード応答データバイト。
+    ///   - monotonicNanoseconds: 観測時点の単調時計ナノ秒値。記録しない場合は `nil`。
+    ///   - segmentOrdinal: 所属する連続取得区間の番号。記録しない場合は `nil`。
     init(
         sequence: Int64,
         observedAt: Date,
         batchElapsedNanoseconds: UInt64,
         service: UInt8,
         pid: UInt8,
-        payload: [UInt8]
+        payload: [UInt8],
+        monotonicNanoseconds: UInt64? = nil,
+        segmentOrdinal: Int? = nil
     ) {
         self.sequence = sequence
         self.observedAt = observedAt
@@ -39,5 +47,7 @@ nonisolated struct ConnectionSessionRawLogEntry: Codable, Equatable, Sendable {
         self.service = service
         self.pid = pid
         self.payload = payload
+        self.monotonicNanoseconds = monotonicNanoseconds
+        self.segmentOrdinal = segmentOrdinal
     }
 }

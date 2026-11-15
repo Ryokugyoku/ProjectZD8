@@ -240,23 +240,10 @@ final class GRDBConnectionSessionAcquisitionRepository: ConnectionSessionAcquisi
                 ) != nil else {
                     throw ConnectionSessionAcquisitionRepositoryError.startEvidenceMissing
                 }
-                let generation = try exactInt64(evidence.generation)
-                let policyTick = try exactInt64(evidence.policyTick)
-                try ConnectionSessionAcquisitionBatchRecord(
-                    sessionID: key,
-                    batchOrdinal: evidence.identity.ordinal,
-                    generation: generation,
-                    policyTick: policyTick,
-                    selectionEvaluationComplete: evidence.isSelectionEvaluationComplete,
-                    startedAtMicroseconds: try canonicalMicroseconds(for: evidence.startedAt),
-                    completionState: nil,
-                    completedAtMicroseconds: nil,
-                    failureCode: nil,
-                    isSealed: false
-                ).insert(database)
+                try ConnectionSessionAcquisitionBatchRecord(evidence: evidence, sessionID: key).insert(database)
                 for request in evidence.requests {
-                    try requestRecord(
-                        request,
+                    try ConnectionSessionAcquisitionPIDRequestRecord(
+                        request: request,
                         sessionID: key,
                         batchOrdinal: evidence.identity.ordinal
                     ).insert(database)
@@ -706,23 +693,7 @@ final class GRDBConnectionSessionAcquisitionRepository: ConnectionSessionAcquisi
                     guard let session = record.makeDomainSession() else {
                         throw ConnectionSessionAcquisitionRepositoryError.unavailable
                     }
-                    try recoverOpenBatchesAfterProcessTermination(
-                        sessionID: session.id,
-                        completedAt: recoveredAt,
-                        database: database
-                    )
-                    try appendEndIfAcquisitionStarted(
-                        sessionID: session.id,
-                        endedAt: recoveredAt,
-                        reason: .unexpectedTermination,
-                        database: database
-                    )
-                    return try finishSessionRecord(
-                        session,
-                        endedAt: recoveredAt,
-                        reason: .unexpectedTermination,
-                        database: database
-                    )
+                    return try finishInterrupted(session, endedAt: recoveredAt, database: database)
                 }
             }
         } catch let error as ConnectionSessionAcquisitionRepositoryError {
@@ -731,6 +702,75 @@ final class GRDBConnectionSessionAcquisitionRepository: ConnectionSessionAcquisi
             logger.error("中断session取得回復失敗: \(String(describing: error), privacy: .private)")
             throw ConnectionSessionAcquisitionRepositoryError.unavailable
         }
+    }
+
+    /// process終了後に残った1件のsessionのopen batchだけを1 transactionで回復します。
+    ///
+    /// 責務: 猶予内で続行可能なsessionの未確定batchを再送なしのtermination証拠へ確定します。
+    /// - Parameters:
+    ///   - sessionID: 回復対象session。
+    ///   - completedAt: batchの終端を確定する日時。
+    /// - Throws: 保存値不正またはSQLite回復失敗。
+    func sealInterruptedBatches(for sessionID: ConnectionSessionID, completedAt: Date) throws {
+        do {
+            try measuredWrite(operation: .terminationRecoveryPersistence) { database in
+                try recoverOpenBatchesAfterProcessTermination(
+                    sessionID: sessionID,
+                    completedAt: completedAt,
+                    database: database
+                )
+            }
+        } catch let error as ConnectionSessionAcquisitionRepositoryError {
+            throw error
+        } catch {
+            logger.error("中断session batch回復失敗: \(String(describing: error), privacy: .private)")
+            throw ConnectionSessionAcquisitionRepositoryError.unavailable
+        }
+    }
+
+    /// process終了後に残った1件のsessionを1 transactionで指定日時の異常終了へ確定します。
+    ///
+    /// 責務: 猶予を超えたsessionのopen batch回復・終了境界・session終了を部分成功なしで保存します。
+    /// - Parameters:
+    ///   - session: 終了する未終了session。
+    ///   - endedAt: sessionと取得境界へ共通で使用する終了日時。
+    /// - Returns: transaction内でcanonical readbackした終了済みsession。
+    /// - Throws: session不在・既終了、保存値不正、またはSQLite回復失敗。
+    func finishInterruptedSessionAcquisition(_ session: ConnectionSession, endedAt: Date) throws -> ConnectionSession {
+        do {
+            return try measuredWrite(operation: .terminationRecoveryPersistence) { database in
+                try finishInterrupted(session, endedAt: endedAt, database: database)
+            }
+        } catch let error as ConnectionSessionAcquisitionRepositoryError {
+            throw error
+        } catch {
+            logger.error("中断session終了失敗: \(String(describing: error), privacy: .private)")
+            throw ConnectionSessionAcquisitionRepositoryError.unavailable
+        }
+    }
+
+    /// 親transaction内で1件の中断sessionをopen batch回復付きで異常終了させます。
+    ///
+    /// 責務: アカウント単位の回復と1件単位の回復で同じ終了手順を共有します。
+    /// - Parameters:
+    ///   - session: 終了する未終了session。
+    ///   - endedAt: sessionと取得境界へ共通で使用する終了日時。
+    ///   - database: 親transactionのSQLite境界。
+    /// - Returns: 保存済み終了session。
+    /// - Throws: batch回復・境界追記・session終了のいずれかの失敗。
+    private func finishInterrupted(
+        _ session: ConnectionSession,
+        endedAt: Date,
+        database: Database
+    ) throws -> ConnectionSession {
+        try recoverOpenBatchesAfterProcessTermination(sessionID: session.id, completedAt: endedAt, database: database)
+        try appendEndIfAcquisitionStarted(
+            sessionID: session.id,
+            endedAt: endedAt,
+            reason: .unexpectedTermination,
+            database: database
+        )
+        return try finishSessionRecord(session, endedAt: endedAt, reason: .unexpectedTermination, database: database)
     }
 
     /// 1回のGRDB writeをQueue通過点付きperformance区間として実行します。
@@ -982,19 +1022,6 @@ final class GRDBConnectionSessionAcquisitionRepository: ConnectionSessionAcquisi
         return readback
     }
 
-    /// UInt値をSQLiteの非負Int64へ変換します。
-    ///
-    /// 責務: 取得世代、tick、経過時間を表現範囲検証済みSQLite整数へ変換します。
-    /// - Parameter value: 変換する非負値。
-    /// - Returns: 同じ値を持つInt64。
-    /// - Throws: Int64範囲外の場合は `.unavailable`。
-    private func exactInt64(_ value: UInt) throws -> Int64 {
-        guard let converted = Int64(exactly: value) else {
-            throw ConnectionSessionAcquisitionRepositoryError.unavailable
-        }
-        return converted
-    }
-
     /// UInt64値をSQLiteの非負Int64へ変換します。
     ///
     /// 責務: 単調経過時間を表現範囲検証済みSQLite整数へ変換します。
@@ -1006,35 +1033,6 @@ final class GRDBConnectionSessionAcquisitionRepository: ConnectionSessionAcquisi
             throw ConnectionSessionAcquisitionRepositoryError.unavailable
         }
         return converted
-    }
-
-    /// Domain request evidenceをGRDB行へ変換します。
-    ///
-    /// 責務: 1件の要求証拠を親session/batch付き永続化表現へ変換します。
-    /// - Parameters:
-    ///   - request: 変換する要求証拠。
-    ///   - sessionID: 親session DB key。
-    ///   - batchOrdinal: 親batch番号。
-    /// - Returns: 挿入可能なrequest record。
-    /// - Throws: 経過時間がInt64範囲外の場合は `.unavailable`。
-    private func requestRecord(
-        _ request: PIDRequestEvidence,
-        sessionID: String,
-        batchOrdinal: Int64
-    ) throws -> ConnectionSessionAcquisitionPIDRequestRecord {
-        try ConnectionSessionAcquisitionPIDRequestRecord(
-            sessionID: sessionID,
-            batchOrdinal: batchOrdinal,
-            requestOrdinal: request.requestOrdinal,
-            manifestPIDOrdinal: request.manifestPIDOrdinal,
-            dispatchState: request.dispatchState.rawValue,
-            transportOutcome: request.transportOutcome?.rawValue,
-            valueOutcome: request.valueOutcome.rawValue,
-            rawSequence: request.rawSequence,
-            elapsedNanoseconds: request.elapsedNanoseconds.map(exactInt64),
-            reasonCode: request.reasonCode,
-            isSealed: request.dispatchState == .terminal
-        )
     }
 
     /// terminal遷移対象の親manifest、open batch、requestを読み取ります。

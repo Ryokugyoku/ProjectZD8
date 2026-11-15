@@ -17,7 +17,7 @@ struct GRDBConnectionSessionRawLogAppender {
         to sessionID: ConnectionSessionID,
         in database: Database
     ) throws -> ConnectionSessionRawLogEntry {
-        guard var session = try fetchSession(sessionID, database: database), session.endedAt == nil,
+        guard let session = try fetchSession(sessionID, database: database), session.endedAt == nil,
               let elapsed = Int64(exactly: observation.batchElapsedNanoseconds) else {
             throw ConnectionSessionRepositoryError.invalidState
         }
@@ -37,16 +37,36 @@ struct GRDBConnectionSessionRawLogAppender {
             pid: observation.request.pid,
             payload: observation.payload
         )
-        try ConnectionSessionRawLogRecord(entry: entry, sessionID: sessionID).insert(database)
-        session.rawLogSummary.recordCount += 1
-        session.rawLogSummary.byteCount += Int64(observation.payload.count)
+        try insertNumbered([entry], into: session, in: database)
+        return entry
+    }
+
+    /// 呼出元が採番済みのRaw entry群を追加し親集計を1回で更新します。
+    ///
+    /// 責務: 検証済みopen sessionへRaw行を順にinsertし、件数・バイト数・転送状態を同期します。
+    /// - Parameters:
+    ///   - entries: 採番済みsequenceを持つ追加対象。空なら何も書きません。
+    ///   - session: 呼出元が同じtransactionで読み取った未終了session。
+    ///   - database: 呼出元が所有するGRDB transaction境界。
+    /// - Throws: 主キー重複などのSQLite制約違反、または保存失敗。
+    func insertNumbered(
+        _ entries: [ConnectionSessionRawLogEntry],
+        into session: ConnectionSession,
+        in database: Database
+    ) throws {
+        guard !entries.isEmpty else { return }
+        var session = session
+        for entry in entries {
+            try ConnectionSessionRawLogRecord(entry: entry, sessionID: session.id).insert(database)
+        }
+        session.rawLogSummary.recordCount += Int64(entries.count)
+        session.rawLogSummary.byteCount += entries.reduce(Int64(0)) { $0 + Int64($1.payload.count) }
         session.rawLogSummary.localState = .available
         session.rawLogSummary.cloudState = .pending
         session.rawLogSummary.manifestDigest = nil
         session.rawLogSummary.macImportReceipt = nil
         session.rawLogSummary.lastAccessedAt = nil
         try ConnectionSessionRecord(session: session).update(database)
-        return entry
     }
 
     /// SQLiteから親接続sessionを復元します。
@@ -57,7 +77,7 @@ struct GRDBConnectionSessionRawLogAppender {
     ///   - database: 現在のGRDB境界。
     /// - Returns: 保存済みsession、または不在時の `nil`。
     /// - Throws: 保存値がDomainへ復元できない場合は整合性エラー。
-    private func fetchSession(
+    func fetchSession(
         _ sessionID: ConnectionSessionID,
         database: Database
     ) throws -> ConnectionSession? {

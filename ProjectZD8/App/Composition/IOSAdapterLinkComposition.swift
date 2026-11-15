@@ -70,20 +70,17 @@ enum IOSAdapterLinkComposition {
     /// 調停役のテレメトリ開始・停止の出力をLiveTelemetryへ結び付けます。
     ///
     /// 責務: Loggingの記録開始要求をLiveTelemetryの開始要求へ写し、停止をLiveTelemetryの停止操作へ写します。
+    /// 車両ありなら登録済み車両(型式コード付き)、車両なしなら未登録車両(標準PIDのみ)として取得を始めます。
     /// - Parameters:
     ///   - coordinator: 記録の調停役。
     ///   - liveTelemetryModel: テレメトリの取得を保持するモデル。
     static func connectTelemetry(of coordinator: VehicleRecordingCoordinator, to liveTelemetryModel: LiveTelemetryModel) {
         coordinator.startTelemetry = { request in
+            let vehicle: LiveTelemetryVehicleContext = request.vehicle.map {
+                .registered($0.id, vehicleModelCode: request.vehicleModelCode)
+            } ?? .unregistered
             liveTelemetryModel.send(
-                .startRequested(
-                    LiveTelemetryStartRequest(
-                        endpoint: request.endpoint,
-                        vehicleID: request.vehicle?.id,
-                        vehicleModelCode: request.vehicleModelCode,
-                        adapterProbeEvidence: request.adapterProbeEvidence
-                    )
-                )
+                .startRequested(request.endpoint, vehicle, adapterProbeEvidence: request.adapterProbeEvidence)
             )
         }
         coordinator.stopTelemetry = { liveTelemetryModel.send(.stopRequested) }

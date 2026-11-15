@@ -55,37 +55,33 @@ struct ProjectZD8App: App {
     /// プラットフォーム固有の依存関係を組み立ててアプリを生成します。
     ///
     /// 責務: 現在のプラットフォーム用Compositionからアプリケーションルート依存関係を構築します。
+    /// iOSでは画面の表示を待たずに常駐リンク監視を始めます。
     init() {
         #if os(iOS)
         let root = IOSApplicationRoot.make()
-        _authenticationModel = State(initialValue: root.authenticationModel)
-        _accountSettingsModel = State(initialValue: root.accountSettingsModel)
-        _iOSSettingsModel = State(initialValue: root.settingsModel)
-        _automaticRecordingModel = State(initialValue: root.automaticRecordingModel)
-        _unassignedVINWarningModel = State(initialValue: root.unassignedVINWarningModel)
-        _vehicleManagementModel = State(initialValue: root.vehicleManagementModel)
-        _maintenanceModel = State(initialValue: root.maintenanceModel)
-        _liveTelemetryModel = State(initialValue: root.liveTelemetryModel)
-        _connectionSessionLifecycleModel = State(initialValue: root.connectionSessionLifecycleModel)
-        _connectionHistoryModel = State(initialValue: root.connectionHistoryModel)
-        _sessionLogAnalysisModel = State(initialValue: root.sessionLogAnalysisModel)
-        startVehicleConnection = root.startVehicleConnection
+        let models = root.models
+        #elseif os(macOS)
+        let models = ApplicationRootAssembly.makeModels(MacOSApplicationComposition.self)
+        #endif
+        _authenticationModel = State(initialValue: models.authentication)
+        _accountSettingsModel = State(initialValue: models.accountSettings)
+        #if os(iOS)
+        _iOSSettingsModel = State(initialValue: IOSApplicationComposition.makeSettingsPresentationModel())
+        #elseif os(macOS)
+        _macOSSettingsModel = State(initialValue: MacOSApplicationComposition.makeSettingsPresentationModel())
+        #endif
+        _vehicleManagementModel = State(initialValue: models.vehicleManagement)
+        _maintenanceModel = State(initialValue: models.maintenance)
+        _liveTelemetryModel = State(initialValue: models.liveTelemetry)
+        _connectionSessionLifecycleModel = State(initialValue: models.connectionSessionLifecycle)
+        _connectionHistoryModel = State(initialValue: models.connectionHistory)
+        _sessionLogAnalysisModel = State(initialValue: models.sessionLogAnalysis)
+        startVehicleConnection = ApplicationRootAssembly.makeStartVehicleConnection(vehicleManagement: models.vehicleManagement)
+        #if os(iOS)
+        _automaticRecordingModel = State(initialValue: root.automaticRecording)
+        _unassignedVINWarningModel = State(initialValue: root.unassignedVINWarning)
         adapterLinkSupervision = root.adapterLinkSupervision
         root.adapterLinkSupervision.launch()
-        #endif
-
-        #if os(macOS)
-        let root = MacOSApplicationRoot.make()
-        _authenticationModel = State(initialValue: root.authenticationModel)
-        _accountSettingsModel = State(initialValue: root.accountSettingsModel)
-        _macOSSettingsModel = State(initialValue: root.settingsModel)
-        _vehicleManagementModel = State(initialValue: root.vehicleManagementModel)
-        _maintenanceModel = State(initialValue: root.maintenanceModel)
-        _liveTelemetryModel = State(initialValue: root.liveTelemetryModel)
-        _connectionSessionLifecycleModel = State(initialValue: root.connectionSessionLifecycleModel)
-        _connectionHistoryModel = State(initialValue: root.connectionHistoryModel)
-        _sessionLogAnalysisModel = State(initialValue: root.sessionLogAnalysisModel)
-        startVehicleConnection = root.startVehicleConnection
         #endif
     }
 
@@ -168,12 +164,16 @@ struct ProjectZD8App: App {
         }
     }
 
-    /// アプリが操作可能へ戻ったとき常駐リンク監視へ伝え、認証済みセッション概要と整備記録を再同期します。
+    /// バックグラウンド移行時に保存待ちの取得記録を保存させ、操作可能へ戻ったとき取得の一時停止へ復帰の機会を伝え、
+    /// iOSでは常駐リンク監視へ前面復帰を伝え、認証済みセッション概要と整備記録を再同期します。
     ///
-    /// 責務: 1件のScene段階変更を前面復帰の通知と、認証済み接続履歴と整備記録の更新要求へ変換します。
+    /// 責務: 1件のScene段階変更を取得記録のflush要求・取得ループの起床通知・前面復帰の通知、
+    /// または認証済み接続履歴と整備記録の更新要求へ変換します。
     /// - Parameter phase: 現在のScene段階。
     private func handleScenePhaseChange(_ phase: ScenePhase) {
+        if phase == .background { liveTelemetryModel.send(.backgroundTransitionOccurred) }
         guard phase == .active else { return }
+        liveTelemetryModel.send(.foregroundTransitionOccurred)
         #if os(iOS)
         adapterLinkSupervision.appDidBecomeActive()
         #endif

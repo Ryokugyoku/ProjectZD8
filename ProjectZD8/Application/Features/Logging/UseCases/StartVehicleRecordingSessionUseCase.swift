@@ -1,4 +1,4 @@
-/// 記録開始の接続セッション側の手順(セッション開始・車両確定・観測VIN)を1か所にまとめます。
+/// 記録開始の接続セッション側の手順(セッション開始・車両または未登録の確定・観測VIN)を1か所にまとめます。
 ///
 /// 手動接続と常駐リンクのどちらから始める記録も、この順序で接続セッションを準備します。
 @MainActor
@@ -21,15 +21,19 @@ struct StartVehicleRecordingSessionUseCase {
 
     /// 記録開始要求に従って接続セッションを開始します。
     ///
-    /// 責務: セッションを開始し、開始できた時だけ車両ありなら車両確定を、観測VINがあれば `vinObserved` を送ります。
+    /// 責務: セッションの開始に続けて、車両ありなら車両確定を、車両なしなら未登録の確定を送ります。
+    /// プロセス復帰後に続行可能なセッションがある場合、続けるか新規に始めるかはこの確定で決まるため、
+    /// 進行中になったかどうかは確定を送った後で確かめます。進行中になった時だけ、観測VINがあれば `vinObserved` を送ります。
     /// - Parameter request: 記録開始要求。
     /// - Returns: 接続セッションが進行中になったら `true`。アカウント未確定や保存失敗で開始できなかったら `false`。
     func execute(_ request: VehicleRecordingStartRequest) -> Bool {
         lifecycle.send(.startRequested)
-        guard lifecycle.activeSession != nil else { return false }
         if let vehicle = request.vehicle {
             lifecycle.send(.vehicleResolved(vehicle))
+        } else {
+            lifecycle.send(.vehicleUnregistered)
         }
+        guard lifecycle.activeSession != nil else { return false }
         if let observedVIN = request.observedVIN {
             lifecycle.send(.vinObserved(observedVIN))
         }

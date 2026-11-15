@@ -1,6 +1,7 @@
 /// 手動接続と常駐リンクの両方から記録を始めるための確定済み要求です。
 ///
 /// LiveTelemetry の開始要求へは App の配線で写します(Logging は LiveTelemetry の型に依存しません)。
+/// 車両ありは登録済み車両の取得、車両なしは未登録車両の取得(標準PIDのみ)になります。
 nonisolated struct VehicleRecordingStartRequest: Equatable, Sendable {
     /// 記録に使う接続終端です。
     let endpoint: OBDConnectionEndpoint
@@ -59,6 +60,27 @@ nonisolated struct VehicleRecordingStartRequest: Equatable, Sendable {
             vehicle: vehicle,
             observedVIN: nil,
             vehicleModelCode: vehicleModelCode(identifiers: [identification.vin, identification.obdIdentifier]),
+            adapterProbeEvidence: nil
+        )
+    }
+
+    /// 手動接続で識別した車両が未登録だった時の、車両なしの記録開始要求を生成します。
+    ///
+    /// 責務: 手動接続の識別結果を、車両なし・型式コードなし・アダプター判定なしの記録開始要求へ変換します。
+    /// - Parameters:
+    ///   - endpoint: 手動接続で選んだ接続終端。
+    ///   - identification: 接続時に読み取ったOBD識別観測。
+    /// - Returns: 標準PIDだけを取得する要求。識別観測のVINは観測VINとして保持します(読めていなければ `nil`)。
+    @MainActor
+    static func manualUnregisteredConnection(
+        endpoint: OBDConnectionEndpoint,
+        identification: VehicleIdentificationSnapshot
+    ) -> VehicleRecordingStartRequest {
+        VehicleRecordingStartRequest(
+            endpoint: endpoint,
+            vehicle: nil,
+            observedVIN: identification.vin,
+            vehicleModelCode: nil,
             adapterProbeEvidence: nil
         )
     }

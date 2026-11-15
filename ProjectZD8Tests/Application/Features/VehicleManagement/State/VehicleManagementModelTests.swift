@@ -48,39 +48,44 @@ final class VehicleManagementModelTests: XCTestCase {
         XCTAssertEqual(model.state.vehicles.map(\.vin), [expectedVIN])
     }
 
-    /// 未登録車両は登録保存が成功した後にだけ接続開始へ引き渡します。
+    /// 未登録車両は識別の時点で車両なしの接続を始め、登録保存の後は取得を切り替えずに登録した車両を現在の接続へ渡します。
     ///
-    /// 責務: 車両登録の保存完了前後で接続確定通知の発行時点が変わることを確認します。
-    func testUnregisteredVehicleResolvesConnectionAfterRegistrationSave() async throws {
-        let repository = VehicleRepositoryFake()
+    /// 責務: 未登録の接続開始が識別時に1回、登録済み車両としての接続開始は一度も無く、保存後に登録車両の通知が1回だけあることを確認します。
+    func testUnregisteredVehicleStartsWithoutVehicleAndRegistersWithoutRestart() async throws {
+        var unregisteredStarts: [OBDConnectionEndpoint] = []
         var resolvedVehicles: [VehicleProfile] = []
+        var registeredVehicles: [VehicleProfile] = []
+        let endpoint = OBDConnectionEndpoint(adapter: DemoOBDAdapter.candidate)
         let model = VehicleManagementModel(
             state: VehicleManagementState(),
-            repository: repository,
-            identifyForConnection: IdentifyVehicleForConnectionUseCase(
-                identification: DemoVehicleIdentificationAdapter()
-            ),
+            repository: VehicleRepositoryFake(),
+            identifyForConnection: IdentifyVehicleForConnectionUseCase(identification: DemoVehicleIdentificationAdapter()),
             photoImporter: VehiclePhotoImportPortFake(),
-            connectionVehicleDidResolve: { vehicle, _, _ in resolvedVehicles.append(vehicle) }
+            connectionVehicleDidResolve: { vehicle, _, _ in resolvedVehicles.append(vehicle) },
+            unregisteredConnectionDidStart: { endpoint, _ in unregisteredStarts.append(endpoint) },
+            unregisteredConnectionVehicleDidRegister: { registeredVehicles.append($0) }
         )
         model.send(.accountIdentifierChanged("test-account"))
         try await waitUntil { model.state.hasLoadedVehicles }
 
-        model.send(.identifyRequested(OBDConnectionEndpoint(adapter: DemoOBDAdapter.candidate)))
+        model.send(.identifyRequested(endpoint))
         try await waitUntil { model.state.phase == .confirmingIdentification }
-        XCTAssertTrue(resolvedVehicles.isEmpty)
+        XCTAssertEqual(unregisteredStarts, [endpoint])
+        XCTAssertTrue(registeredVehicles.isEmpty)
 
         model.send(.identificationConfirmed)
         let draft = try XCTUnwrap(model.state.editingVehicle)
         model.send(.vehicleSaved(draft))
-        try await waitUntil { model.state.phase == .idle && resolvedVehicles.count == 1 }
+        try await waitUntil { model.state.phase == .idle && registeredVehicles.count == 1 }
 
-        XCTAssertEqual(resolvedVehicles.map(\.id), [draft.id])
+        XCTAssertEqual(registeredVehicles.map(\.id), [draft.id])
+        XCTAssertEqual(resolvedVehicles, [])
+        XCTAssertEqual(unregisteredStarts.count, 1)
     }
 
-    /// 未登録車両の登録をキャンセルした場合は接続開始へ引き渡しません。
+    /// 未登録車両の登録をキャンセルした場合は、登録済み車両の接続開始も登録車両の通知も行いません。
     ///
-    /// 責務: 登録キャンセル後に接続確定通知が発行されないことを確認します。
+    /// 責務: 登録キャンセル後に接続確定通知と登録車両の通知が発行されないことを確認します。
     func testRegistrationCancellationDoesNotResolveConnection() async throws {
         var resolutionCount = 0
         let model = VehicleManagementModel(
@@ -90,7 +95,8 @@ final class VehicleManagementModelTests: XCTestCase {
                 identification: DemoVehicleIdentificationAdapter()
             ),
             photoImporter: VehiclePhotoImportPortFake(),
-            connectionVehicleDidResolve: { _, _, _ in resolutionCount += 1 }
+            connectionVehicleDidResolve: { _, _, _ in resolutionCount += 1 },
+            unregisteredConnectionVehicleDidRegister: { _ in resolutionCount += 1 }
         )
         model.send(.accountIdentifierChanged("test-account"))
         try await waitUntil { model.state.hasLoadedVehicles }

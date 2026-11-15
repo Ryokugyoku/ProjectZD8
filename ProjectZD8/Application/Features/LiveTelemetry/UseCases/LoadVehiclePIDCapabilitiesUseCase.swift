@@ -4,8 +4,10 @@ import Foundation
 struct LoadVehiclePIDCapabilitiesUseCase: Sendable {
     /// 車両別対応PIDの永続化境界です。
     private let repository: any VehiclePIDCapabilityRepository
-    /// 標準PIDと車種専用PIDをアダプターへ問い合わせる探索処理です。
-    private let discovery: DiscoverSupportedOBDPIDsUseCase
+    /// Service 01対応ビットマップを読み取る通信境界です。
+    private let telemetry: any OBDPIDTelemetryPort
+    /// 車種専用定義を取得するPIDカタログ境界です。
+    private let definitionRepository: (any OBDPIDDefinitionRepository)?
     /// 対応確認日時を供給するクロックです。
     private let now: @Sendable () -> Date
 
@@ -24,10 +26,8 @@ struct LoadVehiclePIDCapabilitiesUseCase: Sendable {
         now: @escaping @Sendable () -> Date = Date.init
     ) {
         self.repository = repository
-        discovery = DiscoverSupportedOBDPIDsUseCase(
-            telemetry: telemetry,
-            definitionRepository: definitionRepository
-        )
+        self.telemetry = telemetry
+        self.definitionRepository = definitionRepository
         self.now = now
     }
 
@@ -48,7 +48,7 @@ struct LoadVehiclePIDCapabilitiesUseCase: Sendable {
         let stored = try repository.capabilities(for: vehicleID)
         var capabilities = stored
         if stored.isEmpty {
-            let requests = try await discovery.discoverStandard(using: endpoint)
+            let requests = try await discover(using: endpoint)
             let discoveredAt = now()
             capabilities = requests.map {
                 VehiclePIDCapability(vehicleID: vehicleID, request: $0, isCollectionEnabled: true, discoveredAt: discoveredAt)
@@ -84,15 +84,33 @@ struct LoadVehiclePIDCapabilitiesUseCase: Sendable {
         excluding: Set<OBDPIDRequest>,
         endpoint: OBDConnectionEndpoint
     ) async throws -> [VehiclePIDCapability] {
-        let requests = try await discovery.discoverVehicleSpecific(
-            vehicleModelCode: vehicleModelCode,
-            excluding: excluding,
-            endpoint: endpoint
-        )
-        guard !requests.isEmpty else { return [] }
-        let discoveredAt = now()
-        return requests.map {
-            VehiclePIDCapability(vehicleID: vehicleID, request: $0, isCollectionEnabled: true, discoveredAt: discoveredAt)
+        guard let vehicleModelCode, let definitionRepository else { return [] }
+        let definitions = try definitionRepository.definitions().filter {
+            $0.vehicleModelCode?.caseInsensitiveCompare(vehicleModelCode) == .orderedSame
+                && !excluding.contains(OBDPIDRequest(service: $0.service, pid: $0.pid))
         }
+        guard !definitions.isEmpty else { return [] }
+        let responses = try await telemetry.readVehicleSpecific(definitions, using: endpoint)
+        let discoveredAt = now()
+        return definitions.compactMap { definition in
+            let request = OBDPIDRequest(service: definition.service, pid: definition.pid)
+            guard responses[request] != nil else { return nil }
+            return VehiclePIDCapability(
+                vehicleID: vehicleID,
+                request: request,
+                isCollectionEnabled: true,
+                discoveredAt: discoveredAt
+            )
+        }
+    }
+
+    /// 対応PIDビットマップから標準PIDを探索します。
+    ///
+    /// 責務: 未登録車両の取得準備と共有する対応PID探索へ委譲します。
+    /// - Parameter endpoint: OBDアダプターの物理終端。
+    /// - Returns: ECUが対応を返したService 01 PID。
+    /// - Throws: ビットマップの応答が無い場合などの取得境界エラー。
+    private func discover(using endpoint: OBDConnectionEndpoint) async throws -> [OBDPIDRequest] {
+        try await DiscoverSupportedStandardPIDsUseCase(telemetry: telemetry).execute(using: endpoint)
     }
 }

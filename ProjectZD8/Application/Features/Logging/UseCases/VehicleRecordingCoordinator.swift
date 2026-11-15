@@ -82,7 +82,7 @@ final class VehicleRecordingCoordinator: AdapterLinkRecordingControlPort {
         endManualAdapterUse()
     }
 
-    /// 手動接続で確定した車両で記録を始めます。
+    /// 手動接続で識別した車両(登録済み、または未登録で車両なし)の記録を始めます。
     ///
     /// 責務: 常駐リンク監視から依頼された記録があれば終了扱いにし、手動のアダプター使用を記録中にしてから、
     /// セッションの有無に関係なくテレメトリを始めます。テレメトリを始められなければ使用を終えます。

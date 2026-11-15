@@ -82,13 +82,17 @@ struct IOSLiveTelemetryView: View {
         .overlay { RoundedRectangle(cornerRadius: 28, style: .continuous).stroke(Color.primary.opacity(0.08)) }
     }
 
-    /// 通信中、探索中、停止中、失敗の現在状態を表示します。
+    /// 通信中、探索中、回復中・一時停止中、停止中、失敗の現在状態を表示します。
     @ViewBuilder private var operationalState: some View {
         switch state.phase {
         case .reading:
             statusBanner("telemetry.status.reading", symbol: "dot.radiowaves.left.and.right", color: .cyan, showsProgress: true)
         case .stopping:
             statusBanner("telemetry.status.stopping", symbol: "stop.circle", color: .orange, showsProgress: true)
+        case .paused:
+            if let pauseStatus = state.pauseStatus {
+                statusBanner(pauseStatus.statusKey, symbol: "pause.circle", color: .orange, showsProgress: pauseStatus.isRecovering)
+            }
         case .loaded:
             statusBanner(
                 "telemetry.status.polling",
