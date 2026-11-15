@@ -73,6 +73,22 @@ final class VehicleRecordingCoordinatorFinishTests: XCTestCase {
         }
     }
 
+    /// 停止要求なしにテレメトリが終わった(猶予切れなど)時は、その終了理由がそのまま監視へ届き、保存される理由とも一致します。
+    ///
+    /// 責務: リンク断の猶予切れ(接続断)を含む各理由で、監視へ渡る理由・保存された理由が同じで、テレメトリの停止を呼ばないことを確認します(U2 受け入れ条件 3・13)。
+    func testEndReasonWithoutStopRequestIsForwardedUnchanged() async throws {
+        let reasons: [ConnectionSessionEndReason] = [.connectionLost, .vehicleNoResponse, .acquisitionFailed]
+        for reason in reasons {
+            let harness = try await recordingHarness()
+
+            harness.telemetryDidEnd(reason: reason)
+
+            XCTAssertEqual(harness.finishReasons, [reason], "\(reason)")
+            XCTAssertEqual(harness.sessionRepository.saved.last?.endReason, reason, "\(reason)")
+            XCTAssertEqual(harness.stopTelemetryCount, 0, "\(reason)")
+        }
+    }
+
     /// 停止要求の後にテレメトリが終わっても、終了は1回だけです。
     ///
     /// 責務: 停止要求と終了通知が両方来ても二重に伝えないことを確認します。

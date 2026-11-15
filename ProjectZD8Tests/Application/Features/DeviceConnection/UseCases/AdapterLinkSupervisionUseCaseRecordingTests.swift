@@ -153,21 +153,74 @@ final class AdapterLinkSupervisionUseCaseRecordingTests: XCTestCase {
         XCTAssertEqual(harness.link.stopCount, 0)
     }
 
-    /// 記録中にリンクが切れたら、通知を取り下げ停止を要求して終了へ、記録終了の通知後に待機へ戻ります。
+    /// 記録中にリンクが切れても停止を要求せず記録中のままで、猶予切れの記録終了(接続断)の通知後に終了を経て待機へ戻ります。
     ///
-    /// 責務: 停止要求1回・取り下げ・終了・待機の順を確認し、リンクは止めないことを確認します。
-    func testLinkLossWhileRecordingRequestsStopThenStandby() async throws {
+    /// 責務: 停止要求0回・記録中のまま・リンクを止めないこと、接続断での記録終了で「終了 → 待機」になり抑止しないことを確認します(U2 受け入れ条件 1・3)。
+    func testLinkLossWhileRecordingKeepsRecordingUntilRecordingFinishes() async throws {
         let harness = makeHarness()
         try await harness.driveToRecording()
-        let dismissals = harness.notifications.dismissCount
+        let recording = harness.useCase.state
         harness.link.emit(.disconnected(.peripheralDisconnected(errorDescription: nil)))
-        XCTAssertEqual(harness.recordingControl.stopRequestCount, 1)
-        XCTAssertGreaterThan(harness.notifications.dismissCount, dismissals)
-        XCTAssertEqual(harness.useCase.state, .finishing)
+        XCTAssertEqual(harness.recordingControl.stopRequestCount, 0)
+        XCTAssertEqual(harness.useCase.state, recording)
         XCTAssertEqual(harness.link.stopCount, 0)
+        let statesBefore = harness.observedStates.count
 
-        harness.useCase.recordingDidFinish(endReason: nil)
+        harness.useCase.recordingDidFinish(endReason: .connectionLost)
+
+        XCTAssertEqual(Array(harness.observedStates.dropFirst(statesBefore)), [.finishing, .standby])
+        XCTAssertEqual(harness.recordingControl.stopRequestCount, 0)
+    }
+
+    /// 記録中にリンクが切れて `ready` へ戻っても、初期化・車両確認をやり直さず記録中のままです。
+    ///
+    /// 責務: 再接続の後も初期化・確認の呼び出しが増えず、停止要求も記録開始要求も増えないことを確認します(U2 受け入れ条件 1・7)。
+    func testLinkReturnsReadyWhileRecordingDoesNotReinitialize() async throws {
+        let harness = makeHarness()
+        try await harness.driveToRecording()
+        let recording = harness.useCase.state
+        harness.link.emit(.disconnected(.peripheralDisconnected(errorDescription: nil)))
+        harness.link.emit(.connecting)
+        harness.link.emit(.ready)
+        try await BLEBoundedWaiter.settle()
+
+        XCTAssertEqual(harness.useCase.state, recording)
+        XCTAssertEqual(harness.initialization.responses.callCount, 1)
+        XCTAssertEqual(harness.vehicleResponse.timeouts.count, 1)
+        XCTAssertEqual(harness.recordingControl.stopRequestCount, 0)
+        XCTAssertEqual(harness.recordingControl.startRequests.count, 1)
+    }
+
+    /// リンク断のあいだにユーザーが切断した場合、抑止せず待機へ戻り、次の再接続で初期化からやり直します。
+    ///
+    /// 責務: 停止要求0回・待機・再接続での初期化2回目を確認します(U2 受け入れ条件 8)。
+    func testUserStopDuringLinkLossReturnsToStandby() async throws {
+        let harness = makeHarness()
+        try await harness.driveToRecording()
+        harness.link.emit(.disconnected(.peripheralDisconnected(errorDescription: nil)))
+
+        harness.useCase.recordingDidFinish(endReason: .userDisconnected)
+
         XCTAssertEqual(harness.useCase.state, .standby)
+        XCTAssertEqual(harness.recordingControl.stopRequestCount, 0)
+        try await harness.makeLinkReady()
+        XCTAssertEqual(harness.initialization.responses.callCount, 2)
+    }
+
+    /// リンク断の後にリンクが `ready` へ戻ってからユーザーが切断した場合は、従来どおり抑止状態へ移ります。
+    ///
+    /// 責務: 同じ接続が使える時のユーザー切断が `heldAfterUserStop` になり、停止要求が出ていないことを確認します(U2 受け入れ条件 8)。
+    func testUserStopAfterLinkReturnedHoldsSameConnection() async throws {
+        let harness = makeHarness()
+        try await harness.driveToRecording()
+        harness.link.emit(.disconnected(.peripheralDisconnected(errorDescription: nil)))
+        harness.link.emit(.connecting)
+        harness.link.emit(.ready)
+
+        harness.useCase.recordingDidFinish(endReason: .userDisconnected)
+
+        XCTAssertEqual(harness.useCase.state, .heldAfterUserStop)
+        XCTAssertEqual(harness.recordingControl.stopRequestCount, 0)
     }
 
     /// 検知済みでリンクが切れたら、検知通知を取り下げて待機へ戻り、後の[記録開始]を無視します。
@@ -213,7 +266,8 @@ final class AdapterLinkSupervisionUseCaseRecordingTests: XCTestCase {
 
     /// 検知済み・記録中・終了中のアプリ前面復帰では状態を変えません。
     ///
-    /// 責務: 各状態で前面復帰しても状態・初期化・確認・記録要求が変わらないことを確認します。
+    /// 責務: 各状態(記録中はリンク断のあいだも含む)で前面復帰しても状態・初期化・確認・記録要求が変わらないことを確認します。
+    /// 終了中へは手動接続の開始で移します(リンク断では記録中のままのため。U2 受け入れ条件 1)。
     func testForegroundDoesNotChangeDetectedRecordingOrFinishing() async throws {
         let harness = makeHarness()
         try await harness.driveToAwaitingRecordingStart()
@@ -227,6 +281,10 @@ final class AdapterLinkSupervisionUseCaseRecordingTests: XCTestCase {
         XCTAssertEqual(harness.useCase.state, recording)
 
         harness.link.emit(.disconnected(.peripheralDisconnected(errorDescription: nil)))
+        harness.useCase.appDidBecomeActive()
+        XCTAssertEqual(harness.useCase.state, recording, "リンク断の記録中")
+
+        harness.useCase.externalAdapterUseDidBegin()
         harness.useCase.appDidBecomeActive()
         XCTAssertEqual(harness.useCase.state, .finishing)
         try await BLEBoundedWaiter.settle()

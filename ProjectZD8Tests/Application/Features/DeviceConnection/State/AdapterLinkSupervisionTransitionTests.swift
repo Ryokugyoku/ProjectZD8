@@ -49,12 +49,15 @@ final class AdapterLinkSupervisionTransitionTests: XCTestCase {
     /// 全状態×全イベントで、処理されるべき組だけが結果を変え、それ以外は状態不変・作用なしです。
     ///
     /// 責務: 振り分けの漏れ(処理すべきイベントの無視)と過剰(無視すべきイベントの処理)を網羅的に確認します。
+    /// 記録中のリンク断は、記録に無関係な後始末を出すかどうかを仕様が定めないため、記録を続けることだけを確認します(U2 受け入れ条件 1)。
     func testEveryStateAndEventIsHandledOrIgnoredAsSpecified() {
         let conditions = F.conditions(now: F.date(10))
         for (event, handled) in eventsWithHandledStates() {
             for state in F.allStates {
                 let result = transition.result(from: state, on: event, conditions: conditions)
-                if handled.contains(state) {
+                if case .recording = state, case let .linkStateChanged(linkState) = event, linkState != .ready {
+                    A.assertRecordingContinuesAfterLinkLoss(result, from: state, "\(event)")
+                } else if handled.contains(state) {
                     XCTAssertTrue(result.state != state || !result.effects.isEmpty, "処理されなかった: \(state) / \(event)")
                 } else {
                     A.assertIgnored(result, from: state, "\(state) / \(event)")
@@ -130,5 +133,19 @@ final class AdapterLinkSupervisionTransitionTests: XCTestCase {
             from: .recording(F.detectedVehicle), on: .operatingConditionsChanged, conditions: F.conditions(isSignedIn: false)
         )
         A.assertResult(result, state: .finishing, effects: [.cancelOperations, .dismissNotification, .requestRecordingStop, .stopLink])
+    }
+
+    /// 記録中のリンク断は、イベントの振り分けを経ても停止を要求せず記録中のままです。
+    ///
+    /// 責務: 切断理由の違うリンク断で、記録中のまま停止要求が出ないことを確認します(U2 受け入れ条件 1)。
+    func testLinkLossWhileRecordingKeepsRecording() {
+        let recording = AdapterLinkSupervisionState.recording(F.detectedVehicle)
+        let lost: [AdapterLinkState] = [
+            .disconnected(.peripheralDisconnected(errorDescription: nil)), .disconnected(.bluetoothPoweredOff), .connecting,
+        ]
+        for linkState in lost {
+            let result = transition.result(from: recording, on: .linkStateChanged(linkState), conditions: F.conditions(linkState: .ready))
+            A.assertRecordingContinuesAfterLinkLoss(result, from: recording, "\(linkState)")
+        }
     }
 }

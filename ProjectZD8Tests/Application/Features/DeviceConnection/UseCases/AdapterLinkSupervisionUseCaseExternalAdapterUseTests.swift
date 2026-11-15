@@ -111,6 +111,22 @@ final class AdapterLinkSupervisionUseCaseExternalAdapterUseTests: XCTestCase {
         XCTAssertEqual(harness.link.stopCount, 0)
     }
 
+    /// リンク断で記録中のままのところへ手動使用が始まったら、従来どおり記録の停止を要求して終了へ進みます。
+    ///
+    /// 責務: リンク断では停止要求0回、手動使用の開始で停止要求1回・終了・リンクを止めないことを確認します(U2 受け入れ条件 1・10)。
+    func testBeginAfterLinkLossWhileRecordingRequestsStop() async throws {
+        let harness = makeHarness()
+        try await harness.driveToRecording()
+        harness.link.emit(.disconnected(.peripheralDisconnected(errorDescription: nil)))
+        XCTAssertEqual(harness.recordingControl.stopRequestCount, 0, "リンク断では止めない")
+
+        harness.useCase.externalAdapterUseDidBegin()
+
+        XCTAssertEqual(harness.useCase.state, .finishing)
+        XCTAssertEqual(harness.recordingControl.stopRequestCount, 1)
+        XCTAssertEqual(harness.link.stopCount, 0)
+    }
+
     /// 抑止中はリンクが `ready` になっても、アプリが前面へ戻っても、初期化を始めず通知も出しません。
     ///
     /// 責務: 抑止中の再接続と前面復帰で初期化の呼び出しが起きないことを確認します。

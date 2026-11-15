@@ -71,6 +71,44 @@ final class AdapterLinkSupervisionTransitionUserStopTests: XCTestCase {
         A.assertResult(result, state: .initializing(linkReadyAt: F.referenceDate), effects: [.initializeAdapter])
     }
 
+    /// リンクが `ready` でない(リンク断で一時停止中など)記録中にユーザー切断で終わった時は、抑止せず待機へ戻ります。
+    ///
+    /// 責務: 保持すべき「同じ接続」が無い場合に `heldAfterUserStop` へ移らず、待機(または待機へ戻る終了処理)になることを確認します(U2 受け入れ条件 8)。
+    func testUserDisconnectWhileRecordingWithoutReadyLinkReturnsToStandby() {
+        let nonReady: [AdapterLinkState] = [
+            .connecting, .discovering, .awaitingPeripheral, .disconnected(.peripheralDisconnected(errorDescription: nil)),
+        ]
+        for linkState in nonReady {
+            let result = transition.result(
+                from: .recording(F.detectedVehicle),
+                on: .recordingDidFinish(endReason: .userDisconnected),
+                conditions: F.conditions(linkState: linkState)
+            )
+            XCTAssertNotEqual(result.state, .heldAfterUserStop, "\(linkState)")
+            XCTAssertFalse(result.effects.contains(.requestRecordingStop), "\(linkState)")
+            if result.state == .finishing {
+                XCTAssertTrue(result.effects.contains(.completeFinishing), "終了中なら待機へ戻る: \(linkState)")
+            } else {
+                XCTAssertEqual(result.state, .standby, "\(linkState)")
+            }
+        }
+    }
+
+    /// リンクが `ready` でない記録中に、ユーザー切断以外の理由で終わった時は、従来どおり終了中を経て待機へ戻ります。
+    ///
+    /// 責務: 猶予切れ(接続断)などの終了で、抑止せず `.finishing` と `[.dismissNotification, .completeFinishing]` になることを確認します(U2 受け入れ条件 3)。
+    func testOtherEndReasonsWhileRecordingWithoutReadyLinkStillFinish() {
+        let reasons: [ConnectionSessionEndReason?] = [.connectionLost, .vehicleNoResponse, .acquisitionFailed, nil]
+        for reason in reasons {
+            let result = transition.result(
+                from: .recording(F.detectedVehicle),
+                on: .recordingDidFinish(endReason: reason),
+                conditions: F.conditions(linkState: .disconnected(.peripheralDisconnected(errorDescription: nil)))
+            )
+            A.assertResult(result, state: .finishing, effects: [.dismissNotification, .completeFinishing], "\(String(describing: reason))")
+        }
+    }
+
     /// 記録中以外の状態でユーザー切断の終了通知を受けても、抑止状態へは移りません。
     ///
     /// 責務: 待機・初期化中・確認中・検知済みでは状態も作用も変わらないことを確認します。
