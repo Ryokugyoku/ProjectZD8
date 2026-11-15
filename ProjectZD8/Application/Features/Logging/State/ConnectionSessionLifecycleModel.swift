@@ -29,6 +29,8 @@ final class ConnectionSessionLifecycleModel {
     @ObservationIgnored private let historyDidChange: @MainActor () -> Void
     /// 終了済みセッションのiCloudアップロード要求を通知する処理です。
     @ObservationIgnored private let endedSessionUploadRequested: @MainActor (ConnectionSession) -> Void
+    /// 自動アップロード設定に関係なく、セッションの終了を保存できたことを通知する処理です。
+    @ObservationIgnored private let sessionEndPersisted: @MainActor (ConnectionSession) -> Void
     /// 現在のAppleアカウント識別子です。
     @ObservationIgnored private var accountIdentifier: String?
     /// セッション終了時にiCloudアップロードを要求するかを示します。
@@ -59,6 +61,7 @@ final class ConnectionSessionLifecycleModel {
     ///   - historyDidChange: 保存後に履歴再読込を通知する処理。
     ///   - automaticUploadEnabled: 終了時のiCloud自動アップロード初期値。
     ///   - endedSessionUploadRequested: 自動アップロード対象の終了済みセッション通知先。
+    ///   - sessionEndPersisted: 自動アップロード設定に関係なく、終了を保存できたセッションの通知先。
     ///   - recoverRelaunchedSession: プロセス復帰時の未終了セッションを処理するuse case。
     init(
         repository: any ConnectionSessionRepository,
@@ -70,6 +73,7 @@ final class ConnectionSessionLifecycleModel {
         historyDidChange: @escaping @MainActor () -> Void = {},
         automaticUploadEnabled: Bool = false,
         endedSessionUploadRequested: @escaping @MainActor (ConnectionSession) -> Void = { _ in },
+        sessionEndPersisted: @escaping @MainActor (ConnectionSession) -> Void = { _ in },
         recoverRelaunchedSession: RecoverRelaunchedConnectionSessionUseCase? = nil
     ) {
         self.repository = repository
@@ -81,6 +85,7 @@ final class ConnectionSessionLifecycleModel {
         self.historyDidChange = historyDidChange
         self.automaticUploadEnabled = automaticUploadEnabled
         self.endedSessionUploadRequested = endedSessionUploadRequested
+        self.sessionEndPersisted = sessionEndPersisted
         self.recoverRelaunchedSession = recoverRelaunchedSession
     }
 
@@ -136,6 +141,7 @@ final class ConnectionSessionLifecycleModel {
                 }
             }
             if !endedSessions.isEmpty { historyDidChange() }
+            endedSessions.forEach(sessionEndPersisted)
             if automaticUploadEnabled {
                 endedSessions.forEach(endedSessionUploadRequested)
             }
@@ -303,6 +309,7 @@ final class ConnectionSessionLifecycleModel {
             do {
                 let ended = try recoverRelaunchedSession.end(resumable, lastCommittedAt: lastCommittedAt, now: decidedAt)
                 historyDidChange()
+                sessionEndPersisted(ended)
                 if automaticUploadEnabled { endedSessionUploadRequested(ended) }
             } catch {
                 // 終了を保存できなかったセッションは未終了のまま残り、次のアカウント有効化(プロセス復帰の処理)で
@@ -370,6 +377,7 @@ final class ConnectionSessionLifecycleModel {
             activeSession = nil
             selectedDistanceSource = nil
             historyDidChange()
+            sessionEndPersisted(session)
             if automaticUploadEnabled {
                 endedSessionUploadRequested(session)
             }

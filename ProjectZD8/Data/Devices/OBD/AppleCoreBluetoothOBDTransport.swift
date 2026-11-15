@@ -11,7 +11,7 @@ final class AppleCoreBluetoothOBDTransport: NSObject, OBDCommandTransport, CBCen
     /// 実機能力を既知UART構成へ照合します。
     private let profileResolver = AppleBluetoothUARTProfileResolver()
     /// 実機で発見したUUIDを機密値なしで記録します。
-    private let logger = Logger(subsystem: "ProjectZD8", category: "AppleCoreBluetoothOBDTransport")
+    private let logger = Logger(subsystem: DiagnosticsLogSubsystem.identifier, category: "AppleCoreBluetoothOBDTransport")
     /// 現在のBLE中央役割です。
     private var centralManager: CBCentralManager?
     /// 現在接続または探索しているPeripheralです。

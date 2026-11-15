@@ -5,6 +5,7 @@ import Foundation
 /// 記録中セッションの常時表示を、ActivityKitのLive Activityで出すiOS実装です。
 ///
 /// このプロセスが開始した表示を1件だけ追跡し、`activityStateUpdates` で終了・消去を検知して追跡を外します。
+/// アプリ自身の `end` では先に追跡を外すため、追跡中に終了・消去を検知した場合だけ、システムまたはユーザーによる終了として診断へ残します。
 @MainActor
 final class ActivityKitRecordingSessionActivityAdapter: SessionActivityPort {
     /// 表示内容をLive Activityの形へ写す変換器です。
@@ -13,11 +14,16 @@ final class ActivityKitRecordingSessionActivityAdapter: SessionActivityPort {
     private var activity: Activity<RecordingSessionActivityAttributes>?
     /// 追跡中の表示の状態変化を購読するタスクです。
     private var stateObservation: Task<Void, Never>?
+    /// システムまたはユーザーによる表示の終了を残す診断記録です。未設定なら記録しません。
+    private let lifecycleDiagnostics: (any RecordingSessionActivityLifecycleDiagnosticsPort)?
 
     /// 追跡中の表示がない状態で生成します。
     ///
     /// 責務: 表示を開始せずに境界を用意します。
-    init() {}
+    /// - Parameter lifecycleDiagnostics: システムまたはユーザーによる表示の終了を残す診断記録。
+    init(lifecycleDiagnostics: (any RecordingSessionActivityLifecycleDiagnosticsPort)? = nil) {
+        self.lifecycleDiagnostics = lifecycleDiagnostics
+    }
 
     /// 追跡中の表示がシステム上に出ているかどうかです。
     var isPresenting: Bool {
@@ -74,6 +80,7 @@ final class ActivityKitRecordingSessionActivityAdapter: SessionActivityPort {
     /// 開始した表示を追跡し、終了・消去を検知したら追跡を外します。
     ///
     /// 責務: 1件の表示の状態変化の購読を始めます。購読は表示が終わると終わります。
+    /// 追跡中のまま終了・消去を検知したら、システムまたはユーザーによる終了として診断へ残します。
     /// - Parameter started: 開始した表示。
     private func track(_ started: Activity<RecordingSessionActivityAttributes>) {
         stopTracking()
@@ -81,7 +88,9 @@ final class ActivityKitRecordingSessionActivityAdapter: SessionActivityPort {
         stateObservation = Task { [weak self] in
             for await state in started.activityStateUpdates {
                 guard state == .ended || state == .dismissed else { continue }
-                if self?.activity?.id == started.id { self?.stopTracking() }
+                guard let self, activity?.id == started.id else { return }
+                stopTracking()
+                lifecycleDiagnostics?.activityClosedBySystem()
                 return
             }
         }

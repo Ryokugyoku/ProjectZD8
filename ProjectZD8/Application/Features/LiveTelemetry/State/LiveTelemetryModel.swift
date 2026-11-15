@@ -21,6 +21,8 @@ final class LiveTelemetryModel {
     @ObservationIgnored private let distanceDidChange: @MainActor (ConnectionSessionDistanceObservation) -> Void
     /// 車両接続中のシステムスリープ抑止を切り替えるOS境界です。
     @ObservationIgnored private let systemSleepInhibitor: (any VehicleConnectionSystemSleepInhibiting)?
+    /// 取得ループの開始・段階の変化・終了を残す診断記録の境界です。未設定なら記録しません。
+    @ObservationIgnored private let acquisitionDiagnostics: (any LiveTelemetryAcquisitionDiagnosticsPort)?
     /// 取得対象の確定と取得ループの購読を行うタスクです。
     @ObservationIgnored private var acquisitionTask: Task<Void, Never>?
     /// 古い取得の出来事を新しい接続状態へ反映しないための世代です。
@@ -44,6 +46,7 @@ final class LiveTelemetryModel {
     ///   - sessionDidEnd: PID取得終了原因と終了時刻(猶予切れでは最後に受信した時刻、それ以外は `nil`)をLoggingへ通知する処理。
     ///   - distanceDidChange: 車種専用PID、Service 01 PID A6、またはPID 31の累積距離をLoggingへ通知する処理。
     ///   - systemSleepInhibitor: 車両接続中だけシステムスリープを抑止する境界。
+    ///   - acquisitionDiagnostics: 取得ループの開始・段階の変化・終了を残す診断記録の境界。
     init(
         state: LiveTelemetryState,
         prepareAcquisition: PrepareLiveTelemetryAcquisitionUseCase,
@@ -52,7 +55,8 @@ final class LiveTelemetryModel {
         clock: any MonotonicClockPort,
         sessionDidEnd: @escaping @MainActor (ConnectionSessionEndReason, Date?) -> Void = { _, _ in },
         distanceDidChange: @escaping @MainActor (ConnectionSessionDistanceObservation) -> Void = { _ in },
-        systemSleepInhibitor: (any VehicleConnectionSystemSleepInhibiting)? = nil
+        systemSleepInhibitor: (any VehicleConnectionSystemSleepInhibiting)? = nil,
+        acquisitionDiagnostics: (any LiveTelemetryAcquisitionDiagnosticsPort)? = nil
     ) {
         self.state = state
         self.prepareAcquisition = prepareAcquisition
@@ -62,6 +66,7 @@ final class LiveTelemetryModel {
         self.sessionDidEnd = sessionDidEnd
         self.distanceDidChange = distanceDidChange
         self.systemSleepInhibitor = systemSleepInhibitor
+        self.acquisitionDiagnostics = acquisitionDiagnostics
     }
 
     /// 型付き操作を取得ワークフローへ変換します。
@@ -159,6 +164,7 @@ final class LiveTelemetryModel {
     ///   - termination: 取得ループの終了理由。動いていなかった場合は `nil`。
     ///   - notifiesSessionEnd: Loggingへ終了を通知するかどうか。
     private func finishStop(termination: LiveTelemetryAcquisitionTermination?, notifiesSessionEnd: Bool) {
+        if let termination { recordTermination(termination) }
         applyPendingSamples(force: true)
         systemSleepInhibitor?.setVehicleConnectionActive(false)
         if termination == .recordingFailed {
@@ -204,6 +210,7 @@ final class LiveTelemetryModel {
                 adapterProbeEvidence: adapterProbeEvidence
             )
         )
+        acquisitionDiagnostics?.acquisitionStarted()
         for await event in events {
             guard self.generation == generation else { return }
             apply(event)
@@ -226,8 +233,10 @@ final class LiveTelemetryModel {
             refreshThrottle.hold(sample)
             if state.phase == .loaded { applyPendingSamples(force: false) }
         case let .phaseChanged(acquisitionPhase):
+            acquisitionDiagnostics?.acquisitionPhaseChanged(acquisitionPhase)
             applyPhase(acquisitionPhase)
         case let .ended(termination):
+            recordTermination(termination)
             applyPendingSamples(force: true)
             handleTermination(termination)
         }
@@ -288,6 +297,20 @@ final class LiveTelemetryModel {
             state.failureKey = "telemetry.error.read_failed"
         }
         sessionDidEnd(termination.sessionEndReason, termination.sessionEndedAt)
+    }
+
+    /// 取得ループの終了理由を診断記録へ渡します。
+    ///
+    /// 責務: 終了理由を停止・猶予切れ(原因つき)・記録失敗の記録へ振り分けます。最後に受信した時刻は渡しません。
+    /// 現在世代の `ended` の出来事と、停止の指示で `stop()` が返した終了理由の両方から呼びます。
+    /// 停止の指示で世代が進むと以後の出来事は捨てられ、ループ側も終了済みなら `stop()` が `nil` を返すため、同じ終了を二重には記録しません。
+    /// - Parameter termination: 取得ループの終了理由。
+    private func recordTermination(_ termination: LiveTelemetryAcquisitionTermination) {
+        switch termination {
+        case .stopped: acquisitionDiagnostics?.acquisitionStopped()
+        case let .gracePeriodExpired(cause, _): acquisitionDiagnostics?.acquisitionGracePeriodExpired(cause: cause)
+        case .recordingFailed: acquisitionDiagnostics?.acquisitionRecordingFailed()
+        }
     }
 
     /// 取得対象を確定できなかった失敗を表示状態へ反映します。

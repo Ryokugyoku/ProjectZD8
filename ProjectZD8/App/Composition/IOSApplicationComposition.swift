@@ -51,7 +51,8 @@ enum IOSApplicationComposition: ApplicationPlatformComposing {
             performanceEvents: performanceEvents,
             sessionDidEnd: sessionDidEnd,
             distanceDidChange: distanceDidChange,
-            systemSleepInhibitor: IOSVehicleConnectionScreenSleepInhibitor()
+            systemSleepInhibitor: IOSVehicleConnectionScreenSleepInhibitor(),
+            acquisitionDiagnostics: OSLogLiveTelemetryAcquisitionDiagnosticsAdapter()
         )
     }
 

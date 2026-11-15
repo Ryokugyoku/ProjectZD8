@@ -22,6 +22,8 @@ final class LiveTelemetryModelFixture {
     let deadlineWaiter = ControlledDeadlineWaiterFake()
     /// 取得ループです。
     let loop: LiveTelemetryAcquisitionLoop
+    /// 取得ループの診断記録の spy です。注入しない経路では `nil` です。
+    let acquisitionDiagnostics: LiveTelemetryAcquisitionDiagnosticsSpy?
     /// 検証対象の表示モデルです。
     let model: LiveTelemetryModel
 
@@ -32,7 +34,14 @@ final class LiveTelemetryModelFixture {
     ///   - catalog: PIDカタログの定義。
     ///   - failsCatalog: カタログ読込を失敗させる場合は `true`。
     ///   - recorder: 記録ポートのスパイ。
-    init(catalog: [OBDPIDDefinition], failsCatalog: Bool = false, recorder: LiveTelemetryRecordingPortSpy? = nil) {
+    ///   - acquisitionDiagnostics: 取得ループの診断記録の spy。`nil` なら注入しません。
+    init(
+        catalog: [OBDPIDDefinition],
+        failsCatalog: Bool = false,
+        recorder: LiveTelemetryRecordingPortSpy? = nil,
+        acquisitionDiagnostics: LiveTelemetryAcquisitionDiagnosticsSpy? = nil
+    ) {
+        self.acquisitionDiagnostics = acquisitionDiagnostics
         let telemetry = GatedOBDPIDTelemetryFake()
         let clock = ManualMonotonicClock()
         let notifications = LiveTelemetryModelNotificationLog()
@@ -66,7 +75,8 @@ final class LiveTelemetryModelFixture {
             clock: clock,
             sessionDidEnd: { notifications.recordEnd($0, endedAt: $1) },
             distanceDidChange: { notifications.recordDistance($0) },
-            systemSleepInhibitor: sleepInhibitor
+            systemSleepInhibitor: sleepInhibitor,
+            acquisitionDiagnostics: acquisitionDiagnostics
         )
     }
 

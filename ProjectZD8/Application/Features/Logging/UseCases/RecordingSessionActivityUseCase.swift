@@ -15,6 +15,8 @@ final class RecordingSessionActivityUseCase {
     private let photos: any SessionActivityVehiclePhotoPort
     /// 失敗を残す診断記録です。
     private let diagnostics: any RecordingSessionActivityDiagnosticsPort
+    /// 表示の開始・終了を残す診断記録です。未設定なら記録しません。
+    private let lifecycleDiagnostics: (any RecordingSessionActivityLifecycleDiagnosticsPort)?
     /// 現在時刻を返す処理です。
     private let now: @MainActor () -> Date
     /// アプリがいま前面(操作可能)かどうかを返す処理です。
@@ -40,13 +42,15 @@ final class RecordingSessionActivityUseCase {
     ///   - now: 現在時刻を返す処理。
     ///   - isForeground: アプリがいま前面かどうかを返す処理。
     ///   - vehicleProfile: 登録済み車両のプロフィールを返す処理。
+    ///   - lifecycleDiagnostics: 表示の開始・終了を残す診断記録。
     init(
         activity: any SessionActivityPort,
         photos: any SessionActivityVehiclePhotoPort,
         diagnostics: any RecordingSessionActivityDiagnosticsPort,
         now: @escaping @MainActor () -> Date = { Date() },
         isForeground: @escaping @MainActor () -> Bool,
-        vehicleProfile: @escaping @MainActor (VehicleID) -> VehicleProfile?
+        vehicleProfile: @escaping @MainActor (VehicleID) -> VehicleProfile?,
+        lifecycleDiagnostics: (any RecordingSessionActivityLifecycleDiagnosticsPort)? = nil
     ) {
         self.activity = activity
         self.photos = photos
@@ -54,6 +58,7 @@ final class RecordingSessionActivityUseCase {
         self.now = now
         self.isForeground = isForeground
         self.vehicleProfile = vehicleProfile
+        self.lifecycleDiagnostics = lifecycleDiagnostics
     }
 
     /// 境界へ受け付けた操作がすべて終わるまで待ちます。
@@ -104,26 +109,33 @@ final class RecordingSessionActivityUseCase {
 
     /// 現在の内容で表示開始を受け付けます。
     ///
-    /// 責務: 開始する内容を送信済みとして間引きへ記録し、実行時点で表示が出ていなければ開始します。
+    /// 責務: 開始する内容を送信済みとして間引きへ記録し、実行時点で表示が出ていなければ開始して、開始できたことを診断へ残します。
     private func startPresentation() {
         guard let content = makeContent() else { return }
         throttle = RecordingSessionActivityUpdateThrottle()
         _ = throttle.admit(content, at: now())
+        let lifecycleDiagnostics = lifecycleDiagnostics
         enqueue(.start) { activity in
             guard !activity.isPresenting else { return }
             try await activity.start(content)
+            lifecycleDiagnostics?.activityStarted()
         }
     }
 
     /// 記録中のセッションがあれば、最終内容を出して表示を閉じ、表示用写真を消します。
     ///
     /// 責務: セッションの終わりを1回だけ表示の終了と写真の削除へ変換します。表示が出ていなければ終了は送りません。
+    /// 終了できたことを診断へ残します。
     private func finishSessionIfNeeded() {
         guard session != nil else { return }
         let finalContent = makeContent()
         session = nil
         if activity.isPresenting, let finalContent {
-            enqueue(.end) { activity in try await activity.end(finalContent) }
+            let lifecycleDiagnostics = lifecycleDiagnostics
+            enqueue(.end) { activity in
+                try await activity.end(finalContent)
+                lifecycleDiagnostics?.activityEnded()
+            }
         }
         removePhotos()
     }

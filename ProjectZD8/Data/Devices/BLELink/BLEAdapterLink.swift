@@ -46,7 +46,7 @@ final class BLEAdapterLink: AdapterLinkPort {
     /// スキャンと探索で指定する既知UART Service UUIDです。
     private let serviceUUIDs = AppleBluetoothUARTProfile.supported.map(\.serviceUUID)
     /// 全状態遷移を記録するロガーです。
-    private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "ProjectZD8", category: "BLELink")
+    private let logger = Logger(subsystem: DiagnosticsLogSubsystem.identifier, category: "BLELink")
     /// 探索各段階とキャンセル完了待ちの期限です。
     private let deadline: BLEAdapterLinkDeadline
     /// 呼び出し順の書き込みキューです。

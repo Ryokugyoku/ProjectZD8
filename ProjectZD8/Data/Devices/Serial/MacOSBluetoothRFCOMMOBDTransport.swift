@@ -7,7 +7,7 @@ import OSLog
 actor MacOSBluetoothRFCOMMOBDTransport: OBDCommandTransport {
     /// 個人識別値や応答本文を含めず通信境界の失敗段階だけを記録します。
     nonisolated private static let logger = Logger(
-        subsystem: "Ryokugyoku.ProjectZD8",
+        subsystem: DiagnosticsLogSubsystem.identifier,
         category: "OBDBluetoothRFCOMMTransport"
     )
 

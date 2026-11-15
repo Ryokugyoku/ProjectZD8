@@ -6,7 +6,7 @@ import OSLog
 /// 選択済みOBD仮想COMポートを115200 bpsで扱います。
 actor MacOS115200BaudOBDSerialTransport: OBDCommandTransport {
     /// 個人識別値や応答本文を含めず通信境界の失敗段階だけを記録します。
-    nonisolated private static let logger = Logger(subsystem: "Ryokugyoku.ProjectZD8", category: "OBDSerialTransport")
+    nonisolated private static let logger = Logger(subsystem: DiagnosticsLogSubsystem.identifier, category: "OBDSerialTransport")
     /// 選択されたBSDシリアルデバイスパスです。
     private let devicePath: String
     /// 現在開いているファイル記述子です。

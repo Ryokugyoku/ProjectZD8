@@ -48,9 +48,14 @@ enum ApplicationRootAssembly {
     /// 各モデルが共有する保存先と接続セッション系のモデルを組み立てます。
     ///
     /// 責務: 計測境界・DB接続・接続セッション保存先を1回ずつ生成し、それらを共有する履歴・解析・ライフサイクルのモデルを生成します。
-    /// - Parameter platform: OS固有の生成手順。
+    /// - Parameters:
+    ///   - platform: OS固有の生成手順。
+    ///   - sessionEndPersisted: 自動アップロード設定に関係なく、終了を保存できたセッションの通知先。既定は何もしません。
     /// - Returns: PID継続取得と車両管理のモデルを結び付ける前の土台。
-    static func makeFoundation<Platform: ApplicationPlatformComposing>(_ platform: Platform.Type) -> ApplicationRootFoundation {
+    static func makeFoundation<Platform: ApplicationPlatformComposing>(
+        _ platform: Platform.Type,
+        sessionEndPersisted: @escaping @MainActor (ConnectionSession) -> Void = { _ in }
+    ) -> ApplicationRootFoundation {
         let performanceEvents = Platform.makeAcquisitionPerformanceEventPort()
         let database = ApplicationDatabaseConnection()
         let storage = ConnectionSessionStorageDependencies.makeProduction(
@@ -59,7 +64,12 @@ enum ApplicationRootAssembly {
         )
         let history = makeConnectionHistoryModel(platform, repository: storage.sessions)
         let analysis = makeSessionLogAnalysisModel(platform, database: database, repository: storage.sessions)
-        let lifecycle = makeLifecycleModel(platform, storage: storage, history: history)
+        let lifecycle = makeLifecycleModel(
+            platform,
+            storage: storage,
+            history: history,
+            sessionEndPersisted: sessionEndPersisted
+        )
         return ApplicationRootFoundation(
             performanceEvents: performanceEvents,
             database: database,
@@ -141,11 +151,13 @@ enum ApplicationRootAssembly {
     ///   - platform: OS固有の生成手順。
     ///   - storage: 接続セッション保存先一式。
     ///   - history: 保存後の再読込とアップロードを通知する履歴モデル。
+    ///   - sessionEndPersisted: 自動アップロード設定に関係なく、終了を保存できたセッションの通知先。
     /// - Returns: 接続セッションのライフサイクルのモデル。
     private static func makeLifecycleModel<Platform: ApplicationPlatformComposing>(
         _ platform: Platform.Type,
         storage: ConnectionSessionStorageDependencies,
-        history: ConnectionHistoryModel
+        history: ConnectionHistoryModel,
+        sessionEndPersisted: @escaping @MainActor (ConnectionSession) -> Void
     ) -> ConnectionSessionLifecycleModel {
         ConnectionSessionLifecycleModel(
             repository: storage.sessions,
@@ -156,6 +168,7 @@ enum ApplicationRootAssembly {
             endedSessionUploadRequested: { session in
                 history.send(.sessionUploadRequested(session.id))
             },
+            sessionEndPersisted: sessionEndPersisted,
             recoverRelaunchedSession: storage.makeRelaunchRecovery()
         )
     }

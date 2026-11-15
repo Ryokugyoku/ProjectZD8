@@ -21,13 +21,18 @@ struct IOSApplicationRoot {
     /// iOSのルートモデル一式を組み立てます。
     ///
     /// 責務: 共通の土台・常駐リンク・記録の調停役・各Featureのモデルを生成し、通知応答の受け口と
-    /// Live Activityの[切断]操作の受け口を有効にします。
+    /// Live Activityの[切断]操作の受け口と、セッション終了後の後処理(`BGProcessingTask`)の予約・起動を有効にします。
     /// - Returns: 常駐リンク監視と常時表示の観測が未開始のルートモデル一式。
     ///   `adapterLinkSupervision.launch()` と `sessionActivity.launch()` で開始します。
     /// - Side Effects: 通知センターの delegate を車両検知通知へ置き換えます(起動完了前に呼ぶこと)。
     ///   [切断]操作の停止処理を `RecordingSessionStopIntentHandlerRegistry` へ登録します。
+    ///   後処理の起動ハンドラを `BGTaskScheduler` へ登録します(起動完了前に呼ぶこと)。
     static func make() -> IOSApplicationRoot {
-        let foundation = ApplicationRootAssembly.makeFoundation(IOSApplicationComposition.self)
+        let postSessionProcessing = IOSPostSessionProcessingComposition()
+        let foundation = ApplicationRootAssembly.makeFoundation(
+            IOSApplicationComposition.self,
+            sessionEndPersisted: { postSessionProcessing.sessionEndPersisted($0) }
+        )
         let authentication = IOSApplicationComposition.makeAuthenticationSessionModel(
             database: foundation.database,
             connectionSessionStorage: foundation.storage.sessions
@@ -39,6 +44,11 @@ struct IOSApplicationRoot {
         let liveTelemetry = makeLiveTelemetryModel(foundation: foundation, coordinator: coordinator)
         let vehicleManagement = makeVehicleManagementModel(foundation: foundation, coordinator: coordinator)
         registerSessionActivityStop(liveTelemetry: liveTelemetry)
+        postSessionProcessing.registerLaunchHandler(
+            foundation: foundation,
+            liveTelemetry: liveTelemetry,
+            authentication: authentication
+        )
         let models = ApplicationRootModels(
             authentication: authentication,
             accountSettings: IOSApplicationComposition.makeAccountSettingsModel(),
@@ -74,7 +84,8 @@ struct IOSApplicationRoot {
     private static func registerSessionActivityStop(liveTelemetry: LiveTelemetryModel) {
         let stop = StopRecordingFromSessionActivityUseCase(
             telemetryState: { liveTelemetry.state },
-            requestStop: { liveTelemetry.send(.stopRequested) }
+            requestStop: { liveTelemetry.send(.stopRequested) },
+            lifecycleDiagnostics: OSLogRecordingSessionActivityLifecycleDiagnosticsAdapter()
         )
         RecordingSessionStopIntentHandlerRegistry.register { stop.execute() }
     }

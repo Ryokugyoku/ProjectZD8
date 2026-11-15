@@ -20,6 +20,7 @@ enum LiveTelemetryModelAssembly {
     ///   - sessionDidEnd: PID取得終了原因と終了時刻(`nil` は処理時刻)をLoggingへ通知する処理。
     ///   - distanceDidChange: 取得元付き累積距離をLoggingへ通知する処理。
     ///   - systemSleepInhibitor: 車両接続中だけシステムスリープを抑止する境界。
+    ///   - acquisitionDiagnostics: 取得ループの開始・段階の変化・終了を残す診断記録の境界。
     /// - Returns: 取得記録付きの取得ループを購読するモデル。
     static func makeModel(
         telemetry: any OBDPIDTelemetryPort,
@@ -32,7 +33,8 @@ enum LiveTelemetryModelAssembly {
         performanceEvents: any AcquisitionPerformanceEventPort,
         sessionDidEnd: @escaping @MainActor (ConnectionSessionEndReason, Date?) -> Void,
         distanceDidChange: @escaping @MainActor (ConnectionSessionDistanceObservation) -> Void,
-        systemSleepInhibitor: (any VehicleConnectionSystemSleepInhibiting)?
+        systemSleepInhibitor: (any VehicleConnectionSystemSleepInhibiting)?,
+        acquisitionDiagnostics: any LiveTelemetryAcquisitionDiagnosticsPort
     ) -> LiveTelemetryModel {
         let clock = ContinuousMonotonicClock()
         let recorder = makeRecorder(
@@ -64,7 +66,8 @@ enum LiveTelemetryModelAssembly {
             clock: clock,
             sessionDidEnd: sessionDidEnd,
             distanceDidChange: distanceDidChange,
-            systemSleepInhibitor: systemSleepInhibitor
+            systemSleepInhibitor: systemSleepInhibitor,
+            acquisitionDiagnostics: acquisitionDiagnostics
         )
     }
 

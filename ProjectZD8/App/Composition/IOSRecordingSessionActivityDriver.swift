@@ -32,12 +32,14 @@ final class IOSRecordingSessionActivityDriver {
     ///   - vehicleManagement: 車両名と写真を引く車両管理のモデル。
     /// - Returns: 観測が未開始の型。`launch()` で開始します。
     static func make(liveTelemetry: LiveTelemetryModel, vehicleManagement: VehicleManagementModel) -> IOSRecordingSessionActivityDriver {
+        let lifecycleDiagnostics = OSLogRecordingSessionActivityLifecycleDiagnosticsAdapter()
         let useCase = RecordingSessionActivityUseCase(
-            activity: ActivityKitRecordingSessionActivityAdapter(),
+            activity: ActivityKitRecordingSessionActivityAdapter(lifecycleDiagnostics: lifecycleDiagnostics),
             photos: AppGroupSessionActivityVehiclePhotoStore(),
             diagnostics: OSLogRecordingSessionActivityDiagnosticsAdapter(),
             isForeground: { UIApplication.shared.applicationState == .active },
-            vehicleProfile: { id in vehicleManagement.state.vehicles.first { $0.id == id } }
+            vehicleProfile: { id in vehicleManagement.state.vehicles.first { $0.id == id } },
+            lifecycleDiagnostics: lifecycleDiagnostics
         )
         return IOSRecordingSessionActivityDriver(useCase: useCase, liveTelemetry: liveTelemetry)
     }
