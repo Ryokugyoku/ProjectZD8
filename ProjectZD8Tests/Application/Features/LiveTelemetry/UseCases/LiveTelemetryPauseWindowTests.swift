@@ -12,7 +12,7 @@ final class LiveTelemetryPauseWindowTests: XCTestCase {
     ///
     /// 責務: 猶予判定の境界値と逆行を確認します。
     func testDecisionBoundaries() {
-        let window = LiveTelemetryPauseWindow(pausedAtNanoseconds: 1_000)
+        let window = LiveTelemetryPauseWindow(pausedAtNanoseconds: 1_000, grace: .init(lastReceivedNanoseconds: 1_000))
 
         XCTAssertEqual(window.decision(nowNanoseconds: 1_000), .continueWaiting)
         XCTAssertEqual(window.decision(nowNanoseconds: 1_000 + grace - 1), .continueWaiting)
@@ -25,15 +25,18 @@ final class LiveTelemetryPauseWindowTests: XCTestCase {
     ///
     /// 責務: 期限の値と桁あふれの扱いを確認します。
     func testDeadlineIsFirstTerminatingValue() {
-        XCTAssertEqual(LiveTelemetryPauseWindow(pausedAtNanoseconds: 1_000).deadlineNanoseconds, 1_000 + grace + 1)
-        XCTAssertEqual(LiveTelemetryPauseWindow(pausedAtNanoseconds: .max - 5).deadlineNanoseconds, .max)
+        XCTAssertEqual(
+            LiveTelemetryPauseWindow(pausedAtNanoseconds: 1_000, grace: .init(lastReceivedNanoseconds: 1_000)).deadlineNanoseconds,
+            1_000 + grace + 1
+        )
+        XCTAssertEqual(LiveTelemetryPauseWindow(pausedAtNanoseconds: .max - 5, grace: .init(lastReceivedNanoseconds: .max - 5)).deadlineNanoseconds, .max)
     }
 
     /// 最初の定期試行は一時停止から10秒後で、その時刻ちょうどから試行時刻に達します。
     ///
     /// 責務: 定期試行の初期値と判定の境界値を確認します。
     func testFirstRetryIsTenSecondsAfterPause() {
-        let window = LiveTelemetryPauseWindow(pausedAtNanoseconds: 500)
+        let window = LiveTelemetryPauseWindow(pausedAtNanoseconds: 500, grace: .init(lastReceivedNanoseconds: 500))
 
         XCTAssertEqual(window.nextRetryNanoseconds, 500 + retry)
         XCTAssertFalse(window.isRetryDue(nowNanoseconds: 500 + retry - 1))
@@ -44,12 +47,12 @@ final class LiveTelemetryPauseWindowTests: XCTestCase {
     ///
     /// 責務: 次の試行の予定の基準と境界を確認します。
     func testScheduleNextRetryFromAttemptEnd() {
-        var window = LiveTelemetryPauseWindow(pausedAtNanoseconds: 1_000)
+        var window = LiveTelemetryPauseWindow(pausedAtNanoseconds: 1_000, grace: .init(lastReceivedNanoseconds: 1_000))
         window.scheduleNextRetry(afterAttemptEndedAt: 30_000)
         XCTAssertEqual(window.nextRetryNanoseconds, 30_000 + retry)
         window.scheduleNextRetry(afterAttemptEndedAt: 10)
         XCTAssertEqual(window.nextRetryNanoseconds, 1_000 + retry)
-        var overflowing = LiveTelemetryPauseWindow(pausedAtNanoseconds: 0)
+        var overflowing = LiveTelemetryPauseWindow(pausedAtNanoseconds: 0, grace: .init(lastReceivedNanoseconds: 0))
         overflowing.scheduleNextRetry(afterAttemptEndedAt: .max - 1)
         XCTAssertEqual(overflowing.nextRetryNanoseconds, .max)
     }

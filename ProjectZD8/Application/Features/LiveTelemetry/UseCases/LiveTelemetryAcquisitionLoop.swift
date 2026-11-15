@@ -8,6 +8,8 @@ import Foundation
 ///
 /// 状態遷移: 取得中 → (途切れ) 回復中(段階と試行回数) → (段階を使い切る) 一時停止(猶予待ち) →
 /// 復帰して取得中へ戻る、または猶予切れで終了。停止の指示(取消)はどの状態からでも即座に終了します。
+/// 猶予(3分)は最後に正応答を受信した時点から数え、回復中・一時停止中のどちらで超えても猶予切れとして、
+/// 最後に受信した実時刻を終了時刻にします。
 /// 途切れの判定は要求1件の結果を受けるたびに `LiveTelemetryReceiveTracker`(単調時計と `AcquisitionStallPolicy`)で行い、
 /// 回復と一時停止は `LiveTelemetryAcquisitionRecovery` が行います。一時停止中だけは、猶予切れの検知と
 /// 10秒ごとの定期的な復帰の試行のために `LiveTelemetryDeadlineWaitPort` の待ちを使います(要求の間に待機を挟まない方針の例外)。
@@ -226,6 +228,7 @@ actor LiveTelemetryAcquisitionLoop {
             )
             let outcome = try await recovery.recover(
                 from: cause,
+                grace: LiveTelemetryReceiveGrace(lastReceivedNanoseconds: tracker.lastReceivedNanoseconds),
                 probe: pollingPolicy.definitionsToPoll(from: cursor.targets, tick: 0).first,
                 endpoint: input.endpoint,
                 channel: pauseChannel,

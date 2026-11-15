@@ -1,6 +1,6 @@
 /// 一時停止中に起きた理由と単調時計の現在値から、次の動作を決めます。
 ///
-/// 猶予の判定を常に先に行います。猶予内(ちょうど3分を含む)なら、フォアグラウンド復帰とリンク復帰、
+/// 猶予(最後の受信から)の判定を常に先に行います。猶予内(ちょうど3分を含む)なら、フォアグラウンド復帰とリンク復帰、
 /// および定期試行の時刻への到達(`AcquisitionGracePeriodPolicy.retryIntervalNanoseconds` ごと)で回復を1回試します。
 /// 待ちが早く返った場合は待ちをやり直し、遅く返った場合も単調時計の経過で判定します。
 nonisolated struct LiveTelemetryPauseWakeEvaluator: Sendable {
@@ -14,7 +14,7 @@ nonisolated struct LiveTelemetryPauseWakeEvaluator: Sendable {
     /// 責務: 猶予切れを最優先し、次に起きた理由ごとの動作を選びます。
     /// - Parameters:
     ///   - reason: 待ちから起きた理由。
-    ///   - window: 一時停止の開始時点。
+    ///   - window: 最後の受信からの猶予と定期試行の予定。
     ///   - nowNanoseconds: 単調時計の現在値。
     ///   - cause: 一時停止に入った途切れの原因。
     /// - Returns: 次に取る動作。

@@ -8,7 +8,7 @@ final class LiveTelemetryPauseWakeEvaluatorTests: XCTestCase {
     /// 定期試行の10秒です(ナノ秒)。
     private let retry: UInt64 = 10 * 1_000_000_000
     /// 一時停止の時点を0にした窓です。
-    private let window = LiveTelemetryPauseWindow(pausedAtNanoseconds: 0)
+    private let window = LiveTelemetryPauseWindow(pausedAtNanoseconds: 0, grace: .init(lastReceivedNanoseconds: 0))
 
     /// フォアグラウンド復帰とリンク復帰は、原因に応じた段階で復帰を試します。
     ///

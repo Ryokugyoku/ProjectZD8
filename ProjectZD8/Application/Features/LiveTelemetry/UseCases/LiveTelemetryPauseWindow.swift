@@ -1,34 +1,40 @@
-/// 一時停止を始めた時点から、猶予内かどうか・猶予切れの期限・次に復帰を試す時刻を求めます。
+/// 一時停止中の猶予(最後の受信から)と、一時停止を始めた時点から数える定期試行の予定をまとめます。
+///
+/// 猶予の判定と期限は `LiveTelemetryReceiveGrace` に任せ、この型は定期試行の時刻だけを管理します。
 nonisolated struct LiveTelemetryPauseWindow: Equatable, Sendable {
-    /// 一時停止を始めた時点の単調時計の値です。
+    /// 一時停止を始めた時点の単調時計の値です。定期試行の起点にだけ使います。
     let pausedAtNanoseconds: UInt64
+    /// 最後の受信からの猶予です。
+    let grace: LiveTelemetryReceiveGrace
     /// 次に定期的な復帰の試行を行ってよい単調時計の値です。
     private(set) var nextRetryNanoseconds: UInt64
 
-    /// 一時停止の開始時点を固定し、最初の定期試行を開始から1間隔後に予定します。
+    /// 一時停止の開始時点と猶予を固定し、最初の定期試行を開始から1間隔後に予定します。
     ///
-    /// 責務: 猶予判定と定期試行の起点を一時停止の開始時点へ固定します。
-    /// - Parameter pausedAtNanoseconds: 一時停止を始めた時点の単調時計の値。
-    init(pausedAtNanoseconds: UInt64) {
+    /// 責務: 定期試行の起点を一時停止の開始時点へ、猶予の判定を最後の受信からの猶予へ固定します。
+    /// - Parameters:
+    ///   - pausedAtNanoseconds: 一時停止を始めた時点の単調時計の値。
+    ///   - grace: 最後の受信からの猶予。
+    init(pausedAtNanoseconds: UInt64, grace: LiveTelemetryReceiveGrace) {
         self.pausedAtNanoseconds = pausedAtNanoseconds
+        self.grace = grace
         nextRetryNanoseconds = Self.adding(AcquisitionGracePeriodPolicy.retryIntervalNanoseconds, to: pausedAtNanoseconds)
     }
 
     /// 現在の時点で猶予を続けるか終えるかを返します。
     ///
-    /// 責務: 単調時計の経過を猶予方針へ渡します。現在値が開始より小さい場合は経過0とします。
+    /// 責務: 最後の受信からの猶予の判定を返します。
     /// - Parameter nowNanoseconds: 単調時計の現在値。
-    /// - Returns: 猶予内(ちょうど3分を含む)なら `.continueWaiting`、超えたら `.terminate`。
+    /// - Returns: 最後の受信から猶予内(ちょうど3分を含む)なら `.continueWaiting`、超えたら `.terminate`。
     func decision(nowNanoseconds: UInt64) -> AcquisitionGracePeriodDecision {
-        let elapsed = nowNanoseconds >= pausedAtNanoseconds ? nowNanoseconds - pausedAtNanoseconds : 0
-        return AcquisitionGracePeriodPolicy().decision(elapsedSincePauseNanoseconds: elapsed)
+        grace.decision(nowNanoseconds: nowNanoseconds)
     }
 
     /// 猶予切れと判定される最初の単調時計の値を返します。
     ///
-    /// 責務: 期限待ちに渡す値として、猶予ちょうどの1ナノ秒後を求めます。上限を超える場合は最大値へ丸めます。
+    /// 責務: 期限待ちに渡す値として、最後の受信からの猶予の期限を返します。
     var deadlineNanoseconds: UInt64 {
-        Self.adding(AcquisitionGracePeriodPolicy.gracePeriodNanoseconds + 1, to: pausedAtNanoseconds)
+        grace.deadlineNanoseconds
     }
 
     /// 現在の時点で定期的な復帰の試行を行ってよいかを返します。
