@@ -45,6 +45,9 @@ struct ProjectZD8App: App {
 
     /// 起動・認証状態・既定アダプター設定・前面復帰を常駐リンク監視へ伝える型です。
     private let adapterLinkSupervision: IOSAdapterLinkSupervisionDriver
+
+    /// PID継続取得の状態と前面復帰を記録中のLive Activityへ伝える型です。
+    private let sessionActivity: IOSRecordingSessionActivityDriver
     #endif
 
     #if os(macOS)
@@ -82,6 +85,8 @@ struct ProjectZD8App: App {
         _unassignedVINWarningModel = State(initialValue: root.unassignedVINWarning)
         adapterLinkSupervision = root.adapterLinkSupervision
         root.adapterLinkSupervision.launch()
+        sessionActivity = root.sessionActivity
+        root.sessionActivity.launch()
         #endif
     }
 
@@ -165,7 +170,7 @@ struct ProjectZD8App: App {
     }
 
     /// バックグラウンド移行時に保存待ちの取得記録を保存させ、操作可能へ戻ったとき取得の一時停止へ復帰の機会を伝え、
-    /// iOSでは常駐リンク監視へ前面復帰を伝え、認証済みセッション概要と整備記録を再同期します。
+    /// iOSでは常駐リンク監視と記録中のLive Activityへ前面復帰を伝え、認証済みセッション概要と整備記録を再同期します。
     ///
     /// 責務: 1件のScene段階変更を取得記録のflush要求・取得ループの起床通知・前面復帰の通知、
     /// または認証済み接続履歴と整備記録の更新要求へ変換します。
@@ -176,6 +181,7 @@ struct ProjectZD8App: App {
         liveTelemetryModel.send(.foregroundTransitionOccurred)
         #if os(iOS)
         adapterLinkSupervision.appDidBecomeActive()
+        sessionActivity.appDidBecomeActive()
         #endif
         guard authenticationModel.state.phase == .signedIn else { return }
         connectionHistoryModel.send(.refreshRequested)
