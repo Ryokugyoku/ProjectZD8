@@ -99,7 +99,7 @@ final class LiveTelemetryModel {
 
     /// 指定OBD終端からPID継続取得を開始します。
     ///
-    /// 責務: 以前の取得の購読を無効化し、最新接続のスリープ抑止と取得ループの購読を開始します。
+    /// 責務: 以前の取得の購読を無効化し(その取得記録は置き換えで終えます)、最新接続のスリープ抑止と取得ループの購読を開始します。
     /// - Parameters:
     ///   - endpoint: OBDアダプターの物理終端。
     ///   - vehicle: 登録済み車両(ID・型式コード)または未登録。
@@ -110,6 +110,7 @@ final class LiveTelemetryModel {
         adapterProbeEvidence: AcquisitionAdapterProbeEvidence?
     ) {
         let previousTask = acquisitionTask
+        if previousTask != nil { acquisitionLoop.registerStopReason(.superseded, forGeneration: generation) }
         previousTask?.cancel()
         generation &+= 1
         let generation = generation
@@ -139,11 +140,13 @@ final class LiveTelemetryModel {
 
     /// 現在のPID継続取得を止めます。
     ///
-    /// 責務: 購読を無効化して取得ループを停止理由付きで止め、終了を待ってスリープ抑止解除済みの待機状態へ戻します。
+    /// 責務: 停止理由を取得中の世代へ先に結び付けてから購読を無効化して取得ループを止め、終了を待ってスリープ抑止解除済みの待機状態へ戻します。
+    /// 理由を取り消しより先に結び付けるので、購読の終了で取得Taskが先に取り消されても記録の終了原因は同じ理由になります。
     /// - Parameter reason: 停止の理由。取得記録と終了通知の両方へ同じ値を渡します。
     private func stop(reason: ConnectionSessionEndReason) {
         let shouldNotifySessionEnd = acquisitionTask != nil || state.isConnectionActive
         let previousTask = acquisitionTask
+        acquisitionLoop.registerStopReason(reason, forGeneration: generation)
         previousTask?.cancel()
         acquisitionTask = nil
         generation &+= 1

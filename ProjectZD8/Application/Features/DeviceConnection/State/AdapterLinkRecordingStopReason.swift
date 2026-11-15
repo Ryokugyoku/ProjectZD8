@@ -5,24 +5,24 @@
 nonisolated enum AdapterLinkRecordingStopReason: Equatable, Sendable {
     /// サインアウトで稼働条件を失いました。
     case accountSignedOut
-    /// 既定アダプターが別のBLEアダプターへ変わった、または手動接続がアダプターを使い始め、記録が別の接続に置き換わります。
+    /// 既定アダプターが別のアダプター(別のBLE・Classic・シリアル)へ変わった、または手動接続がアダプターを使い始め、記録が別の接続に置き換わります。
     case superseded
-    /// 既定アダプターの削除・BLE以外への変更などで、常駐リンクの接続対象が無くなりました。
+    /// 既定アダプターの削除などで、常駐リンクの接続対象が無くなりました。
     case connectionTargetLost
     /// 監視そのものが停止しました(`AdapterLinkSupervisionUseCase.stop()`)。
     case supervisionStopped
 
     /// 稼働条件の変化で記録を止める時の理由を返します。
     ///
-    /// 責務: 監視の停止・サインアウト・接続対象の喪失・別のBLEアダプターへの変更を、この順に判定して理由を1つに決めます。
+    /// 責務: サインアウト・監視の停止・既定アダプターの削除・別のアダプターへの変更を、この順に判定して理由を1つに決めます。
     /// 接続対象(既定アダプター)が開始済みリンクの接続対象と異なる時だけ呼ぶ前提です。
     /// - Parameter conditions: 変化後の条件。
-    /// - Returns: 監視停止なら `.supervisionStopped`、未サインインなら `.accountSignedOut`、
-    ///   稼働条件から接続対象が決まらなければ `.connectionTargetLost`、それ以外(別のBLEアダプター)は `.superseded`。
+    /// - Returns: 未サインインなら `.accountSignedOut`、監視停止なら `.supervisionStopped`、
+    ///   既定アダプターが無ければ `.connectionTargetLost`、それ以外(別のBLE・Classic・シリアルへの変更)は `.superseded`。
     static func forOperatingConditionsChange(_ conditions: AdapterLinkSupervisionConditions) -> AdapterLinkRecordingStopReason {
-        if !conditions.isSupervisionStarted { return .supervisionStopped }
         if !conditions.isSignedIn { return .accountSignedOut }
-        if case .none = conditions.operatingPreference { return .connectionTargetLost }
+        if !conditions.isSupervisionStarted { return .supervisionStopped }
+        if case .none = conditions.defaultAdapterPreference { return .connectionTargetLost }
         return .superseded
     }
 
