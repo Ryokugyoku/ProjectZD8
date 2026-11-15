@@ -22,6 +22,10 @@ struct LiveTelemetryState: Equatable {
     var samples: [OBDPIDSample] = []
     /// 初回探索で応答が確認できたPID数です。
     var supportedPIDCount = 0
+    /// 現在の取得セッションで車両から受信して数値化できた応答の件数です。セッション開始で0に戻ります。
+    ///
+    /// 応答ごとに数え、表示への反映は観測値と同じ間引きに従います。
+    var receivedResponseCount = 0
     /// 読取りまたは再試行に使用するOBD終端です。
     var endpoint: OBDConnectionEndpoint?
     /// 現在監視する車両(登録済みならIDと確認済み型式コード、または未登録)です。取得を始めていなければ `nil` です。

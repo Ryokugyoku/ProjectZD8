@@ -29,6 +29,8 @@ final class LiveTelemetryModel {
     @ObservationIgnored private var refreshThrottle = LiveTelemetryDisplayRefreshThrottle()
     /// 初回周回で確定した取得対象です。表示順の基準に使います。
     @ObservationIgnored private var supportedDefinitions: [OBDPIDDefinition] = []
+    /// 現在の取得セッションで受信した応答の件数です。表示状態へは観測値の反映時にまとめて写します。
+    @ObservationIgnored private var receivedResponseCount = 0
 
     /// 初期状態、取得対象の確定、取得ループ、通知先を固定します。
     ///
@@ -112,6 +114,8 @@ final class LiveTelemetryModel {
         state.pauseStatus = nil
         state.samples = []
         state.supportedPIDCount = 0
+        state.receivedResponseCount = 0
+        receivedResponseCount = 0
         refreshThrottle = LiveTelemetryDisplayRefreshThrottle()
         supportedDefinitions = []
         systemSleepInhibitor?.setVehicleConnectionActive(true)
@@ -218,6 +222,7 @@ final class LiveTelemetryModel {
             state.phase = .loaded
             applyPendingSamples(force: true)
         case let .sampleDecoded(sample):
+            receivedResponseCount += 1
             refreshThrottle.hold(sample)
             if state.phase == .loaded { applyPendingSamples(force: false) }
         case let .phaseChanged(acquisitionPhase):
@@ -246,12 +251,13 @@ final class LiveTelemetryModel {
 
     /// 保持中の観測をPIDごとの最新値へまとめて反映します。
     ///
-    /// 責務: 間引き判定を通った観測、または強制時の全観測で同一PIDの表示値を置き換えます。
+    /// 責務: 間引き判定を通った観測、または強制時の全観測で同一PIDの表示値と受信件数を置き換えます。
     /// - Parameter force: 間引き間隔を待たずに反映するかどうか。
     private func applyPendingSamples(force: Bool) {
         let now = clock.nowNanoseconds()
         let samples = force ? refreshThrottle.takeAll(nowNanoseconds: now) : refreshThrottle.takeIfDue(nowNanoseconds: now)
         guard let samples, !samples.isEmpty else { return }
+        state.receivedResponseCount = receivedResponseCount
         var latest = Dictionary(state.samples.map { ($0.request, $0) }, uniquingKeysWith: { _, last in last })
         for sample in samples { latest[sample.request] = sample }
         state.samples = ordered(Array(latest.values))
