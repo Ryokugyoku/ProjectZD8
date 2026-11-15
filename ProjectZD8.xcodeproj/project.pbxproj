@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		A1B2C3D40000000000000001 /* GRDB in Frameworks */ = {isa = PBXBuildFile; productRef = A1B2C3D40000000000000002 /* GRDB */; };
 		A1B2C3D40000000000000004 /* GRDB in Frameworks */ = {isa = PBXBuildFile; productRef = A1B2C3D40000000000000002 /* GRDB */; };
+		B7E1A0000000000000000003 /* RecordingSessionLiveActivity.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = B7E1A0000000000000000002 /* RecordingSessionLiveActivity.appex */; platformFilters = (ios, ); settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -26,12 +27,34 @@
 			remoteGlobalIDString = 9C6E28D6300C7A9200C839C2;
 			remoteInfo = ProjectZD8;
 		};
+		B7E1A0000000000000000004 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 9C6E28CF300C7A9200C839C2 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = B7E1A0000000000000000001;
+			remoteInfo = RecordingSessionLiveActivity;
+		};
 /* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		B7E1A0000000000000000006 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				B7E1A0000000000000000003 /* RecordingSessionLiveActivity.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		9C6E28D7300C7A9200C839C2 /* RevTorque Insight.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "RevTorque Insight.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		9C6E28E8300C7A9300C839C2 /* ProjectZD8Tests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ProjectZD8Tests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		9C6E28F2300C7A9300C839C2 /* ProjectZD8UITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ProjectZD8UITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		B7E1A0000000000000000002 /* RecordingSessionLiveActivity.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = RecordingSessionLiveActivity.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -42,6 +65,23 @@
 			);
 			target = 9C6E28D6300C7A9200C839C2 /* ProjectZD8 */;
 		};
+		B7E1A0000000000000000008 /* Exceptions for "ProjectZD8" folder in "RecordingSessionLiveActivity" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				App/Intents/RecordingSessionStopIntentHandlerRegistry.swift,
+				App/Intents/StopRecordingSessionIntent.swift,
+				Data/Devices/SessionActivity/RecordingSessionActivityAttributes.swift,
+				Resources/Localization/Localizable.xcstrings,
+			);
+			target = B7E1A0000000000000000001 /* RecordingSessionLiveActivity */;
+		};
+		B7E1A0000000000000000009 /* Exceptions for "RecordingSessionLiveActivity" folder in "RecordingSessionLiveActivity" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = B7E1A0000000000000000001 /* RecordingSessionLiveActivity */;
+		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -49,6 +89,7 @@
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
 				9C6E28FA300C7A9300C839C2 /* Exceptions for "ProjectZD8" folder in "ProjectZD8" target */,
+				B7E1A0000000000000000008 /* Exceptions for "ProjectZD8" folder in "RecordingSessionLiveActivity" target */,
 			);
 			path = ProjectZD8;
 			sourceTree = "<group>";
@@ -61,6 +102,14 @@
 		9C6E28F5300C7A9300C839C2 /* ProjectZD8UITests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = ProjectZD8UITests;
+			sourceTree = "<group>";
+		};
+		B7E1A0000000000000000007 /* RecordingSessionLiveActivity */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				B7E1A0000000000000000009 /* Exceptions for "RecordingSessionLiveActivity" folder in "RecordingSessionLiveActivity" target */,
+			);
+			path = RecordingSessionLiveActivity;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -89,6 +138,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		B7E1A000000000000000000B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -98,6 +154,7 @@
 				9C6E28D9300C7A9200C839C2 /* ProjectZD8 */,
 				9C6E28EB300C7A9300C839C2 /* ProjectZD8Tests */,
 				9C6E28F5300C7A9300C839C2 /* ProjectZD8UITests */,
+				B7E1A0000000000000000007 /* RecordingSessionLiveActivity */,
 				9C6E28D8300C7A9200C839C2 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -108,6 +165,7 @@
 				9C6E28D7300C7A9200C839C2 /* RevTorque Insight.app */,
 				9C6E28E8300C7A9300C839C2 /* ProjectZD8Tests.xctest */,
 				9C6E28F2300C7A9300C839C2 /* ProjectZD8UITests.xctest */,
+				B7E1A0000000000000000002 /* RecordingSessionLiveActivity.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -122,10 +180,12 @@
 				9C6E28D3300C7A9200C839C2 /* Sources */,
 				9C6E28D4300C7A9200C839C2 /* Frameworks */,
 				9C6E28D5300C7A9200C839C2 /* Resources */,
+				B7E1A0000000000000000006 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				B7E1A0000000000000000005 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				9C6E28D9300C7A9200C839C2 /* ProjectZD8 */,
@@ -185,6 +245,28 @@
 			productReference = 9C6E28F2300C7A9300C839C2 /* ProjectZD8UITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
+		B7E1A0000000000000000001 /* RecordingSessionLiveActivity */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B7E1A000000000000000000F /* Build configuration list for PBXNativeTarget "RecordingSessionLiveActivity" */;
+			buildPhases = (
+				B7E1A000000000000000000A /* Sources */,
+				B7E1A000000000000000000B /* Frameworks */,
+				B7E1A000000000000000000C /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				B7E1A0000000000000000007 /* RecordingSessionLiveActivity */,
+			);
+			name = RecordingSessionLiveActivity;
+			packageProductDependencies = (
+			);
+			productName = RecordingSessionLiveActivity;
+			productReference = B7E1A0000000000000000002 /* RecordingSessionLiveActivity.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -214,6 +296,9 @@
 						CreatedOnToolsVersion = 26.4.1;
 						TestTargetID = 9C6E28D6300C7A9200C839C2;
 					};
+					B7E1A0000000000000000001 = {
+						CreatedOnToolsVersion = 26.4.1;
+					};
 				};
 			};
 			buildConfigurationList = 9C6E28D2300C7A9200C839C2 /* Build configuration list for PBXProject "ProjectZD8" */;
@@ -238,6 +323,7 @@
 				9C6E28D6300C7A9200C839C2 /* ProjectZD8 */,
 				9C6E28E7300C7A9300C839C2 /* ProjectZD8Tests */,
 				9C6E28F1300C7A9300C839C2 /* ProjectZD8UITests */,
+				B7E1A0000000000000000001 /* RecordingSessionLiveActivity */,
 			);
 		};
 /* End PBXProject section */
@@ -258,6 +344,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		9C6E28F0300C7A9300C839C2 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B7E1A000000000000000000C /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -288,6 +381,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		B7E1A000000000000000000A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -300,6 +400,14 @@
 			isa = PBXTargetDependency;
 			target = 9C6E28D6300C7A9200C839C2 /* ProjectZD8 */;
 			targetProxy = 9C6E28F3300C7A9300C839C2 /* PBXContainerItemProxy */;
+		};
+		B7E1A0000000000000000005 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			platformFilters = (
+				ios,
+			);
+			target = B7E1A0000000000000000001 /* RecordingSessionLiveActivity */;
+			targetProxy = B7E1A0000000000000000004 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -618,6 +726,74 @@
 			};
 			name = Release;
 		};
+		B7E1A000000000000000000D /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = RecordingSessionLiveActivity/RecordingSessionLiveActivity.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = Q6P6UR9XJG;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = RecordingSessionLiveActivity/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "RevTorque Insight";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.4;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = Ryokugyoku.ProjectZD8.RecordingSessionLiveActivity;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		B7E1A000000000000000000E /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = RecordingSessionLiveActivity/RecordingSessionLiveActivity.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = Q6P6UR9XJG;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = RecordingSessionLiveActivity/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "RevTorque Insight";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.4;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = Ryokugyoku.ProjectZD8.RecordingSessionLiveActivity;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -653,6 +829,15 @@
 			buildConfigurations = (
 				9C6E2904300C7A9300C839C2 /* Debug */,
 				9C6E2905300C7A9300C839C2 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		B7E1A000000000000000000F /* Build configuration list for PBXNativeTarget "RecordingSessionLiveActivity" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B7E1A000000000000000000D /* Debug */,
+				B7E1A000000000000000000E /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
