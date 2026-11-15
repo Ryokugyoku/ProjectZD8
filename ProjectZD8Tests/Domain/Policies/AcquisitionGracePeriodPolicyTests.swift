@@ -1,14 +1,14 @@
 import XCTest
 @testable import ProjectZD8
 
-/// 3分の猶予判定の境界を検証します。
+/// 最後の受信からの3分の猶予判定の境界を検証します。
 final class AcquisitionGracePeriodPolicyTests: XCTestCase {
     /// 仕様の猶予3分をナノ秒で表した値です。
     private let threeMinutes: UInt64 = 180 * 1_000_000_000
 
     /// 経過0は続行します。
     ///
-    /// 責務: 一時停止直後が続行になることを確認します。
+    /// 責務: 最後の受信の直後(経過0)が続行になることを確認します。
     func testZeroElapsedContinues() {
         XCTAssertEqual(AcquisitionGracePeriodPolicy().decision(elapsedSinceLastReceiveNanoseconds: 0), .continueWaiting)
     }
@@ -36,7 +36,7 @@ final class AcquisitionGracePeriodPolicyTests: XCTestCase {
         XCTAssertEqual(decision, .terminate)
     }
 
-    /// 猶予は3分、一時停止中の定期試行の間隔は10秒です。
+    /// 猶予は最後の受信から3分、一時停止中の定期試行の間隔は10秒です。
     ///
     /// 責務: 猶予と定期試行の間隔の値を確認します。
     func testGraceAndRetryIntervalValues() {
