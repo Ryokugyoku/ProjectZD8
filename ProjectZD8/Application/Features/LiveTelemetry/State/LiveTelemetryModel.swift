@@ -68,11 +68,11 @@ final class LiveTelemetryModel {
     /// - Parameter action: Platformから通知された型付き操作。
     func send(_ action: LiveTelemetryAction) {
         switch action {
-        case let .startRequested(endpoint, vehicle):
-            start(using: endpoint, vehicle: vehicle)
+        case let .startRequested(endpoint, vehicle, adapterProbeEvidence):
+            start(using: endpoint, vehicle: vehicle, adapterProbeEvidence: adapterProbeEvidence)
         case .retryRequested:
             if let endpoint = state.endpoint, let vehicle = state.vehicle {
-                start(using: endpoint, vehicle: vehicle)
+                start(using: endpoint, vehicle: vehicle, adapterProbeEvidence: state.adapterProbeEvidence)
             }
         case .stopRequested:
             stop()
@@ -94,13 +94,19 @@ final class LiveTelemetryModel {
     /// - Parameters:
     ///   - endpoint: OBDアダプターの物理終端。
     ///   - vehicle: 登録済み車両(ID・型式コード)または未登録。
-    private func start(using endpoint: OBDConnectionEndpoint, vehicle: LiveTelemetryVehicleContext) {
+    ///   - adapterProbeEvidence: 取得manifestへ記録するアダプター判定結果。判定していなければ `nil`。
+    private func start(
+        using endpoint: OBDConnectionEndpoint,
+        vehicle: LiveTelemetryVehicleContext,
+        adapterProbeEvidence: AcquisitionAdapterProbeEvidence?
+    ) {
         let previousTask = acquisitionTask
         previousTask?.cancel()
         generation &+= 1
         let generation = generation
         state.endpoint = endpoint
         state.vehicle = vehicle
+        state.adapterProbeEvidence = adapterProbeEvidence
         state.phase = .reading
         state.failureKey = nil
         state.pauseStatus = nil
@@ -111,7 +117,12 @@ final class LiveTelemetryModel {
         systemSleepInhibitor?.setVehicleConnectionActive(true)
         acquisitionTask = Task { [weak self] in
             _ = await previousTask?.value
-            await self?.acquire(using: endpoint, vehicle: vehicle, generation: generation)
+            await self?.acquire(
+                using: endpoint,
+                vehicle: vehicle,
+                adapterProbeEvidence: adapterProbeEvidence,
+                generation: generation
+            )
         }
     }
 
@@ -162,10 +173,12 @@ final class LiveTelemetryModel {
     /// - Parameters:
     ///   - endpoint: OBDアダプターの物理終端。
     ///   - vehicle: 登録済み車両(ID・型式コード)または未登録。
+    ///   - adapterProbeEvidence: 取得manifestへ記録するアダプター判定結果。判定していなければ `nil`。
     ///   - generation: この取得開始時の世代。
     private func acquire(
         using endpoint: OBDConnectionEndpoint,
         vehicle: LiveTelemetryVehicleContext,
+        adapterProbeEvidence: AcquisitionAdapterProbeEvidence?,
         generation: UInt
     ) async {
         let prepared: (definitions: [OBDPIDDefinition], capabilities: [ConnectionSessionAcquisitionPIDCapabilityInput])
@@ -183,7 +196,8 @@ final class LiveTelemetryModel {
                 generation: generation,
                 definitions: prepared.definitions,
                 capabilities: prepared.capabilities,
-                endpoint: endpoint
+                endpoint: endpoint,
+                adapterProbeEvidence: adapterProbeEvidence
             )
         )
         for await event in events {

@@ -63,6 +63,9 @@ protocol ApplicationPlatformComposing {
     ///   - connectionVehicleDidResolve: 登録済み車両の接続開始を通知する処理。
     ///   - unregisteredConnectionDidStart: 未登録車両の接続開始を通知する処理。
     ///   - unregisteredConnectionVehicleDidRegister: 車両なしの接続中に登録された車両を通知する処理。
+    ///   - vehicleDidRegister: 新規登録した車両とアカウント識別子を通知する処理。
+    ///   - connectionIdentificationWillBegin: 接続のための車両識別を始める直前に呼ぶ処理。
+    ///   - connectionIdentificationDidEnd: 接続のための車両識別が終わった時に呼ぶ処理。
     /// - Returns: 車両管理のモデル。
     static func makeVehicleManagementModel(
         database: ApplicationDatabaseConnection,
@@ -70,7 +73,10 @@ protocol ApplicationPlatformComposing {
         vehicleSessionsDidDelete: @escaping @MainActor () -> Void,
         connectionVehicleDidResolve: @escaping @MainActor (VehicleProfile, OBDConnectionEndpoint, VehicleIdentificationSnapshot) -> Void,
         unregisteredConnectionDidStart: @escaping @MainActor (OBDConnectionEndpoint, VehicleIdentificationSnapshot) -> Void,
-        unregisteredConnectionVehicleDidRegister: @escaping @MainActor (VehicleProfile) -> Void
+        unregisteredConnectionVehicleDidRegister: @escaping @MainActor (VehicleProfile) -> Void,
+        vehicleDidRegister: @escaping @MainActor (VehicleProfile, String) throws -> Void,
+        connectionIdentificationWillBegin: @escaping @MainActor () -> Void,
+        connectionIdentificationDidEnd: @escaping @MainActor () -> Void
     ) -> VehicleManagementModel
 
     /// 整備のモデルを生成します。

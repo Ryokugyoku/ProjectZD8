@@ -1,7 +1,7 @@
 import Foundation
 import Observation
 
-/// 接続セッションの開始、車両関連付け、終了を永続化へ結び付けます。
+/// 接続セッションの開始、車両関連付け、観測VIN記録、終了を永続化へ結び付けます。
 ///
 /// プロセス復帰時に未終了だったセッションは `RecoverRelaunchedConnectionSessionUseCase` で処理し、猶予内なら
 /// 続行可能なセッションとして保持します(`activeSession` にはしません)。次の接続開始で同じ車両が確定し、
@@ -94,8 +94,10 @@ final class ConnectionSessionLifecycleModel {
         case let .automaticUploadChanged(isEnabled): automaticUploadEnabled = isEnabled
         case .startRequested: startSession()
         case let .vehicleResolved(vehicle): bindVehicle(vehicle)
+        case let .vinObserved(vin): recordObservedVIN(vin)
         case .vehicleUnregistered: if isAwaitingResumeDecision { resolveResumption(forVehicleID: nil) }
         case let .unregisteredVehicleRegistered(vehicle): bindLaterRegisteredVehicle(vehicle)
+        case let .observedVINVehicleRegistered(vehicle): bindVehicleMatchingObservedVIN(vehicle)
         case let .distanceObserved(observation): recordDistance(observation)
         case let .endRequested(reason, endedAt): endSession(reason: reason, endedAt: endedAt)
         }
@@ -233,6 +235,26 @@ final class ConnectionSessionLifecycleModel {
         }
     }
 
+    /// 車両未確定の現在セッションへ観測VINを保存します。
+    ///
+    /// 責務: 1件の観測VINを、車両確定済みでない未終了セッションだけへ関連付けます。
+    /// 進行中セッションが無い、車両確定済み、VINが空白だけ、または既に同じ値の場合は何もしません。
+    /// 保存に失敗した場合はメモリ上の進行中セッションを変更しません。
+    /// - Parameter vin: 車両ECUから読み取ったVIN。前後の空白は保存前に除きます。
+    private func recordObservedVIN(_ vin: String) {
+        guard var session = activeSession, session.vehicle == nil,
+              let normalized = ConnectionSession.normalizedObservedVIN(vin),
+              session.observedVIN != normalized else { return }
+        session.observedVIN = normalized
+        do {
+            try repository.save(session)
+            activeSession = session
+            historyDidChange()
+        } catch {
+            return
+        }
+    }
+
     /// 車両なしで始めた現在セッションへ、途中で登録された車両を関連付けます。
     ///
     /// 責務: 現在セッションに車両が無い場合だけ車両を保存します。取得対象とセグメントは変えません。
@@ -240,6 +262,19 @@ final class ConnectionSessionLifecycleModel {
     private func bindLaterRegisteredVehicle(_ vehicle: VehicleProfile) {
         guard activeSession?.vehicle == nil else { return }
         bindVehicle(vehicle)
+    }
+
+    /// 登録された車両のVINが現在セッションの観測VINと一致する場合に、その車両を現在セッションへ関連付けます。
+    ///
+    /// 責務: 観測VINによる保存済みセッションへの紐付けと同じ規則(前後の空白を除き、大文字小文字を区別しない)で
+    /// 一致を確かめ、一致した時だけ途中登録の関連付けへ合流します。メモリ上の現在セッションにも車両を入れることで、
+    /// 以後の保存(距離・終了)が車両なしの値で上書きしないようにします。
+    /// - Parameter vehicle: 新規登録された車両。
+    private func bindVehicleMatchingObservedVIN(_ vehicle: VehicleProfile) {
+        guard let observedVIN = activeSession?.observedVIN,
+              let vehicleVIN = ConnectionSession.normalizedObservedVIN(vehicle.vin),
+              observedVIN.caseInsensitiveCompare(vehicleVIN) == .orderedSame else { return }
+        bindLaterRegisteredVehicle(vehicle)
     }
 
     /// 続行可能なセッションを続けるか、終了して新規に開始するかを決めます。

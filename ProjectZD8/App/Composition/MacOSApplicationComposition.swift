@@ -82,6 +82,9 @@ enum MacOSApplicationComposition: ApplicationPlatformComposing {
     /// - Parameter connectionVehicleDidResolve: 接続対象車両、終端、OBD識別観測をLoggingと監視開始へ通知する処理。
     /// - Parameter unregisteredConnectionDidStart: 未登録車両の終端と識別観測を、車両なしの接続開始へ通知する処理。
     /// - Parameter unregisteredConnectionVehicleDidRegister: 車両なしの接続中に登録された車両をLoggingへ通知する処理。
+    /// - Parameter vehicleDidRegister: 新規登録した車両とアカウント識別子を通知する処理。
+    /// - Parameter connectionIdentificationWillBegin: 接続のための車両識別を始める直前に呼ぶ処理。
+    /// - Parameter connectionIdentificationDidEnd: 接続のための車両識別が終わった時に呼ぶ処理。
     static func makeVehicleManagementModel(
         database: ApplicationDatabaseConnection,
         connectionSessionRepository: any ConnectionSessionRepository & ConnectionSessionErasureRepository,
@@ -95,7 +98,10 @@ enum MacOSApplicationComposition: ApplicationPlatformComposing {
             OBDConnectionEndpoint,
             VehicleIdentificationSnapshot
         ) -> Void = { _, _ in },
-        unregisteredConnectionVehicleDidRegister: @escaping @MainActor (VehicleProfile) -> Void = { _ in }
+        unregisteredConnectionVehicleDidRegister: @escaping @MainActor (VehicleProfile) -> Void = { _ in },
+        vehicleDidRegister: @escaping @MainActor (VehicleProfile, String) throws -> Void = { _, _ in },
+        connectionIdentificationWillBegin: @escaping @MainActor () -> Void = {},
+        connectionIdentificationDidEnd: @escaping @MainActor () -> Void = {}
     ) -> VehicleManagementModel {
         let vehicleRepository = CloudKitVehicleRepository()
         return VehicleManagementModel(
@@ -124,7 +130,10 @@ enum MacOSApplicationComposition: ApplicationPlatformComposing {
             vehicleSessionsDidDelete: vehicleSessionsDidDelete,
             connectionVehicleDidResolve: connectionVehicleDidResolve,
             unregisteredConnectionDidStart: unregisteredConnectionDidStart,
-            unregisteredConnectionVehicleDidRegister: unregisteredConnectionVehicleDidRegister
+            unregisteredConnectionVehicleDidRegister: unregisteredConnectionVehicleDidRegister,
+            vehicleDidRegister: vehicleDidRegister,
+            connectionIdentificationWillBegin: connectionIdentificationWillBegin,
+            connectionIdentificationDidEnd: connectionIdentificationDidEnd
         )
     }
 

@@ -7,6 +7,8 @@ import XCTest
 final class ProjectZD8DatabaseMigratorSegmentationUpgradeTests: XCTestCase {
     /// 4件目の直前までの適用済みを表すMigration識別子です。
     private static let thirdMigration = "release_v1_add_connection_session_acquisition_batch_evidence"
+    /// 検証対象である4件目のセグメント系Migration識別子です。
+    private static let fourthMigration = "release_v1_add_connection_session_segments_gaps_can_frames"
 
     /// 新規DBへ全件適用すると3つの新表が作成されます。
     ///
@@ -73,7 +75,7 @@ final class ProjectZD8DatabaseMigratorSegmentationUpgradeTests: XCTestCase {
         XCTAssertEqual(sessionBefore.count, 1)
         XCTAssertEqual(rawBefore.count, 2)
 
-        try ProjectZD8DatabaseMigrator.migrator.migrate(queue)
+        try ProjectZD8DatabaseMigrator.migrator.migrate(queue, upTo: Self.fourthMigration)
 
         try queue.read { database in
             let sessionAfter = try Row.fetchAll(database, sql: "SELECT * FROM connection_sessions")
@@ -101,7 +103,7 @@ final class ProjectZD8DatabaseMigratorSegmentationUpgradeTests: XCTestCase {
         let before = try triggerDefinitions(queue)
         XCTAssertFalse(before.isEmpty)
 
-        try ProjectZD8DatabaseMigrator.migrator.migrate(queue)
+        try ProjectZD8DatabaseMigrator.migrator.migrate(queue, upTo: Self.fourthMigration)
 
         XCTAssertEqual(try triggerDefinitions(queue), before)
     }

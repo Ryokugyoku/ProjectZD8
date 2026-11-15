@@ -2,50 +2,71 @@
 ///
 /// OS固有の生成は `ApplicationPlatformComposing` に任せ、生成順序・共有インスタンス・通知クロージャの捕捉先を
 /// この1か所で決めます。各モデルと保存先は1回だけ生成し、同じインスタンスを必要な相手へ渡します。
+/// iOSは同じ土台(`makeFoundation`)を使い、常駐リンクと記録の調停役を通す配線だけを `IOSApplicationRoot` で行います。
 @MainActor
 enum ApplicationRootAssembly {
     /// ルートのモデル一式を組み立てます。
     ///
-    /// 責務: 計測境界・DB接続・接続セッション保存先を1回ずつ生成し、それらを共有する各モデルを決まった順序で生成します。
+    /// 責務: 共有する土台を1回だけ生成し、それを共有する各モデルを決まった順序で生成します。
     /// - Parameter platform: OS固有の生成手順。
     /// - Returns: ルートが保持するモデル一式。
     static func makeModels<Platform: ApplicationPlatformComposing>(_ platform: Platform.Type) -> ApplicationRootModels {
-        let performanceEvents = Platform.makeAcquisitionPerformanceEventPort()
-        let database = ApplicationDatabaseConnection()
-        let storage = ConnectionSessionStorageDependencies.makeProduction(
-            openDatabaseQueue: database.databaseQueue,
-            performanceEvents: performanceEvents
-        )
-        let repository = storage.sessions
-        let history = makeConnectionHistoryModel(platform, repository: repository)
-        let analysis = makeSessionLogAnalysisModel(platform, database: database, repository: repository)
-        let lifecycle = makeLifecycleModel(platform, storage: storage, history: history)
+        let foundation = makeFoundation(platform)
+        let repository = foundation.storage.sessions
         let liveTelemetry = makeLiveTelemetryModel(
             platform,
-            database: database,
-            storage: storage,
-            performanceEvents: performanceEvents,
-            lifecycle: lifecycle
+            database: foundation.database,
+            storage: foundation.storage,
+            performanceEvents: foundation.performanceEvents,
+            lifecycle: foundation.lifecycle
         )
         let vehicleManagement = makeVehicleManagementModel(
             platform,
-            database: database,
+            database: foundation.database,
             repository: repository,
-            history: history,
-            lifecycle: lifecycle,
+            history: foundation.history,
+            lifecycle: foundation.lifecycle,
             liveTelemetry: liveTelemetry
         )
-        let maintenance = Platform.makeMaintenanceModel(database: database)
-        let authentication = Platform.makeAuthenticationSessionModel(database: database, connectionSessionStorage: repository)
+        let maintenance = Platform.makeMaintenanceModel(database: foundation.database)
+        let authentication = Platform.makeAuthenticationSessionModel(
+            database: foundation.database,
+            connectionSessionStorage: repository
+        )
         return ApplicationRootModels(
             authentication: authentication,
             accountSettings: Platform.makeAccountSettingsModel(),
             vehicleManagement: vehicleManagement,
             maintenance: maintenance,
             liveTelemetry: liveTelemetry,
-            connectionSessionLifecycle: lifecycle,
-            connectionHistory: history,
-            sessionLogAnalysis: analysis
+            connectionSessionLifecycle: foundation.lifecycle,
+            connectionHistory: foundation.history,
+            sessionLogAnalysis: foundation.analysis
+        )
+    }
+
+    /// 各モデルが共有する保存先と接続セッション系のモデルを組み立てます。
+    ///
+    /// 責務: 計測境界・DB接続・接続セッション保存先を1回ずつ生成し、それらを共有する履歴・解析・ライフサイクルのモデルを生成します。
+    /// - Parameter platform: OS固有の生成手順。
+    /// - Returns: PID継続取得と車両管理のモデルを結び付ける前の土台。
+    static func makeFoundation<Platform: ApplicationPlatformComposing>(_ platform: Platform.Type) -> ApplicationRootFoundation {
+        let performanceEvents = Platform.makeAcquisitionPerformanceEventPort()
+        let database = ApplicationDatabaseConnection()
+        let storage = ConnectionSessionStorageDependencies.makeProduction(
+            openDatabaseQueue: database.databaseQueue,
+            performanceEvents: performanceEvents
+        )
+        let history = makeConnectionHistoryModel(platform, repository: storage.sessions)
+        let analysis = makeSessionLogAnalysisModel(platform, database: database, repository: storage.sessions)
+        let lifecycle = makeLifecycleModel(platform, storage: storage, history: history)
+        return ApplicationRootFoundation(
+            performanceEvents: performanceEvents,
+            database: database,
+            storage: storage,
+            history: history,
+            analysis: analysis,
+            lifecycle: lifecycle
         )
     }
 
@@ -201,7 +222,10 @@ enum ApplicationRootAssembly {
             unregisteredConnectionDidStart: { endpoint, _ in
                 VehicleConnectionStartWiring.startUnregistered(endpoint: endpoint, lifecycle: lifecycle, liveTelemetry: liveTelemetry)
             },
-            unregisteredConnectionVehicleDidRegister: { lifecycle.send(.unregisteredVehicleRegistered($0)) }
+            unregisteredConnectionVehicleDidRegister: { lifecycle.send(.unregisteredVehicleRegistered($0)) },
+            vehicleDidRegister: { _, _ in },
+            connectionIdentificationWillBegin: {},
+            connectionIdentificationDidEnd: {}
         )
     }
 }

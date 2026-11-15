@@ -3,17 +3,18 @@ import GRDB
 
 /// 同じ製品DB Queueを共有する接続session側と取得証拠側の保存先を束ねます。
 struct ConnectionSessionStorageDependencies {
-    /// 接続session、Rawログ、消去を扱う保存先の型です。
+    /// 接続session、Rawログ、消去、観測VIN付きセッションの照会と紐付けを扱う保存先の型です。
     typealias SessionStorage = any ConnectionSessionRepository
         & ConnectionSessionRawLogRepository
         & ConnectionSessionErasureRepository
         & AccountConnectionSessionErasureRepository
+        & ObservedVINConnectionSessionRepository
     /// 取得manifest、batch、取得終了を扱う保存先の型です。
     typealias AcquisitionStorage = any ConnectionSessionAcquisitionRepository
         & ConnectionSessionAcquisitionBatchRepository
         & ConnectionSessionAcquisitionTerminationRepository
 
-    /// 接続session、Rawログ、消去の保存先です。
+    /// 接続session、Rawログ、消去、観測VIN付きセッションの保存先です。
     let sessions: SessionStorage
     /// 取得証拠の保存先です。`sessions` と同じDB Queueを共有します。
     let acquisition: AcquisitionStorage

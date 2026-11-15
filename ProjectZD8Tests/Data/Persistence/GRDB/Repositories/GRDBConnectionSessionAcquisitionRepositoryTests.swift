@@ -276,8 +276,10 @@ final class GRDBConnectionSessionAcquisitionRepositoryTests: XCTestCase {
         try fixture.queue.write { database in
             try database.execute(
                 sql: """
-                    INSERT INTO connection_session_acquisition_manifests VALUES
-                    (?, 1, 'fixture', '1', 1, 1, 'macOS', 1, 0)
+                    INSERT INTO connection_session_acquisition_manifests
+                    (sessionID, manifestVersion, applicationMarketingVersion, applicationBuildVersion,
+                     schemaContractVersion, pollingPolicyVersion, acquisitionPlatform, modelInputManifestVersion, isSealed)
+                    VALUES (?, 1, 'fixture', '1', 1, 1, 'macOS', 1, 0)
                     """,
                 arguments: [key]
             )

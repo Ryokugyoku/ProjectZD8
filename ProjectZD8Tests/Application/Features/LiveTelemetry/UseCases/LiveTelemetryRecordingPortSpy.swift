@@ -1,9 +1,12 @@
 import Foundation
+import XCTest
 @testable import ProjectZD8
 
 /// 取得ループから受けた記録の呼び出しを順に記録し、指定した呼び出しだけ失敗させる記録ポートです。
 ///
 /// 記録は複数のタスクから届くため、ロックで直列化します。
+/// 呼び出しは `maximumCalls` 件までしか溜めません。超えたら1回だけテスト失敗を記録し、以後は記録せずに保存失敗を送出して、
+/// 取得ループを保存失敗で終わらせます(実装を壊した時に、空の周回が止まらずメモリを使い続けることを防ぎます)。
 final class LiveTelemetryRecordingPortSpy: LiveTelemetryAcquisitionRecordingPort, @unchecked Sendable {
     /// 記録への並行アクセスを直列化するロックです。
     private let lock = NSLock()
@@ -11,6 +14,10 @@ final class LiveTelemetryRecordingPortSpy: LiveTelemetryAcquisitionRecordingPort
     private var storedCalls: [LiveTelemetryRecordingPortCall] = []
     /// ロックで保護した受けた開始入力です。
     private var storedStartInputs: [LiveTelemetryAcquisitionStartInput] = []
+    /// 溜める呼び出しの上限です。通常のテストはこの件数に届きません。
+    static let maximumCalls = 10_000
+    /// ロックで保護した、上限を超えたかどうかです。
+    private var storedOverflowed = false
     /// 失敗させる呼び出しです。
     private let failurePoint: LiveTelemetryRecordingFailurePoint?
 
@@ -53,7 +60,7 @@ final class LiveTelemetryRecordingPortSpy: LiveTelemetryAcquisitionRecordingPort
     /// - Parameter input: 取得開始入力。
     /// - Throws: `start` を失敗させる場合は `.storageFailed`。
     func start(_ input: LiveTelemetryAcquisitionStartInput) async throws {
-        lock.withLock { storedStartInputs.append(input) }
+        lock.withLock { if storedStartInputs.count < Self.maximumCalls { storedStartInputs.append(input) } }
         try append(.start(generation: input.generation), at: .start)
     }
 
@@ -145,9 +152,20 @@ final class LiveTelemetryRecordingPortSpy: LiveTelemetryAcquisitionRecordingPort
     /// - Parameters:
     ///   - call: 受けた呼び出し。
     ///   - point: 現在の呼び出し種別。
-    /// - Throws: 失敗指定と一致する場合は `.storageFailed`。
+    /// - Throws: 失敗指定と一致する場合、または呼び出しが上限を超えた場合は `.storageFailed`。
     private func append(_ call: LiveTelemetryRecordingPortCall, at point: LiveTelemetryRecordingFailurePoint) throws {
-        lock.withLock { storedCalls.append(call) }
+        let overflow: Bool? = lock.withLock {
+            guard storedCalls.count < Self.maximumCalls else {
+                defer { storedOverflowed = true }
+                return !storedOverflowed
+            }
+            storedCalls.append(call)
+            return nil
+        }
+        if let overflow {
+            if overflow { XCTFail("記録の呼び出しが上限 \(Self.maximumCalls) 件を超えました(取得ループが止まっていません)") }
+            throw LiveTelemetryAcquisitionRecordingError.storageFailed
+        }
         if failurePoint == point { throw LiveTelemetryAcquisitionRecordingError.storageFailed }
     }
 }

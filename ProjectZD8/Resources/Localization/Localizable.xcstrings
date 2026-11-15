@@ -4,6 +4,556 @@
     "" : {
 
     },
+    "automatic_recording.choice.automatic.description" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recording starts as soon as your vehicle is detected."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La grabación empieza en cuanto se detecta el vehículo."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "車両を検知すると、そのまま記録が始まります。"
+          }
+        }
+      }
+    },
+    "automatic_recording.choice.automatic.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Start Automatically"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Iniciar automáticamente"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自動で開始"
+          }
+        }
+      }
+    },
+    "automatic_recording.choice.notification.description" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You get a notification when your vehicle is detected. Recording starts when you choose [Start Recording]."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recibes una notificación al detectar el vehículo. La grabación empieza al elegir [Iniciar grabación]."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "車両を検知すると通知します。[記録開始]を選ぶと記録が始まります。"
+          }
+        }
+      }
+    },
+    "automatic_recording.choice.notification.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Start from Notification"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Iniciar desde la notificación"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "通知から開始"
+          }
+        }
+      }
+    },
+    "automatic_recording.prompt.message" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This is what happens when the adapter detects your vehicle. You can change it anytime in Settings."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Es lo que ocurre cuando el adaptador detecta tu vehículo. Puedes cambiarlo en cualquier momento en Ajustes."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "アダプターが車両を検知した時の動作です。設定画面からいつでも変更できます。"
+          }
+        }
+      }
+    },
+    "automatic_recording.prompt.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose How Recording Starts"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elige cómo empieza la grabación"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "記録の始め方を選んでください"
+          }
+        }
+      }
+    },
+    "settings.automatic_recording.description" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose how recording starts when the adapter detects your vehicle."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elige cómo empieza la grabación cuando el adaptador detecta tu vehículo."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "アダプターが車両を検知した時に、記録をどう始めるかを選びます。"
+          }
+        }
+      }
+    },
+    "settings.automatic_recording.eyebrow" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "VEHICLE DETECTION"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "DETECCIÓN DE VEHÍCULO"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "車両検知"
+          }
+        }
+      }
+    },
+    "settings.automatic_recording.termination_notice" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "If you close the app from the App Switcher, automatic vehicle detection stops."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Si cierras la app desde el selector de apps, la detección automática del vehículo se detiene."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "アプリスイッチャーでアプリを終了すると、車両の自動検知は止まります。"
+          }
+        }
+      }
+    },
+    "settings.automatic_recording.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recording When a Vehicle Is Detected"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Grabación al detectar un vehículo"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "車両検知時の記録開始"
+          }
+        }
+      }
+    },
+    "unassigned_vin.warning.action.register" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Register Vehicle"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Registrar vehículo"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "車両を登録"
+          }
+        }
+      }
+    },
+    "unassigned_vin.warning.action.retry" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reload"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Volver a cargar"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "再読み込み"
+          }
+        }
+      }
+    },
+    "unassigned_vin.warning.failure.message" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Try reloading in a moment."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vuelve a cargar en un momento."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "時間をおいて再読み込みしてください。"
+          }
+        }
+      }
+    },
+    "unassigned_vin.warning.failure.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't Check for Unregistered Vehicle Logs"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudieron comprobar los registros de vehículos no registrados"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未登録車両のログを確認できませんでした"
+          }
+        }
+      }
+    },
+    "unassigned_vin.warning.message.many_vehicles" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$lld unregistered vehicles have %2$lld logs. Register the vehicles to link the logs."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hay %2$lld registros de %1$lld vehículos no registrados. Registra los vehículos para vincular los registros."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未登録の車両 %1$lld 台のログが %2$lld 件あります。車両を登録するとログが紐付きます。"
+          }
+        }
+      }
+    },
+    "unassigned_vin.warning.message.one_vehicle_many_logs" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$lld unregistered vehicle has %2$lld logs. Register the vehicle to link the logs."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hay %2$lld registros de %1$lld vehículo no registrado. Registra el vehículo para vincular los registros."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未登録の車両 %1$lld 台のログが %2$lld 件あります。車両を登録するとログが紐付きます。"
+          }
+        }
+      }
+    },
+    "unassigned_vin.warning.message.one_vehicle_one_log" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$lld unregistered vehicle has %2$lld log. Register the vehicle to link the log."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hay %2$lld registro de %1$lld vehículo no registrado. Registra el vehículo para vincular el registro."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未登録の車両 %1$lld 台のログが %2$lld 件あります。車両を登録するとログが紐付きます。"
+          }
+        }
+      }
+    },
+    "unassigned_vin.warning.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Logs from Unregistered Vehicles"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hay registros de vehículos no registrados"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未登録の車両のログがあります"
+          }
+        }
+      }
+    },
+    "vehicle-detection-detected-body" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A vehicle responded to your registered adapter. Tap Start Recording to begin recording."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un vehículo respondió a tu adaptador registrado. Toca Iniciar registro para empezar a registrar."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "登録済みアダプターに車両が応答しました。[記録開始]で記録を始められます。"
+          }
+        }
+      }
+    },
+    "vehicle-detection-detected-body-vin" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The vehicle with VIN %@ responded. Tap Start Recording to begin recording."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Respondió el vehículo con VIN %@. Toca Iniciar registro para empezar a registrar."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "VIN %@ の車両が応答しました。[記録開始]で記録を始められます。"
+          }
+        }
+      }
+    },
+    "vehicle-detection-detected-title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vehicle Detected"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vehículo detectado"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "車両を検知しました"
+          }
+        }
+      }
+    },
+    "vehicle-detection-recording-started-body" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recording of the detected vehicle started automatically."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El registro del vehículo detectado se inició automáticamente."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "検知した車両の記録を自動で開始しました。"
+          }
+        }
+      }
+    },
+    "vehicle-detection-recording-started-body-vin" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recording of the vehicle with VIN %@ started automatically."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El registro del vehículo con VIN %@ se inició automáticamente."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "VIN %@ の車両の記録を自動で開始しました。"
+          }
+        }
+      }
+    },
+    "vehicle-detection-recording-started-title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recording Started"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Registro iniciado"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "記録を開始しました"
+          }
+        }
+      }
+    },
+    "vehicle-detection-start-recording-action" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Start Recording"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Iniciar registro"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "記録開始"
+          }
+        }
+      }
+    },
     "—" : {
 
     },
@@ -4372,6 +4922,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "車両を保存できませんでした。"
+          }
+        }
+      }
+    },
+    "garage.error.session_assignment" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The vehicle was saved, but its past logs could not be linked to it."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El vehículo se guardó, pero no se pudieron vincular sus registros anteriores."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "車両は保存しましたが、過去のログを紐付けられませんでした。"
           }
         }
       }

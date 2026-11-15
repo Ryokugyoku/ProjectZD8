@@ -10,6 +10,8 @@ enum VehicleManagementAction {
     case identificationRetryRequested
     /// 未登録の車両識別結果を受け入れて編集へ進みます。
     case identificationConfirmed
+    /// 車両未登録のまま記録したログで観測したVINから新規プロフィール入力を開始します。
+    case observedVINRegistrationRequested(String)
     /// 未登録の車両識別子に対する登録導線をキャンセルします。
     case registrationCancelled
     /// 新規または既存プロフィールを保存します。

@@ -57,10 +57,12 @@ nonisolated struct CreateConnectionSessionAcquisitionManifestInput: Sendable {
     let pidCapabilities: [ConnectionSessionAcquisitionPIDCapabilityInput]
     /// policyが確定した要求順のService/PID一覧です。
     let orderedRequestedPIDs: [OBDPIDRequest]
+    /// 初期化時に判定したアダプターのチップ種別とATMA判定結果です。判定結果がない場合は `nil` です。
+    let adapterProbeEvidence: AcquisitionAdapterProbeEvidence?
 
     /// manifest作成へ渡す確定済み入力を保持します。
     ///
-    /// 責務: session、世代、version、PID定義、能力、要求順を推測のない作成要求へまとめます。
+    /// 責務: session、世代、version、PID定義、能力、要求順、アダプター判定結果を推測のない作成要求へまとめます。
     /// - Parameters:
     ///   - sessionID: manifestを所有するsession識別子。
     ///   - generation: 取得workflowが割り当てたpolling世代。
@@ -71,6 +73,7 @@ nonisolated struct CreateConnectionSessionAcquisitionManifestInput: Sendable {
     ///   - pidDefinitions: 取得開始時点のPID定義一覧。
     ///   - pidCapabilities: 取得開始時点のPID能力と収集選択一覧。
     ///   - orderedRequestedPIDs: policyが確定した要求順のService/PID一覧。
+    ///   - adapterProbeEvidence: 初期化時に判定したアダプター判定結果。判定結果がない場合は `nil`。
     init(
         sessionID: ConnectionSessionID,
         generation: UInt,
@@ -80,7 +83,8 @@ nonisolated struct CreateConnectionSessionAcquisitionManifestInput: Sendable {
         formulaCanonicalizationVersion: Int,
         pidDefinitions: [OBDPIDDefinition],
         pidCapabilities: [ConnectionSessionAcquisitionPIDCapabilityInput],
-        orderedRequestedPIDs: [OBDPIDRequest]
+        orderedRequestedPIDs: [OBDPIDRequest],
+        adapterProbeEvidence: AcquisitionAdapterProbeEvidence? = nil
     ) {
         self.sessionID = sessionID
         self.generation = generation
@@ -91,6 +95,7 @@ nonisolated struct CreateConnectionSessionAcquisitionManifestInput: Sendable {
         self.pidDefinitions = pidDefinitions
         self.pidCapabilities = pidCapabilities
         self.orderedRequestedPIDs = orderedRequestedPIDs
+        self.adapterProbeEvidence = adapterProbeEvidence
     }
 }
 
@@ -210,6 +215,7 @@ actor CreateConnectionSessionAcquisitionManifestUseCase {
             sessionID: input.sessionID,
             generation: input.generation
         )
+        var savedManifest = manifest
         do {
             try acquisitionRepository.saveStartOnce(
                 manifest: manifest,
@@ -218,16 +224,34 @@ actor CreateConnectionSessionAcquisitionManifestUseCase {
             )
         } catch ConnectionSessionAcquisitionRepositoryError.duplicate, ConnectionSessionAcquisitionRepositoryError.conflict {
             // 同じsessionの続き(再試行・プロセス復帰後の続行)では開始境界の時刻が異なり `.conflict` になります。
-            // 保存済みmanifestと同一なら既存の開始境界をそのまま使い、異なる場合だけ競合として扱います。
-            guard try acquisitionRepository.manifest(for: input.sessionID) == manifest else {
-                throw ConnectionSessionAcquisitionRepositoryError.conflict
-            }
+            // 保存済みmanifestの続きとして記録できるなら既存の開始境界とmanifestをそのまま使い、できない場合だけ競合として扱います。
+            savedManifest = try continuableStoredManifest(for: input.sessionID, requested: manifest)
         }
         return ConnectionSessionRawAcquisitionPermission(
             sessionID: input.sessionID,
             generation: input.generation,
-            manifest: manifest
+            manifest: savedManifest
         )
+    }
+
+    /// 保存済みmanifestが、要求されたmanifestの取得を続きとして記録できるものなら、その保存済みmanifestを返します。
+    ///
+    /// 責務: 保存済みmanifestを読み、`AcquisitionManifestContinuationPolicy`(アダプター判定結果を比較から除く)で続行可否を判定します。
+    /// 保存済みmanifestは書き換えません。
+    /// - Parameters:
+    ///   - sessionID: manifestを所有するsession識別子。
+    ///   - requested: 続きの取得が確定したmanifest。
+    /// - Returns: 続きの取得に使う保存済みmanifest。
+    /// - Throws: 続きとして記録できない場合は `.conflict`。保存済みmanifestが無い場合と読取の失敗はrepositoryのエラーをそのまま返します。
+    private func continuableStoredManifest(
+        for sessionID: ConnectionSessionID,
+        requested: ConnectionSessionAcquisitionManifest
+    ) throws -> ConnectionSessionAcquisitionManifest {
+        let stored = try acquisitionRepository.manifest(for: sessionID)
+        guard AcquisitionManifestContinuationPolicy().canContinue(stored: stored, requested: requested) else {
+            throw ConnectionSessionAcquisitionRepositoryError.conflict
+        }
+        return stored
     }
 
     /// 指定世代が現在の取得workflowに属することを検証します。
@@ -270,7 +294,7 @@ actor CreateConnectionSessionAcquisitionManifestUseCase {
     ///
     /// 責務: runtime evidenceとPID取得入力を欠落補完なしでimmutable manifestへ変換します。
     /// - Parameters:
-    ///   - input: version、PID定義、能力、要求順を含むApplication入力。
+    ///   - input: version、PID定義、能力、要求順、アダプター判定結果を含むApplication入力。
     ///   - runtimeEvidence: portが返したapp/build、schema契約、platform。
     /// - Returns: session識別情報をsemantic identityへ含めないDomain manifest。
     /// - Throws: 入力欠落またはDomain不変条件に違反した場合のエラー。
@@ -313,7 +337,8 @@ actor CreateConnectionSessionAcquisitionManifestUseCase {
             orderedRequestedPIDs: OrderedAcquisitionPIDSet(requests: input.orderedRequestedPIDs),
             pidDefinitions: snapshots,
             acquisitionPlatform: runtimeEvidence.acquisitionPlatform,
-            modelInputManifestVersion: input.modelInputManifestVersion
+            modelInputManifestVersion: input.modelInputManifestVersion,
+            adapterProbeEvidence: input.adapterProbeEvidence
         )
     }
 

@@ -51,6 +51,18 @@ struct IOSDestinationView: View {
     /// PID解析操作をAnalysisへ通知します。
     let sendSessionLogAnalysisAction: (SessionLogAnalysisAction) -> Void
 
+    /// 設定画面の「車両検知時の記録開始」区画に表示する内容です。
+    let automaticRecordingSection: AutomaticRecordingSettingsSection
+
+    /// 記録開始方法の操作を自動記録設定モデルへ通知するクロージャです。
+    let sendAutomaticRecordingAction: (AutomaticRecordingPreferenceAction) -> Void
+
+    /// ホームと車両画面に表示する未登録車両の警告です。
+    let unassignedVINWarning: UnassignedObservedVINWarning
+
+    /// 未登録車両の警告の主要操作をAppShellへ通知するクロージャです。
+    let sendUnassignedVINWarningAction: (UnassignedObservedVINWarningPrimaryAction) -> Void
+
     /// Authenticationが管理するアカウント削除の現在段階です。
     let accountDeletionPhase: AccountDeletionPhase
 
@@ -79,6 +91,7 @@ struct IOSDestinationView: View {
                     ),
                     send: sendHomeAction
                 )
+                .safeAreaInset(edge: .top, spacing: 0) { unassignedVINWarningInset }
             }
         } else if destination == .liveLog {
             IOSLiveTelemetryView(
@@ -96,18 +109,34 @@ struct IOSDestinationView: View {
             IOSMaintenanceView(state: maintenanceState, send: sendMaintenanceAction)
         } else if destination == .garage {
             IOSGarageView(state: vehicleManagementState, send: sendVehicleManagementAction)
+                .safeAreaInset(edge: .top, spacing: 0) { unassignedVINWarningInset }
         } else if destination == .settings {
             IOSSettingsView(
                 state: settingsState,
                 accountSettings: accountSettings,
                 send: sendSettingsAction,
                 sendAccountSettingsAction: sendAccountSettingsAction,
+                automaticRecordingSection: automaticRecordingSection,
+                sendAutomaticRecordingAction: sendAutomaticRecordingAction,
                 accountDeletionPhase: accountDeletionPhase,
                 accountDeletionFailure: accountDeletionFailure,
                 sendAuthenticationAction: sendAuthenticationAction
             )
         } else {
             placeholder
+        }
+    }
+
+    /// ホームと車両画面の上端に重ねる未登録車両の警告です。識別・登録・編集の最中は表示しません。
+    @ViewBuilder
+    private var unassignedVINWarningInset: some View {
+        if IOSUnassignedObservedVINWarningVisibility.isVisible(
+            warning: unassignedVINWarning,
+            vehiclePhase: vehicleManagementState.phase
+        ) {
+            IOSUnassignedObservedVINWarningCard(warning: unassignedVINWarning, send: sendUnassignedVINWarningAction)
+                .padding(.horizontal, IOSUnassignedObservedVINWarningMetrics.horizontalInset)
+                .padding(.top, IOSUnassignedObservedVINWarningMetrics.topInset)
         }
     }
 

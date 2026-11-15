@@ -37,11 +37,14 @@ struct ProjectZD8App: App {
     /// iOS設定画面へ注入するプレゼンテーションモデルです。
     @State private var iOSSettingsModel: IOSSettingsPresentationModel
 
-    /// 通知で了承された接続要求を認証完了まで保持するバッファーです。
-    @State private var promptedVehicleConnectionRequest: PromptedVehicleConnectionRequestBuffer
+    /// 自動記録設定と記録開始方法の選択画面の状態を保持するモデルです。
+    @State private var automaticRecordingModel: AutomaticRecordingPreferenceModel
 
-    /// 既定BLE到来をユーザー承認付き接続要求へ変換するユースケースです。
-    private let promptForDefaultAdapterConnection: PromptForDefaultAdapterConnectionUseCase
+    /// 未登録車両の警告を保持するモデルです。
+    @State private var unassignedVINWarningModel: UnassignedObservedVINWarningModel
+
+    /// 起動・認証状態・既定アダプター設定・前面復帰を常駐リンク監視へ伝える型です。
+    private let adapterLinkSupervision: IOSAdapterLinkSupervisionDriver
     #endif
 
     #if os(macOS)
@@ -52,9 +55,11 @@ struct ProjectZD8App: App {
     /// プラットフォーム固有の依存関係を組み立ててアプリを生成します。
     ///
     /// 責務: 現在のプラットフォーム用Compositionからアプリケーションルート依存関係を構築します。
+    /// iOSでは画面の表示を待たずに常駐リンク監視を始めます。
     init() {
         #if os(iOS)
-        let models = ApplicationRootAssembly.makeModels(IOSApplicationComposition.self)
+        let root = IOSApplicationRoot.make()
+        let models = root.models
         #elseif os(macOS)
         let models = ApplicationRootAssembly.makeModels(MacOSApplicationComposition.self)
         #endif
@@ -73,12 +78,10 @@ struct ProjectZD8App: App {
         _sessionLogAnalysisModel = State(initialValue: models.sessionLogAnalysis)
         startVehicleConnection = ApplicationRootAssembly.makeStartVehicleConnection(vehicleManagement: models.vehicleManagement)
         #if os(iOS)
-        let promptedVehicleConnectionRequest = PromptedVehicleConnectionRequestBuffer()
-        _promptedVehicleConnectionRequest = State(initialValue: promptedVehicleConnectionRequest)
-        promptForDefaultAdapterConnection =
-            IOSApplicationComposition.makeDefaultAdapterConnectionPromptUseCase {
-                promptedVehicleConnectionRequest.store($0)
-            }
+        _automaticRecordingModel = State(initialValue: root.automaticRecording)
+        _unassignedVINWarningModel = State(initialValue: root.unassignedVINWarning)
+        adapterLinkSupervision = root.adapterLinkSupervision
+        root.adapterLinkSupervision.launch()
         #endif
     }
 
@@ -99,6 +102,8 @@ struct ProjectZD8App: App {
                         connectionHistoryModel: connectionHistoryModel,
                         sessionLogAnalysisModel: sessionLogAnalysisModel,
                         startVehicleConnection: startVehicleConnection,
+                        automaticRecordingModel: automaticRecordingModel,
+                        unassignedVINWarningModel: unassignedVINWarningModel,
                         accountDeletionPhase: authenticationModel.state.accountDeletionPhase,
                         accountDeletionFailure: authenticationModel.state.accountDeletionFailure,
                         sendAuthenticationAction: authenticationModel.send
@@ -153,29 +158,28 @@ struct ProjectZD8App: App {
             }
             #if os(iOS)
             .onChange(of: iOSSettingsModel.state.defaultAdapterPreference) { _, _ in
-                refreshDefaultAdapterArrivalMonitoring()
-            }
-            .onChange(of: promptedVehicleConnectionRequest.pendingEndpoint) { _, _ in
-                consumePromptedVehicleConnectionIfPossible()
+                adapterLinkSupervision.defaultAdapterPreferenceDidChange()
             }
             #endif
         }
     }
 
     /// バックグラウンド移行時に保存待ちの取得記録を保存させ、操作可能へ戻ったとき取得の一時停止へ復帰の機会を伝え、
-    /// 認証済みセッション概要と整備記録を再同期します。
+    /// iOSでは常駐リンク監視へ前面復帰を伝え、認証済みセッション概要と整備記録を再同期します。
     ///
-    /// 責務: 1件のScene段階変更を取得記録のflush要求・取得ループの起床通知、または認証済み接続履歴と整備記録の更新要求へ変換します。
+    /// 責務: 1件のScene段階変更を取得記録のflush要求・取得ループの起床通知・前面復帰の通知、
+    /// または認証済み接続履歴と整備記録の更新要求へ変換します。
     /// - Parameter phase: 現在のScene段階。
     private func handleScenePhaseChange(_ phase: ScenePhase) {
         if phase == .background { liveTelemetryModel.send(.backgroundTransitionOccurred) }
-        if phase == .active { liveTelemetryModel.send(.foregroundTransitionOccurred) }
-        guard phase == .active, authenticationModel.state.phase == .signedIn else { return }
+        guard phase == .active else { return }
+        liveTelemetryModel.send(.foregroundTransitionOccurred)
+        #if os(iOS)
+        adapterLinkSupervision.appDidBecomeActive()
+        #endif
+        guard authenticationModel.state.phase == .signedIn else { return }
         connectionHistoryModel.send(.refreshRequested)
         maintenanceModel.send(.refreshRequested)
-        #if os(iOS)
-        consumePromptedVehicleConnectionIfPossible()
-        #endif
     }
 
     /// 認証済みAppleユーザーを設定、車両、整備、接続履歴の保存スコープへ反映します。
@@ -207,8 +211,10 @@ struct ProjectZD8App: App {
             .automaticUploadChanged(accountSettingsModel.settings.automaticSessionUploadEnabled)
         )
         #if os(iOS)
-        refreshDefaultAdapterArrivalMonitoring()
-        consumePromptedVehicleConnectionIfPossible()
+        automaticRecordingModel.send(.signInStateChanged(isSignedIn: authenticationModel.state.phase == .signedIn))
+        unassignedVINWarningModel.send(
+            .accountIdentifierChanged(authenticationModel.state.session?.userIdentifier)
+        )
         #endif
     }
 
@@ -219,8 +225,7 @@ struct ProjectZD8App: App {
     private func handleAuthenticationPhaseChange(_ phase: AuthenticationPhase) {
         if phase == .signedIn {
             #if os(iOS)
-            refreshDefaultAdapterArrivalMonitoring()
-            consumePromptedVehicleConnectionIfPossible()
+            automaticRecordingModel.send(.signInStateChanged(isSignedIn: true))
             #endif
             return
         }
@@ -232,34 +237,11 @@ struct ProjectZD8App: App {
         vehicleManagementModel.send(.accountIdentifierChanged(nil))
         maintenanceModel.send(.accountIdentifierChanged(nil))
         #if os(iOS)
-        promptForDefaultAdapterConnection.stop()
+        automaticRecordingModel.send(.signInStateChanged(isSignedIn: false))
+        unassignedVINWarningModel.send(.accountIdentifierChanged(nil))
         iOSSettingsModel = IOSApplicationComposition.makeSettingsPresentationModel()
         #elseif os(macOS)
         macOSSettingsModel = MacOSApplicationComposition.makeSettingsPresentationModel()
         #endif
     }
-
-    #if os(iOS)
-    /// 現在の認証状態に合わせて既定BLE到来監視を開始または停止します。
-    ///
-    /// 責務: 認証済み状態だけを既定BLE接続確認ユースケースの有効期間へ変換します。
-    private func refreshDefaultAdapterArrivalMonitoring() {
-        if authenticationModel.state.phase == .signedIn {
-            promptForDefaultAdapterConnection.start()
-        } else {
-            promptForDefaultAdapterConnection.stop()
-        }
-    }
-
-    /// 認証済みの場合に通知で了承された接続要求を既存接続フローへ渡します。
-    ///
-    /// 責務: 1件の保留中接続了承を認証済みHOME接続ユースケースへ引き渡します。
-    private func consumePromptedVehicleConnectionIfPossible() {
-        guard authenticationModel.state.phase == .signedIn,
-              let endpoint = promptedVehicleConnectionRequest.consume() else {
-            return
-        }
-        startVehicleConnection.execute(endpoint: endpoint)
-    }
-    #endif
 }

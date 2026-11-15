@@ -5,6 +5,11 @@ import UIKit
 /// iOSアプリケーションで使用する実装依存関係を組み立てます。
 @MainActor
 enum IOSApplicationComposition: ApplicationPlatformComposing {
+    /// iOSプロセスに1本だけ存在する常駐BLEリンク一式です。
+    ///
+    /// 常駐リンク監視・車両識別・PID継続取得が同じリンクとバイトストリームを共有するため、最初の参照時に1回だけ生成します。
+    static let residentLink = IOSResidentAdapterLink.make()
+
     /// PID定義DB、iOS Bluetooth読取境界、接続中の画面自動ロック抑止を結び付けます。
     ///
     /// 責務: iOSのPID取得依存関係と接続中の画面自動ロック抑止を1件のLiveTelemetry構成へ注入します。
@@ -15,6 +20,8 @@ enum IOSApplicationComposition: ApplicationPlatformComposing {
     /// - Parameter connectionSessionStorage: 同じGRDB Queueを共有する接続session・取得証拠・チャンク・区間・欠損の保存先。
     /// - Parameter activeSessionID: 現在Logging sessionの識別子を返す境界。
     /// - Parameter performanceEvents: 方式B取得区間を通知する匿名計測境界。
+    ///
+    /// BLE終端が常駐リンクの保持するアダプターなら、常駐リンク上のトランスポートを使います。
     static func makeLiveTelemetryModel(
         database: ApplicationDatabaseConnection,
         connectionSessionStorage: ConnectionSessionStorageDependencies,
@@ -24,10 +31,12 @@ enum IOSApplicationComposition: ApplicationPlatformComposing {
         distanceDidChange: @escaping @MainActor (ConnectionSessionDistanceObservation) -> Void = { _ in }
     ) -> LiveTelemetryModel {
         let externalAccessoryConfiguration = IOSExternalAccessoryProtocolConfiguration()
+        let residentLink = residentLink
         let live = OBDLinkEXPIDTelemetryAdapter { endpoint in
             try makeBluetoothOBDTransport(
                 for: endpoint,
-                configuration: externalAccessoryConfiguration
+                configuration: externalAccessoryConfiguration,
+                residentLink: residentLink
             )
         }
         let telemetry = DemoAwareOBDPIDTelemetryAdapter(live: live, demo: DemoOBDPIDTelemetryAdapter())
@@ -86,6 +95,11 @@ enum IOSApplicationComposition: ApplicationPlatformComposing {
     /// - Parameter connectionVehicleDidResolve: 接続対象車両、終端、OBD識別観測をLoggingと監視開始へ通知する処理。
     /// - Parameter unregisteredConnectionDidStart: 未登録車両の終端と識別観測を、車両なしの接続開始へ通知する処理。
     /// - Parameter unregisteredConnectionVehicleDidRegister: 車両なしの接続中に登録された車両をLoggingへ通知する処理。
+    /// - Parameter vehicleDidRegister: 新規登録した車両とアカウント識別子を受け取り、観測VINの一致するセッションへ紐付ける処理。
+    /// - Parameter connectionIdentificationWillBegin: 接続のための車両識別を始める直前に呼ぶ処理。
+    /// - Parameter connectionIdentificationDidEnd: 接続のための車両識別が終わった時に呼ぶ処理。
+    ///
+    /// BLE終端が常駐リンクの保持するアダプターなら、常駐リンク上のトランスポートを使います。
     static func makeVehicleManagementModel(
         database: ApplicationDatabaseConnection,
         connectionSessionRepository: any ConnectionSessionRepository & ConnectionSessionErasureRepository,
@@ -99,9 +113,13 @@ enum IOSApplicationComposition: ApplicationPlatformComposing {
             OBDConnectionEndpoint,
             VehicleIdentificationSnapshot
         ) -> Void = { _, _ in },
-        unregisteredConnectionVehicleDidRegister: @escaping @MainActor (VehicleProfile) -> Void = { _ in }
+        unregisteredConnectionVehicleDidRegister: @escaping @MainActor (VehicleProfile) -> Void = { _ in },
+        vehicleDidRegister: @escaping @MainActor (VehicleProfile, String) throws -> Void = { _, _ in },
+        connectionIdentificationWillBegin: @escaping @MainActor () -> Void = {},
+        connectionIdentificationDidEnd: @escaping @MainActor () -> Void = {}
     ) -> VehicleManagementModel {
         let vehicleRepository = CloudKitVehicleRepository()
+        let residentLink = residentLink
         let externalAccessoryConfiguration = IOSExternalAccessoryProtocolConfiguration()
         return VehicleManagementModel(
             state: VehicleManagementState(),
@@ -111,7 +129,8 @@ enum IOSApplicationComposition: ApplicationPlatformComposing {
                     live: SerialELMVehicleIdentificationAdapter { endpoint in
                         try makeBluetoothOBDTransport(
                             for: endpoint,
-                            configuration: externalAccessoryConfiguration
+                            configuration: externalAccessoryConfiguration,
+                            residentLink: residentLink
                         )
                     },
                     demo: DemoVehicleIdentificationAdapter()
@@ -132,7 +151,10 @@ enum IOSApplicationComposition: ApplicationPlatformComposing {
             vehicleSessionsDidDelete: vehicleSessionsDidDelete,
             connectionVehicleDidResolve: connectionVehicleDidResolve,
             unregisteredConnectionDidStart: unregisteredConnectionDidStart,
-            unregisteredConnectionVehicleDidRegister: unregisteredConnectionVehicleDidRegister
+            unregisteredConnectionVehicleDidRegister: unregisteredConnectionVehicleDidRegister,
+            vehicleDidRegister: vehicleDidRegister,
+            connectionIdentificationWillBegin: connectionIdentificationWillBegin,
+            connectionIdentificationDidEnd: connectionIdentificationDidEnd
         )
     }
 
@@ -292,39 +314,54 @@ enum IOSApplicationComposition: ApplicationPlatformComposing {
         )
     }
 
-    /// 既定BLE到来監視とユーザー承認付きローカル通知を生成します。
+    /// 端末ローカルの自動記録設定と選択画面の表示済みフラグを注入したモデルを生成します。
     ///
-    /// 責務: iOSのCoreBluetooth監視と通知応答を既定アダプター接続確認ユースケースへ注入します。
-    /// - Parameter connectionRequested: 通知で了承されたBLE終端の通知先。
-    /// - Returns: 保存済み既定BLEを監視して接続確認を提示するユースケース。
-    static func makeDefaultAdapterConnectionPromptUseCase(
-        connectionRequested: @escaping @MainActor (OBDConnectionEndpoint) -> Void
-    ) -> PromptForDefaultAdapterConnectionUseCase {
-        PromptForDefaultAdapterConnectionUseCase(
-            defaultAdapterPreference: DefaultAdapterPreferenceUseCase(
-                preferencePort: UserDefaultsDefaultAdapterPreferenceStore()
+    /// 責務: iOSの `UserDefaults` 保存実装を自動記録設定と記録開始方法の選択画面の状態へ結び付けます。
+    /// - Returns: 保存済みの値を読み込んだ自動記録設定モデル。
+    static func makeAutomaticRecordingPreferenceModel() -> AutomaticRecordingPreferenceModel {
+        AutomaticRecordingPreferenceModel(
+            preference: AutomaticRecordingPreferenceUseCase(
+                preferencePort: UserDefaultsAutomaticRecordingPreferenceStore()
             ),
-            arrivalMonitor: IOSCoreBluetoothDefaultAdapterArrivalMonitor(),
-            connectionPrompt: IOSLocalDefaultAdapterConnectionPrompt(),
-            connectionRequested: connectionRequested
+            promptCompletion: AutomaticRecordingChoicePromptCompletionUseCase(
+                completionPort: UserDefaultsAutomaticRecordingChoicePromptCompletionStore()
+            )
+        )
+    }
+
+    /// 接続履歴の保存先を注入した未登録車両の警告モデルを生成します。
+    ///
+    /// 責務: 観測VIN付きセッションの照会境界を未登録車両の警告へ結び付けます。
+    /// - Parameter repository: 車両未割当かつ観測VINを持つセッションを照会する保存先。
+    /// - Returns: 未サインインの非表示状態から始まる警告モデル。
+    static func makeUnassignedObservedVINWarningModel(
+        repository: any ObservedVINConnectionSessionRepository
+    ) -> UnassignedObservedVINWarningModel {
+        UnassignedObservedVINWarningModel(
+            loadSessions: LoadUnassignedObservedVINConnectionSessionsUseCase(repository: repository)
         )
     }
 
     /// 選択済みiOS Bluetooth終端に対応するELM/STNバイトストリームを生成します。
     ///
     /// 責務: 1件のBLEまたはBluetooth Classic終端を対応するOBDコマンドTransportへ変換します。
+    /// BLE終端は、常駐リンクが同じアダプターを `ready` で保持していれば常駐リンク上のTransportを、そうでなければ自前のTransportを使います。
     /// - Parameters:
     ///   - endpoint: 選択済みアダプターの物理終端。
     ///   - configuration: Bluetooth Classic用にInfo.plistから読み取ったExternalAccessoryプロトコル許可集合。
+    ///   - residentLink: 常駐リンク一式。
     /// - Returns: 選択済み終端のELM/STN連続バイト通信に使用するTransport。
     /// - Throws: 未構成、対象外Transport、UUID不正、または通信生成条件を満たさない場合の識別エラー。
     private static func makeBluetoothOBDTransport(
         for endpoint: OBDConnectionEndpoint,
-        configuration: IOSExternalAccessoryProtocolConfiguration
+        configuration: IOSExternalAccessoryProtocolConfiguration,
+        residentLink: IOSResidentAdapterLink
     ) throws -> any OBDCommandTransport {
         switch endpoint.transport {
         case .bluetoothLowEnergy:
-            return try AppleCoreBluetoothOBDTransport(endpoint: endpoint)
+            return try residentLink.transportSelector.transport(for: endpoint) {
+                try AppleCoreBluetoothOBDTransport(endpoint: $0)
+            }
         case .bluetoothClassic:
             return try IOSExternalAccessoryOBDTransport(
                 endpoint: endpoint,

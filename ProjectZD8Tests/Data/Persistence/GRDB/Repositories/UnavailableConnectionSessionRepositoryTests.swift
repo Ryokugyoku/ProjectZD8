@@ -2,7 +2,7 @@ import Foundation
 import XCTest
 @testable import ProjectZD8
 
-/// DB準備不可時のセッションRepositoryが、段階4で足したプロセス復帰の操作を明示的な利用不能として失敗させることを検証します。
+/// DB準備不可時のセッションRepositoryが、観測VIN操作とプロセス復帰の操作を空結果へ潰さず、明示的な利用不能として失敗させることを検証します。
 final class UnavailableConnectionSessionRepositoryTests: XCTestCase {
     /// 中断batchの確定と中断セッションの終了は、どちらも利用不能で失敗します。
     ///
@@ -16,6 +16,30 @@ final class UnavailableConnectionSessionRepositoryTests: XCTestCase {
         }
         XCTAssertThrowsError(try repository.finishInterruptedSessionAcquisition(session, endedAt: Date(timeIntervalSince1970: 2))) {
             XCTAssertEqual($0 as? ConnectionSessionAcquisitionRepositoryError, .unavailable)
+        }
+    }
+
+    /// 未紐付けセッションの照会は空配列ではなく `unavailable` で失敗します。
+    ///
+    /// 責務: DB準備不可時の照会が該当なしと区別できる型付きエラーになることを確認します。
+    func testUnassignedSessionsWithObservedVINThrowsUnavailable() {
+        assertThrowsError(ConnectionSessionRepositoryError.unavailable) {
+            _ = try UnavailableConnectionSessionRepository().unassignedSessionsWithObservedVIN(for: "account")
+        }
+    }
+
+    /// VINによる車両紐付けは0件ではなく `unavailable` で失敗します。
+    ///
+    /// 責務: DB準備不可時の紐付けが一致なしと区別できる型付きエラーになることを確認します。
+    func testAssignVehicleThrowsUnavailable() {
+        let vehicle = ConnectionSessionVehicle(id: VehicleID(), name: "BRZ", displayIdentifier: "ZD8")
+
+        assertThrowsError(ConnectionSessionRepositoryError.unavailable) {
+            _ = try UnavailableConnectionSessionRepository().assignVehicle(
+                vehicle,
+                toUnassignedSessionsWithObservedVIN: "JF1ZD8ABC12345678",
+                for: "account"
+            )
         }
     }
 }

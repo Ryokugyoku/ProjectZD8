@@ -26,6 +26,8 @@ struct LiveTelemetryState: Equatable {
     var endpoint: OBDConnectionEndpoint?
     /// 現在監視する車両(登録済みならIDと確認済み型式コード、または未登録)です。取得を始めていなければ `nil` です。
     var vehicle: LiveTelemetryVehicleContext?
+    /// 直近の開始要求が持つアダプター判定結果です。再試行でも同じ値を取得manifestへ記録します。判定していなければ `nil` です。
+    var adapterProbeEvidence: AcquisitionAdapterProbeEvidence?
     /// 直近の失敗を表示するローカライズキーです。
     var failureKey: String?
     /// 回復中または一時停止中の表示状態です。`phase == .paused` の間だけ値を持ちます。

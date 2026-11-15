@@ -197,7 +197,8 @@ actor LiveTelemetryAcquisitionLoop {
                 capabilities: input.capabilities,
                 orderedRequests: pollingPolicy.definitionsToPoll(from: input.definitions, tick: 0).map {
                     OBDPIDRequest(service: $0.service, pid: $0.pid)
-                }
+                },
+                adapterProbeEvidence: input.adapterProbeEvidence
             )
         )
     }

@@ -305,7 +305,8 @@ actor ConnectionSessionAcquisitionRecorder: LiveTelemetryAcquisitionRecordingPor
             formulaCanonicalizationVersion: versions.formulaCanonicalizationVersion,
             pidDefinitions: input.definitions,
             pidCapabilities: input.capabilities,
-            orderedRequestedPIDs: input.orderedRequests
+            orderedRequestedPIDs: input.orderedRequests,
+            adapterProbeEvidence: input.adapterProbeEvidence
         )
     }
 

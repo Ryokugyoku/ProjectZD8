@@ -1,7 +1,15 @@
 import Foundation
 
 /// 製品用セッションDBを準備できない場合に明示的失敗を返します。
-struct UnavailableConnectionSessionRepository: ConnectionSessionRepository, ConnectionSessionRawLogRepository, ConnectionSessionErasureRepository, AccountConnectionSessionErasureRepository, ConnectionSessionAcquisitionRepository, ConnectionSessionAcquisitionBatchRepository, ConnectionSessionAcquisitionTerminationRepository {
+struct UnavailableConnectionSessionRepository:
+    ConnectionSessionRepository,
+    ObservedVINConnectionSessionRepository,
+    ConnectionSessionRawLogRepository,
+    ConnectionSessionErasureRepository,
+    AccountConnectionSessionErasureRepository,
+    ConnectionSessionAcquisitionRepository,
+    ConnectionSessionAcquisitionBatchRepository,
+    ConnectionSessionAcquisitionTerminationRepository {
     /// manifest開始保存を利用不能として失敗させます。
     ///
     /// 責務: 取得開始要求を明示的な保存先利用不能へ変換します。
@@ -349,6 +357,33 @@ struct UnavailableConnectionSessionRepository: ConnectionSessionRepository, Conn
     /// - Parameter sessionID: 除去できないセッションID。
     /// - Throws: 常に `ConnectionSessionRepositoryError.unavailable`。
     func removeLocalEntries(for sessionID: ConnectionSessionID) throws {
+        throw ConnectionSessionRepositoryError.unavailable
+    }
+
+    /// 保存先利用不能を返します。
+    ///
+    /// 責務: 観測VIN付き未紐付けセッションの取得要求を利用不能エラーとして失敗させます。
+    /// - Parameter accountIdentifier: 取得できないAppleアカウント識別子。
+    /// - Returns: この実装は値を返しません。
+    /// - Throws: 常に `ConnectionSessionRepositoryError.unavailable`。
+    func unassignedSessionsWithObservedVIN(for accountIdentifier: String) throws -> [ConnectionSession] {
+        throw ConnectionSessionRepositoryError.unavailable
+    }
+
+    /// 保存先利用不能を返します。
+    ///
+    /// 責務: 観測VINによる車両紐付け要求を利用不能エラーとして失敗させます。
+    /// - Parameters:
+    ///   - vehicle: 設定できない登録車両。
+    ///   - observedVIN: 照合できない観測VIN。
+    ///   - accountIdentifier: 更新できないAppleアカウント識別子。
+    /// - Returns: この実装は値を返しません。
+    /// - Throws: 常に `ConnectionSessionRepositoryError.unavailable`。
+    func assignVehicle(
+        _ vehicle: ConnectionSessionVehicle,
+        toUnassignedSessionsWithObservedVIN observedVIN: String,
+        for accountIdentifier: String
+    ) throws -> Int {
         throw ConnectionSessionRepositoryError.unavailable
     }
 }

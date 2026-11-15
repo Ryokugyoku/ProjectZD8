@@ -39,6 +39,8 @@ nonisolated struct ConnectionSessionAcquisitionManifest: Equatable, Sendable {
     let acquisitionPlatform: ConnectionSessionAcquisitionPlatform?
     /// model入力変換契約のversionです。`nil` はlegacy欠落を表します。
     let modelInputManifestVersion: Int?
+    /// 初期化時に判定したチップ種別とATMA判定結果です。`nil` はlegacy欠落または未判定を表します。
+    let adapterProbeEvidence: AcquisitionAdapterProbeEvidence?
 
     /// session単位の取得manifestを生成します。
     ///
@@ -52,6 +54,7 @@ nonisolated struct ConnectionSessionAcquisitionManifest: Equatable, Sendable {
     ///   - pidDefinitions: 取得時点のPID定義と能力選択snapshot。
     ///   - acquisitionPlatform: 端末名を含まないplatform、またはlegacy欠落を示す `nil`。
     ///   - modelInputManifestVersion: 正のmodel入力契約version、またはlegacy欠落を示す `nil`。
+    ///   - adapterProbeEvidence: 初期化時のチップ種別とATMA判定結果、またはlegacy欠落・未判定を示す `nil`。
     /// - Throws: versionが正でない、PID snapshotが重複する、または要求PIDのsnapshotがない場合は対応する `ConnectionSessionAcquisitionManifestError`。
     init(
         manifestVersion: Int?,
@@ -61,7 +64,8 @@ nonisolated struct ConnectionSessionAcquisitionManifest: Equatable, Sendable {
         orderedRequestedPIDs: OrderedAcquisitionPIDSet?,
         pidDefinitions: [AcquisitionPIDDefinitionSnapshot],
         acquisitionPlatform: ConnectionSessionAcquisitionPlatform?,
-        modelInputManifestVersion: Int?
+        modelInputManifestVersion: Int?,
+        adapterProbeEvidence: AcquisitionAdapterProbeEvidence? = nil
     ) throws {
         let versions = [manifestVersion, schemaContractVersion, pollingPolicyVersion, modelInputManifestVersion].compactMap { $0 }
         guard versions.allSatisfy({ $0 > 0 }) else {
@@ -84,6 +88,7 @@ nonisolated struct ConnectionSessionAcquisitionManifest: Equatable, Sendable {
         self.pidDefinitions = pidDefinitions
         self.acquisitionPlatform = acquisitionPlatform
         self.modelInputManifestVersion = modelInputManifestVersion
+        self.adapterProbeEvidence = adapterProbeEvidence
     }
 }
 

@@ -7,6 +7,7 @@ import OSLog
 /// 取得証拠は同じQueueを共有する `GRDBConnectionSessionAcquisitionRepository` が保存します。
 final class GRDBConnectionSessionRepository:
     ConnectionSessionRepository,
+    ObservedVINConnectionSessionRepository,
     ConnectionSessionRawLogRepository,
     ConnectionSessionErasureRepository,
     AccountConnectionSessionErasureRepository {
@@ -63,6 +64,62 @@ final class GRDBConnectionSessionRepository:
                 }
                 return try sessionWithActualLocalRawSummary(session, database: database)
             }
+        }
+    }
+
+    /// 指定アカウントで車両未設定かつ観測VINを持つセッションを新しい順で復元します。
+    ///
+    /// 責務: 1件のアカウントに属する未紐付けの観測VIN付きGRDBレコードをDomainセッションへ復元します。
+    /// - Parameter accountIdentifier: 取得対象のAppleアカウント識別子。
+    /// - Returns: 開始日時が新しい順の未紐付け観測VIN付きセッション一覧。
+    /// - Throws: SQLite読込失敗、または保存値が不正な場合の `ConnectionSessionRepositoryError.integrityConflict`。
+    func unassignedSessionsWithObservedVIN(for accountIdentifier: String) throws -> [ConnectionSession] {
+        try databaseQueue.read { database in
+            let records = try ConnectionSessionRecord
+                .filter(Column("accountIdentifier") == accountIdentifier)
+                .filter(Column("vehicleID") == nil)
+                .filter(Column("observedVIN") != nil)
+                .order(Column("startedAt").desc, Column("id"))
+                .fetchAll(database)
+            return try records.map { record in
+                guard let session = record.makeDomainSession(),
+                      session.vehicle == nil,
+                      session.observedVIN != nil else {
+                    throw ConnectionSessionRepositoryError.integrityConflict
+                }
+                return try sessionWithActualLocalRawSummary(session, database: database)
+            }
+        }
+    }
+
+    /// 指定VINを観測した未紐付けセッションへ登録車両を設定します。
+    ///
+    /// 責務: 1件のアカウントで車両未設定かつ観測VINがNOCASE照合で一致する行だけを1回のUPDATEで更新します。
+    /// - Parameters:
+    ///   - vehicle: セッションへ設定する登録車両の表示情報。
+    ///   - observedVIN: 照合する観測VIN。前後の空白は照合前に除きます。
+    ///   - accountIdentifier: 更新対象のAppleアカウント識別子。
+    /// - Returns: 車両を設定したセッション件数。
+    /// - Throws: VINが空白だけの場合は `ConnectionSessionRepositoryError.invalidState`、SQLite更新失敗時はGRDBエラー。
+    func assignVehicle(
+        _ vehicle: ConnectionSessionVehicle,
+        toUnassignedSessionsWithObservedVIN observedVIN: String,
+        for accountIdentifier: String
+    ) throws -> Int {
+        guard let normalizedVIN = ConnectionSession.normalizedObservedVIN(observedVIN) else {
+            throw ConnectionSessionRepositoryError.invalidState
+        }
+        return try databaseQueue.write { database in
+            try ConnectionSessionRecord
+                .filter(Column("accountIdentifier") == accountIdentifier)
+                .filter(Column("vehicleID") == nil)
+                .filter(Column("observedVIN") == normalizedVIN)
+                .updateAll(
+                    database,
+                    Column("vehicleID").set(to: vehicle.id.rawValue.uuidString.lowercased()),
+                    Column("vehicleName").set(to: vehicle.name),
+                    Column("vehicleDisplayIdentifier").set(to: vehicle.displayIdentifier)
+                )
         }
     }
 
@@ -426,6 +483,7 @@ final class GRDBConnectionSessionRepository:
             && optionalDatesMatchTransferPrecision(existing.endedAt, transferred.endedAt)
             && existing.endReason == transferred.endReason
             && valuesAreCompatible(existing.vehicle, transferred.vehicle)
+            && observedVINsAreCompatible(existing.observedVIN, transferred.observedVIN)
             && valuesAreCompatible(existing.acquisitionDevice, transferred.acquisitionDevice)
             && valuesAreCompatible(existing.startingOdometerKilometers, transferred.startingOdometerKilometers)
             && valuesAreCompatible(existing.endingOdometerKilometers, transferred.endingOdometerKilometers)
@@ -472,6 +530,18 @@ final class GRDBConnectionSessionRepository:
         lhs == nil || rhs == nil || lhs == rhs
     }
 
+    /// 2件の任意観測VINが欠落補完可能または大文字小文字を区別せず同値かを返します。
+    ///
+    /// 責務: ローカルと転送の観測VINをDBのNOCASE照合と同じ規則で非破壊補完可否へ変換します。
+    /// - Parameters:
+    ///   - lhs: 現在端末の観測VIN。
+    ///   - rhs: 転送Payloadの観測VIN。
+    /// - Returns: 片方が欠落しているか、両方が大文字小文字の違いを除いて同値の場合は `true`。
+    private func observedVINsAreCompatible(_ lhs: String?, _ rhs: String?) -> Bool {
+        guard let lhs, let rhs else { return true }
+        return lhs.lowercased() == rhs.lowercased()
+    }
+
     /// 同じManifestの転送情報でローカル欠落メタデータだけを補完します。
     ///
     /// 責務: 1件の既存セッションへ同一転送Payloadが保持する欠落中の表示情報を非破壊で反映します。
@@ -486,6 +556,9 @@ final class GRDBConnectionSessionRepository:
         var reconciled = existing
         if reconciled.vehicle == nil {
             reconciled.vehicle = transferred.vehicle
+        }
+        if reconciled.observedVIN == nil {
+            reconciled.observedVIN = transferred.observedVIN
         }
         if reconciled.acquisitionDevice == nil {
             reconciled.acquisitionDevice = transferred.acquisitionDevice
