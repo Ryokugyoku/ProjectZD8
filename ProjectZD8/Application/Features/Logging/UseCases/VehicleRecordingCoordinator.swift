@@ -21,11 +21,12 @@ final class VehicleRecordingCoordinator: AdapterLinkRecordingControlPort {
     /// 記録開始要求でテレメトリを開始する処理です。未設定の場合、常駐リンクからの記録は開始失敗になります。
     var startTelemetry: (@MainActor (VehicleRecordingStartRequest) -> Void)?
 
-    /// 進行中のテレメトリを停止する処理です。停止後のテレメトリ終了は `telemetryDidEnd()` で受け取ります。
+    /// 進行中のテレメトリを停止する処理です。停止後のテレメトリ終了は `telemetryDidEnd(reason:)` で受け取ります。
     var stopTelemetry: (@MainActor () -> Void)?
 
-    /// 常駐リンク監視へ記録の終了を返す処理です(`AdapterLinkSupervisionUseCase.recordingDidFinish()` を結び付けます)。
-    var supervisedRecordingDidFinish: (@MainActor () -> Void)?
+    /// 常駐リンク監視へ記録の終了を返す処理です(`AdapterLinkSupervisionUseCase.recordingDidFinish(endReason:)` を結び付けます)。
+    /// 引数は記録中から終わった時のテレメトリ終了理由で、記録が始まらなかった・辞退した・手動記録に置き換えた場合は `nil` です。
+    var supervisedRecordingDidFinish: (@MainActor (ConnectionSessionEndReason?) -> Void)?
 
     /// 手動接続がアダプターを使い始めたことを常駐リンク監視へ伝える処理です(`externalAdapterUseDidBegin()` を結び付けます)。
     var manualAdapterUseDidBegin: (@MainActor () -> Void)?
@@ -136,11 +137,11 @@ final class VehicleRecordingCoordinator: AdapterLinkRecordingControlPort {
         case .resolvingVehicle:
             cancelVehicleLookup()
             phase = .idle
-            notifySupervisedRecordingFinished()
+            notifySupervisedRecordingFinished(endReason: nil)
         case .recording:
             guard let stopTelemetry else {
                 phase = .idle
-                notifySupervisedRecordingFinished()
+                notifySupervisedRecordingFinished(endReason: nil)
                 return
             }
             stopTelemetry()
@@ -149,12 +150,13 @@ final class VehicleRecordingCoordinator: AdapterLinkRecordingControlPort {
 
     /// テレメトリが終了したことを受け取ります(終了理由を問わず、テレメトリの終了通知ごとに呼びます)。
     ///
-    /// 責務: 常駐リンク監視から依頼された記録の終了であれば監視へ終了を1回だけ返し、
+    /// 責務: 常駐リンク監視から依頼された記録の終了であれば終了理由とともに監視へ終了を1回だけ返し、
     /// 手動接続で始めた記録の終了であれば手動のアダプター使用を終えたことを1回伝えます。
-    func telemetryDidEnd() {
+    /// - Parameter reason: テレメトリの終了理由。
+    func telemetryDidEnd(reason: ConnectionSessionEndReason) {
         if phase == .recording {
             phase = .idle
-            notifySupervisedRecordingFinished()
+            notifySupervisedRecordingFinished(endReason: reason)
         } else if manualAdapterUse == .recording {
             endManualAdapterUse()
         }
@@ -188,7 +190,7 @@ final class VehicleRecordingCoordinator: AdapterLinkRecordingControlPort {
             phase = .recording
         } else {
             phase = .idle
-            notifySupervisedRecordingFinished()
+            notifySupervisedRecordingFinished(endReason: nil)
         }
     }
 
@@ -214,7 +216,7 @@ final class VehicleRecordingCoordinator: AdapterLinkRecordingControlPort {
         guard phase != .idle else { return }
         cancelVehicleLookup()
         phase = .idle
-        notifySupervisedRecordingFinished()
+        notifySupervisedRecordingFinished(endReason: nil)
     }
 
     /// 進行中の車両照合を捨てます。
@@ -233,7 +235,7 @@ final class VehicleRecordingCoordinator: AdapterLinkRecordingControlPort {
     private func declineRecordingStart(_ reason: VehicleRecordingStartDeclineReason) {
         lastStartDeclineReason = reason
         diagnostics?.recordingStartDeclined(reason)
-        notifySupervisedRecordingFinished()
+        notifySupervisedRecordingFinished(endReason: nil)
     }
 
     /// 手動のアダプター使用を終えます。
@@ -246,8 +248,9 @@ final class VehicleRecordingCoordinator: AdapterLinkRecordingControlPort {
 
     /// 常駐リンク監視へ記録の終了を返します。
     ///
-    /// 責務: 設定済みの終了通知先を1回呼びます。
-    private func notifySupervisedRecordingFinished() {
-        supervisedRecordingDidFinish?()
+    /// 責務: 設定済みの終了通知先を終了理由つきで1回呼びます。
+    /// - Parameter endReason: 記録中から終わった時のテレメトリ終了理由。それ以外は `nil`。
+    private func notifySupervisedRecordingFinished(endReason: ConnectionSessionEndReason?) {
+        supervisedRecordingDidFinish?(endReason)
     }
 }

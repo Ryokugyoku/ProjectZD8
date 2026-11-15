@@ -132,7 +132,7 @@ final class AdapterLinkSupervisionUseCaseRecordingTests: XCTestCase {
     func testRecordingDidFinishReturnsToStandby() async throws {
         let harness = makeHarness()
         try await harness.driveToRecording()
-        harness.useCase.recordingDidFinish()
+        harness.useCase.recordingDidFinish(endReason: nil)
         XCTAssertEqual(harness.useCase.state, .standby)
         XCTAssertEqual(harness.recordingControl.stopRequestCount, 0)
     }
@@ -145,7 +145,7 @@ final class AdapterLinkSupervisionUseCaseRecordingTests: XCTestCase {
         try await harness.driveToRecording()
         let statesBefore = harness.observedStates.count
 
-        harness.useCase.recordingDidFinish()
+        harness.useCase.recordingDidFinish(endReason: nil)
 
         XCTAssertEqual(Array(harness.observedStates.dropFirst(statesBefore)), [.finishing, .standby])
         XCTAssertEqual(harness.useCase.state, .standby)
@@ -166,7 +166,7 @@ final class AdapterLinkSupervisionUseCaseRecordingTests: XCTestCase {
         XCTAssertEqual(harness.useCase.state, .finishing)
         XCTAssertEqual(harness.link.stopCount, 0)
 
-        harness.useCase.recordingDidFinish()
+        harness.useCase.recordingDidFinish(endReason: nil)
         XCTAssertEqual(harness.useCase.state, .standby)
     }
 
@@ -190,7 +190,7 @@ final class AdapterLinkSupervisionUseCaseRecordingTests: XCTestCase {
     func testAfterFinishingDoesNotRecheckUntilForeground() async throws {
         let harness = makeHarness()
         try await harness.driveToRecording()
-        harness.useCase.recordingDidFinish()
+        harness.useCase.recordingDidFinish(endReason: nil)
         try await BLEBoundedWaiter.settle()
         XCTAssertEqual(harness.initialization.responses.callCount, 1)
         XCTAssertEqual(harness.vehicleResponse.timeouts.count, 1)
@@ -205,7 +205,7 @@ final class AdapterLinkSupervisionUseCaseRecordingTests: XCTestCase {
     func testAfterFinishingReconnectRestartsFromInitialization() async throws {
         let harness = makeHarness()
         try await harness.driveToRecording()
-        harness.useCase.recordingDidFinish()
+        harness.useCase.recordingDidFinish(endReason: nil)
         harness.link.emit(.disconnected(.peripheralDisconnected(errorDescription: nil)))
         try await harness.makeLinkReady()
         XCTAssertEqual(harness.initialization.responses.callCount, 2)

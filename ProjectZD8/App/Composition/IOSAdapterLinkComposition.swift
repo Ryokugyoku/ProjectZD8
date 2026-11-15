@@ -31,8 +31,8 @@ enum IOSAdapterLinkComposition {
             recordingControl: recordingControl,
             clock: SystemAdapterLinkSupervisionClock()
         )
-        recordingControl.supervisedRecordingDidFinish = { [weak supervision] in
-            supervision?.recordingDidFinish()
+        recordingControl.supervisedRecordingDidFinish = { [weak supervision] endReason in
+            supervision?.recordingDidFinish(endReason: endReason)
         }
         recordingControl.manualAdapterUseDidBegin = { [weak supervision] in
             supervision?.externalAdapterUseDidBegin()

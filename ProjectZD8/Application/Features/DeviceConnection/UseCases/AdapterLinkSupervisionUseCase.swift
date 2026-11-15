@@ -158,9 +158,10 @@ final class AdapterLinkSupervisionUseCase {
 
     /// 記録側から記録の終了を受け取ります。
     ///
-    /// 責務: 記録中・終了中であれば終了を経て待機へ戻します。
-    func recordingDidFinish() {
-        send(.recordingDidFinish)
+    /// 責務: 記録中・終了中であれば終了を経て待機へ戻します。終了理由は監視の遷移へ渡します。
+    /// - Parameter endReason: 記録中から終わった時のテレメトリ終了理由。記録が始まらなかった・辞退した・手動記録に置き換えた場合は `nil`。
+    func recordingDidFinish(endReason: ConnectionSessionEndReason?) {
+        send(.recordingDidFinish(endReason: endReason))
     }
 
     /// 常駐リンク以外の経路(手動接続)がアダプターを使い始めたことを反映します。

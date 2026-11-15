@@ -63,10 +63,12 @@ nonisolated struct AdapterLinkRecordingTransition: Sendable {
 
     /// 記録側からの記録終了通知に対する遷移を返します。
     ///
-    /// 責務: 記録中なら通知を取り下げて終了へ移し終了処理の完了を促し、終了中なら待機へ戻します。
-    /// - Parameter state: 現在の監視状態。
+    /// 責務: 記録中なら通知を取り下げて終了へ移し終了処理の完了を促し、終了中なら待機へ戻します。終了理由は受け取るだけで、遷移には使いません。
+    /// - Parameters:
+    ///   - endReason: テレメトリの終了理由。記録が始まらなかった・辞退した・手動記録に置き換えた場合は `nil`。
+    ///   - state: 現在の監視状態。
     /// - Returns: 次の状態と作用。それ以外の状態では何もしません。
-    func recordingDidFinish(from state: AdapterLinkSupervisionState) -> AdapterLinkSupervisionTransitionResult {
+    func recordingDidFinish(endReason: ConnectionSessionEndReason?, from state: AdapterLinkSupervisionState) -> AdapterLinkSupervisionTransitionResult {
         switch state {
         case .recording:
             AdapterLinkSupervisionTransitionResult(state: .finishing, effects: [.dismissNotification, .completeFinishing])

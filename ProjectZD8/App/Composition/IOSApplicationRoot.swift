@@ -125,7 +125,7 @@ struct IOSApplicationRoot {
             performanceEvents: foundation.performanceEvents,
             sessionDidEnd: { reason, endedAt in
                 lifecycle.send(.endRequested(reason, endedAt: endedAt))
-                coordinator.telemetryDidEnd()
+                coordinator.telemetryDidEnd(reason: reason)
             },
             distanceDidChange: { lifecycle.send(.distanceObserved($0)) }
         )

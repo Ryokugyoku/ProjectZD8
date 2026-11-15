@@ -97,7 +97,7 @@ final class AdapterLinkSupervisionUseCaseExternalAdapterUseTests: XCTestCase {
 
     /// 記録中に手動使用が始まったら記録の停止を要求して終了へ進み、記録終了の通知で待機へ戻ります。
     ///
-    /// 責務: 停止要求が1回出て、リンクを止めず、`recordingDidFinish()` で待機へ戻ることを確認します。
+    /// 責務: 停止要求が1回出て、リンクを止めず、`recordingDidFinish(endReason:)` で待機へ戻ることを確認します。
     func testBeginWhileRecordingRequestsStopAndFinishes() async throws {
         let harness = makeHarness()
         try await harness.driveToRecording()
@@ -105,7 +105,7 @@ final class AdapterLinkSupervisionUseCaseExternalAdapterUseTests: XCTestCase {
         harness.useCase.externalAdapterUseDidBegin()
         XCTAssertEqual(harness.useCase.state, .finishing)
         XCTAssertEqual(harness.recordingControl.stopRequestCount, 1)
-        harness.useCase.recordingDidFinish()
+        harness.useCase.recordingDidFinish(endReason: nil)
 
         XCTAssertEqual(harness.useCase.state, .standby)
         XCTAssertEqual(harness.link.stopCount, 0)
