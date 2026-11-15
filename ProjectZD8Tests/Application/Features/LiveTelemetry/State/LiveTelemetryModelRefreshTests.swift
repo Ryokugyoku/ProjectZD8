@@ -61,7 +61,7 @@ final class LiveTelemetryModelRefreshTests: XCTestCase {
 
     /// 一時停止への遷移と応答途絶の猶予切れによる終了は間引かれず、保留中の観測を反映します。
     ///
-    /// 責務: 間隔内の観測が一時停止の時点で表示され、猶予切れで無応答の表示キー・最後の受信時刻付きの通知・スリープ抑止解除になることを確認します。
+    /// 責務: 間隔内の観測が一時停止の時点で表示され、猶予切れ(期限は最後の受信+猶予の直後)で無応答の表示キー・最後の受信時刻付きの通知・スリープ抑止解除になることを確認します。
     func testPauseAndStallExpiryApplyHeldSamplesAndDisconnect() async {
         let fixture = await startLoaded()
         await fixture.telemetry.release(.responded([7]))
@@ -71,11 +71,12 @@ final class LiveTelemetryModelRefreshTests: XCTestCase {
         await fixture.telemetry.release(.timedOut)
         await fixture.waitUntil("一時停止") { fixture.model.state.pauseStatus?.isRecovering == false }
         XCTAssertEqual(fixture.displayedValues, [distanceSinceCleared: 7, odometer: 8])
-        let pausedAt = fixture.clock.nowNanoseconds()
-        await fixture.deadlineWaiter.waitForPending(pausedAt + 180 * 1_000_000_000 + 1)
-        fixture.clock.advance(byNanoseconds: 180 * 1_000_000_000 + 1)
+        let lastReceived = fixture.clock.nowNanoseconds() - AcquisitionStallPolicy.stallThresholdNanoseconds
+        let deadline = lastReceived + AcquisitionGracePeriodPolicy.gracePeriodNanoseconds + 1
+        await fixture.deadlineWaiter.waitForPending(deadline)
+        fixture.clock.advance(byNanoseconds: deadline - fixture.clock.nowNanoseconds())
 
-        XCTAssertGreaterThan(fixture.deadlineWaiter.release(deadline: pausedAt + 180 * 1_000_000_000 + 1), 0)
+        XCTAssertGreaterThan(fixture.deadlineWaiter.release(deadline: deadline), 0)
         await fixture.waitUntil("無応答の終了") { fixture.model.state.failureKey != nil }
 
         XCTAssertEqual(fixture.model.state.phase, .idle)
