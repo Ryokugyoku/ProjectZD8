@@ -43,8 +43,7 @@ final class RecordingSessionActivityUseCasePhotoTests: XCTestCase {
         harness.currentDate = harness.currentDate.addingTimeInterval(5)
         await harness.send(harness.state(.loaded, speed: 10, vehicle: second))
         XCTAssertEqual(harness.photos.removeAllCount, 1)
-        XCTAssertEqual(harness.activity.updatedContents.last?.vehicle,
-                       RecordingSessionActivityVehicleLabel(vehicleName: "WRX"))
+        XCTAssertEqual(harness.activity.updatedContents.last?.vehicle, .named("WRX"))
         XCTAssertNil(harness.activity.updatedContents.last?.vehiclePhotoFileName)
     }
 
@@ -57,5 +56,25 @@ final class RecordingSessionActivityUseCasePhotoTests: XCTestCase {
         harness.currentDate = harness.currentDate.addingTimeInterval(5)
         await harness.send(harness.state(.loaded, speed: 10, vehicle: second))
         XCTAssertEqual(harness.photos.storedVehicleIDs, [first, second])
+    }
+
+    /// 責務: 写真の削除に失敗しても表示を続け、診断へ削除として1件残すことを確認します。
+    func testPhotoRemoveFailureKeepsActivityAndIsRecorded() async {
+        let harness = RecordingSessionActivityUseCaseHarness()
+        let vehicle = harness.registerVehicle()
+        await harness.send(harness.state(.loaded, speed: 10, vehicle: vehicle))
+        harness.photos.removeError = RecordingSessionActivityTestError(label: "remove")
+        await harness.send(harness.state(.idle, vehicle: vehicle))
+        XCTAssertEqual(harness.diagnostics.failedOperations, [.removePhotos])
+        XCTAssertEqual(harness.activity.endedContents.count, 1)
+    }
+
+    /// 責務: 登録車両の写真データが加工されずに写真境界へ渡ることを確認します。
+    func testRegisteredVehiclePhotoDataIsPassedToPhotoPort() async {
+        let harness = RecordingSessionActivityUseCaseHarness()
+        let data = Data([9, 8, 7, 6])
+        let vehicle = harness.registerVehicle(photo: data)
+        await harness.send(harness.state(.loaded, speed: 10, vehicle: vehicle))
+        XCTAssertEqual(harness.photos.storedPhotoData, [data])
     }
 }
