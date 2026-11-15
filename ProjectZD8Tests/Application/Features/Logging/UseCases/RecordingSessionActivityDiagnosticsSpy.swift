@@ -9,7 +9,7 @@ final class RecordingSessionActivityDiagnosticsSpy: RecordingSessionActivityDiag
     /// 失敗を記録します。
     ///
     /// 責務: 操作の種類だけを残します。
-    func operationFailed(_ operation: RecordingSessionActivityOperation, error: any Error) {
+    func operationFailed(_ operation: RecordingSessionActivityOperation, error _: any Error) {
         failedOperations.append(operation)
     }
 }
