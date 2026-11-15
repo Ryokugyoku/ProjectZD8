@@ -98,6 +98,60 @@ final class VehicleRecordingStartRequestTests: XCTestCase {
         XCTAssertEqual(request.adapterProbeEvidence, Self.evidence)
     }
 
+    /// 手動接続で未登録だった場合の要求は、車両なし・型式コードなし・判定結果なしで、識別で読めたVINを観測VINとして持ちます。
+    ///
+    /// 責務: ZD8 形式のVINやOBD識別子を読めても、未登録なら型式コードを付けないことを確認します。
+    func testManualUnregisteredConnectionRequest() {
+        let request = VehicleRecordingStartRequest.manualUnregisteredConnection(
+            endpoint: Self.endpoint, identification: snapshot(vin: Self.zd8VIN, obdIdentifier: "ZD8-ECU")
+        )
+
+        XCTAssertEqual(request.endpoint, Self.endpoint)
+        XCTAssertNil(request.vehicle)
+        XCTAssertEqual(request.observedVIN, Self.zd8VIN)
+        XCTAssertNil(request.vehicleModelCode)
+        XCTAssertNil(request.adapterProbeEvidence)
+    }
+
+    /// 手動接続で未登録かつVINを読めなかった場合、観測VINは `nil` です。
+    ///
+    /// 責務: 読めなかったVINを空文字などで補完しないことを確認します。
+    func testManualUnregisteredConnectionWithoutVIN() {
+        let request = VehicleRecordingStartRequest.manualUnregisteredConnection(
+            endpoint: Self.endpoint, identification: snapshot(vin: nil, obdIdentifier: "ZD8-ECU")
+        )
+
+        XCTAssertNil(request.observedVIN)
+        XCTAssertNil(request.vehicleModelCode)
+    }
+
+    /// 常駐リンクで読んだVINが ZD8 形式でも、一致した登録済み車両が無ければ型式コードは付きません。
+    ///
+    /// 責務: 型式コードを読んだVINからではなく、一致した登録済み車両からだけ決めることを確認します。
+    func testResidentLinkUnregisteredZD8VINHasNoModelCode() {
+        let source = AdapterLinkRecordingStartRequest(endpoint: Self.endpoint, vin: Self.zd8VIN, adapterProbeEvidence: Self.evidence)
+
+        let request = VehicleRecordingStartRequest.residentLink(source, vehicle: nil)
+
+        XCTAssertNil(request.vehicle)
+        XCTAssertEqual(request.observedVIN, Self.zd8VIN)
+        XCTAssertNil(request.vehicleModelCode)
+        XCTAssertEqual(request.adapterProbeEvidence, Self.evidence)
+    }
+
+    /// 常駐リンクで一致した登録済み車両は、VINが ZD8 でなくてもOBD識別子が ZD8 なら型式コードが付き、
+    /// 読んだVINが ZD8 形式でも一致車両の識別子がどちらも該当しなければ付きません。
+    ///
+    /// 責務: 一致車両のVIN・OBD識別子の両方を判定に使い、読んだVINを使わないことを確認します。
+    func testResidentLinkModelCodeComesFromMatchedVehicleIdentifiers() {
+        let source = AdapterLinkRecordingStartRequest(endpoint: Self.endpoint, vin: Self.zd8VIN, adapterProbeEvidence: Self.evidence)
+        let byIdentifier = VehicleProfile(vin: Self.otherVIN, obdIdentifier: "ZD8-ECU", name: "BRZ")
+        let neither = VehicleProfile(vin: Self.otherVIN, obdIdentifier: "OTHER", name: "Golf")
+
+        XCTAssertEqual(VehicleRecordingStartRequest.residentLink(source, vehicle: byIdentifier).vehicleModelCode, "ZD8")
+        XCTAssertNil(VehicleRecordingStartRequest.residentLink(source, vehicle: neither).vehicleModelCode)
+    }
+
     /// 型式コードは識別子のどれか1件でも ZD8 なら付き、空配列・nil・空文字・非該当だけなら付きません。
     ///
     /// 責務: `vehicleModelCode(identifiers:)` の境界を確認します。

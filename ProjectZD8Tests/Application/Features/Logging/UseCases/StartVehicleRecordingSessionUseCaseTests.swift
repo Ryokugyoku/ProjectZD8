@@ -2,7 +2,10 @@ import Foundation
 import XCTest
 @testable import ProjectZD8
 
-/// `StartVehicleRecordingSessionUseCase` が「セッション開始 → 車両確定 → 観測VIN」の順で接続セッションを準備することを検証します。
+/// `StartVehicleRecordingSessionUseCase` が「セッション開始 → 車両確定または未登録の確定 → 進行中かを確認 → 観測VIN」の順で
+/// 接続セッションを準備することを、続行可能なセッションの無い通常の開始で検証します。
+///
+/// プロセス復帰後に続行可能なセッションがある場合の順序は `StartVehicleRecordingSessionUseCaseRelaunchTests` で検証します。
 @MainActor
 final class StartVehicleRecordingSessionUseCaseTests: XCTestCase {
     /// 代表VINです。
