@@ -81,7 +81,8 @@ actor ConnectionSessionAcquisitionController: LiveTelemetryAcquisitionEvidencePo
                     formulaCanonicalizationVersion: formulaCanonicalizationVersion,
                     pidDefinitions: input.definitions,
                     pidCapabilities: input.capabilities,
-                    orderedRequestedPIDs: input.orderedRequests
+                    orderedRequestedPIDs: input.orderedRequests,
+                    adapterProbeEvidence: input.adapterProbeEvidence
                 )
             )
             performanceEvents.end(interval, outcome: .succeeded)

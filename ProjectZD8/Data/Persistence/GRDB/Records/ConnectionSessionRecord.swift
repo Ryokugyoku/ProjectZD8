@@ -24,6 +24,8 @@ struct ConnectionSessionRecord: Codable, FetchableRecord, PersistableRecord {
     let vehicleName: String?
     /// 接続時点の車両代表識別値です。
     let vehicleDisplayIdentifier: String?
+    /// 車両未確定のまま観測したVINです。
+    let observedVIN: String?
     /// ログ取得元Appleプラットフォームの安定文字列表現です。
     let acquisitionPlatform: String?
     /// ログ取得時のユーザー向け端末名です。
@@ -69,6 +71,7 @@ struct ConnectionSessionRecord: Codable, FetchableRecord, PersistableRecord {
         vehicleID = session.vehicle?.id.rawValue.uuidString.lowercased()
         vehicleName = session.vehicle?.name
         vehicleDisplayIdentifier = session.vehicle?.displayIdentifier
+        observedVIN = session.observedVIN
         acquisitionPlatform = session.acquisitionDevice?.platform.rawValue
         acquisitionDeviceName = session.acquisitionDevice?.name
         startingOdometerKilometers = session.startingOdometerKilometers
@@ -117,7 +120,8 @@ struct ConnectionSessionRecord: Codable, FetchableRecord, PersistableRecord {
             accountIdentifier: accountIdentifier,
             startedAt: startedAt,
             vehicle: vehicle,
-            acquisitionDevice: acquisitionDevice
+            acquisitionDevice: acquisitionDevice,
+            observedVIN: observedVIN
         )
         session.endedAt = endedAt
         session.endReason = reason

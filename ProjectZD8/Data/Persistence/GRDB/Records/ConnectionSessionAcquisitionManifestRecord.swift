@@ -21,6 +21,10 @@ struct ConnectionSessionAcquisitionManifestRecord: Codable, FetchableRecord, Per
     let acquisitionPlatform: String
     /// model入力manifest versionです。
     let modelInputManifestVersion: Int
+    /// 初期化時に判定したチップ種別の安定文字列です。`nil` はlegacy欠落または未判定です。
+    let adapterChipFamily: String?
+    /// `ATMA` 判定結果の安定文字列です。`nil` は未試行、legacy欠落、または未判定です。
+    let adapterMonitorProbeOutcome: String?
     /// aggregateが確定済みかどうかです。
     let isSealed: Bool
 }

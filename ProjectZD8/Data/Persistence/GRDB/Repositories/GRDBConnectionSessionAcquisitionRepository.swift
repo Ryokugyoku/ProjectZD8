@@ -1369,7 +1369,8 @@ final class GRDBConnectionSessionAcquisitionRepository: ConnectionSessionAcquisi
             orderedRequestedPIDs: orderedRequestedPIDs,
             pidDefinitions: sortedDefinitions,
             acquisitionPlatform: manifest.acquisitionPlatform,
-            modelInputManifestVersion: manifest.modelInputManifestVersion
+            modelInputManifestVersion: manifest.modelInputManifestVersion,
+            adapterProbeEvidence: manifest.adapterProbeEvidence
         )
         try validateComplete(manifest: canonicalManifest)
         return CanonicalAcquisitionStart(
@@ -1426,6 +1427,8 @@ final class GRDBConnectionSessionAcquisitionRepository: ConnectionSessionAcquisi
             pollingPolicyVersion: pollingPolicyVersion,
             acquisitionPlatform: acquisitionPlatform.rawValue,
             modelInputManifestVersion: modelInputManifestVersion,
+            adapterChipFamily: manifest.adapterProbeEvidence?.chipFamily.rawValue,
+            adapterMonitorProbeOutcome: manifest.adapterProbeEvidence?.monitorProbeOutcome?.rawValue,
             isSealed: false
         ).insert(database)
         for definition in manifest.pidDefinitions {
@@ -1554,10 +1557,41 @@ final class GRDBConnectionSessionAcquisitionRepository: ConnectionSessionAcquisi
             orderedRequestedPIDs: try OrderedAcquisitionPIDSet(requests: requests),
             pidDefinitions: domainDefinitions,
             acquisitionPlatform: platform,
-            modelInputManifestVersion: manifestRecord.modelInputManifestVersion
+            modelInputManifestVersion: manifestRecord.modelInputManifestVersion,
+            adapterProbeEvidence: try adapterProbeEvidence(from: manifestRecord)
         )
         try validateComplete(manifest: manifest)
         return CanonicalAcquisitionStart(manifest: manifest, startedAtMicroseconds: started.occurredAtMicroseconds)
+    }
+
+    /// manifest行のアダプター判定列をDomainの証拠値へ復元します。
+    ///
+    /// 責務: チップ種別とATMA判定結果の安定文字列を検証し、未知値を黙って欠落扱いせず失敗へ変換します。
+    /// - Parameter record: 復元対象のmanifest親行。
+    /// - Returns: 両列が `NULL` なら `nil`、チップ種別がある場合は判定結果の組。
+    /// - Throws: 未知の保存値、またはチップ種別なしで判定結果だけがある場合は `.unavailable`。
+    private func adapterProbeEvidence(
+        from record: ConnectionSessionAcquisitionManifestRecord
+    ) throws -> AcquisitionAdapterProbeEvidence? {
+        guard let storedChipFamily = record.adapterChipFamily else {
+            guard record.adapterMonitorProbeOutcome == nil else {
+                throw ConnectionSessionAcquisitionRepositoryError.unavailable
+            }
+            return nil
+        }
+        guard let chipFamily = OBDAdapterChipFamily(rawValue: storedChipFamily) else {
+            throw ConnectionSessionAcquisitionRepositoryError.unavailable
+        }
+        let probeOutcome: OBDMonitorProbeOutcome?
+        if let storedOutcome = record.adapterMonitorProbeOutcome {
+            guard let decoded = OBDMonitorProbeOutcome(rawValue: storedOutcome) else {
+                throw ConnectionSessionAcquisitionRepositoryError.unavailable
+            }
+            probeOutcome = decoded
+        } else {
+            probeOutcome = nil
+        }
+        return AcquisitionAdapterProbeEvidence(chipFamily: chipFamily, monitorProbeOutcome: probeOutcome)
     }
 
     /// 永続化PID行をDomain snapshotへ復元します。

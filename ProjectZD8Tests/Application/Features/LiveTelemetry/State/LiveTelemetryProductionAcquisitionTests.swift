@@ -12,7 +12,7 @@ final class LiveTelemetryProductionAcquisitionTests: XCTestCase {
         let evidence = LiveTelemetryAcquisitionEvidenceSpy()
         let model = makeModel(evidence: evidence)
 
-        model.send(.startRequested(endpoint, vehicleID, vehicleModelCode: nil))
+        model.send(.startRequested(LiveTelemetryStartRequest(endpoint: endpoint, vehicleID: vehicleID, vehicleModelCode: nil)))
         for _ in 0..<100 {
             if await evidence.batchInputs.count >= 2 { break }
             try? await Task.sleep(for: .milliseconds(10))
@@ -37,7 +37,7 @@ final class LiveTelemetryProductionAcquisitionTests: XCTestCase {
         var endReasons: [ConnectionSessionEndReason] = []
         let model = makeModel(evidence: evidence) { endReasons.append($0) }
 
-        model.send(.startRequested(endpoint, vehicleID, vehicleModelCode: nil))
+        model.send(.startRequested(LiveTelemetryStartRequest(endpoint: endpoint, vehicleID: vehicleID, vehicleModelCode: nil)))
         for _ in 0..<100 where model.state.phase != .failed {
             await Task.yield()
         }
@@ -55,7 +55,7 @@ final class LiveTelemetryProductionAcquisitionTests: XCTestCase {
         let clock = LiveTelemetryMonotonicClock(values: [1_000_000_000, 1_260_000_000])
         let model = makeModel(evidence: evidence, monotonicNanoseconds: clock.next)
 
-        model.send(.startRequested(endpoint, vehicleID, vehicleModelCode: nil))
+        model.send(.startRequested(LiveTelemetryStartRequest(endpoint: endpoint, vehicleID: vehicleID, vehicleModelCode: nil)))
         for _ in 0..<100 {
             if await evidence.batchInputs.count >= 2 { break }
             try? await Task.sleep(for: .milliseconds(10))

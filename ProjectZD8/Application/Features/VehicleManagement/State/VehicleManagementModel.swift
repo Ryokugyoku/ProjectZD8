@@ -29,6 +29,12 @@ final class VehicleManagementModel {
         OBDConnectionEndpoint,
         VehicleIdentificationSnapshot
     ) -> Void
+    /// 新規登録した車両をアカウントと共に通知し、観測VINが一致する未割当セッションへ紐付ける処理です。
+    @ObservationIgnored private let vehicleDidRegister: @MainActor (VehicleProfile, String) throws -> Void
+    /// 接続のための車両識別がアダプターへ接続し始めることを通知する処理です。
+    @ObservationIgnored private let connectionIdentificationWillBegin: @MainActor () -> Void
+    /// 接続のための車両識別が終わったこと(成功・失敗・登録確認待ちのすべて)を通知する処理です。
+    @ObservationIgnored private let connectionIdentificationDidEnd: @MainActor () -> Void
     /// 現在の車両を所有するAppleアカウント識別子です。
     @ObservationIgnored private var accountIdentifier: String?
 
@@ -46,6 +52,10 @@ final class VehicleManagementModel {
     ///   - deleteVehicleWithSessions: 車両と関連セッションを全端末から削除するユースケース。
     ///   - vehicleSessionsDidDelete: 車両関連セッション削除後に履歴表示へ再読込を通知する処理。
     ///   - connectionVehicleDidResolve: 接続対象車両、終端、編集前のOBD識別観測を通知する処理。
+    ///   - vehicleDidRegister: 新規登録の保存成功後に車両とアカウント識別子を受け取る処理。throw すると保存は成功のまま
+    ///     `garage.error.session_assignment` を表示します。
+    ///   - connectionIdentificationWillBegin: 接続のための車両識別を始める直前に呼ぶ処理。
+    ///   - connectionIdentificationDidEnd: 接続のための車両識別が終わった時に必ず1回呼ぶ処理(車両確定の通知の後)。
     init(
         state: VehicleManagementState,
         repository: any VehicleRepository,
@@ -60,7 +70,10 @@ final class VehicleManagementModel {
             VehicleProfile,
             OBDConnectionEndpoint,
             VehicleIdentificationSnapshot
-        ) -> Void = { _, _, _ in }
+        ) -> Void = { _, _, _ in },
+        vehicleDidRegister: @escaping @MainActor (VehicleProfile, String) throws -> Void = { _, _ in },
+        connectionIdentificationWillBegin: @escaping @MainActor () -> Void = {},
+        connectionIdentificationDidEnd: @escaping @MainActor () -> Void = {}
     ) {
         self.state = state
         self.repository = repository
@@ -72,6 +85,9 @@ final class VehicleManagementModel {
         self.deleteVehicleWithSessions = deleteVehicleWithSessions
         self.vehicleSessionsDidDelete = vehicleSessionsDidDelete
         self.connectionVehicleDidResolve = connectionVehicleDidResolve
+        self.vehicleDidRegister = vehicleDidRegister
+        self.connectionIdentificationWillBegin = connectionIdentificationWillBegin
+        self.connectionIdentificationDidEnd = connectionIdentificationDidEnd
     }
 
     /// 1件の型付き操作を車両管理状態と副作用へ反映します。
@@ -85,6 +101,7 @@ final class VehicleManagementModel {
         case .identificationRetryRequested:
             if let endpoint = state.connectionEndpoint { Task { await identifyVehicle(using: endpoint) } }
         case .identificationConfirmed: beginRegistration()
+        case let .observedVINRegistrationRequested(vin): beginObservedVINRegistration(vin)
         case .registrationCancelled: cancelRegistration()
         case let .vehicleSaved(vehicle): Task { await save(vehicle) }
         case let .editRequested(id): beginEditing(id)
@@ -271,6 +288,8 @@ final class VehicleManagementModel {
     /// - Parameter endpoint: 接続するOBDアダプターの物理終端。
     private func identifyVehicle(using endpoint: OBDConnectionEndpoint) async {
         guard accountIdentifier != nil, state.phase != .identifying else { return }
+        connectionIdentificationWillBegin()
+        defer { connectionIdentificationDidEnd() }
         state.connectionEndpoint = endpoint
         state.phase = .identifying
         state.failureKey = nil
@@ -357,6 +376,26 @@ final class VehicleManagementModel {
         state.phase = .registering
     }
 
+    /// 未登録ログで観測したVINから新規プロフィール入力を開始します。
+    ///
+    /// 責務: 1件の観測VINを、OBD識別観測を持たない編集可能な新規プロフィールへ変換します。
+    /// - Parameter vin: 未登録ログで観測したVIN。空白だけの場合は何もしません。
+    private func beginObservedVINRegistration(_ vin: String) {
+        guard let normalized = ConnectionSession.normalizedObservedVIN(vin),
+              [.idle, .readyToConnect, .failed].contains(state.phase) else { return }
+        state.pendingIdentification = nil
+        state.editingVehicle = VehicleProfile(
+            vin: normalized,
+            obdIdentifier: nil,
+            name: "",
+            manufacturer: "",
+            engineModel: "",
+            isDefault: false
+        )
+        state.failureKey = nil
+        state.phase = .registering
+    }
+
     /// 未完了の新規登録を破棄して一覧へ戻ります。
     ///
     /// 責務: 新規登録用の観測と編集値だけを現在状態から解除します。
@@ -405,11 +444,13 @@ final class VehicleManagementModel {
     /// - Parameter vehicle: 保存する編集済みプロフィール。
     private func save(_ vehicle: VehicleProfile) async {
         guard let accountIdentifier else { return }
-        let connectionIdentification = state.phase == .registering ? state.pendingIdentification : nil
+        let isRegistration = state.phase == .registering
+        let connectionIdentification = isRegistration ? state.pendingIdentification : nil
         var saved = vehicle
         saved.updatedAt = Date()
         do {
             try await repository.saveVehicle(saved, for: accountIdentifier)
+            let didNotifyRegistration = !isRegistration || notifyRegistration(of: saved, accountIdentifier: accountIdentifier)
             if let index = state.vehicles.firstIndex(where: { $0.id == saved.id }) {
                 state.vehicles[index] = saved
             } else {
@@ -426,11 +467,27 @@ final class VehicleManagementModel {
             }
             loadActivitySummaries(for: accountIdentifier)
             state.phase = .idle
-            state.failureKey = nil
+            state.failureKey = didNotifyRegistration ? nil : "garage.error.session_assignment"
         } catch {
             state.vehicles = (try? await repository.loadVehicles(for: accountIdentifier)) ?? state.vehicles
             state.phase = .failed
             state.failureKey = "garage.error.save"
+        }
+    }
+
+    /// 新規登録した車両を通知先へ渡します。
+    ///
+    /// 責務: 保存済みの新規登録車両1件を通知し、通知先の失敗を結果へ変換します。
+    /// - Parameters:
+    ///   - vehicle: 保存に成功した新規登録車両。
+    ///   - accountIdentifier: 車両を保存したアカウント識別子。
+    /// - Returns: 通知先が成功したら `true`、throw したら `false`。
+    private func notifyRegistration(of vehicle: VehicleProfile, accountIdentifier: String) -> Bool {
+        do {
+            try vehicleDidRegister(vehicle, accountIdentifier)
+            return true
+        } catch {
+            return false
         }
     }
 

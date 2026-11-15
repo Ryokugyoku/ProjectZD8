@@ -57,8 +57,10 @@ final class BLEAdapterLink: AdapterLinkPort {
     private var aggregator = BLEUARTDiscoveryAggregator()
     /// 内部の進行段階です。
     private var phase: Phase = .inactive
-    /// 登録済みアダプターの識別子です。`start` で判明します。
-    private var targetIdentifier: UUID?
+    /// 登録済みアダプターの識別子です。`start` で判明し、`stop()` で `nil` に戻ります。
+    ///
+    /// 常駐リンク上のトランスポートを選ぶ判定(`AdapterLinkOBDTransportSelector`)が読み取ります。
+    private(set) var targetIdentifier: UUID?
     /// 現在扱っているペリフェラルです。接続保留中も保持します。
     private var peripheral: (any BLEPeripheralRole)?
     /// 状態復元で渡され、まだ引き継いでいないペリフェラルです。`start` より先に届いた分もここで保持します。

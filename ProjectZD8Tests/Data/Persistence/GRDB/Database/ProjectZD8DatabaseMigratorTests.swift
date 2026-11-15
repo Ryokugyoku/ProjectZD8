@@ -34,7 +34,9 @@ final class ProjectZD8DatabaseMigratorTests: XCTestCase {
                 "release_v1_create_schema",
                 "release_v1_add_connection_session_acquisition_evidence",
                 "release_v1_add_connection_session_acquisition_batch_evidence",
-                "release_v1_add_connection_session_segments_gaps_can_frames"
+                "release_v1_add_connection_session_segments_gaps_can_frames",
+                "release_v1_add_connection_session_observed_vin",
+                "release_v1_add_connection_session_acquisition_adapter_probe"
             ]
         )
     }
@@ -57,6 +59,8 @@ final class ProjectZD8DatabaseMigratorTests: XCTestCase {
                     Date(timeIntervalSince1970: 101)
                 ]
             )
+            try database.execute(sql: "DROP INDEX connection_sessions_account_observed_vin")
+            try database.execute(sql: "ALTER TABLE connection_sessions DROP COLUMN observedVIN")
             try database.drop(table: ConnectionSessionCANFrameRecord.databaseTableName)
             try database.drop(table: ConnectionSessionGapRecord.databaseTableName)
             try database.drop(table: ConnectionSessionSegmentRecord.databaseTableName)
@@ -88,8 +92,10 @@ final class ProjectZD8DatabaseMigratorTests: XCTestCase {
             XCTAssertEqual(
                 try String.fetchAll(database, sql: "SELECT identifier FROM grdb_migrations ORDER BY identifier"),
                 [
+                    "release_v1_add_connection_session_acquisition_adapter_probe",
                     "release_v1_add_connection_session_acquisition_batch_evidence",
                     "release_v1_add_connection_session_acquisition_evidence",
+                    "release_v1_add_connection_session_observed_vin",
                     "release_v1_add_connection_session_segments_gaps_can_frames",
                     "release_v1_create_schema",
                     "v8_add_connection_session_raw_last_accessed_at"

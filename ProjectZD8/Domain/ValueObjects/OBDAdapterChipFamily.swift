@@ -1,4 +1,6 @@
 /// OBDアダプターが搭載する通信チップの系統です。
+///
+/// `rawValue` は取得証跡へ保存する安定文字列です。case名を変える場合は保存値を維持してください。
 nonisolated enum OBDAdapterChipFamily: String, Equatable, Sendable {
     /// STN系チップ(OBDLink等)です。
     case stn

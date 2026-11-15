@@ -20,14 +20,25 @@ struct LiveTelemetryState: Equatable {
     var samples: [OBDPIDSample] = []
     /// 初回探索で応答が確認できたPID数です。
     var supportedPIDCount = 0
-    /// 読取りまたは再試行に使用するOBD終端です。
-    var endpoint: OBDConnectionEndpoint?
-    /// 現在監視する車両のアプリ内識別子です。
-    var vehicleID: VehicleID?
-    /// 車種専用PIDの適用に使用する確認済み型式コードです。
-    var vehicleModelCode: String?
+    /// 読取りまたは再試行に使用する直近の開始要求です。
+    var startRequest: LiveTelemetryStartRequest?
     /// 直近の失敗を表示するローカライズキーです。
     var failureKey: String?
+
+    /// 読取りまたは再試行に使用するOBD終端です。
+    var endpoint: OBDConnectionEndpoint? {
+        startRequest?.endpoint
+    }
+
+    /// 現在監視する車両のアプリ内識別子です。車両未登録で記録中の場合は `nil` です。
+    var vehicleID: VehicleID? {
+        startRequest?.vehicleID
+    }
+
+    /// 車種専用PIDの適用に使用する確認済み型式コードです。
+    var vehicleModelCode: String? {
+        startRequest?.vehicleModelCode
+    }
 
     /// HOMEで切断操作を提供する接続中段階かどうかです。
     var isConnectionActive: Bool {

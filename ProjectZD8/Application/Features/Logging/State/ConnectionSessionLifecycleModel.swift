@@ -1,7 +1,7 @@
 import Foundation
 import Observation
 
-/// 接続セッションの開始、車両関連付け、終了を永続化へ結び付けます。
+/// 接続セッションの開始、車両関連付け、観測VIN記録、終了を永続化へ結び付けます。
 @MainActor
 @Observable
 final class ConnectionSessionLifecycleModel {
@@ -75,6 +75,7 @@ final class ConnectionSessionLifecycleModel {
         case let .automaticUploadChanged(isEnabled): automaticUploadEnabled = isEnabled
         case .startRequested: startSession()
         case let .vehicleResolved(vehicle): bindVehicle(vehicle)
+        case let .vinObserved(vin): recordObservedVIN(vin)
         case let .distanceObserved(observation): recordDistance(observation)
         case let .endRequested(reason): endSession(reason: reason)
         }
@@ -159,6 +160,26 @@ final class ConnectionSessionLifecycleModel {
     private func bindVehicle(_ vehicle: VehicleProfile) {
         guard var session = activeSession else { return }
         session.vehicle = ConnectionSessionVehicle(profile: vehicle)
+        do {
+            try repository.save(session)
+            activeSession = session
+            historyDidChange()
+        } catch {
+            return
+        }
+    }
+
+    /// 車両未確定の現在セッションへ観測VINを保存します。
+    ///
+    /// 責務: 1件の観測VINを、車両確定済みでない未終了セッションだけへ関連付けます。
+    /// 進行中セッションが無い、車両確定済み、VINが空白だけ、または既に同じ値の場合は何もしません。
+    /// 保存に失敗した場合はメモリ上の進行中セッションを変更しません。
+    /// - Parameter vin: 車両ECUから読み取ったVIN。前後の空白は保存前に除きます。
+    private func recordObservedVIN(_ vin: String) {
+        guard var session = activeSession, session.vehicle == nil,
+              let normalized = ConnectionSession.normalizedObservedVIN(vin),
+              session.observedVIN != normalized else { return }
+        session.observedVIN = normalized
         do {
             try repository.save(session)
             activeSession = session

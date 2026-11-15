@@ -10,8 +10,8 @@ final class LiveTelemetryModel {
     var state: LiveTelemetryState
     /// 検証済み主要PIDを数値化するユースケースです。
     @ObservationIgnored private let readMajorPIDs: ReadMajorOBDPIDsUseCase
-    /// 車両別の対応PIDを再利用または初回探索するユースケースです。
-    @ObservationIgnored private let loadVehicleCapabilities: LoadVehiclePIDCapabilitiesUseCase?
+    /// 開始要求の車両有無に応じて取得対象PIDと対応状況を決めるユースケースです。
+    @ObservationIgnored private let resolveTargets: ResolveLiveTelemetryAcquisitionTargetsUseCase
     /// PID更新対象と間引き周期を決める方針です。
     @ObservationIgnored private let pollingPolicy: OBDPIDPollingPolicy
     /// Production取得loopを方式Bの永続証拠へ接続する境界です。
@@ -38,6 +38,8 @@ final class LiveTelemetryModel {
     ///   - state: Platformへ公開する初期状態。
     ///   - readMajorPIDs: 主要PID読取と数値化を行うユースケース。
     ///   - loadVehicleCapabilities: 車両別対応PIDの再利用または初回探索を行うユースケース。
+    ///   - discoverSupportedPIDs: 車両未登録時に保存を伴わず対応PIDを探索するユースケース。
+    ///     `nil` の場合、車両なしの開始要求は `telemetry.error.unavailable` で失敗します。
     ///   - pollingPolicy: PIDごとの更新優先度と間引き周期を決める方針。
     ///   - acquisitionEvidence: Production取得loopを方式Bの永続証拠へ接続する境界。
     ///   - now: batch開始日時を供給するclock。
@@ -49,6 +51,7 @@ final class LiveTelemetryModel {
         state: LiveTelemetryState,
         readMajorPIDs: ReadMajorOBDPIDsUseCase,
         loadVehicleCapabilities: LoadVehiclePIDCapabilitiesUseCase? = nil,
+        discoverSupportedPIDs: DiscoverSupportedOBDPIDsUseCase? = nil,
         pollingPolicy: OBDPIDPollingPolicy,
         acquisitionEvidence: (any LiveTelemetryAcquisitionEvidencePort)? = nil,
         now: @escaping @Sendable () -> Date = Date.init,
@@ -59,7 +62,11 @@ final class LiveTelemetryModel {
     ) {
         self.state = state
         self.readMajorPIDs = readMajorPIDs
-        self.loadVehicleCapabilities = loadVehicleCapabilities
+        resolveTargets = ResolveLiveTelemetryAcquisitionTargetsUseCase(
+            readMajorPIDs: readMajorPIDs,
+            loadVehicleCapabilities: loadVehicleCapabilities,
+            discoverSupportedPIDs: discoverSupportedPIDs
+        )
         self.pollingPolicy = pollingPolicy
         self.acquisitionEvidence = acquisitionEvidence
         self.now = now
@@ -75,6 +82,8 @@ final class LiveTelemetryModel {
     /// - Parameters:
     ///   - readMajorPIDs: PID読取と数値化を行うユースケース。
     ///   - loadVehicleCapabilities: 車両別対応PIDの再利用または初回探索を行うユースケース。
+    ///   - discoverSupportedPIDs: 車両未登録時に保存を伴わず対応PIDを探索するユースケース。
+    ///     `nil` の場合、車両なしの開始要求は `telemetry.error.unavailable` で失敗します。
     ///   - acquisitionEvidence: Production取得loopを方式Bの永続証拠へ接続する境界。
     ///   - now: batch開始日時を供給するclock。
     ///   - monotonicNanoseconds: polling sleepの予定wake遅延を測る単調clock。
@@ -84,6 +93,7 @@ final class LiveTelemetryModel {
     convenience init(
         readMajorPIDs: ReadMajorOBDPIDsUseCase,
         loadVehicleCapabilities: LoadVehiclePIDCapabilitiesUseCase? = nil,
+        discoverSupportedPIDs: DiscoverSupportedOBDPIDsUseCase? = nil,
         acquisitionEvidence: (any LiveTelemetryAcquisitionEvidencePort)? = nil,
         now: @escaping @Sendable () -> Date = Date.init,
         monotonicNanoseconds: @escaping @Sendable () -> UInt64 = { DispatchTime.now().uptimeNanoseconds },
@@ -95,6 +105,7 @@ final class LiveTelemetryModel {
             state: LiveTelemetryState(),
             readMajorPIDs: readMajorPIDs,
             loadVehicleCapabilities: loadVehicleCapabilities,
+            discoverSupportedPIDs: discoverSupportedPIDs,
             pollingPolicy: OBDPIDPollingPolicy(),
             acquisitionEvidence: acquisitionEvidence,
             now: now,
@@ -111,37 +122,26 @@ final class LiveTelemetryModel {
     /// - Parameter action: Platformから通知された型付き操作。
     func send(_ action: LiveTelemetryAction) {
         switch action {
-        case let .startRequested(endpoint, vehicleID, vehicleModelCode):
-            start(using: endpoint, vehicleID: vehicleID, vehicleModelCode: vehicleModelCode)
+        case let .startRequested(request):
+            start(request)
         case .retryRequested:
-            if let endpoint = state.endpoint, let vehicleID = state.vehicleID {
-                start(using: endpoint, vehicleID: vehicleID, vehicleModelCode: state.vehicleModelCode)
-            }
+            if let request = state.startRequest { start(request) }
         case .stopRequested:
             stop()
         }
     }
 
-    /// 指定OBD終端からPID継続取得を開始します。
+    /// 指定要求の終端からPID継続取得を開始します。
     ///
     /// 責務: 以前の取得を無効化して最新接続のスリープ抑止と継続取得を開始します。
-    /// - Parameters:
-    ///   - endpoint: OBDアダプターの物理終端。
-    ///   - vehicleID: 対応PID設定を参照する車両ID。
-    ///   - vehicleModelCode: 確認済み車種専用PIDを適用する型式コード。
-    private func start(
-        using endpoint: OBDConnectionEndpoint,
-        vehicleID: VehicleID,
-        vehicleModelCode: String?
-    ) {
+    /// - Parameter request: 終端、車両、型式、アダプター判定結果を含む開始要求。
+    private func start(_ request: LiveTelemetryStartRequest) {
         let previousTask = pollingTask
         let previousGeneration = pollingGeneration
         previousTask?.cancel()
         pollingGeneration &+= 1
         let generation = pollingGeneration
-        state.endpoint = endpoint
-        state.vehicleID = vehicleID
-        state.vehicleModelCode = vehicleModelCode
+        state.startRequest = request
         state.phase = .reading
         state.failureKey = nil
         state.samples = []
@@ -152,12 +152,7 @@ final class LiveTelemetryModel {
             if previousTask != nil {
                 await self?.acquisitionEvidence?.cancel(generation: previousGeneration)
             }
-            await self?.poll(
-                using: endpoint,
-                vehicleID: vehicleID,
-                vehicleModelCode: vehicleModelCode,
-                generation: generation
-            )
+            await self?.poll(using: request, generation: generation)
         }
     }
 
@@ -185,64 +180,33 @@ final class LiveTelemetryModel {
         }
     }
 
-    /// 初回全件探索後に優先度付きPID更新を繰り返します。
+    /// 取得対象PIDの決定後に優先度付きPID更新を繰り返します。
     ///
-    /// 責務: 1件の接続終端を応答済みPIDの継続的な最新値へ変換します。
+    /// 責務: 1件の開始要求を応答済みPIDの継続的な最新値へ変換します。
     /// - Parameters:
-    ///   - endpoint: OBDアダプターの物理終端。
-    ///   - vehicleID: 対応PID設定を参照する車両ID。
-    ///   - vehicleModelCode: 確認済み車種専用PIDを適用する型式コード。
+    ///   - request: 終端、車両、型式、アダプター判定結果を含む開始要求。
     ///   - generation: この取得開始時の世代。
-    private func poll(
-        using endpoint: OBDConnectionEndpoint,
-        vehicleID: VehicleID,
-        vehicleModelCode: String?,
-        generation: UInt
-    ) async {
+    private func poll(using request: LiveTelemetryStartRequest, generation: UInt) async {
         do {
-            let definitions: [OBDPIDDefinition]
-            let capabilityInputs: [ConnectionSessionAcquisitionPIDCapabilityInput]
-            if let loadVehicleCapabilities {
-                let capabilities = try await loadVehicleCapabilities.execute(
-                    vehicleID: vehicleID,
-                    vehicleModelCode: vehicleModelCode,
-                    endpoint: endpoint
-                )
-                definitions = try readMajorPIDs.loadDefinitions(for: capabilities)
-                let capabilityByRequest = Dictionary(
-                    uniqueKeysWithValues: capabilities.map { ($0.id.request, $0) }
-                )
-                capabilityInputs = definitions.compactMap { definition in
-                    let request = OBDPIDRequest(service: definition.service, pid: definition.pid)
-                    return capabilityByRequest[request].map {
-                        ConnectionSessionAcquisitionPIDCapabilityInput(
-                            request: request,
-                            support: .supported,
-                            isCollectionEnabled: $0.isCollectionEnabled
-                        )
-                    }
-                }
-            } else {
-                definitions = try readMajorPIDs.loadDefinitions()
-                capabilityInputs = []
-            }
+            let targets = try await resolveTargets.execute(request)
             if let acquisitionEvidence {
-                guard capabilityInputs.count == definitions.count else {
+                guard targets.capabilities.count == targets.definitions.count else {
                     throw CreateConnectionSessionAcquisitionManifestError.capabilityEvidenceMissing
                 }
                 try await acquisitionEvidence.start(
                     LiveTelemetryAcquisitionStartInput(
                         generation: generation,
-                        definitions: definitions,
-                        capabilities: capabilityInputs,
-                        orderedRequests: pollingPolicy.definitionsToPoll(from: definitions, tick: 0).map {
+                        definitions: targets.definitions,
+                        capabilities: targets.capabilities,
+                        orderedRequests: pollingPolicy.definitionsToPoll(from: targets.definitions, tick: 0).map {
                             OBDPIDRequest(service: $0.service, pid: $0.pid)
-                        }
+                        },
+                        adapterProbeEvidence: request.adapterProbeEvidence
                     )
                 )
-                try await pollPersisted(definitions: definitions, endpoint: endpoint, generation: generation)
+                try await pollPersisted(definitions: targets.definitions, endpoint: request.endpoint, generation: generation)
             } else {
-                try await pollStandard(definitions: definitions, endpoint: endpoint, generation: generation)
+                try await pollStandard(definitions: targets.definitions, endpoint: request.endpoint, generation: generation)
             }
         } catch {
             await handlePollingFailure(error, generation: generation)

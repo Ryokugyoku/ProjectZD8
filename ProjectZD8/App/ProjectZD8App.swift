@@ -37,11 +37,14 @@ struct ProjectZD8App: App {
     /// iOS設定画面へ注入するプレゼンテーションモデルです。
     @State private var iOSSettingsModel: IOSSettingsPresentationModel
 
-    /// 通知で了承された接続要求を認証完了まで保持するバッファーです。
-    @State private var promptedVehicleConnectionRequest: PromptedVehicleConnectionRequestBuffer
+    /// 自動記録設定と記録開始方法の選択画面の状態を保持するモデルです。
+    @State private var automaticRecordingModel: AutomaticRecordingPreferenceModel
 
-    /// 既定BLE到来をユーザー承認付き接続要求へ変換するユースケースです。
-    private let promptForDefaultAdapterConnection: PromptForDefaultAdapterConnectionUseCase
+    /// 未登録車両の警告を保持するモデルです。
+    @State private var unassignedVINWarningModel: UnassignedObservedVINWarningModel
+
+    /// 起動・認証状態・既定アダプター設定・前面復帰を常駐リンク監視へ伝える型です。
+    private let adapterLinkSupervision: IOSAdapterLinkSupervisionDriver
     #endif
 
     #if os(macOS)
@@ -54,209 +57,35 @@ struct ProjectZD8App: App {
     /// 責務: 現在のプラットフォーム用Compositionからアプリケーションルート依存関係を構築します。
     init() {
         #if os(iOS)
-        let acquisitionPerformanceEvents = IOSApplicationComposition.makeAcquisitionPerformanceEventPort()
-        let database = ApplicationDatabaseConnection()
-        let connectionSessionStorage = ConnectionSessionStorageDependencies.makeProduction(
-            openDatabaseQueue: database.databaseQueue,
-            performanceEvents: acquisitionPerformanceEvents
-        )
-        let connectionSessionRepository = connectionSessionStorage.sessions
-        let connectionSessionSynchronization = IOSApplicationComposition.makeConnectionSessionSynchronization(
-            storage: connectionSessionRepository
-        )
-        let connectionHistoryModel = ConnectionHistoryModel(
-            repository: connectionSessionRepository,
-            synchronizeSessions: connectionSessionSynchronization,
-            releaseRawCache: ReleaseConnectionSessionRawCacheUseCase(
-                repository: connectionSessionRepository
-            ),
-            deleteSessionEverywhere: DeleteConnectionSessionEverywhereUseCase(
-                localRepository: connectionSessionRepository,
-                transferRepository: CloudKitConnectionSessionTransferRepository()
-            ),
-            reviewInterruptedSession: ReviewInterruptedConnectionSessionUseCase(
-                repository: connectionSessionRepository
-            ),
-            evictStaleRawLogs: EvictStaleConnectionSessionRawLogsUseCase(
-                sessionRepository: connectionSessionRepository,
-                rawLogRepository: connectionSessionRepository
-            )
-        )
-        let sessionLogAnalysisModel = SessionLogAnalysisModel(
-            state: .init(),
-            decodeTimeline: DecodeSessionLogTimelineUseCase(
-                rawLogRepository: connectionSessionRepository,
-                definitionRepository: IOSApplicationComposition.makeOBDPIDDefinitionRepository(database: database)
-            ),
-            prepareRawLog: PrepareConnectionSessionRawLogUseCase(
-                sessionRepository: connectionSessionRepository,
-                rawLogRepository: connectionSessionRepository,
-                transferRepository: CloudKitConnectionSessionTransferRepository()
-            )
-        )
-        let connectionSessionLifecycleModel = ConnectionSessionLifecycleModel(
-            repository: connectionSessionRepository,
-            rawLogRepository: connectionSessionRepository,
-            acquisitionTerminationRepository: connectionSessionStorage.acquisition,
-            acquisitionDevice: IOSApplicationComposition.makeConnectionSessionAcquisitionDevice(),
-            historyDidChange: { connectionHistoryModel.send(.localDataChanged) },
-            endedSessionUploadRequested: { session in
-                connectionHistoryModel.send(.sessionUploadRequested(session.id))
-            }
-        )
-        let liveTelemetryModel = IOSApplicationComposition.makeLiveTelemetryModel(
-            database: database,
-            acquisitionStorage: connectionSessionStorage.acquisition,
-            activeSessionID: { await connectionSessionLifecycleModel.activeSession?.id },
-            performanceEvents: acquisitionPerformanceEvents,
-            sessionDidEnd: { connectionSessionLifecycleModel.send(.endRequested($0)) },
-            distanceDidChange: { connectionSessionLifecycleModel.send(.distanceObserved($0)) }
-        )
-        let vehicleManagementModel = IOSApplicationComposition.makeVehicleManagementModel(
-            database: database,
-            connectionSessionRepository: connectionSessionRepository,
-            vehicleSessionsDidDelete: { connectionHistoryModel.send(.refreshRequested) }
-        ) { vehicle, endpoint, identification in
-            connectionSessionLifecycleModel.send(.startRequested)
-            connectionSessionLifecycleModel.send(.vehicleResolved(vehicle))
-            let vehicleModelCode = ZD8VehicleModelPolicy().matches(identification.vin)
-                || ZD8VehicleModelPolicy().matches(identification.obdIdentifier)
-                ? ZD8VehicleModelPolicy.modelCode
-                : nil
-            liveTelemetryModel.send(.startRequested(endpoint, vehicle.id, vehicleModelCode: vehicleModelCode))
-        }
-        let maintenanceModel = IOSApplicationComposition.makeMaintenanceModel(database: database)
-        let authenticationModel = IOSApplicationComposition.makeAuthenticationSessionModel(
-            database: database,
-            connectionSessionStorage: connectionSessionRepository
-        )
-        _authenticationModel = State(initialValue: authenticationModel)
-        _accountSettingsModel = State(
-            initialValue: IOSApplicationComposition.makeAccountSettingsModel()
-        )
-        _iOSSettingsModel = State(
-            initialValue: IOSApplicationComposition.makeSettingsPresentationModel()
-        )
-        _vehicleManagementModel = State(
-            initialValue: vehicleManagementModel
-        )
-        _maintenanceModel = State(initialValue: maintenanceModel)
-        _liveTelemetryModel = State(
-            initialValue: liveTelemetryModel
-        )
-        _connectionSessionLifecycleModel = State(initialValue: connectionSessionLifecycleModel)
-        _connectionHistoryModel = State(initialValue: connectionHistoryModel)
-        _sessionLogAnalysisModel = State(initialValue: sessionLogAnalysisModel)
-        let startVehicleConnection = StartVehicleConnectionUseCase(
-            identifyVehicle: { vehicleManagementModel.send(.identifyRequested($0)) }
-        )
-        self.startVehicleConnection = startVehicleConnection
-        let promptedVehicleConnectionRequest = PromptedVehicleConnectionRequestBuffer()
-        _promptedVehicleConnectionRequest = State(initialValue: promptedVehicleConnectionRequest)
-        promptForDefaultAdapterConnection =
-            IOSApplicationComposition.makeDefaultAdapterConnectionPromptUseCase {
-                promptedVehicleConnectionRequest.store($0)
-            }
+        let root = IOSApplicationRoot.make()
+        _authenticationModel = State(initialValue: root.authenticationModel)
+        _accountSettingsModel = State(initialValue: root.accountSettingsModel)
+        _iOSSettingsModel = State(initialValue: root.settingsModel)
+        _automaticRecordingModel = State(initialValue: root.automaticRecordingModel)
+        _unassignedVINWarningModel = State(initialValue: root.unassignedVINWarningModel)
+        _vehicleManagementModel = State(initialValue: root.vehicleManagementModel)
+        _maintenanceModel = State(initialValue: root.maintenanceModel)
+        _liveTelemetryModel = State(initialValue: root.liveTelemetryModel)
+        _connectionSessionLifecycleModel = State(initialValue: root.connectionSessionLifecycleModel)
+        _connectionHistoryModel = State(initialValue: root.connectionHistoryModel)
+        _sessionLogAnalysisModel = State(initialValue: root.sessionLogAnalysisModel)
+        startVehicleConnection = root.startVehicleConnection
+        adapterLinkSupervision = root.adapterLinkSupervision
+        root.adapterLinkSupervision.launch()
         #endif
 
         #if os(macOS)
-        let acquisitionPerformanceEvents = MacOSApplicationComposition.makeAcquisitionPerformanceEventPort()
-        let database = ApplicationDatabaseConnection()
-        let connectionSessionStorage = ConnectionSessionStorageDependencies.makeProduction(
-            openDatabaseQueue: database.databaseQueue,
-            performanceEvents: acquisitionPerformanceEvents
-        )
-        let connectionSessionRepository = connectionSessionStorage.sessions
-        let connectionSessionSynchronization = MacOSApplicationComposition.makeConnectionSessionSynchronization(
-            storage: connectionSessionRepository
-        )
-        let connectionHistoryModel = ConnectionHistoryModel(
-            repository: connectionSessionRepository,
-            synchronizeSessions: connectionSessionSynchronization,
-            releaseRawCache: ReleaseConnectionSessionRawCacheUseCase(
-                repository: connectionSessionRepository
-            ),
-            deleteSessionEverywhere: DeleteConnectionSessionEverywhereUseCase(
-                localRepository: connectionSessionRepository,
-                transferRepository: CloudKitConnectionSessionTransferRepository()
-            ),
-            reviewInterruptedSession: ReviewInterruptedConnectionSessionUseCase(
-                repository: connectionSessionRepository
-            ),
-            evictStaleRawLogs: EvictStaleConnectionSessionRawLogsUseCase(
-                sessionRepository: connectionSessionRepository,
-                rawLogRepository: connectionSessionRepository
-            )
-        )
-        let sessionLogAnalysisModel = SessionLogAnalysisModel(
-            state: .init(),
-            decodeTimeline: DecodeSessionLogTimelineUseCase(
-                rawLogRepository: connectionSessionRepository,
-                definitionRepository: MacOSApplicationComposition.makeOBDPIDDefinitionRepository(database: database)
-            ),
-            prepareRawLog: PrepareConnectionSessionRawLogUseCase(
-                sessionRepository: connectionSessionRepository,
-                rawLogRepository: connectionSessionRepository,
-                transferRepository: CloudKitConnectionSessionTransferRepository()
-            )
-        )
-        let connectionSessionLifecycleModel = ConnectionSessionLifecycleModel(
-            repository: connectionSessionRepository,
-            rawLogRepository: connectionSessionRepository,
-            acquisitionTerminationRepository: connectionSessionStorage.acquisition,
-            acquisitionDevice: MacOSApplicationComposition.makeConnectionSessionAcquisitionDevice(),
-            historyDidChange: { connectionHistoryModel.send(.localDataChanged) },
-            endedSessionUploadRequested: { session in
-                connectionHistoryModel.send(.sessionUploadRequested(session.id))
-            }
-        )
-        let liveTelemetryModel = MacOSApplicationComposition.makeLiveTelemetryModel(
-            database: database,
-            acquisitionStorage: connectionSessionStorage.acquisition,
-            activeSessionID: { await connectionSessionLifecycleModel.activeSession?.id },
-            performanceEvents: acquisitionPerformanceEvents,
-            sessionDidEnd: { connectionSessionLifecycleModel.send(.endRequested($0)) },
-            distanceDidChange: { connectionSessionLifecycleModel.send(.distanceObserved($0)) }
-        )
-        let vehicleManagementModel = MacOSApplicationComposition.makeVehicleManagementModel(
-            database: database,
-            connectionSessionRepository: connectionSessionRepository,
-            vehicleSessionsDidDelete: { connectionHistoryModel.send(.refreshRequested) }
-        ) { vehicle, endpoint, identification in
-            connectionSessionLifecycleModel.send(.startRequested)
-            connectionSessionLifecycleModel.send(.vehicleResolved(vehicle))
-            let vehicleModelCode = ZD8VehicleModelPolicy().matches(identification.vin)
-                || ZD8VehicleModelPolicy().matches(identification.obdIdentifier)
-                ? ZD8VehicleModelPolicy.modelCode
-                : nil
-            liveTelemetryModel.send(.startRequested(endpoint, vehicle.id, vehicleModelCode: vehicleModelCode))
-        }
-        let maintenanceModel = MacOSApplicationComposition.makeMaintenanceModel(database: database)
-        _authenticationModel = State(
-            initialValue: MacOSApplicationComposition.makeAuthenticationSessionModel(
-                database: database,
-                connectionSessionStorage: connectionSessionRepository
-            )
-        )
-        _accountSettingsModel = State(
-            initialValue: MacOSApplicationComposition.makeAccountSettingsModel()
-        )
-        _macOSSettingsModel = State(
-            initialValue: MacOSApplicationComposition.makeSettingsPresentationModel()
-        )
-        _vehicleManagementModel = State(
-            initialValue: vehicleManagementModel
-        )
-        _maintenanceModel = State(initialValue: maintenanceModel)
-        _liveTelemetryModel = State(
-            initialValue: liveTelemetryModel
-        )
-        _connectionSessionLifecycleModel = State(initialValue: connectionSessionLifecycleModel)
-        _connectionHistoryModel = State(initialValue: connectionHistoryModel)
-        _sessionLogAnalysisModel = State(initialValue: sessionLogAnalysisModel)
-        startVehicleConnection = StartVehicleConnectionUseCase(
-            identifyVehicle: { vehicleManagementModel.send(.identifyRequested($0)) }
-        )
+        let root = MacOSApplicationRoot.make()
+        _authenticationModel = State(initialValue: root.authenticationModel)
+        _accountSettingsModel = State(initialValue: root.accountSettingsModel)
+        _macOSSettingsModel = State(initialValue: root.settingsModel)
+        _vehicleManagementModel = State(initialValue: root.vehicleManagementModel)
+        _maintenanceModel = State(initialValue: root.maintenanceModel)
+        _liveTelemetryModel = State(initialValue: root.liveTelemetryModel)
+        _connectionSessionLifecycleModel = State(initialValue: root.connectionSessionLifecycleModel)
+        _connectionHistoryModel = State(initialValue: root.connectionHistoryModel)
+        _sessionLogAnalysisModel = State(initialValue: root.sessionLogAnalysisModel)
+        startVehicleConnection = root.startVehicleConnection
         #endif
     }
 
@@ -277,6 +106,8 @@ struct ProjectZD8App: App {
                         connectionHistoryModel: connectionHistoryModel,
                         sessionLogAnalysisModel: sessionLogAnalysisModel,
                         startVehicleConnection: startVehicleConnection,
+                        automaticRecordingModel: automaticRecordingModel,
+                        unassignedVINWarningModel: unassignedVINWarningModel,
                         accountDeletionPhase: authenticationModel.state.accountDeletionPhase,
                         accountDeletionFailure: authenticationModel.state.accountDeletionFailure,
                         sendAuthenticationAction: authenticationModel.send
@@ -331,26 +162,24 @@ struct ProjectZD8App: App {
             }
             #if os(iOS)
             .onChange(of: iOSSettingsModel.state.defaultAdapterPreference) { _, _ in
-                refreshDefaultAdapterArrivalMonitoring()
-            }
-            .onChange(of: promptedVehicleConnectionRequest.pendingEndpoint) { _, _ in
-                consumePromptedVehicleConnectionIfPossible()
+                adapterLinkSupervision.defaultAdapterPreferenceDidChange()
             }
             #endif
         }
     }
 
-    /// アプリが操作可能へ戻ったとき認証済みセッション概要と整備記録を再同期します。
+    /// アプリが操作可能へ戻ったとき常駐リンク監視へ伝え、認証済みセッション概要と整備記録を再同期します。
     ///
-    /// 責務: 1件のScene段階変更を認証済み接続履歴と整備記録の更新要求へ変換します。
+    /// 責務: 1件のScene段階変更を前面復帰の通知と、認証済み接続履歴と整備記録の更新要求へ変換します。
     /// - Parameter phase: 現在のScene段階。
     private func handleScenePhaseChange(_ phase: ScenePhase) {
-        guard phase == .active, authenticationModel.state.phase == .signedIn else { return }
+        guard phase == .active else { return }
+        #if os(iOS)
+        adapterLinkSupervision.appDidBecomeActive()
+        #endif
+        guard authenticationModel.state.phase == .signedIn else { return }
         connectionHistoryModel.send(.refreshRequested)
         maintenanceModel.send(.refreshRequested)
-        #if os(iOS)
-        consumePromptedVehicleConnectionIfPossible()
-        #endif
     }
 
     /// 認証済みAppleユーザーを設定、車両、整備、接続履歴の保存スコープへ反映します。
@@ -382,8 +211,10 @@ struct ProjectZD8App: App {
             .automaticUploadChanged(accountSettingsModel.settings.automaticSessionUploadEnabled)
         )
         #if os(iOS)
-        refreshDefaultAdapterArrivalMonitoring()
-        consumePromptedVehicleConnectionIfPossible()
+        automaticRecordingModel.send(.signInStateChanged(isSignedIn: authenticationModel.state.phase == .signedIn))
+        unassignedVINWarningModel.send(
+            .accountIdentifierChanged(authenticationModel.state.session?.userIdentifier)
+        )
         #endif
     }
 
@@ -394,8 +225,7 @@ struct ProjectZD8App: App {
     private func handleAuthenticationPhaseChange(_ phase: AuthenticationPhase) {
         if phase == .signedIn {
             #if os(iOS)
-            refreshDefaultAdapterArrivalMonitoring()
-            consumePromptedVehicleConnectionIfPossible()
+            automaticRecordingModel.send(.signInStateChanged(isSignedIn: true))
             #endif
             return
         }
@@ -407,34 +237,11 @@ struct ProjectZD8App: App {
         vehicleManagementModel.send(.accountIdentifierChanged(nil))
         maintenanceModel.send(.accountIdentifierChanged(nil))
         #if os(iOS)
-        promptForDefaultAdapterConnection.stop()
+        automaticRecordingModel.send(.signInStateChanged(isSignedIn: false))
+        unassignedVINWarningModel.send(.accountIdentifierChanged(nil))
         iOSSettingsModel = IOSApplicationComposition.makeSettingsPresentationModel()
         #elseif os(macOS)
         macOSSettingsModel = MacOSApplicationComposition.makeSettingsPresentationModel()
         #endif
     }
-
-    #if os(iOS)
-    /// 現在の認証状態に合わせて既定BLE到来監視を開始または停止します。
-    ///
-    /// 責務: 認証済み状態だけを既定BLE接続確認ユースケースの有効期間へ変換します。
-    private func refreshDefaultAdapterArrivalMonitoring() {
-        if authenticationModel.state.phase == .signedIn {
-            promptForDefaultAdapterConnection.start()
-        } else {
-            promptForDefaultAdapterConnection.stop()
-        }
-    }
-
-    /// 認証済みの場合に通知で了承された接続要求を既存接続フローへ渡します。
-    ///
-    /// 責務: 1件の保留中接続了承を認証済みHOME接続ユースケースへ引き渡します。
-    private func consumePromptedVehicleConnectionIfPossible() {
-        guard authenticationModel.state.phase == .signedIn,
-              let endpoint = promptedVehicleConnectionRequest.consume() else {
-            return
-        }
-        startVehicleConnection.execute(endpoint: endpoint)
-    }
-    #endif
 }

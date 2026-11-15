@@ -34,7 +34,98 @@ enum ProjectZD8DatabaseMigrator {
             try createConnectionSessionCANFrames(in: database)
             try addConnectionSessionRawLogSegmentColumns(in: database)
         }
+        migrator.registerMigration("release_v1_add_connection_session_observed_vin") { database in
+            try addConnectionSessionObservedVIN(in: database)
+        }
+        migrator.registerMigration("release_v1_add_connection_session_acquisition_adapter_probe") { database in
+            try addConnectionSessionAcquisitionAdapterProbeColumns(in: database)
+            try recreateAcquisitionManifestUpdateGuard(in: database)
+        }
         return migrator
+    }
+
+    /// 接続セッション表へ車両未確定時の観測VIN列と索引を追加します。
+    ///
+    /// 責務: 既存セッション行を変更せず、大文字小文字を区別しない `observedVIN` 列とアカウント+VIN索引を追加します。
+    ///
+    /// CHECKは空文字と、先頭・末尾の半角スペース、タブ、LF、CR、垂直タブ、改ページを拒否します。
+    /// `ConnectionSession.normalizedObservedVIN` が除くそれ以外のUnicode空白(NBSP、NEL、U+2028、全角スペース等)は
+    /// SQLiteで判定できないためCHECKでは拒否せず、Domain側の正規化だけで除きます。
+    /// - Parameter database: 列と索引を追加するSQLite接続。
+    /// - Throws: 列または索引の追加に失敗した場合のGRDBエラー。
+    nonisolated private static func addConnectionSessionObservedVIN(in database: Database) throws {
+        try database.execute(sql: """
+            ALTER TABLE connection_sessions ADD COLUMN observedVIN TEXT COLLATE NOCASE
+                CHECK (observedVIN IS NULL OR (
+                    length(observedVIN) > 0
+                    AND observedVIN = trim(observedVIN, ' ' || char(9, 10, 11, 12, 13))
+                ));
+            CREATE INDEX connection_sessions_account_observed_vin
+                ON connection_sessions(accountIdentifier, observedVIN);
+            """)
+    }
+
+    /// 取得manifest表へアダプターのチップ種別とATMA判定結果のNULL可列を追加します。
+    ///
+    /// 責務: 既存manifest行を変更せず、安定文字列だけを受け付ける2列を追加します。
+    /// - Parameter database: 列を追加するSQLite接続。
+    /// - Throws: 列追加に失敗した場合のGRDBエラー。
+    nonisolated private static func addConnectionSessionAcquisitionAdapterProbeColumns(in database: Database) throws {
+        try database.execute(sql: """
+            ALTER TABLE connection_session_acquisition_manifests ADD COLUMN adapterChipFamily TEXT
+                CHECK (adapterChipFamily IS NULL
+                    OR adapterChipFamily IN ('stn', 'elm327Genuine', 'elm327Clone', 'unknown'));
+            ALTER TABLE connection_session_acquisition_manifests ADD COLUMN adapterMonitorProbeOutcome TEXT
+                CHECK (adapterMonitorProbeOutcome IS NULL
+                    OR (adapterChipFamily IS NOT NULL AND adapterMonitorProbeOutcome IN (
+                        'framesReceived', 'unsupported', 'bufferFull', 'silent', 'busError', 'stopped'
+                    )));
+            """)
+    }
+
+    /// 取得manifestの不変性triggerを追加列も比較する定義へ置き換えます。
+    ///
+    /// 責務: seal遷移以外の更新と、seal時のチップ種別・ATMA判定結果の変更を拒否するtriggerを再作成します。
+    /// - Parameter database: triggerを再作成するSQLite接続。
+    /// - Throws: triggerの削除または作成に失敗した場合のGRDBエラー。
+    nonisolated private static func recreateAcquisitionManifestUpdateGuard(in database: Database) throws {
+        try database.execute(sql: """
+            DROP TRIGGER acquisition_manifest_update_guard;
+
+            CREATE TRIGGER acquisition_manifest_update_guard
+            BEFORE UPDATE ON connection_session_acquisition_manifests
+            WHEN NOT (
+                OLD.isSealed = 0 AND NEW.isSealed = 1
+                AND OLD.sessionID = NEW.sessionID
+                AND OLD.manifestVersion = NEW.manifestVersion
+                AND OLD.applicationMarketingVersion = NEW.applicationMarketingVersion
+                AND OLD.applicationBuildVersion = NEW.applicationBuildVersion
+                AND OLD.schemaContractVersion = NEW.schemaContractVersion
+                AND OLD.pollingPolicyVersion = NEW.pollingPolicyVersion
+                AND OLD.acquisitionPlatform = NEW.acquisitionPlatform
+                AND OLD.modelInputManifestVersion = NEW.modelInputManifestVersion
+                AND OLD.adapterChipFamily IS NEW.adapterChipFamily
+                AND OLD.adapterMonitorProbeOutcome IS NEW.adapterMonitorProbeOutcome
+                AND EXISTS (
+                    SELECT 1 FROM connection_session_acquisition_raw_boundaries
+                    WHERE sessionID = OLD.sessionID AND eventKind = 'started'
+                )
+                AND (
+                    NOT EXISTS (
+                        SELECT 1 FROM connection_session_acquisition_ordered_pids
+                        WHERE sessionID = OLD.sessionID
+                    )
+                    OR (
+                        (SELECT MIN(ordinal) FROM connection_session_acquisition_ordered_pids WHERE sessionID = OLD.sessionID) = 0
+                        AND (SELECT MAX(ordinal) FROM connection_session_acquisition_ordered_pids WHERE sessionID = OLD.sessionID)
+                            = (SELECT COUNT(*) - 1 FROM connection_session_acquisition_ordered_pids WHERE sessionID = OLD.sessionID)
+                    )
+                )
+            )
+            BEGIN
+                SELECT RAISE(ABORT, 'acquisition manifest is immutable');
+            END;
+            """)
     }
 
     /// 接続セッション内の連続取得区間を保持する表を追加します。

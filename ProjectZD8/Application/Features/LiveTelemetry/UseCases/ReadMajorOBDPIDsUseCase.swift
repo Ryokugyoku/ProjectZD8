@@ -68,9 +68,18 @@ struct ReadMajorOBDPIDsUseCase {
     /// - Returns: 収集有効かつ数式確認済みの定義一覧。
     /// - Throws: PIDカタログ読込に失敗した場合または対象が空の場合のエラー。
     func loadDefinitions(for capabilities: [VehiclePIDCapability]) throws -> [OBDPIDDefinition] {
-        let enabled = Set(capabilities.filter(\.isCollectionEnabled).map(\.id.request))
+        try loadDefinitions(matching: Set(capabilities.filter(\.isCollectionEnabled).map(\.id.request)))
+    }
+
+    /// 指定Service/PIDに一致する数値化可能定義を読み込みます。
+    ///
+    /// 責務: 取得対象として確定したService/PID集合を安全に数値化できるPID定義一覧へ変換します。
+    /// - Parameter requests: 取得対象として確定したService/PID集合。
+    /// - Returns: 指定Service/PIDに一致し数式確認済みの定義一覧。
+    /// - Throws: PIDカタログ読込に失敗した場合または対象が空の場合は `OBDPIDTelemetryError.definitionCatalogUnavailable`。
+    func loadDefinitions(matching requests: Set<OBDPIDRequest>) throws -> [OBDPIDDefinition] {
         let definitions = try loadDefinitions().filter {
-            enabled.contains(OBDPIDRequest(service: $0.service, pid: $0.pid))
+            requests.contains(OBDPIDRequest(service: $0.service, pid: $0.pid))
         }
         guard !definitions.isEmpty else { throw OBDPIDTelemetryError.definitionCatalogUnavailable }
         return definitions

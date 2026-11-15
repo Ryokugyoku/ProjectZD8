@@ -45,7 +45,8 @@ final class ConnectionSessionAcquisitionManifestTests: XCTestCase {
                 "orderedRequestedPIDs",
                 "pidDefinitions",
                 "acquisitionPlatform",
-                "modelInputManifestVersion"
+                "modelInputManifestVersion",
+                "adapterProbeEvidence"
             ]
         )
     }

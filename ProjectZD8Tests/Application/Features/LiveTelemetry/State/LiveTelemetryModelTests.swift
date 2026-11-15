@@ -16,7 +16,7 @@ final class LiveTelemetryModelTests: XCTestCase {
             )
         )
 
-        model.send(.startRequested(endpoint, vehicleID, vehicleModelCode: nil))
+        model.send(.startRequested(LiveTelemetryStartRequest(endpoint: endpoint, vehicleID: vehicleID, vehicleModelCode: nil)))
         for _ in 0..<100 {
             if await telemetry.readCount >= 2 { break }
             try? await Task.sleep(for: .milliseconds(10))
@@ -46,7 +46,7 @@ final class LiveTelemetryModelTests: XCTestCase {
             systemSleepInhibitor: systemSleepInhibitor
         )
 
-        model.send(.startRequested(endpoint, vehicleID, vehicleModelCode: nil))
+        model.send(.startRequested(LiveTelemetryStartRequest(endpoint: endpoint, vehicleID: vehicleID, vehicleModelCode: nil)))
         for _ in 0..<100 where model.state.phase != .failed {
             await Task.yield()
         }
@@ -71,7 +71,7 @@ final class LiveTelemetryModelTests: XCTestCase {
             sessionDidEnd: { endReasons.append($0) },
             systemSleepInhibitor: systemSleepInhibitor
         )
-        model.send(.startRequested(endpoint, vehicleID, vehicleModelCode: nil))
+        model.send(.startRequested(LiveTelemetryStartRequest(endpoint: endpoint, vehicleID: vehicleID, vehicleModelCode: nil)))
         XCTAssertEqual(systemSleepInhibitor.connectionStates, [true])
         for _ in 0..<100 where model.state.phase == .reading {
             try? await Task.sleep(for: .milliseconds(10))
@@ -106,7 +106,7 @@ final class LiveTelemetryModelTests: XCTestCase {
             systemSleepInhibitor: systemSleepInhibitor
         )
 
-        model.send(.startRequested(endpoint, vehicleID, vehicleModelCode: nil))
+        model.send(.startRequested(LiveTelemetryStartRequest(endpoint: endpoint, vehicleID: vehicleID, vehicleModelCode: nil)))
         for _ in 0..<150 where model.state.failureKey == nil {
             try? await Task.sleep(for: .milliseconds(10))
         }
@@ -132,7 +132,7 @@ final class LiveTelemetryModelTests: XCTestCase {
             distanceDidChange: { observations.append($0) }
         )
 
-        model.send(.startRequested(endpoint, vehicleID, vehicleModelCode: nil))
+        model.send(.startRequested(LiveTelemetryStartRequest(endpoint: endpoint, vehicleID: vehicleID, vehicleModelCode: nil)))
         for _ in 0..<100 where observations.isEmpty {
             try? await Task.sleep(for: .milliseconds(10))
         }
@@ -154,7 +154,7 @@ final class LiveTelemetryModelTests: XCTestCase {
             distanceDidChange: { observations.append($0) }
         )
 
-        model.send(.startRequested(endpoint, vehicleID, vehicleModelCode: nil))
+        model.send(.startRequested(LiveTelemetryStartRequest(endpoint: endpoint, vehicleID: vehicleID, vehicleModelCode: nil)))
         for _ in 0..<100 where observations.isEmpty {
             try? await Task.sleep(for: .milliseconds(10))
         }
@@ -177,7 +177,7 @@ final class LiveTelemetryModelTests: XCTestCase {
             distanceDidChange: { observations.append($0) }
         )
 
-        model.send(.startRequested(endpoint, vehicleID, vehicleModelCode: ZD8VehicleModelPolicy.modelCode))
+        model.send(.startRequested(LiveTelemetryStartRequest(endpoint: endpoint, vehicleID: vehicleID, vehicleModelCode: ZD8VehicleModelPolicy.modelCode)))
         for _ in 0..<100 where model.state.phase != .loaded || observations.isEmpty {
             try? await Task.sleep(for: .milliseconds(10))
         }
