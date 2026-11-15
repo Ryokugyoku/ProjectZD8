@@ -116,12 +116,14 @@ final class AdapterLinkLifecycleTransitionTests: XCTestCase {
     /// 稼働中に条件が崩れたら、全状態でリンクを停止し通知を取り下げ、記録中なら停止を要求します。
     ///
     /// 責務: サインアウト・既定削除・Classic・シリアル・監視停止の各条件で、状態ごとの巻き戻しとリンク停止を確認します。
+    /// 記録中の停止理由は、サインアウト=`accountSignedOut`、既定削除=`connectionTargetLost`、Classic・シリアルへの変更=`superseded`
+    /// (別のアダプターへの置き換え、管理チャットの決定 i)、監視停止=`supervisionStopped` です。
     func testOperatingConditionsLostTearDownEveryStateAndStopLink() {
         let lostConditions: [(AdapterLinkSupervisionConditions, AdapterLinkRecordingStopReason)] = [
             (F.conditions(isSignedIn: false), .accountSignedOut),
             (F.conditions(defaultAdapterPreference: nil), .connectionTargetLost),
-            (F.conditions(defaultAdapterPreference: F.classicPreference), .connectionTargetLost),
-            (F.conditions(defaultAdapterPreference: F.serialPreference), .connectionTargetLost),
+            (F.conditions(defaultAdapterPreference: F.classicPreference), .superseded),
+            (F.conditions(defaultAdapterPreference: F.serialPreference), .superseded),
             (F.conditions(isSupervisionStarted: false), .supervisionStopped),
         ]
         for state in F.allStates {

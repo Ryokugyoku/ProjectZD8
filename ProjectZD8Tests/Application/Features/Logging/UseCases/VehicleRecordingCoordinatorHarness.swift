@@ -51,6 +51,12 @@ final class VehicleRecordingCoordinatorHarness {
     /// テレメトリ停止の呼び出し回数です。
     private(set) var stopTelemetryCount = 0
 
+    /// テレメトリ停止に渡された終了理由です(呼び出し順)。
+    private(set) var stopTelemetryReasons: [ConnectionSessionEndReason] = []
+
+    /// テレメトリへ伝えられたリンク可用性の変化です(呼び出し順)。
+    private(set) var telemetryLinkAvailabilityChanges: [Bool] = []
+
     /// 監視へ記録終了を伝えた回数です。
     private(set) var finishCount = 0
 
@@ -84,7 +90,7 @@ final class VehicleRecordingCoordinatorHarness {
 
     /// 調停役の出力クロージャを記録先へ結び付けます。
     ///
-    /// 責務: テレメトリ開始・停止、記録終了、手動使用の開始・終了を回数と順序へ記録します。
+    /// 責務: テレメトリ開始・停止(理由)・リンク可用性、記録終了、手動使用の開始・終了を回数と順序へ記録します。
     /// - Parameter connectsTelemetry: テレメトリ開始の出力を設定するかどうか。
     private func connectOutputs(connectsTelemetry: Bool) {
         if connectsTelemetry {
@@ -93,9 +99,13 @@ final class VehicleRecordingCoordinatorHarness {
                 self?.events.append("telemetry.start")
             }
         }
-        coordinator.stopTelemetry = { [weak self] _ in
+        coordinator.stopTelemetry = { [weak self] reason in
             self?.stopTelemetryCount += 1
+            self?.stopTelemetryReasons.append(reason)
             self?.events.append("telemetry.stop")
+        }
+        coordinator.telemetryLinkAvailabilityDidChange = { [weak self] isAvailable in
+            self?.telemetryLinkAvailabilityChanges.append(isAvailable)
         }
         coordinator.supervisedRecordingDidFinish = { [weak self] reason in
             self?.finishCount += 1

@@ -78,6 +78,19 @@ final class LiveTelemetryPauseWakeEvaluatorTests: XCTestCase {
         XCTAssertEqual(act(.retryDue, pausedAt + retry), .attemptResume(.reconnectLink))
     }
 
+    /// 一時停止に入った時点で待たずに処理させる起床理由は、リンク断の途切れでリンクが使えると分かっている時のリンク復帰だけです。
+    ///
+    /// 責務: 原因2通り×リンク可用性3通りの組合せで、リンク断かつ使える時だけ `.signal(.linkRestored)`、他は `nil` になることを確認します(U2 受け入れ条件 5)。
+    func testEntryReasonOnlyForLinkLossWithAvailableLink() {
+        let evaluator = LiveTelemetryPauseWakeEvaluator()
+        XCTAssertEqual(evaluator.entryReason(for: .linkLost, linkAvailability: .available), .signal(.linkRestored))
+        XCTAssertNil(evaluator.entryReason(for: .linkLost, linkAvailability: .unknown))
+        XCTAssertNil(evaluator.entryReason(for: .linkLost, linkAvailability: .unavailable))
+        for availability in [LiveTelemetryLinkAvailability.available, .unknown, .unavailable] {
+            XCTAssertNil(evaluator.entryReason(for: .responseStall, linkAvailability: availability), "\(availability)")
+        }
+    }
+
     /// 原因ごとの復帰段階は、リンク断なら再接続、応答途絶ならATZ再初期化です。
     ///
     /// 責務: 復帰段階の対応を確認します。
