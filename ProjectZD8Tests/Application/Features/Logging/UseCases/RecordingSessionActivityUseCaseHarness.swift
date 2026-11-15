@@ -1,4 +1,5 @@
 import Foundation
+import XCTest
 @testable import ProjectZD8
 
 /// `RecordingSessionActivityUseCase` のテスト用に偽の境界・時刻・前面状態を束ねます。
@@ -58,7 +59,7 @@ final class RecordingSessionActivityUseCaseHarness {
     /// 責務: 状態変化を渡し、受け付けた操作が終わってから戻ります。
     func send(_ state: LiveTelemetryState) async {
         useCase.telemetryStateDidChange(state)
-        await useCase.waitForPendingOperations()
+        await waitForOperations()
     }
 
     /// 前面復帰を渡し、境界操作の完了まで待ちます。
@@ -66,7 +67,17 @@ final class RecordingSessionActivityUseCaseHarness {
     /// 責務: 前面復帰を渡し、受け付けた操作が終わってから戻ります。
     func enterForeground() async {
         useCase.appDidEnterForeground()
-        await useCase.waitForPendingOperations()
+        await waitForOperations()
+    }
+
+    /// 受け付けた境界操作の完了を、上限付きで待ちます。
+    ///
+    /// 責務: 操作が終わらない場合は待ち続けず、`XCTFail` で明示的に失敗させます。
+    private func waitForOperations(file: StaticString = #filePath, line: UInt = #line) async {
+        let useCase = useCase!
+        _ = await LiveTelemetryBoundedWaiter.value(
+            "境界操作の完了", file: file, line: line, of: { await useCase.waitForPendingOperations() }
+        )
     }
 
     /// 写真付きの登録車両を作ります。
