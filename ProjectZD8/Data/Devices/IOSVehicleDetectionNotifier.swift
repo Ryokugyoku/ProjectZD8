@@ -17,7 +17,7 @@ final class IOSVehicleDetectionNotifier: NSObject, VehicleDetectionNotificationP
     /// 許可状態の判定方針です。
     private let authorizationPolicy = VehicleDetectionNotificationAuthorizationPolicy()
     /// 提示失敗を記録するロガーです。
-    private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "ProjectZD8", category: "VehicleDetectionNotification")
+    private let logger = Logger(subsystem: DiagnosticsLogSubsystem.identifier, category: "VehicleDetectionNotification")
     /// [記録開始]が選ばれたときに呼ぶ処理です。
     private var recordingStartSelected: (@MainActor () -> Void)?
     /// 準備より先に[記録開始]が選ばれていたかどうかです(通知からの起動直後)。

@@ -14,7 +14,7 @@ final class GRDBConnectionSessionRepository:
     /// SQLiteの直列化された読書き境界です。
     private let databaseQueue: DatabaseQueue
     /// GRDB詳細を内向き診断へ保持するloggerです。
-    private let logger = Logger(subsystem: "ProjectZD8", category: "ConnectionSessionPersistence")
+    private let logger = Logger(subsystem: DiagnosticsLogSubsystem.identifier, category: "ConnectionSessionPersistence")
 
     /// 指定DB Queueへ製品版Migrationを適用して生成します。
     ///

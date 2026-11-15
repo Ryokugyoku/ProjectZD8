@@ -9,7 +9,7 @@ final class GRDBConnectionSessionAcquisitionRepository: ConnectionSessionAcquisi
     /// 匿名取得性能eventの通知先です。
     private let performanceEvents: any AcquisitionPerformanceEventPort
     /// GRDB詳細を内向き診断へ保持するloggerです。
-    private let logger = Logger(subsystem: "ProjectZD8", category: "AcquisitionEvidencePersistence")
+    private let logger = Logger(subsystem: DiagnosticsLogSubsystem.identifier, category: "AcquisitionEvidencePersistence")
 
     /// 指定DB Queueへ全forward-only migrationを適用して生成します。
     ///

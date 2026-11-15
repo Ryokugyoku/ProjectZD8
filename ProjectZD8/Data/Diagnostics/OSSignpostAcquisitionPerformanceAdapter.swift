@@ -21,7 +21,7 @@ final class OSSignpostAcquisitionPerformanceAdapter: @unchecked Sendable, Acquis
         precondition(Self.isValid(runIdentifier: runIdentifier))
         self.runIdentifier = runIdentifier
         log = OSLog(
-            subsystem: Bundle.main.bundleIdentifier ?? "ProjectZD8",
+            subsystem: DiagnosticsLogSubsystem.identifier,
             category: "AcquisitionPerformance"
         )
     }

@@ -38,7 +38,8 @@ enum MacOSApplicationComposition: ApplicationPlatformComposing {
             performanceEvents: performanceEvents,
             sessionDidEnd: sessionDidEnd,
             distanceDidChange: distanceDidChange,
-            systemSleepInhibitor: ProcessInfoVehicleConnectionSystemSleepInhibitor()
+            systemSleepInhibitor: ProcessInfoVehicleConnectionSystemSleepInhibitor(),
+            acquisitionDiagnostics: OSLogLiveTelemetryAcquisitionDiagnosticsAdapter()
         )
     }
 

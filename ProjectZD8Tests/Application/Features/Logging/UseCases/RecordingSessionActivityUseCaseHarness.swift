@@ -11,6 +11,8 @@ final class RecordingSessionActivityUseCaseHarness {
     let photos = SessionActivityVehiclePhotoPortSpy()
     /// 診断の偽物です。
     let diagnostics = RecordingSessionActivityDiagnosticsSpy()
+    /// 状態遷移の診断の偽物です。
+    let lifecycleDiagnostics = RecordingSessionActivityLifecycleDiagnosticsSpy()
     /// 偽の現在時刻です。
     var currentDate = Date(timeIntervalSince1970: 1_000)
     /// 偽の前面状態です。
@@ -30,7 +32,8 @@ final class RecordingSessionActivityUseCaseHarness {
             diagnostics: diagnostics,
             now: { [unowned self] in currentDate },
             isForeground: { [unowned self] in foreground },
-            vehicleProfile: { [unowned self] id in profiles[id] }
+            vehicleProfile: { [unowned self] id in profiles[id] },
+            lifecycleDiagnostics: lifecycleDiagnostics
         )
     }
 

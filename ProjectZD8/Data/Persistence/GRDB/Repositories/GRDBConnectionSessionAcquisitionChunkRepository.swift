@@ -9,7 +9,7 @@ nonisolated final class GRDBConnectionSessionAcquisitionChunkRepository: Connect
     /// 採番済みRawの追加と親セッション集計の更新を担う既存の書き込み部品です。
     private let rawLogAppender = GRDBConnectionSessionRawLogAppender()
     /// GRDB詳細を内向き診断へ保持するloggerです。
-    private let logger = Logger(subsystem: "ProjectZD8", category: "AcquisitionChunkPersistence")
+    private let logger = Logger(subsystem: DiagnosticsLogSubsystem.identifier, category: "AcquisitionChunkPersistence")
 
     /// 指定DB Queueへ全forward-only migrationを適用して生成します。
     ///

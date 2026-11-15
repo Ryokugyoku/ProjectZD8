@@ -5,7 +5,7 @@ import OSLog
 @MainActor
 final class OSLogVehicleRecordingDiagnosticsAdapter: VehicleRecordingDiagnosticsPort {
     /// 出力先のロガーです。
-    private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "ProjectZD8", category: "VehicleRecording")
+    private let logger = Logger(subsystem: DiagnosticsLogSubsystem.identifier, category: "VehicleRecording")
 
     /// 記録開始要求を断ったことを出力します。
     ///
