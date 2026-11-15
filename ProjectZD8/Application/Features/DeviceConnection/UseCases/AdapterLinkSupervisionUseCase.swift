@@ -25,7 +25,7 @@ final class AdapterLinkSupervisionUseCase {
     /// 車両検知通知の能力です。
     private let notifications: any VehicleDetectionNotificationPort
 
-    /// 記録の開始・停止を依頼する境界です。
+    /// 記録の開始・停止とリンク可用性の変化を伝える境界です。
     private let recordingControl: any AdapterLinkRecordingControlPort
 
     /// 現在時刻の取得元です。
@@ -36,6 +36,9 @@ final class AdapterLinkSupervisionUseCase {
 
     /// 状態・イベント・条件から次の状態と作用を決める純粋な遷移です。
     private let transition: AdapterLinkSupervisionTransition
+
+    /// 記録中のリンク状態の変化から、記録側へ伝える可用性の変化を決める方針です。
+    private let recordingLinkAvailability = AdapterLinkRecordingLinkAvailabilityPolicy()
 
     /// `start()` 済みで `stop()` されていないかどうかです。
     private var isSupervisionStarted = false
@@ -119,7 +122,7 @@ final class AdapterLinkSupervisionUseCase {
 
     /// 監視を停止します。
     ///
-    /// 責務: 常駐リンクを停止し、通知を取り下げ、記録中なら停止を要求します。
+    /// 責務: 常駐リンクを停止し、通知を取り下げ、記録中なら監視の停止(終了理由は接続断)として停止を要求します。
     func stop() {
         isSupervisionStarted = false
         send(.operatingConditionsChanged)
@@ -166,7 +169,7 @@ final class AdapterLinkSupervisionUseCase {
 
     /// 常駐リンク以外の経路(手動接続)がアダプターを使い始めたことを反映します。
     ///
-    /// 責務: 使い終えるまで初期化・車両確認を抑止し、進行中の確認・検知を取り消します。記録中なら停止を要求します。リンクは止めません。
+    /// 責務: 使い終えるまで初期化・車両確認を抑止し、進行中の確認・検知を取り消します。記録中なら置き換えとして停止を要求します。リンクは止めません。
     func externalAdapterUseDidBegin() {
         isExternalAdapterUseActive = true
         send(.externalAdapterUseBegan)
@@ -203,10 +206,13 @@ final class AdapterLinkSupervisionUseCase {
 
     /// 1件のイベントを遷移へ渡し、結果の状態を反映して作用を実行します。
     ///
-    /// 責務: 現在の条件を組み立てて遷移結果を得て、状態の更新・変化通知・作用の実行を順に行います。
+    /// 責務: 現在の条件を組み立てて遷移結果を得て、状態の更新・変化通知・作用の実行を順に行い、
+    /// 記録中のリンク可用性の変化があれば最後に記録側へ伝えます。
     /// - Parameter event: 処理するイベント。
     private func process(_ event: AdapterLinkSupervisionEvent) {
-        let result = transition.result(from: state, on: event, conditions: currentConditions())
+        let conditions = currentConditions()
+        let result = transition.result(from: state, on: event, conditions: conditions)
+        let availabilityChange = recordingLinkAvailability.availabilityChange(on: event, from: state, conditions: conditions)
         if case let .linkStateChanged(newLinkState) = event {
             linkState = newLinkState
         }
@@ -215,6 +221,9 @@ final class AdapterLinkSupervisionUseCase {
             stateDidChange?(state)
         }
         result.effects.forEach(execute)
+        if let availabilityChange {
+            recordingControl.recordingLinkAvailabilityDidChange(isAvailable: availabilityChange)
+        }
     }
 
     /// 遷移へ渡す現在の条件を返します。
@@ -265,8 +274,8 @@ final class AdapterLinkSupervisionUseCase {
             notifications.dismiss()
         case let .requestRecordingStart(request):
             recordingControl.requestRecordingStart(request)
-        case .requestRecordingStop:
-            recordingControl.requestRecordingStop()
+        case let .requestRecordingStop(reason):
+            recordingControl.requestRecordingStop(reason: reason)
         case .completeFinishing:
             send(.finishingDidComplete)
         }

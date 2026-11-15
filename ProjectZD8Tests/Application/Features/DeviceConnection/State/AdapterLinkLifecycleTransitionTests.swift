@@ -22,13 +22,16 @@ final class AdapterLinkLifecycleTransitionTests: XCTestCase {
     ///
     /// 責務: 記録中は停止要求を出して終了へ、終了中は終了のまま、それ以外は待機へ戻り、どの状態でも進行中の処理を取り消して通知を取り下げる期待値を返します。
     /// リンク断の期待値は `expectedLinkLossTeardown(from:)` で、記録中の扱いが異なります(U2 受け入れ条件 1・9〜11)。
-    /// - Parameter state: 巻き戻す前の状態。
+    /// - Parameters:
+    ///   - state: 巻き戻す前の状態。
+    ///   - reason: 記録中の停止要求に添える理由(仕様 9〜11)。
     /// - Returns: 期待する次の状態と作用。
     private func expectedConditionsLostTeardown(
-        from state: AdapterLinkSupervisionState
+        from state: AdapterLinkSupervisionState,
+        reason: AdapterLinkRecordingStopReason
     ) -> (state: AdapterLinkSupervisionState, effects: [AdapterLinkSupervisionEffect]) {
         switch state {
-        case .recording: (.finishing, [.cancelOperations, .dismissNotification, .requestRecordingStop])
+        case .recording: (.finishing, [.cancelOperations, .dismissNotification, .requestRecordingStop(reason)])
         case .finishing: (.finishing, [.cancelOperations, .dismissNotification])
         default: (.standby, [.cancelOperations, .dismissNotification])
         }
@@ -114,16 +117,16 @@ final class AdapterLinkLifecycleTransitionTests: XCTestCase {
     ///
     /// 責務: サインアウト・既定削除・Classic・シリアル・監視停止の各条件で、状態ごとの巻き戻しとリンク停止を確認します。
     func testOperatingConditionsLostTearDownEveryStateAndStopLink() {
-        let lostConditions: [AdapterLinkSupervisionConditions] = [
-            F.conditions(isSignedIn: false),
-            F.conditions(defaultAdapterPreference: nil),
-            F.conditions(defaultAdapterPreference: F.classicPreference),
-            F.conditions(defaultAdapterPreference: F.serialPreference),
-            F.conditions(isSupervisionStarted: false),
+        let lostConditions: [(AdapterLinkSupervisionConditions, AdapterLinkRecordingStopReason)] = [
+            (F.conditions(isSignedIn: false), .accountSignedOut),
+            (F.conditions(defaultAdapterPreference: nil), .connectionTargetLost),
+            (F.conditions(defaultAdapterPreference: F.classicPreference), .connectionTargetLost),
+            (F.conditions(defaultAdapterPreference: F.serialPreference), .connectionTargetLost),
+            (F.conditions(isSupervisionStarted: false), .supervisionStopped),
         ]
         for state in F.allStates {
-            let expected = expectedConditionsLostTeardown(from: state)
-            for conditions in lostConditions {
+            for (conditions, reason) in lostConditions {
+                let expected = expectedConditionsLostTeardown(from: state, reason: reason)
                 let result = transition.operatingConditionsChanged(from: state, conditions: conditions)
                 A.assertResult(result, state: expected.state, effects: expected.effects + [.stopLink], "\(state)")
                 XCTAssertFalse(result.effects.contains { if case .startLink = $0 { true } else { false } }, "\(state)")
@@ -137,7 +140,7 @@ final class AdapterLinkLifecycleTransitionTests: XCTestCase {
     func testOperatingConditionsSwitchToOtherBLERestartsLinkInEveryState() {
         let conditions = F.conditions(defaultAdapterPreference: F.otherBLEPreference, linkPreference: F.blePreference)
         for state in F.allStates {
-            let expected = expectedConditionsLostTeardown(from: state)
+            let expected = expectedConditionsLostTeardown(from: state, reason: .superseded)
             let result = transition.operatingConditionsChanged(from: state, conditions: conditions)
             A.assertResult(
                 result, state: expected.state, effects: expected.effects + [.stopLink, .prepareNotifications, .startLink(F.otherBLEPreference)], "\(state)"
@@ -259,12 +262,12 @@ final class AdapterLinkLifecycleTransitionTests: XCTestCase {
         A.assertIgnored(result, from: .standby)
     }
 
-    /// `tornDown(from:)`(リンクを失ったときの巻き戻し)は全状態で、仕様どおりの巻き戻し先へ移します。
+    /// `linkLost(from:)`(リンクを失ったときの巻き戻し)は全状態で、仕様どおりの巻き戻し先へ移します。
     ///
     /// 責務: 巻き戻しの公開メソッド単体で、記録中は停止を要求せず記録中のまま、それ以外は状態ごとの次の状態と作用(リンク停止なし)を確認します(U2 受け入れ条件 1)。
     func testTornDownForEveryState() {
         for state in F.allStates {
-            assertLinkLossResult(transition.tornDown(from: state), from: state, "\(state)")
+            assertLinkLossResult(transition.linkLost(from: state), from: state, "\(state)")
         }
     }
 }

@@ -67,14 +67,20 @@ enum IOSAdapterLinkComposition {
         )
     }
 
-    /// 調停役のテレメトリ開始・停止の出力をLiveTelemetryへ結び付けます。
+    /// 調停役のテレメトリ開始・停止・リンク可用性の出力をLiveTelemetryへ結び付けます。
     ///
-    /// 責務: Loggingの記録開始要求をLiveTelemetryの開始要求へ写し、停止をLiveTelemetryの停止操作へ写します。
+    /// 責務: Loggingの記録開始要求をLiveTelemetryの開始要求へ写し、理由付きの停止をユーザーの[切断]とは別の終了操作へ、
+    /// 記録中のリンク可用性の変化をリンク状態の通知へ写します。常駐リンクで始めた記録の間は、取得のトランスポートを常駐リンクに限らせます。
     /// 車両ありなら登録済み車両(型式コード付き)、車両なしなら未登録車両(標準PIDのみ)として取得を始めます。
     /// - Parameters:
     ///   - coordinator: 記録の調停役。
     ///   - liveTelemetryModel: テレメトリの取得を保持するモデル。
-    static func connectTelemetry(of coordinator: VehicleRecordingCoordinator, to liveTelemetryModel: LiveTelemetryModel) {
+    ///   - residentLink: 取得のトランスポートを選ぶ常駐リンク一式。
+    static func connectTelemetry(
+        of coordinator: VehicleRecordingCoordinator,
+        to liveTelemetryModel: LiveTelemetryModel,
+        residentLink: IOSResidentAdapterLink
+    ) {
         coordinator.startTelemetry = { request in
             let vehicle: LiveTelemetryVehicleContext = request.vehicle.map {
                 .registered($0.id, vehicleModelCode: request.vehicleModelCode)
@@ -83,7 +89,13 @@ enum IOSAdapterLinkComposition {
                 .startRequested(request.endpoint, vehicle, adapterProbeEvidence: request.adapterProbeEvidence)
             )
         }
-        coordinator.stopTelemetry = { liveTelemetryModel.send(.stopRequested) }
+        coordinator.stopTelemetry = { reason in liveTelemetryModel.send(.endRequested(reason)) }
+        coordinator.telemetryLinkAvailabilityDidChange = { isAvailable in
+            liveTelemetryModel.send(.adapterLinkAvailabilityChanged(isAvailable: isAvailable))
+        }
+        residentLink.transportSelector.isResidentLinkRecordingActive = { [weak coordinator] in
+            coordinator?.phase == .recording
+        }
     }
 }
 #endif

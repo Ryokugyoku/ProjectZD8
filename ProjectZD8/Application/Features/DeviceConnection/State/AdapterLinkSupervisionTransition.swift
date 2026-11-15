@@ -109,7 +109,7 @@ nonisolated struct AdapterLinkSupervisionTransition: Sendable {
         case .recordingStartSelected:
             recording.recordingStartSelected(from: state, conditions: conditions)
         case let .recordingDidFinish(endReason):
-            recording.recordingDidFinish(endReason: endReason, from: state)
+            recording.recordingDidFinish(endReason: endReason, from: state, conditions: conditions)
         case .finishingDidComplete:
             recording.finishingDidComplete(from: state)
         default:

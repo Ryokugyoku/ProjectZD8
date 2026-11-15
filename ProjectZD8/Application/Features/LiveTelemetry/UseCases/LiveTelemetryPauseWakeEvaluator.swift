@@ -37,6 +37,22 @@ nonisolated struct LiveTelemetryPauseWakeEvaluator: Sendable {
         }
     }
 
+    /// 一時停止に入った時点で、待たずに処理させる起床理由を返します。
+    ///
+    /// 責務: リンク断で一時停止に入る時に、最後に受けた通知からリンクが使えると分かっていれば、リンク復帰を届いたものとして扱わせます。
+    /// 回復段階の最中に届いたリンク復帰が、通り道が閉じていたために失われないようにするためです。
+    /// - Parameters:
+    ///   - cause: 一時停止に入った途切れの原因。
+    ///   - linkAvailability: 一時停止に入る時点のリンク可用性。
+    /// - Returns: 原因がリンク断でリンクが使える場合は `.signal(.linkRestored)`。それ以外(不明・使えない・応答途絶)は `nil`。
+    func entryReason(
+        for cause: LiveTelemetryInterruptionCause,
+        linkAvailability: LiveTelemetryLinkAvailability
+    ) -> LiveTelemetryPauseWakeReason? {
+        guard cause == .linkLost, linkAvailability == .available else { return nil }
+        return .signal(.linkRestored)
+    }
+
     /// 一時停止中の復帰で試す回復段階を返します。
     ///
     /// 責務: リンク断なら再接続、応答途絶ならリンクを保ったままの `ATZ` 再初期化を選びます。

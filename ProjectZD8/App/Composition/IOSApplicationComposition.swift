@@ -36,7 +36,8 @@ enum IOSApplicationComposition: ApplicationPlatformComposing {
             try makeBluetoothOBDTransport(
                 for: endpoint,
                 configuration: externalAccessoryConfiguration,
-                residentLink: residentLink
+                residentLink: residentLink,
+                isTelemetry: true
             )
         }
         let telemetry = DemoAwareOBDPIDTelemetryAdapter(live: live, demo: DemoOBDPIDTelemetryAdapter())
@@ -131,7 +132,8 @@ enum IOSApplicationComposition: ApplicationPlatformComposing {
                         try makeBluetoothOBDTransport(
                             for: endpoint,
                             configuration: externalAccessoryConfiguration,
-                            residentLink: residentLink
+                            residentLink: residentLink,
+                            isTelemetry: false
                         )
                     },
                     demo: DemoVehicleIdentificationAdapter()
@@ -347,22 +349,30 @@ enum IOSApplicationComposition: ApplicationPlatformComposing {
     ///
     /// 責務: 1件のBLEまたはBluetooth Classic終端を対応するOBDコマンドTransportへ変換します。
     /// BLE終端は、常駐リンクが同じアダプターを `ready` で保持していれば常駐リンク上のTransportを、そうでなければ自前のTransportを使います。
+    /// ただしPID取得では、常駐リンクで始めた記録の間は常駐リンクだけを使い、`ready` でなければ自前の接続を開かずに失敗します。
     /// - Parameters:
     ///   - endpoint: 選択済みアダプターの物理終端。
     ///   - configuration: Bluetooth Classic用にInfo.plistから読み取ったExternalAccessoryプロトコル許可集合。
     ///   - residentLink: 常駐リンク一式。
+    ///   - isTelemetry: PID取得(回復操作を含む)のTransportなら `true`、車両識別なら `false`。
     /// - Returns: 選択済み終端のELM/STN連続バイト通信に使用するTransport。
     /// - Throws: 未構成、対象外Transport、UUID不正、または通信生成条件を満たさない場合の識別エラー。
+    ///   常駐リンクで始めた記録の取得で常駐リンクが `ready` でない場合は `OBDPIDTelemetryError.connectionLost`。
     private static func makeBluetoothOBDTransport(
         for endpoint: OBDConnectionEndpoint,
         configuration: IOSExternalAccessoryProtocolConfiguration,
-        residentLink: IOSResidentAdapterLink
+        residentLink: IOSResidentAdapterLink,
+        isTelemetry: Bool
     ) throws -> any OBDCommandTransport {
         switch endpoint.transport {
         case .bluetoothLowEnergy:
-            return try residentLink.transportSelector.transport(for: endpoint) {
+            let makeOwnTransport: (OBDConnectionEndpoint) throws -> any OBDCommandTransport = {
                 try AppleCoreBluetoothOBDTransport(endpoint: $0)
             }
+            guard isTelemetry else {
+                return try residentLink.transportSelector.transport(for: endpoint, fallback: makeOwnTransport)
+            }
+            return try residentLink.transportSelector.telemetryTransport(for: endpoint, fallback: makeOwnTransport)
         case .bluetoothClassic:
             return try IOSExternalAccessoryOBDTransport(
                 endpoint: endpoint,

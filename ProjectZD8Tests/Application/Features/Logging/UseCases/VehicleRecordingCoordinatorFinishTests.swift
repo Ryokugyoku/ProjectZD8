@@ -45,7 +45,7 @@ final class VehicleRecordingCoordinatorFinishTests: XCTestCase {
     func testStopRequestStopsTelemetryAndFinishesOnceAfterTelemetryEnds() async throws {
         let harness = try await recordingHarness()
 
-        harness.coordinator.requestRecordingStop()
+        harness.coordinator.requestRecordingStop(reason: .connectionTargetLost)
 
         XCTAssertEqual(harness.stopTelemetryCount, 1)
         XCTAssertEqual(harness.finishCount, 0)
@@ -67,7 +67,7 @@ final class VehicleRecordingCoordinatorFinishTests: XCTestCase {
             let harness = try await recordingHarness()
             harness.telemetryDidEnd(reason: reason)
             harness.telemetryDidEnd(reason: reason)
-            harness.coordinator.requestRecordingStop()
+            harness.coordinator.requestRecordingStop(reason: .connectionTargetLost)
             XCTAssertEqual(harness.finishCount, 1, "\(reason)")
             XCTAssertEqual(harness.coordinator.phase, .idle, "\(reason)")
         }
@@ -95,9 +95,9 @@ final class VehicleRecordingCoordinatorFinishTests: XCTestCase {
     func testStopRequestFollowedByTelemetryEndFinishesOnce() async throws {
         let harness = try await recordingHarness()
 
-        harness.coordinator.requestRecordingStop()
+        harness.coordinator.requestRecordingStop(reason: .connectionTargetLost)
         harness.telemetryDidEnd(reason: .userDisconnected)
-        harness.coordinator.requestRecordingStop()
+        harness.coordinator.requestRecordingStop(reason: .connectionTargetLost)
 
         XCTAssertEqual(harness.finishCount, 1)
         XCTAssertEqual(harness.stopTelemetryCount, 1)
@@ -113,7 +113,7 @@ final class VehicleRecordingCoordinatorFinishTests: XCTestCase {
         let gate = try await harness.requestResidentStartHoldingLookup(vin: registered.vin)
         gates.append(gate)
 
-        harness.coordinator.requestRecordingStop()
+        harness.coordinator.requestRecordingStop(reason: .connectionTargetLost)
         XCTAssertEqual(harness.finishCount, 1)
         gate.resumeOldest(with: .success(true))
         try await BLEBoundedWaiter.settle()
@@ -132,7 +132,7 @@ final class VehicleRecordingCoordinatorFinishTests: XCTestCase {
 
         try await harness.requestResidentStart(vin: registered.vin)
         harness.coordinator.telemetryDidEnd(reason: .userDisconnected)
-        harness.coordinator.requestRecordingStop()
+        harness.coordinator.requestRecordingStop(reason: .connectionTargetLost)
 
         XCTAssertEqual(harness.finishCount, 1)
     }

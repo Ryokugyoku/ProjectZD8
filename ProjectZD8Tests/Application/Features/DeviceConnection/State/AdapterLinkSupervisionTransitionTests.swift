@@ -132,7 +132,7 @@ final class AdapterLinkSupervisionTransitionTests: XCTestCase {
         let result = transition.result(
             from: .recording(F.detectedVehicle), on: .operatingConditionsChanged, conditions: F.conditions(isSignedIn: false)
         )
-        A.assertResult(result, state: .finishing, effects: [.cancelOperations, .dismissNotification, .requestRecordingStop, .stopLink])
+        A.assertResult(result, state: .finishing, effects: [.cancelOperations, .dismissNotification, .requestRecordingStop(.accountSignedOut), .stopLink])
     }
 
     /// 記録中のリンク断は、イベントの振り分けを経ても停止を要求せず記録中のままです。

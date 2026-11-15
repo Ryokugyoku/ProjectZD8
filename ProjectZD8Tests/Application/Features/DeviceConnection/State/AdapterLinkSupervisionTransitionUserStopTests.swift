@@ -85,7 +85,7 @@ final class AdapterLinkSupervisionTransitionUserStopTests: XCTestCase {
                 conditions: F.conditions(linkState: linkState)
             )
             XCTAssertNotEqual(result.state, .heldAfterUserStop, "\(linkState)")
-            XCTAssertFalse(result.effects.contains(.requestRecordingStop), "\(linkState)")
+            XCTAssertFalse(AdapterLinkSupervisionResultAssertions.containsRecordingStopRequest(result.effects), "\(linkState)")
             if result.state == .finishing {
                 XCTAssertTrue(result.effects.contains(.completeFinishing), "終了中なら待機へ戻る: \(linkState)")
             } else {

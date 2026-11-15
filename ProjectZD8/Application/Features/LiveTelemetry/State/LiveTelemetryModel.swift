@@ -82,7 +82,9 @@ final class LiveTelemetryModel {
                 start(using: endpoint, vehicle: vehicle, adapterProbeEvidence: state.adapterProbeEvidence)
             }
         case .stopRequested:
-            stop()
+            stop(reason: .userDisconnected)
+        case let .endRequested(reason):
+            stop(reason: reason)
         case .backgroundTransitionOccurred:
             Task { [acquisitionLoop] in
                 await acquisitionLoop.flush(.backgroundTransition)
@@ -137,8 +139,9 @@ final class LiveTelemetryModel {
 
     /// 現在のPID継続取得を止めます。
     ///
-    /// 責務: 購読を無効化して取得ループを止め、終了を待ってスリープ抑止解除済みの待機状態へ戻します。
-    private func stop() {
+    /// 責務: 購読を無効化して取得ループを停止理由付きで止め、終了を待ってスリープ抑止解除済みの待機状態へ戻します。
+    /// - Parameter reason: 停止の理由。取得記録と終了通知の両方へ同じ値を渡します。
+    private func stop(reason: ConnectionSessionEndReason) {
         let shouldNotifySessionEnd = acquisitionTask != nil || state.isConnectionActive
         let previousTask = acquisitionTask
         previousTask?.cancel()
@@ -150,20 +153,26 @@ final class LiveTelemetryModel {
         state.pauseStatus = nil
         Task { [weak self, acquisitionLoop, prepareAcquisition] in
             _ = await previousTask?.value
-            let termination = await acquisitionLoop.stop()
+            let termination = await acquisitionLoop.stop(reason: reason)
             await prepareAcquisition.endSession()
             guard let self, self.generation == generation else { return }
-            self.finishStop(termination: termination, notifiesSessionEnd: shouldNotifySessionEnd)
+            self.finishStop(termination: termination, stopReason: reason, notifiesSessionEnd: shouldNotifySessionEnd)
         }
     }
 
     /// 停止の完了を表示状態へ反映します。
     ///
     /// 責務: 停止時の記録失敗を成功扱いせず、待機状態と終了通知へ変換します。
+    /// 終了通知の理由と時刻は、取得ループが取得記録へ渡したものと同じ規則(`sessionEndReason(stoppedFor:)`)で決めます。
     /// - Parameters:
     ///   - termination: 取得ループの終了理由。動いていなかった場合は `nil`。
+    ///   - stopReason: 停止を指示した理由。
     ///   - notifiesSessionEnd: Loggingへ終了を通知するかどうか。
-    private func finishStop(termination: LiveTelemetryAcquisitionTermination?, notifiesSessionEnd: Bool) {
+    private func finishStop(
+        termination: LiveTelemetryAcquisitionTermination?,
+        stopReason: ConnectionSessionEndReason,
+        notifiesSessionEnd: Bool
+    ) {
         if let termination { recordTermination(termination) }
         applyPendingSamples(force: true)
         systemSleepInhibitor?.setVehicleConnectionActive(false)
@@ -174,7 +183,8 @@ final class LiveTelemetryModel {
             return
         }
         state.phase = .idle
-        if notifiesSessionEnd { sessionDidEnd(.userDisconnected, nil) }
+        guard notifiesSessionEnd else { return }
+        sessionDidEnd(termination?.sessionEndReason(stoppedFor: stopReason) ?? stopReason, termination?.sessionEndedAt)
     }
 
     /// 取得対象を確定して取得ループを始め、その出来事を購読します。

@@ -24,6 +24,15 @@ enum AdapterLinkSupervisionResultAssertions {
         XCTAssertEqual(result.effects, [], "作用が空でない: \(message)", file: file, line: line)
     }
 
+    /// 作用の列に、理由を問わず記録停止の要求が含まれるかどうかを返します。
+    ///
+    /// 責務: 停止要求が理由を持つようになったため、理由を問わない有無の判定を1か所にまとめます。
+    /// - Parameter effects: 遷移結果の作用。
+    /// - Returns: `.requestRecordingStop` を1件でも含めば `true`。
+    static func containsRecordingStopRequest(_ effects: [AdapterLinkSupervisionEffect]) -> Bool {
+        effects.contains { if case .requestRecordingStop = $0 { true } else { false } }
+    }
+
     /// 記録中にリンクを失っても、記録を止めずに記録中のままであることを検証します。
     ///
     /// 責務: 次の状態が入力の記録中のままで、作用が記録に無関係な後始末(取り消し・通知の取り下げ)だけであり、
@@ -40,7 +49,7 @@ enum AdapterLinkSupervisionResultAssertions {
         line: UInt = #line
     ) {
         XCTAssertEqual(result.state, state, "記録中のままではない: \(message)", file: file, line: line)
-        XCTAssertFalse(result.effects.contains(.requestRecordingStop), "停止を要求した: \(result.effects) \(message)", file: file, line: line)
+        XCTAssertFalse(containsRecordingStopRequest(result.effects), "停止を要求した: \(result.effects) \(message)", file: file, line: line)
         let unrelatedCleanup: [AdapterLinkSupervisionEffect] = [.cancelOperations, .dismissNotification]
         for effect in result.effects where !unrelatedCleanup.contains(effect) {
             XCTFail("出してはいけない作用 \(effect): \(message)", file: file, line: line)

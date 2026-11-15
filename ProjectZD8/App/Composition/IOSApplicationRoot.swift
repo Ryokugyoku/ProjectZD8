@@ -140,7 +140,11 @@ struct IOSApplicationRoot {
             },
             distanceDidChange: { lifecycle.send(.distanceObserved($0)) }
         )
-        IOSAdapterLinkComposition.connectTelemetry(of: coordinator, to: model)
+        IOSAdapterLinkComposition.connectTelemetry(
+            of: coordinator,
+            to: model,
+            residentLink: IOSApplicationComposition.residentLink
+        )
         return model
     }
 

@@ -93,7 +93,7 @@ final class VehicleRecordingCoordinatorHarness {
                 self?.events.append("telemetry.start")
             }
         }
-        coordinator.stopTelemetry = { [weak self] in
+        coordinator.stopTelemetry = { [weak self] _ in
             self?.stopTelemetryCount += 1
             self?.events.append("telemetry.stop")
         }

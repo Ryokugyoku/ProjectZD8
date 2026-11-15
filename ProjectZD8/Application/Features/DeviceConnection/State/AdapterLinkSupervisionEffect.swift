@@ -36,8 +36,8 @@ nonisolated enum AdapterLinkSupervisionEffect: Equatable, Sendable {
     /// 記録側へ記録開始を要求します。
     case requestRecordingStart(AdapterLinkRecordingStartRequest)
 
-    /// 記録側へ記録停止を要求します。
-    case requestRecordingStop
+    /// 記録側へ、理由を付けて記録停止を要求します。リンク断では出しません(取得側の猶予に任せます)。
+    case requestRecordingStop(AdapterLinkRecordingStopReason)
 
     /// 終了処理の完了を状態機械へ通知します(`finishingDidComplete` を入力します)。
     case completeFinishing
