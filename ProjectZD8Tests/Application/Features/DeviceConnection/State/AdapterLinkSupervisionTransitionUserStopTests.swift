@@ -23,8 +23,7 @@ final class AdapterLinkSupervisionTransitionUserStopTests: XCTestCase {
             on: .recordingDidFinish(endReason: .userDisconnected),
             conditions: F.conditions()
         )
-        XCTAssertNotEqual(result.state, .standby)
-        XCTAssertNotEqual(result.state, .finishing)
+        XCTAssertEqual(result.state, .heldAfterUserStop)
         XCTAssertEqual(result.effects, [.dismissNotification])
         XCTAssertFalse(result.effects.contains(.completeFinishing))
     }

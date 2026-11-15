@@ -10,10 +10,10 @@ nonisolated struct AdapterLinkExternalAdapterUseTransition: Sendable {
     ///
     /// 責務: 進行中の初期化・車両確認・検知を取り消して待機へ戻し、記録中なら手動接続による置き換えとして記録停止を要求します。
     /// - Parameter state: 現在の監視状態。
-    /// - Returns: 待機は不変・作用なし。初期化・車両確認・検知済みは待機へ(取り消し・通知取り下げ)。
+    /// - Returns: 待機と抑止中は不変・作用なし。初期化・車両確認・検知済みは待機へ(取り消し・通知取り下げ)。
     ///   記録中は終了中へ(取り消し・通知取り下げ・記録停止要求)。終了中は終了中のまま(取り消し・通知取り下げ)。
     func began(from state: AdapterLinkSupervisionState) -> AdapterLinkSupervisionTransitionResult {
-        guard state != .standby else {
+        guard state != .standby, state != .heldAfterUserStop else {
             return AdapterLinkSupervisionTransitionResult(state: state)
         }
         return lifecycle.tornDown(from: state)
