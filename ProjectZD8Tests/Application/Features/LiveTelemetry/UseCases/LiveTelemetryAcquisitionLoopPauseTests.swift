@@ -23,21 +23,21 @@ final class LiveTelemetryAcquisitionLoopPauseTests: XCTestCase {
         try await super.tearDown()
     }
 
-    /// 一時停止からちょうど3分の時点で復帰に成功すれば続行します。
+    /// 最後の受信からちょうど3分の時点で復帰に成功すれば続行します(リンク断では回復操作が即失敗するため、一時停止の開始と同じ時刻が起点です)。
     ///
     /// 責務: 猶予ちょうどのフォアグラウンド復帰での再接続と確認要求の成功が再開になることを確認します。
     func testResumeAtExactlyGraceContinues() async {
-        await assertResume(afterPausedFor: 180 * 1_000_000_000)
+        await assertResume(afterLastReceiveFor: 180 * 1_000_000_000)
     }
 
-    /// 一時停止から3分の1ナノ秒前に復帰に成功すれば続行します。
+    /// 最後の受信から3分の1ナノ秒前に復帰に成功すれば続行します。
     ///
     /// 責務: 猶予の直前の復帰が再開になることを確認します。
     func testResumeJustBeforeGraceContinues() async {
-        await assertResume(afterPausedFor: 180 * 1_000_000_000 - 1)
+        await assertResume(afterLastReceiveFor: 180 * 1_000_000_000 - 1)
     }
 
-    /// 一時停止から3分を1ナノ秒過ぎた起床では、復帰を試さずに猶予切れで終わります。
+    /// 最後の受信から3分を1ナノ秒過ぎた起床では、復帰を試さずに猶予切れで終わります。
     ///
     /// 責務: 猶予超過の起床が回復操作を呼ばずに `gracePeriodExpired` になることを確認します。
     func testWakeJustAfterGraceTerminatesWithoutAttempt() async {
@@ -75,19 +75,21 @@ final class LiveTelemetryAcquisitionLoopPauseTests: XCTestCase {
         XCTAssertEqual(finishes, [.finish(generation: 1, reason: .connectionLost)])
     }
 
-    /// 応答途絶による猶予切れは、最後に正常応答を受けた実時刻で車両無応答として終わります。
+    /// 応答途絶による猶予切れは、最後の受信から猶予を過ぎる期限で起き、最後に正常応答を受けた実時刻で車両無応答として終わります。
     ///
-    /// 責務: 応答途絶の原因が車両無応答の終了原因と最後の受信時刻になることを確認します。
+    /// 責務: 期限待ちが最後の受信(一時停止の開始より途絶閾値だけ前)+猶予の直後であることと、
+    /// 応答途絶の原因が車両無応答の終了原因と最後の受信時刻になることを確認します。
     func testExpiryAfterStallEndsAtLastReceiveAsVehicleNoResponse() async {
         let fixture = make()
         let lastReceive = Date(timeIntervalSince1970: 7_000)
         fixture.dates.set(lastReceive)
         let (collector, pausedAt) = await fixture.startAndPause(cause: .responseStall)
-        await fixture.deadlineWaiter.waitForPending(pausedAt + grace + 1)
+        let deadline = pausedAt - AcquisitionStallPolicy.stallThresholdNanoseconds + grace + 1
+        await fixture.deadlineWaiter.waitForPending(deadline)
         fixture.dates.set(Date(timeIntervalSince1970: 7_400))
-        fixture.clock.advance(byNanoseconds: grace + 1)
+        fixture.advanceClock(to: deadline)
 
-        XCTAssertTrue(fixture.deadlineWaiter.release(deadline: pausedAt + grace + 1) > 0)
+        XCTAssertTrue(fixture.deadlineWaiter.release(deadline: deadline) > 0)
         let termination = await fixture.waitForTermination(of: collector)
 
         XCTAssertEqual(termination, .gracePeriodExpired(cause: .responseStall, lastReceivedAt: lastReceive))
@@ -214,14 +216,14 @@ final class LiveTelemetryAcquisitionLoopPauseTests: XCTestCase {
         XCTAssertEqual(finishes, [.finish(generation: 1, reason: .userDisconnected)])
     }
 
-    /// 一時停止から指定時間の後のフォアグラウンド復帰で、再接続と確認要求が成功すれば続行することを検証します。
+    /// 最後の受信(リンク断では一時停止の開始と同じ時刻)から指定時間の後のフォアグラウンド復帰で、再接続と確認要求が成功すれば続行することを検証します。
     ///
     /// 責務: 再接続の1回だけで再開し、区間を再開して次の周回の要求を送り、終了しないことを確認します。
     /// - Parameters:
-    ///   - elapsed: 一時停止からの経過(ナノ秒)。
+    ///   - elapsed: 最後の受信からの経過(ナノ秒)。
     ///   - file: 失敗を報告するファイル。
     ///   - line: 失敗を報告する行。
-    private func assertResume(afterPausedFor elapsed: UInt64, file: StaticString = #filePath, line: UInt = #line) async {
+    private func assertResume(afterLastReceiveFor elapsed: UInt64, file: StaticString = #filePath, line: UInt = #line) async {
         let fixture = make()
         let (collector, _) = await fixture.startAndPause(cause: .linkLost, file: file, line: line)
         let callsBefore = fixture.linkRecovery.calls.count

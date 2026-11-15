@@ -1,4 +1,5 @@
 import Foundation
+import XCTest
 @testable import ProjectZD8
 
 /// 取得ループと、要求を待たせるフェイク・記録ポートのスパイ・回復ポートのフェイク・期限待ちのフェイク・手動時計をまとめたテスト部品です。
@@ -129,7 +130,27 @@ final class LiveTelemetryAcquisitionLoopFixture {
         file: StaticString = #filePath,
         line: UInt = #line
     ) async -> (LiveTelemetryAcquisitionEventCollector, UInt64) {
+        let (collector, _) = await startAndInterrupt(cause: cause, file: file, line: line)
+        await waitForPause(of: collector, file: file, line: line)
+        return (collector, clock.nowNanoseconds())
+    }
+
+    /// PID 0x0C だけの取得を始め、正応答1件の後に指定の原因で途絶させます。
+    ///
+    /// 責務: 予約済みの回復操作の結果はそのままに、通信失敗(リンク断)または途絶閾値の経過後のタイムアウト(応答途絶)を起こします。
+    /// 回復段階の進行は待ちません。最後の正応答は現在の実時刻と単調時計の値で受けます。
+    /// - Parameters:
+    ///   - cause: 起こす途絶の原因。
+    ///   - file: 失敗を報告するファイル。
+    ///   - line: 失敗を報告する行。
+    /// - Returns: 購読と、最後の正応答を受けた時点の単調時計の値。
+    func startAndInterrupt(
+        cause: LiveTelemetryInterruptionCause,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) async -> (LiveTelemetryAcquisitionEventCollector, UInt64) {
         let collector = await start(definitions: [LiveTelemetryTestDefinitions.standard(0x0C)])
+        let lastReceived = clock.nowNanoseconds()
         await telemetry.release(.responded([1]), file: file, line: line)
         switch cause {
         case .linkLost:
@@ -139,8 +160,80 @@ final class LiveTelemetryAcquisitionLoopFixture {
             clock.advance(byNanoseconds: AcquisitionStallPolicy.stallThresholdNanoseconds)
             await telemetry.release(.timedOut, file: file, line: line)
         }
-        await waitForPause(of: collector, file: file, line: line)
-        return (collector, clock.nowNanoseconds())
+        return (collector, lastReceived)
+    }
+
+    /// 単調時計を指定の値まで進めます。
+    ///
+    /// 責務: 現在値から指定値までの差だけ進めます。指定値が現在値より前なら進めずに失敗させます。
+    /// - Parameters:
+    ///   - target: 進め終える単調時計の値。
+    ///   - file: 失敗を報告するファイル。
+    ///   - line: 失敗を報告する行。
+    func advanceClock(to target: UInt64, file: StaticString = #filePath, line: UInt = #line) {
+        let now = clock.nowNanoseconds()
+        guard target >= now else {
+            XCTFail("単調時計を戻すことはできません: \(now) → \(target)", file: file, line: line)
+            return
+        }
+        clock.advance(byNanoseconds: target - now)
+    }
+
+    /// 猶予切れで終わり、同じセッションを続けなかったことを検証します。
+    ///
+    /// 責務: 終了理由(原因と最後の受信の実時刻)、区間を再開していないこと、記録の終了原因が途切れの原因に対応し
+    /// ユーザー切断ではないことを確認します。
+    /// - Parameters:
+    ///   - collector: 待つ購読。
+    ///   - cause: 期待する途切れの原因。
+    ///   - lastReceivedAt: 期待する最後の受信の実時刻(セッションの終了時刻)。
+    ///   - file: 失敗を報告するファイル。
+    ///   - line: 失敗を報告する行。
+    func assertExpired(
+        _ collector: LiveTelemetryAcquisitionEventCollector,
+        cause: LiveTelemetryInterruptionCause,
+        lastReceivedAt: Date,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) async {
+        let termination = await waitForTermination(of: collector, file: file, line: line)
+        XCTAssertEqual(termination, .gracePeriodExpired(cause: cause, lastReceivedAt: lastReceivedAt), file: file, line: line)
+        XCTAssertEqual(termination?.sessionEndedAt, lastReceivedAt, file: file, line: line)
+        let segments = await recorder?.segmentCalls ?? []
+        XCTAssertEqual(segments, [
+            .endSegment(generation: 1, reason: cause.segmentEndReason, lastReceivedAt: lastReceivedAt)
+        ], "区間は再開されない", file: file, line: line)
+        let finishes = await recorder?.finishCalls ?? []
+        XCTAssertEqual(finishes, [.finish(generation: 1, reason: cause.sessionEndReason)], file: file, line: line)
+        XCTAssertNotEqual(cause.sessionEndReason, .userDisconnected, file: file, line: line)
+    }
+
+    /// 猶予内に復帰し、同じセッションの新しい区間で続行したことを検証します。
+    ///
+    /// 責務: 次の周回の要求が送られ、取得中へ戻り、終了せず、欠損(開始=最後の受信、原因つき)を挟んで区間を再開したことを確認します。
+    /// - Parameters:
+    ///   - collector: 確認する購読。
+    ///   - cause: 途切れの原因。
+    ///   - lastReceivedAt: 最後の受信の実時刻(欠損の開始)。
+    ///   - sentRequests: 次の周回の要求までを含む送信済み要求の件数。
+    ///   - file: 失敗を報告するファイル。
+    ///   - line: 失敗を報告する行。
+    func assertContinued(
+        _ collector: LiveTelemetryAcquisitionEventCollector,
+        cause: LiveTelemetryInterruptionCause,
+        lastReceivedAt: Date,
+        sentRequests: Int,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) async {
+        await waitForSentRequests(sentRequests, file: file, line: line)
+        XCTAssertEqual(collector.phases.last, .acquiring, file: file, line: line)
+        XCTAssertNil(collector.termination, file: file, line: line)
+        let segments = await recorder?.segmentCalls ?? []
+        XCTAssertEqual(segments, [
+            .endSegment(generation: 1, reason: cause.segmentEndReason, lastReceivedAt: lastReceivedAt),
+            .beginSegment(.init(generation: 1, startReason: .reconnected, gapCause: cause.gapCause, gapStartedAt: lastReceivedAt))
+        ], file: file, line: line)
     }
 
     /// 購読が一時停止の出来事を受けるまで上限付きで待ちます。
