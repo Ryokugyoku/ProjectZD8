@@ -16,6 +16,8 @@ enum ConnectionSessionLifecycleAction: Equatable {
     case vehicleUnregistered
     /// 車両なしで始めたセッションの途中で登録された車両を、取得を切り替えずに現在セッションへ関連付けます。
     case unregisteredVehicleRegistered(VehicleProfile)
+    /// 登録された車両のVINが、車両なしの現在セッションの観測VINと一致する場合に、その車両を現在セッションへ関連付けます。
+    case observedVINVehicleRegistered(VehicleProfile)
     /// 優先順位を判定できる取得元付き累積距離を現在セッションへ記録します。
     case distanceObserved(ConnectionSessionDistanceObservation)
     /// 現在セッションを指定原因で終了します。終了時刻を省略すると処理した時刻を使います。

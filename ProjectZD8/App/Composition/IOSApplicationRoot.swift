@@ -114,7 +114,7 @@ struct IOSApplicationRoot {
     /// 手動接続の記録開始と登録後の紐付けを結び付けた車両管理のモデルを生成します。
     ///
     /// 責務: 手動接続の車両識別の開始・終了と識別結果(登録済み・未登録)を調停役へ、接続中に登録した車両を現在セッションへ、
-    /// 新規登録を観測VINセッションの紐付けへ結び付けます。
+    /// 新規登録を観測VINセッションの紐付け(記録中の現在セッション、続けて保存済みセッション)へ結び付けます。
     /// - Parameters:
     ///   - foundation: 共通の土台。
     ///   - coordinator: 記録の調停役。
@@ -145,6 +145,7 @@ struct IOSApplicationRoot {
             },
             unregisteredConnectionVehicleDidRegister: { lifecycle.send(.unregisteredVehicleRegistered($0)) },
             vehicleDidRegister: { vehicle, accountIdentifier in
+                lifecycle.send(.observedVINVehicleRegistered(vehicle))
                 _ = try assignSessions.execute(vehicle: vehicle, accountIdentifier: accountIdentifier)
             },
             connectionIdentificationWillBegin: { coordinator.manualConnectionIdentificationWillBegin() },

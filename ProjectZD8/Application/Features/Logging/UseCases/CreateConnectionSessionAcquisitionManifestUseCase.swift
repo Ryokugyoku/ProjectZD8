@@ -215,6 +215,7 @@ actor CreateConnectionSessionAcquisitionManifestUseCase {
             sessionID: input.sessionID,
             generation: input.generation
         )
+        var savedManifest = manifest
         do {
             try acquisitionRepository.saveStartOnce(
                 manifest: manifest,
@@ -223,16 +224,34 @@ actor CreateConnectionSessionAcquisitionManifestUseCase {
             )
         } catch ConnectionSessionAcquisitionRepositoryError.duplicate, ConnectionSessionAcquisitionRepositoryError.conflict {
             // 同じsessionの続き(再試行・プロセス復帰後の続行)では開始境界の時刻が異なり `.conflict` になります。
-            // 保存済みmanifestと同一なら既存の開始境界をそのまま使い、異なる場合だけ競合として扱います。
-            guard try acquisitionRepository.manifest(for: input.sessionID) == manifest else {
-                throw ConnectionSessionAcquisitionRepositoryError.conflict
-            }
+            // 保存済みmanifestの続きとして記録できるなら既存の開始境界とmanifestをそのまま使い、できない場合だけ競合として扱います。
+            savedManifest = try continuableStoredManifest(for: input.sessionID, requested: manifest)
         }
         return ConnectionSessionRawAcquisitionPermission(
             sessionID: input.sessionID,
             generation: input.generation,
-            manifest: manifest
+            manifest: savedManifest
         )
+    }
+
+    /// 保存済みmanifestが、要求されたmanifestの取得を続きとして記録できるものなら、その保存済みmanifestを返します。
+    ///
+    /// 責務: 保存済みmanifestを読み、`AcquisitionManifestContinuationPolicy`(アダプター判定結果を比較から除く)で続行可否を判定します。
+    /// 保存済みmanifestは書き換えません。
+    /// - Parameters:
+    ///   - sessionID: manifestを所有するsession識別子。
+    ///   - requested: 続きの取得が確定したmanifest。
+    /// - Returns: 続きの取得に使う保存済みmanifest。
+    /// - Throws: 続きとして記録できない場合は `.conflict`。保存済みmanifestが無い場合と読取の失敗はrepositoryのエラーをそのまま返します。
+    private func continuableStoredManifest(
+        for sessionID: ConnectionSessionID,
+        requested: ConnectionSessionAcquisitionManifest
+    ) throws -> ConnectionSessionAcquisitionManifest {
+        let stored = try acquisitionRepository.manifest(for: sessionID)
+        guard AcquisitionManifestContinuationPolicy().canContinue(stored: stored, requested: requested) else {
+            throw ConnectionSessionAcquisitionRepositoryError.conflict
+        }
+        return stored
     }
 
     /// 指定世代が現在の取得workflowに属することを検証します。
