@@ -41,7 +41,7 @@ final class AdapterLinkSupervisionTransitionTests: XCTestCase {
             (.vinReadFailed(isAutomaticRecordingEnabled: true), [readingVIN]),
             (.appDidBecomeActive, [.standby, paused]),
             (.recordingStartSelected, [awaiting]),
-            (.recordingDidFinish, [recording, .finishing]),
+            (.recordingDidFinish(endReason: nil), [recording, .finishing]),
             (.finishingDidComplete, [.finishing]),
         ]
     }

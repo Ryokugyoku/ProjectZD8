@@ -65,7 +65,7 @@ nonisolated struct AdapterLinkLifecycleTransition: Sendable {
     ///
     /// 責務: 進行中の処理の取り消しと通知の取り下げを行い、記録中なら停止を要求して終了へ、それ以外は待機へ戻します。
     /// - Parameter state: 現在の監視状態。
-    /// - Returns: 記録中・終了中なら `finishing`、それ以外は `standby` への遷移。
+    /// - Returns: 記録中・終了中なら `finishing`、それ以外(抑止中を含む)は `standby` への遷移。
     func tornDown(from state: AdapterLinkSupervisionState) -> AdapterLinkSupervisionTransitionResult {
         switch state {
         case .recording:
@@ -75,7 +75,7 @@ nonisolated struct AdapterLinkLifecycleTransition: Sendable {
             )
         case .finishing:
             AdapterLinkSupervisionTransitionResult(state: .finishing, effects: [.cancelOperations, .dismissNotification])
-        case .standby, .initializing, .confirmingVehicle, .vehicleDetected:
+        case .standby, .initializing, .confirmingVehicle, .vehicleDetected, .heldAfterUserStop:
             AdapterLinkSupervisionTransitionResult(state: .standby, effects: [.cancelOperations, .dismissNotification])
         }
     }

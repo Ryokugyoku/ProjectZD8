@@ -40,7 +40,8 @@ nonisolated enum AdapterLinkSupervisionEvent: Equatable, Sendable {
     case recordingStartSelected
 
     /// 記録側から記録が終了したと通知されました。
-    case recordingDidFinish
+    /// 終了理由は記録中から終わった時のテレメトリ終了理由で、記録が始まらなかった・辞退した・手動記録に置き換えた場合は `nil` です。
+    case recordingDidFinish(endReason: ConnectionSessionEndReason?)
 
     /// 記録終了を受けた終了処理が完了しました。
     case finishingDidComplete

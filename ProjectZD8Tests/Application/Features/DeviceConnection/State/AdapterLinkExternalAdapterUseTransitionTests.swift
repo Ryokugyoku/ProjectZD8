@@ -15,7 +15,7 @@ final class AdapterLinkExternalAdapterUseTransitionTests: XCTestCase {
         F.allStates.filter { state in
             switch state {
             case .initializing, .confirmingVehicle, .vehicleDetected: true
-            case .standby, .recording, .finishing: false
+            case .standby, .recording, .finishing, .heldAfterUserStop: false
             }
         }
     }

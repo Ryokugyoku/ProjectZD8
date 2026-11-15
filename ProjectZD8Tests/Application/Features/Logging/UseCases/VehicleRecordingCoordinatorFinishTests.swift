@@ -115,7 +115,7 @@ final class VehicleRecordingCoordinatorFinishTests: XCTestCase {
         let harness = VehicleRecordingCoordinatorHarness()
 
         try await harness.requestResidentStart(vin: registered.vin)
-        harness.coordinator.telemetryDidEnd()
+        harness.coordinator.telemetryDidEnd(reason: .userDisconnected)
         harness.coordinator.requestRecordingStop()
 
         XCTAssertEqual(harness.finishCount, 1)

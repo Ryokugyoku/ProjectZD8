@@ -15,12 +15,17 @@ struct IOSApplicationRoot {
     let unassignedVINWarning: UnassignedObservedVINWarningModel
     /// アプリ側の事実を常駐リンク監視へ伝える型です。
     let adapterLinkSupervision: IOSAdapterLinkSupervisionDriver
+    /// PID継続取得の状態と前面復帰を記録中の常時表示(Live Activity)へ伝える型です。
+    let sessionActivity: IOSRecordingSessionActivityDriver
 
     /// iOSのルートモデル一式を組み立てます。
     ///
-    /// 責務: 共通の土台・常駐リンク・記録の調停役・各Featureのモデルを生成し、通知応答の受け口を有効にします。
-    /// - Returns: 常駐リンク監視が未開始のルートモデル一式。`adapterLinkSupervision.launch()` で開始します。
+    /// 責務: 共通の土台・常駐リンク・記録の調停役・各Featureのモデルを生成し、通知応答の受け口と
+    /// Live Activityの[切断]操作の受け口を有効にします。
+    /// - Returns: 常駐リンク監視と常時表示の観測が未開始のルートモデル一式。
+    ///   `adapterLinkSupervision.launch()` と `sessionActivity.launch()` で開始します。
     /// - Side Effects: 通知センターの delegate を車両検知通知へ置き換えます(起動完了前に呼ぶこと)。
+    ///   [切断]操作の停止処理を `RecordingSessionStopIntentHandlerRegistry` へ登録します。
     static func make() -> IOSApplicationRoot {
         let foundation = ApplicationRootAssembly.makeFoundation(IOSApplicationComposition.self)
         let authentication = IOSApplicationComposition.makeAuthenticationSessionModel(
@@ -33,6 +38,7 @@ struct IOSApplicationRoot {
         )
         let liveTelemetry = makeLiveTelemetryModel(foundation: foundation, coordinator: coordinator)
         let vehicleManagement = makeVehicleManagementModel(foundation: foundation, coordinator: coordinator)
+        registerSessionActivityStop(liveTelemetry: liveTelemetry)
         let models = ApplicationRootModels(
             authentication: authentication,
             accountSettings: IOSApplicationComposition.makeAccountSettingsModel(),
@@ -53,8 +59,24 @@ struct IOSApplicationRoot {
                 coordinator: coordinator,
                 authentication: authentication,
                 lifecycle: foundation.lifecycle
+            ),
+            sessionActivity: IOSRecordingSessionActivityDriver.make(
+                liveTelemetry: liveTelemetry,
+                vehicleManagement: vehicleManagement
             )
         )
+    }
+
+    /// Live Activityの[切断]操作を、手動切断と同じ取得停止の要求へ結び付けます。
+    ///
+    /// 責務: 記録中だけ `LiveTelemetryAction.stopRequested` を送る停止処理を、Intentの登録先へ登録します。
+    /// - Parameter liveTelemetry: 停止を要求するPID継続取得のモデル。
+    private static func registerSessionActivityStop(liveTelemetry: LiveTelemetryModel) {
+        let stop = StopRecordingFromSessionActivityUseCase(
+            telemetryState: { liveTelemetry.state },
+            requestStop: { liveTelemetry.send(.stopRequested) }
+        )
+        RecordingSessionStopIntentHandlerRegistry.register { stop.execute() }
     }
 
     /// 通知応答を有効にした常駐リンク監視と、アプリ側の事実をそこへ伝える型を生成します。
@@ -103,7 +125,7 @@ struct IOSApplicationRoot {
             performanceEvents: foundation.performanceEvents,
             sessionDidEnd: { reason, endedAt in
                 lifecycle.send(.endRequested(reason, endedAt: endedAt))
-                coordinator.telemetryDidEnd()
+                coordinator.telemetryDidEnd(reason: reason)
             },
             distanceDidChange: { lifecycle.send(.distanceObserved($0)) }
         )

@@ -93,7 +93,7 @@ final class AdapterLinkSupervisionTransitionExternalAdapterUseTests: XCTestCase 
             (.operatingConditionsChanged, F.conditions(isSupervisionStarted: false)),
             (.linkStateChanged(.disconnected(.peripheralDisconnected(errorDescription: nil))), F.conditions()),
             (.linkStateChanged(.connecting), F.conditions()),
-            (.recordingDidFinish, F.conditions()),
+            (.recordingDidFinish(endReason: nil), F.conditions()),
             (.finishingDidComplete, F.conditions()),
         ]
         for state in F.allStates {

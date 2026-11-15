@@ -123,7 +123,7 @@ final class AdapterLinkRecordingTransitionTests: XCTestCase {
     /// 責務: 遷移結果が「終了中・作用は通知の取り下げと終了の完了だけ(停止要求なし)」の1通りで、
     /// 続く終了の完了で作用なしに待機へ戻ることを確認します。
     func testRecordingDidFinishWhileRecordingSettlesToStandby() {
-        let result = transition.recordingDidFinish(from: .recording(F.detectedVehicle))
+        let result = transition.recordingDidFinish(endReason: nil, from: .recording(F.detectedVehicle))
         A.assertResult(result, state: .finishing, effects: [.dismissNotification, .completeFinishing])
 
         A.assertResult(transition.finishingDidComplete(from: result.state), state: .standby, effects: [])
@@ -133,7 +133,7 @@ final class AdapterLinkRecordingTransitionTests: XCTestCase {
     ///
     /// 責務: 停止要求を重ねずに `standby` へ戻ることを確認します。
     func testRecordingDidFinishWhileFinishingReturnsToStandby() {
-        A.assertResult(transition.recordingDidFinish(from: .finishing), state: .standby, effects: [])
+        A.assertResult(transition.recordingDidFinish(endReason: nil, from: .finishing), state: .standby, effects: [])
     }
 
     /// 記録中・終了中以外で届いた記録終了は無視します。
@@ -143,7 +143,7 @@ final class AdapterLinkRecordingTransitionTests: XCTestCase {
         for state in F.allStates {
             if case .recording = state { continue }
             if state == .finishing { continue }
-            A.assertIgnored(transition.recordingDidFinish(from: state), from: state, "\(state)")
+            A.assertIgnored(transition.recordingDidFinish(endReason: nil, from: state), from: state, "\(state)")
         }
     }
 

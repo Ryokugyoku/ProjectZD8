@@ -21,4 +21,8 @@ nonisolated enum AdapterLinkSupervisionState: Equatable, Sendable {
 
     /// 記録の停止を要求したか終了通知を受け、待機へ戻る直前です。
     case finishing
+
+    /// ユーザーが記録を切断した。同じリンク接続のあいだ初期化・検知・記録開始をしない。
+    /// リンクが切れるか稼働条件でリンクを張り直すと待機へ戻る。
+    case heldAfterUserStop
 }

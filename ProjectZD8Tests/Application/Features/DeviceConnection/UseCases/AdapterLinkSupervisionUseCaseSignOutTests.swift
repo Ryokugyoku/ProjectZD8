@@ -105,7 +105,7 @@ final class AdapterLinkSupervisionUseCaseSignOutTests: XCTestCase {
         XCTAssertEqual(harness.recordingControl.stopRequestCount, 1)
         XCTAssertEqual(harness.useCase.state, .finishing)
 
-        harness.useCase.recordingDidFinish()
+        harness.useCase.recordingDidFinish(endReason: nil)
         XCTAssertEqual(harness.useCase.state, .standby)
         XCTAssertEqual(harness.recordingControl.stopRequestCount, 1)
     }
@@ -124,7 +124,7 @@ final class AdapterLinkSupervisionUseCaseSignOutTests: XCTestCase {
         XCTAssertEqual(harness.useCase.state, .finishing)
         XCTAssertEqual(harness.recordingControl.stopRequestCount, 1)
 
-        harness.useCase.recordingDidFinish()
+        harness.useCase.recordingDidFinish(endReason: nil)
         XCTAssertEqual(harness.useCase.state, .standby)
     }
 }
