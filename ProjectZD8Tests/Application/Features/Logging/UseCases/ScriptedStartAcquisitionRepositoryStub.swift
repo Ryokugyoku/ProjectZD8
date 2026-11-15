@@ -4,6 +4,7 @@ import Foundation
 /// 取得開始の保存に、指定した失敗(`duplicate`・`conflict` など)を返せる取得証跡の保存先です。
 ///
 /// 失敗を指定していない保存だけが manifest を保持します。失敗を返した保存は保持済みの manifest を書き換えません。
+/// 保存の呼び出しは成否にかかわらず、渡されたmanifestと開始時刻を呼び出し順に記録します。
 final class ScriptedStartAcquisitionRepositoryStub: ConnectionSessionAcquisitionRepository, @unchecked Sendable {
     /// 状態への並行アクセスを直列化するロックです。
     private let lock = NSLock()
@@ -13,8 +14,16 @@ final class ScriptedStartAcquisitionRepositoryStub: ConnectionSessionAcquisition
     private var stored: ConnectionSessionAcquisitionManifest?
     /// ロックで保護した保存済みの開始時刻です。
     private var storedStartedAt: Date?
-    /// ロックで保護した保存の呼び出し回数です。
-    private var storedSaveCallCount = 0
+    /// ロックで保護した保存の呼び出しの記録です。
+    private var storedSaveAttempts: [SaveAttempt] = []
+
+    /// 保存の呼び出し1回分の引数です。
+    struct SaveAttempt: Equatable {
+        /// 渡されたmanifestです。
+        let manifest: ConnectionSessionAcquisitionManifest
+        /// 渡された開始時刻です。
+        let startedAt: Date
+    }
 
     /// 次の保存で返す失敗です。`nil` なら保存します。
     var saveError: ConnectionSessionAcquisitionRepositoryError? {
@@ -22,24 +31,24 @@ final class ScriptedStartAcquisitionRepositoryStub: ConnectionSessionAcquisition
         set { lock.withLock { storedSaveError = newValue } }
     }
 
+    /// 保存の呼び出しの記録です。成否にかかわらず呼び出し順に並びます。
+    var saveAttempts: [SaveAttempt] {
+        lock.withLock { storedSaveAttempts }
+    }
+
     /// 保存済みmanifestです。
-    var storedManifest: ConnectionSessionAcquisitionManifest? {
+    private var storedManifest: ConnectionSessionAcquisitionManifest? {
         lock.withLock { stored }
     }
 
     /// 保存済みの開始時刻です。
-    var startedAt: Date? {
+    private var startedAt: Date? {
         lock.withLock { storedStartedAt }
-    }
-
-    /// 保存の呼び出し回数です。
-    var saveCallCount: Int {
-        lock.withLock { storedSaveCallCount }
     }
 
     /// 取得開始を保存するか、指定の失敗を返します。
     ///
-    /// 責務: 失敗の指定がなければmanifestと開始時刻を保持し、指定があれば保持済みの値を変えずに失敗を送出します。
+    /// 責務: 呼び出しを記録し、失敗の指定がなければmanifestと開始時刻を保持し、指定があれば保持済みの値を変えずに失敗を送出します。
     /// - Parameters:
     ///   - manifest: 保存するmanifest。
     ///   - startedAt: 開始時刻。
@@ -47,7 +56,7 @@ final class ScriptedStartAcquisitionRepositoryStub: ConnectionSessionAcquisition
     /// - Throws: 指定した失敗。
     func saveStartOnce(manifest: ConnectionSessionAcquisitionManifest, startedAt: Date, for sessionID: ConnectionSessionID) throws {
         try lock.withLock {
-            storedSaveCallCount += 1
+            storedSaveAttempts.append(SaveAttempt(manifest: manifest, startedAt: startedAt))
             if let storedSaveError { throw storedSaveError }
             stored = manifest
             storedStartedAt = startedAt

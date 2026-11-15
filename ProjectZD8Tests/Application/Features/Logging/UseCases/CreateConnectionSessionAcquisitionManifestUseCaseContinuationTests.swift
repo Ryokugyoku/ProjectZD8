@@ -80,7 +80,8 @@ final class CreateConnectionSessionAcquisitionManifestUseCaseContinuationTests: 
 
     /// 保存が `duplicate`(同じ開始境界の再試行)を返し、違いが判定結果だけなら保存済みmanifestで続行します。
     ///
-    /// 責務: `duplicate` の入口でも続行判定を通し、保存済みの値を返すことを確認します。
+    /// 責務: `duplicate` の入口でも続行判定を通して保存済みの値を返し、拒まれた保存1回の後に保存をやり直さない
+    /// (保存済みmanifestを上書きする呼び出しが無い)ことを確認します。
     func testDuplicateEntryContinuesWithStoredManifest() async throws {
         let stub = ScriptedStartAcquisitionRepositoryStub()
         let sessionID = ConnectionSessionID()
@@ -90,13 +91,13 @@ final class CreateConnectionSessionAcquisitionManifestUseCaseContinuationTests: 
         let continued = try await execute(stub, sessionID: sessionID, probe: nil, at: firstStart, generation: 1)
 
         XCTAssertEqual(continued.manifest.adapterProbeEvidence, probe)
-        XCTAssertEqual(stub.storedManifest?.adapterProbeEvidence, probe)
-        XCTAssertEqual(stub.saveCallCount, 2)
+        XCTAssertEqual(stub.saveAttempts.map(\.manifest.adapterProbeEvidence), [probe, nil])
+        XCTAssertEqual(stub.saveAttempts.map(\.startedAt), [firstStart, firstStart])
     }
 
     /// 保存が `conflict`(開始境界が違う続き)を返し、違いが判定結果だけなら保存済みmanifestで続行します。
     ///
-    /// 責務: `conflict` の入口で続行判定を通し、保存済みの値と開始時刻を変えないことを確認します。
+    /// 責務: `conflict` の入口で続行判定を通して保存済みの値を返し、拒まれた保存1回の後に保存をやり直さないことを確認します。
     func testConflictEntryContinuesWithStoredManifest() async throws {
         let stub = ScriptedStartAcquisitionRepositoryStub()
         let sessionID = ConnectionSessionID()
@@ -106,7 +107,8 @@ final class CreateConnectionSessionAcquisitionManifestUseCaseContinuationTests: 
         let continued = try await execute(stub, sessionID: sessionID, probe: probe, at: laterStart, generation: 2)
 
         XCTAssertNil(continued.manifest.adapterProbeEvidence)
-        XCTAssertEqual(stub.startedAt, firstStart)
+        XCTAssertEqual(stub.saveAttempts.map(\.manifest.adapterProbeEvidence), [nil, probe])
+        XCTAssertEqual(stub.saveAttempts.map(\.startedAt), [firstStart, laterStart])
     }
 
     /// `duplicate` の入口でも、判定結果以外が違えば競合として失敗します。

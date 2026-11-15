@@ -32,26 +32,40 @@ final class ConnectionSessionLifecycleModelObservedVINVehicleRegisteredTests: XC
         XCTAssertEqual(historyChangeCount, notifications + 1)
     }
 
-    /// 大文字小文字だけが違うVINも一致として扱います。
+    /// 観測VINが大文字、車両VINが小文字でも一致として扱います。
     ///
-    /// 責務: 車両VINが小文字で保存されていても一致することを確認します。
-    func testCaseInsensitiveVINMatches() {
+    /// 責務: 大文字小文字の違いを無視して、同じセッションへ車両が入り保存と通知が1回ずつ行われることを確認します。
+    func testLowercaseVehicleVINMatchesUppercaseObservedVIN() {
         let model = observedModel()
 
-        model.send(.observedVINVehicleRegistered(VehicleProfile(vin: Self.vin.lowercased(), name: "BRZ")))
-
-        XCTAssertNotNil(model.activeSession?.vehicle)
+        assertBinds(VehicleProfile(vin: Self.vin.lowercased(), name: "BRZ"), to: model, keepingObservedVIN: Self.vin)
     }
 
     /// 車両VINの前後の空白は除いて比較します。
     ///
-    /// 責務: 前後に空白・改行のある車両VINでも一致することを確認します。
+    /// 責務: 前後に空白・改行のある車両VINでも、同じセッションへ車両が入り保存と通知が1回ずつ行われることを確認します。
     func testSurroundingWhitespaceInVehicleVINMatches() {
         let model = observedModel()
 
-        model.send(.observedVINVehicleRegistered(VehicleProfile(vin: " \t\(Self.vin)\n ", name: "BRZ")))
+        assertBinds(VehicleProfile(vin: " \t\(Self.vin)\n ", name: "BRZ"), to: model, keepingObservedVIN: Self.vin)
+    }
 
-        XCTAssertNotNil(model.activeSession?.vehicle)
+    /// 観測VINが小文字で記録され、車両VINが大文字でも一致として扱います。観測VINは小文字のまま残ります。
+    ///
+    /// 責務: 観測VINの正規化は前後の空白を除くだけ(大文字化しない)という仕様のもとで、比較が大文字小文字を無視することを確認します。
+    func testUppercaseVehicleVINMatchesLowercaseObservedVIN() {
+        let model = observedModel(observing: Self.vin.lowercased())
+
+        assertBinds(VehicleProfile(vin: Self.vin, name: "BRZ"), to: model, keepingObservedVIN: Self.vin.lowercased())
+    }
+
+    /// 前後に空白のある観測VINは前後を除いて記録され、車両VINと一致します。
+    ///
+    /// 責務: 観測VIN側の前後の空白が一致判定を妨げないことを確認します。
+    func testSurroundingWhitespaceInObservedVINMatches() {
+        let model = observedModel(observing: "  \(Self.vin)\t\n")
+
+        assertBinds(VehicleProfile(vin: Self.vin, name: "BRZ"), to: model, keepingObservedVIN: Self.vin)
     }
 
     /// VINが違う車両(1文字違い)が登録されても何もしません。
@@ -166,13 +180,45 @@ final class ConnectionSessionLifecycleModelObservedVINVehicleRegisteredTests: XC
 
     /// 観測VINを記録した車両なしの進行中セッションを持つモデルを返します。
     ///
-    /// 責務: 代表VINを観測VINとして記録した状態を作ります。
+    /// 責務: 指定VINを観測VINとして記録し、前後の空白を除いた値が記録されたことを確かめます。
+    /// - Parameter vin: 観測したVIN。既定は代表VIN。
     /// - Returns: 観測VIN付きの進行中セッションを持つモデル。
-    private func observedModel() -> ConnectionSessionLifecycleModel {
+    private func observedModel(
+        observing vin: String = ConnectionSessionLifecycleModelObservedVINVehicleRegisteredTests.vin
+    ) -> ConnectionSessionLifecycleModel {
         let model = startedModel()
-        model.send(.vinObserved(Self.vin))
-        XCTAssertEqual(model.activeSession?.observedVIN, Self.vin)
+        model.send(.vinObserved(vin))
+        XCTAssertEqual(model.activeSession?.observedVIN, vin.trimmingCharacters(in: .whitespacesAndNewlines))
         return model
+    }
+
+    /// 車両の登録通知で、同じセッションへその車両が入ることを確認します。
+    ///
+    /// 責務: 車両ID・セッションID・観測VIN・保存1回(保存値の車両)・通知1回をまとめて検証します。
+    /// - Parameters:
+    ///   - vehicle: 登録された車両。
+    ///   - model: 観測VIN付きの進行中セッションを持つモデル。
+    ///   - observedVIN: 関連付け後も残るはずの観測VIN。
+    private func assertBinds(
+        _ vehicle: VehicleProfile,
+        to model: ConnectionSessionLifecycleModel,
+        keepingObservedVIN observedVIN: String,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        let sessionID = model.activeSession?.id
+        let (saves, notifications) = (repository.saved.count, historyChangeCount)
+
+        model.send(.observedVINVehicleRegistered(vehicle))
+
+        XCTAssertNotNil(sessionID, file: file, line: line)
+        XCTAssertEqual(model.activeSession?.id, sessionID, file: file, line: line)
+        XCTAssertEqual(model.activeSession?.vehicle?.id, vehicle.id, file: file, line: line)
+        XCTAssertEqual(model.activeSession?.observedVIN, observedVIN, file: file, line: line)
+        XCTAssertEqual(repository.saved.count, saves + 1, file: file, line: line)
+        XCTAssertEqual(repository.saved.last?.id, sessionID, file: file, line: line)
+        XCTAssertEqual(repository.saved.last?.vehicle?.id, vehicle.id, file: file, line: line)
+        XCTAssertEqual(historyChangeCount, notifications + 1, file: file, line: line)
     }
 
     /// 指定車両の登録通知が何も起こさないことを確認します。

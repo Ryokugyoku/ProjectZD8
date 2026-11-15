@@ -21,14 +21,20 @@ final class VehicleManagementModelManualAdapterUseWiringTests: XCTestCase {
     /// - Parameters:
     ///   - result: 識別ポートが返す結果。
     ///   - registered: サインイン中アカウントの登録済み車両。
+    ///   - wiresUnregisteredRegistration: `unregisteredConnectionVehicleDidRegister` を `.unregisteredVehicleRegistered` へつなぐか。
+    ///   - wiresObservedVINRegistration: `vehicleDidRegister` を `.observedVINVehicleRegistered` へつなぐか。
     /// - Returns: 一覧表示中のモデル。
     private func wiredModel(
-        result: Result<VehicleIdentificationSnapshot, any Error>, registered: [VehicleProfile] = []
+        result: Result<VehicleIdentificationSnapshot, any Error>,
+        registered: [VehicleProfile] = [],
+        wiresUnregisteredRegistration: Bool = true,
+        wiresObservedVINRegistration: Bool = true
     ) async throws -> VehicleManagementModel {
         harness = VehicleRecordingCoordinatorHarness()
         harness.signIn()
         harness.register(registered)
         let coordinator: VehicleRecordingCoordinator = harness.coordinator
+        let lifecycle = harness.lifecycle
         let model = VehicleManagementModel(
             state: VehicleManagementState(),
             repository: harness.vehicleRepository,
@@ -40,8 +46,12 @@ final class VehicleManagementModelManualAdapterUseWiringTests: XCTestCase {
             unregisteredConnectionDidStart: { endpoint, identification in
                 coordinator.startManualRecording(.manualUnregisteredConnection(endpoint: endpoint, identification: identification))
             },
-            unregisteredConnectionVehicleDidRegister: { [lifecycle = harness.lifecycle] in lifecycle.send(.unregisteredVehicleRegistered($0)) },
-            vehicleDidRegister: { [lifecycle = harness.lifecycle] vehicle, _ in lifecycle.send(.observedVINVehicleRegistered(vehicle)) },
+            unregisteredConnectionVehicleDidRegister: { vehicle in
+                if wiresUnregisteredRegistration { lifecycle.send(.unregisteredVehicleRegistered(vehicle)) }
+            },
+            vehicleDidRegister: { vehicle, _ in
+                if wiresObservedVINRegistration { lifecycle.send(.observedVINVehicleRegistered(vehicle)) }
+            },
             connectionIdentificationWillBegin: { coordinator.manualConnectionIdentificationWillBegin() },
             connectionIdentificationDidEnd: { coordinator.manualConnectionIdentificationDidEnd() }
         )
@@ -124,5 +134,58 @@ final class VehicleManagementModelManualAdapterUseWiringTests: XCTestCase {
         XCTAssertEqual(harness.manualUseEndedCount, 0)
         harness.telemetryDidEnd(reason: .userDisconnected)
         XCTAssertEqual(harness.manualUseEndedCount, 1)
+    }
+
+    /// `unregisteredConnectionVehicleDidRegister` の配線だけでも、登録した車両が車両なしで始めた同じセッションへ入ります。
+    ///
+    /// 責務: 接続中の登録の通知(`.unregisteredVehicleRegistered`)単独で関連付けが成り立つことを確認します。
+    func testUnregisteredRegistrationWiringAloneBindsSameSession() async throws {
+        let model = try await wiredModel(result: .success(unregisteredSnapshot()), wiresObservedVINRegistration: false)
+
+        let (sessionID, vehicle) = try await identifyAndRegister(model)
+
+        XCTAssertEqual(harness.lifecycle.activeSession?.id, sessionID)
+        XCTAssertEqual(harness.lifecycle.activeSession?.vehicle?.id, vehicle.id)
+        XCTAssertEqual(harness.telemetryRequests.count, 1)
+    }
+
+    /// `vehicleDidRegister` の配線だけでも、観測VINの一致で、登録した車両が車両なしで始めた同じセッションへ入ります。
+    ///
+    /// 責務: 新規登録の通知(`.observedVINVehicleRegistered`)単独で関連付けが成り立つことを確認します。
+    func testObservedVINRegistrationWiringAloneBindsSameSession() async throws {
+        let model = try await wiredModel(result: .success(unregisteredSnapshot()), wiresUnregisteredRegistration: false)
+
+        let (sessionID, vehicle) = try await identifyAndRegister(model)
+
+        XCTAssertEqual(harness.lifecycle.activeSession?.id, sessionID)
+        XCTAssertEqual(harness.lifecycle.activeSession?.vehicle?.id, vehicle.id)
+        XCTAssertEqual(harness.telemetryRequests.count, 1)
+    }
+
+    /// 未登録車両の識別観測です。
+    ///
+    /// 責務: 登録済み車両に無い代表VINを読めた識別観測を返します。
+    /// - Returns: 識別観測。
+    private func unregisteredSnapshot() -> VehicleIdentificationSnapshot {
+        VehicleIdentificationSnapshot(vin: Self.vin, fields: [], observedAt: Date(timeIntervalSince1970: 0))
+    }
+
+    /// 未登録の識別で車両なしの記録を始め、登録画面で保存します。
+    ///
+    /// 責務: 識別後に車両なしのセッションがあることを確かめてから登録を保存し、保存の完了まで上限付きで待ちます。
+    /// - Parameter model: 一覧表示中のモデル。
+    /// - Returns: 識別時のセッションIDと保存した車両。
+    private func identifyAndRegister(_ model: VehicleManagementModel) async throws -> (ConnectionSessionID, VehicleProfile) {
+        try await identify(model)
+        XCTAssertEqual(model.state.phase, .confirmingIdentification)
+        let session = try XCTUnwrap(harness.lifecycle.activeSession)
+        XCTAssertNil(session.vehicle)
+        model.send(.identificationConfirmed)
+        var vehicle = try XCTUnwrap(model.state.editingVehicle)
+        vehicle.name = "BRZ"
+        model.send(.vehicleSaved(vehicle))
+        try await BLEBoundedWaiter.waitUntil("登録の保存") { model.state.phase == .idle }
+        try await BLEBoundedWaiter.settle()
+        return (session.id, vehicle)
     }
 }

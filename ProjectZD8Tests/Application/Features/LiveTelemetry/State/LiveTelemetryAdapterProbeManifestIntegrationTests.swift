@@ -58,28 +58,46 @@ final class LiveTelemetryAdapterProbeManifestIntegrationTests: XCTestCase {
         XCTAssertNil(manifest?.adapterProbeEvidence)
     }
 
+    /// ECUが対応を返したPIDだけがmanifestに入り、PID定義のsnapshotと要求順が同じPIDを指し、すべて対応・収集有効です。
+    ///
+    /// 責務: カタログの 0C/0D のうち 0D だけに対応した未登録車両で、対応外の 0C が定義にも要求順にも入らないことを確認します。
+    func testManifestDefinitionsAndOrderCoverOnlySupportedEnabledPIDs() async throws {
+        let manifest = try await storedManifest(startingWith: nil, supporting: [0x0D])
+
+        let expected = [LiveTelemetryTestDefinitions.request(0x0D)]
+        XCTAssertEqual(manifest?.pidDefinitions.map(\.request), expected)
+        XCTAssertEqual(manifest?.orderedRequestedPIDs?.requests, expected)
+        XCTAssertEqual(manifest?.pidDefinitions.map(\.capabilitySupport), [.supported])
+        XCTAssertEqual(manifest?.pidDefinitions.map(\.isCollectionEnabled), [true])
+    }
+
     // MARK: - Helpers
 
     /// 未登録車両の取得を指定の判定結果で始め、保存されたmanifestを返します。
     ///
     /// 責務: 表示モデル・取得ループ・実際の取得記録を組み、対応PID探索に応答してmanifestの保存を上限付きで待ちます。
-    /// - Parameter probe: 開始要求に付けるアダプター判定結果。
+    /// - Parameters:
+    ///   - probe: 開始要求に付けるアダプター判定結果。
+    ///   - supporting: ECUが対応を返す標準PID。
     /// - Returns: 保存されたmanifest。上限内に保存されなければ `nil`。
     /// - Throws: 部品の生成失敗。
-    private func storedManifest(startingWith probe: AcquisitionAdapterProbeEvidence?) async throws -> ConnectionSessionAcquisitionManifest? {
+    private func storedManifest(
+        startingWith probe: AcquisitionAdapterProbeEvidence?,
+        supporting: [UInt8] = [0x0C, 0x0D]
+    ) async throws -> ConnectionSessionAcquisitionManifest? {
         let storage = try ConnectionSessionAcquisitionRecorderFixture(storage: .grdb)
         self.storage = storage
         let telemetry = GatedOBDPIDTelemetryFake()
         let model = makeModel(telemetry: telemetry, recorder: storage.recorder)
 
         model.send(.startRequested(LiveTelemetryTestDefinitions.endpoint, .unregistered, adapterProbeEvidence: probe))
-        await telemetry.release(.responded(BitmapOBDPIDTelemetryFake.bitmap(supporting: [0x0C, 0x0D], base: 0x00, continues: false)))
+        await telemetry.release(.responded(BitmapOBDPIDTelemetryFake.bitmap(supporting: supporting, base: 0x00, continues: false)))
         let saved = await LiveTelemetryBoundedWaiter.waitUntil("manifestの保存") {
             (try? storage.acquisition.manifest(for: storage.sessionID)) != nil
         }
         guard saved else { return nil }
         let manifest = try storage.acquisition.manifest(for: storage.sessionID)
-        XCTAssertEqual(manifest.orderedRequestedPIDs.map { Set($0.requests) }, Set([0x0C, 0x0D].map(LiveTelemetryTestDefinitions.request)))
+        XCTAssertEqual(manifest.orderedRequestedPIDs.map { Set($0.requests) }, Set(supporting.map(LiveTelemetryTestDefinitions.request)))
         return manifest
     }
 

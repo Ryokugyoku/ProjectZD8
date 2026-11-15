@@ -140,4 +140,24 @@ final class AcquisitionManifestContinuationPolicyTests: XCTestCase {
             XCTAssertFalse(policy.canContinue(stored: F.manifest(), requested: stored), label)
         }
     }
+
+    /// 続行判定が比較する項目です。`canContinue` の比較と揃えます。
+    private static let comparedProperties: Set<String> = [
+        "manifestVersion", "applicationVersion", "schemaContractVersion", "pollingPolicyVersion",
+        "orderedRequestedPIDs", "pidDefinitions", "acquisitionPlatform", "modelInputManifestVersion"
+    ]
+    /// 続行判定が比較から除く項目です。
+    private static let excludedProperties: Set<String> = ["adapterProbeEvidence"]
+
+    /// manifestの格納プロパティは、比較する8項目と除外する1項目でちょうど尽くされます。
+    ///
+    /// 責務: manifestに項目が増えた・名前が変わった時にこのテストを失敗させ、続行判定で比較するか除外するかの判断を促します。
+    func testManifestStoredPropertiesAreAllClassified() {
+        let labels = Mirror(reflecting: F.manifest(probe: F.stnFrames)).children.compactMap(\.label)
+
+        XCTAssertEqual(labels.count, Set(labels).count)
+        XCTAssertTrue(Self.comparedProperties.isDisjoint(with: Self.excludedProperties))
+        XCTAssertEqual(Set(labels), Self.comparedProperties.union(Self.excludedProperties), "続行判定で比較するか除外するかを決めてください")
+        XCTAssertEqual(Self.comparedProperties.count, 8)
+    }
 }
