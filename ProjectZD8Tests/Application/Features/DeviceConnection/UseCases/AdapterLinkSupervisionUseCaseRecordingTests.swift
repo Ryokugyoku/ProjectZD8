@@ -237,19 +237,37 @@ final class AdapterLinkSupervisionUseCaseRecordingTests: XCTestCase {
         XCTAssertEqual(harness.recordingControl.startRequests, [])
     }
 
-    /// 記録終了で待機へ戻った時にリンクが `ready` のままでも、すぐには初期化・確認をしません。
+    /// 記録がユーザー切断以外の理由で終わり、リンクが `ready` のままなら、前面復帰を待たずに終了時刻から初期化をやり直します。
     ///
-    /// 責務: 記録終了後に初期化・確認の呼び出しが増えず、前面復帰で初めて初期化からやり直すことを確認します。
-    func testAfterFinishingDoesNotRecheckUntilForeground() async throws {
+    /// 責務: 接続断・車両無応答の終了で、初期化の呼び出しが2回目になり `.initializing(linkReadyAt: 終了時刻)` になることを確認します(U3 受け入れ条件 13)。
+    func testAfterNonUserFinishWithReadyLinkRestartsDetection() async throws {
+        for reason in [ConnectionSessionEndReason.connectionLost, .vehicleNoResponse] {
+            let harness = makeHarness()
+            try await harness.driveToRecording()
+            let finishedAt = F.date(900)
+            harness.clock.now = finishedAt
+
+            harness.useCase.recordingDidFinish(endReason: reason)
+
+            try await harness.wait("初期化のやり直し \(reason)") { harness.initialization.responses.callCount == 2 }
+            XCTAssertEqual(harness.useCase.state, .initializing(linkReadyAt: finishedAt), "\(reason)")
+        }
+    }
+
+    /// 記録がユーザー切断以外の理由で終わった時にリンクが `ready` でなければ、待機に留まり、再接続で初期化を始めます。
+    ///
+    /// 責務: リンク断中の接続断の終了で待機・初期化なしのまま、再接続で初期化が2回目になることを確認します(U3 受け入れ条件 13)。
+    func testAfterNonUserFinishWithoutReadyLinkWaitsForReconnect() async throws {
         let harness = makeHarness()
         try await harness.driveToRecording()
-        harness.useCase.recordingDidFinish(endReason: nil)
+        harness.link.emit(.disconnected(.peripheralDisconnected(errorDescription: nil)))
+        harness.useCase.recordingDidFinish(endReason: .connectionLost)
         try await BLEBoundedWaiter.settle()
+        XCTAssertEqual(harness.useCase.state, .standby)
         XCTAssertEqual(harness.initialization.responses.callCount, 1)
-        XCTAssertEqual(harness.vehicleResponse.timeouts.count, 1)
 
-        harness.useCase.appDidBecomeActive()
-        try await harness.wait("前面復帰での初期化") { harness.initialization.responses.callCount == 2 }
+        try await harness.makeLinkReady()
+        XCTAssertEqual(harness.initialization.responses.callCount, 2)
     }
 
     /// 記録終了後、次の再接続(リンク断→`ready`)で初期化からやり直します。

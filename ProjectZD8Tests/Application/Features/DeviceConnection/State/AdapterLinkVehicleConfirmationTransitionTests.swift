@@ -186,9 +186,30 @@ final class AdapterLinkVehicleConfirmationTransitionTests: XCTestCase {
         A.assertResult(result, state: .confirmingVehicle(resumed), effects: [.confirmVehicle(.adapterMaximum)])
     }
 
-    /// 初期化中・低頻度確認中・検知済み・記録中・終了中では、前面復帰しても状態を変えません。
+    /// 確認中(`.probing`)に前面へ戻った時、窓が既に切れていたら(終了時刻ちょうどを含む)、その時刻から10分の窓を取り直して確認を続けます。
     ///
-    /// 責務: 前面復帰で確認や初期化が二重に走らないことを確認します。
+    /// 責務: 窓の終了時刻ちょうど・直後で、窓の終了時刻=復帰時刻+10分・回数1・低頻度確認中になり、休止しないことを確認します(U3 受け入れ条件 5b)。
+    func testAppDidBecomeActiveWhileProbingAfterWindowEndRenewsWindow() {
+        let probing = F.confirmation(windowEndsAt: F.date(600), attemptCount: 7, phase: .probing)
+        for now in [F.date(600), F.date(601)] {
+            let result = transition.appDidBecomeActive(from: .confirmingVehicle(probing), conditions: F.conditions(now: now))
+            let renewed = F.confirmation(windowEndsAt: now.addingTimeInterval(F.windowSeconds), attemptCount: 1, phase: .probing)
+            XCTAssertEqual(result.state, .confirmingVehicle(renewed), "\(now)")
+            XCTAssertFalse(result.effects.contains(.initializeAdapter), "\(now)")
+        }
+    }
+
+    /// 確認中(`.probing`)に前面へ戻った時、窓の内(終了時刻の直前)なら確認を重複させず、状態も変えません。
+    ///
+    /// 責務: 窓の終了時刻の1ミリ秒前の前面復帰が無視されることを確認します(U3 受け入れ条件 5)。
+    func testAppDidBecomeActiveWhileProbingInsideWindowIsIgnored() {
+        let probing = AdapterLinkSupervisionState.confirmingVehicle(F.confirmation(windowEndsAt: F.date(600), attemptCount: 7, phase: .probing))
+        A.assertIgnored(transition.appDidBecomeActive(from: probing, conditions: F.conditions(now: F.date(599.999))), from: probing)
+    }
+
+    /// 初期化中・低頻度確認中(窓の内)・検知済み・記録中・終了中では、前面復帰しても状態を変えません。
+    ///
+    /// 責務: 前面復帰で確認や初期化が二重に走らないことを確認します(低頻度確認中は窓の内の時刻で確認します)。
     func testAppDidBecomeActiveInOtherStatesIsIgnored() {
         let paused = AdapterLinkSupervisionState.confirmingVehicle(F.confirmation(phase: .paused))
         for state in F.allStates where state != .standby && state != paused {

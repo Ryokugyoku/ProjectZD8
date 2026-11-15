@@ -75,14 +75,13 @@ final class AdapterLinkSupervisionUseCaseUserStopTests: XCTestCase {
         XCTAssertEqual(harness.initialization.responses.callCount, 2)
     }
 
-    /// 車両が応答しなくなって記録が終わった後は、従来どおり前面復帰で初期化し直します。
+    /// 車両が応答しなくなって記録が終わった後は抑止せず、リンクが `ready` なら前面復帰を待たずに初期化し直します。
     ///
-    /// 責務: ユーザー切断以外の理由では抑止せず、前面復帰で初期化が2回目になることを確認します。
-    func testForegroundAfterVehicleNoResponseInitializesAgain() async throws {
+    /// 責務: ユーザー切断以外の理由では抑止せず、終了の時点で初期化が2回目になり `.initializing(linkReadyAt: 終了時刻)` になることを確認します(U3 受け入れ条件 13)。
+    func testVehicleNoResponseFinishInitializesAgainWithoutForeground() async throws {
         let harness = try await makeRecordingHarness()
         harness.useCase.recordingDidFinish(endReason: .vehicleNoResponse)
-        XCTAssertEqual(harness.useCase.state, .standby)
-        harness.useCase.appDidBecomeActive()
-        try await harness.wait("前面復帰での初期化") { harness.initialization.responses.callCount == 2 }
+        try await harness.wait("初期化のやり直し") { harness.initialization.responses.callCount == 2 }
+        XCTAssertEqual(harness.useCase.state, .initializing(linkReadyAt: harness.clock.now))
     }
 }

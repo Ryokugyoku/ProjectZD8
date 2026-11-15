@@ -7,8 +7,10 @@ final class AdapterLinkSupervisionUseCaseVehicleConfirmationTests: XCTestCase {
     /// 共通の fixture です。
     private typealias F = AdapterLinkSupervisionFixtures
 
-    /// 休止まで回す無応答サイクルの上限です。仕様の20回を十分に超える値にし、休止しない不具合を失敗にします。
-    private let maximumCycles = 30
+    /// 休止まで回す無応答サイクルの上限です。仕様の600回を十分に超える値にし、休止しない不具合を失敗にします。
+    private let maximumCycles = 700
+    /// 1窓あたりの確認回数の上限(窓10分 ÷ 最短間隔1秒)です(U3 受け入れ条件 4)。
+    private let attemptLimit = 600
 
     /// テスト中に組み立てた手段です。終了時に保留を終わらせます。
     private var harnesses: [AdapterLinkSupervisionHarness] = []
@@ -27,24 +29,29 @@ final class AdapterLinkSupervisionUseCaseVehicleConfirmationTests: XCTestCase {
         return harness
     }
 
-    /// 無応答→待機終了を、休止するか上限回数に達するまで繰り返します。
+    /// 「確認に指定秒数かかって無応答」を、休止するか上限回数に達するまで繰り返します。
     ///
-    /// 責務: 保留中の確認へ無応答を返し、待機を指定秒数進めて終わらせる手順を、上限付きで繰り返します。上限内に休止しなければ失敗させます。
+    /// 責務: 時計を指定秒数進めてから保留中の確認へ無応答を返し、次の確認か休止を待ちます。途中で待機(最短間隔の待ち)が
+    /// 要求された場合は時計を進めずに終わらせます。上限付きで繰り返し、上限内に休止しなければ失敗させます。
+    /// 確認と確認の間に固定の待機を挟まない(応答駆動)実装でも、挟む実装でも同じ手順で回せます。
     /// - Parameters:
     ///   - harness: 車両確認が1件保留されている手段。
-    ///   - seconds: 1回の待機で進める秒数。
+    ///   - seconds: 1回の確認にかかる秒数(アダプターが無応答を返すまでの時間)。
     private func runNoResponseCyclesUntilPaused(
-        _ harness: AdapterLinkSupervisionHarness, advancingBy seconds: TimeInterval, file: StaticString = #filePath, line: UInt = #line
+        _ harness: AdapterLinkSupervisionHarness, eachTaking seconds: TimeInterval, file: StaticString = #filePath, line: UInt = #line
     ) async throws {
         for _ in 0..<maximumCycles {
             let sleeps = harness.clock.requestedDurations.count
             let confirmations = harness.vehicleResponse.timeouts.count
+            harness.clock.now = harness.clock.now.addingTimeInterval(seconds)
             harness.vehicleResponse.responses.resumeOldest(with: .success(.noResponse), file: file, line: line)
-            try await harness.wait("待機か休止", file: file, line: line) {
-                harness.clock.requestedDurations.count > sleeps || harness.isConfirming(.paused)
+            try await harness.wait("次の確認か待機か休止", file: file, line: line) {
+                harness.vehicleResponse.timeouts.count > confirmations || harness.clock.requestedDurations.count > sleeps
+                    || harness.isConfirming(.paused)
             }
             if harness.isConfirming(.paused) { return }
-            harness.clock.finishOldestSleep(advancingBy: seconds, file: file, line: line)
+            guard harness.vehicleResponse.timeouts.count == confirmations else { continue }
+            harness.clock.finishOldestSleep(advancingBy: 0, file: file, line: line)
             try await harness.wait("再確認か休止", file: file, line: line) {
                 harness.vehicleResponse.timeouts.count > confirmations || harness.isConfirming(.paused)
             }
@@ -63,30 +70,34 @@ final class AdapterLinkSupervisionUseCaseVehicleConfirmationTests: XCTestCase {
         XCTAssertTrue(harness.isConfirming(.probing))
     }
 
-    /// ECU無応答では通知を出さず、リンクを止めずに30秒の待機を予約します。
+    /// ECU無応答(確認に最短間隔以上かかった)では通知を出さず、リンクを止めず、固定の待機を挟まずに次の確認を送ります。
     ///
-    /// 責務: 通知0件・リンク停止0回・待機時間30秒・確認中のままを確認します。
+    /// 責務: 通知0件・リンク停止0回・待機の要求0件・2回目の確認・確認中のままを確認します(U3 受け入れ条件 1・2)。
     func testNoResponseDoesNotNotifyAndKeepsLink() async throws {
         let harness = makeHarness()
         try await harness.driveToConfirming()
-        try await harness.answerNoResponseAndWaitForSleep()
-        XCTAssertEqual(harness.clock.requestedDurations, [.seconds(30)])
+        harness.clock.now = harness.clock.now.addingTimeInterval(30)
+        harness.vehicleResponse.responses.resumeOldest(with: .success(.noResponse))
+        try await harness.wait("2回目の確認") { harness.vehicleResponse.timeouts.count == 2 }
+        XCTAssertEqual(harness.clock.requestedDurations, [], "固定の待機を挟まない")
         XCTAssertEqual(harness.notifications.presentedVehicleDetectedVINs, [])
         XCTAssertEqual(harness.notifications.presentedRecordingStartedVINs, [])
         XCTAssertEqual(harness.link.stopCount, 0)
         XCTAssertTrue(harness.isConfirming(.probing))
     }
 
-    /// 待機が終わると、アダプター最大タイムアウトで再確認します。
+    /// 2回目以降の確認は、アダプター最大タイムアウトで送ります(無応答の間の頻度はアダプター側のタイムアウトで決まる)。
     ///
-    /// 責務: 2回目以降の確認へ `.adapterMaximum` が渡ることを確認します。
-    func testRecheckAfterIntervalUsesAdapterMaximumTimeout() async throws {
+    /// 責務: 2回目・3回目の確認へ `.adapterMaximum` が渡ることを確認します(U3 受け入れ条件 2)。
+    func testRecheckUsesAdapterMaximumTimeout() async throws {
         let harness = makeHarness()
         try await harness.driveToConfirming()
-        try await harness.answerNoResponseAndWaitForSleep()
-        harness.clock.finishOldestSleep(advancingBy: 30)
-        try await harness.wait("2回目の確認") { harness.vehicleResponse.timeouts.count == 2 }
-        XCTAssertEqual(harness.vehicleResponse.timeouts, [.standard, .adapterMaximum])
+        for expected in [2, 3] {
+            harness.clock.now = harness.clock.now.addingTimeInterval(30)
+            harness.vehicleResponse.responses.resumeOldest(with: .success(.noResponse))
+            try await harness.wait("\(expected)回目の確認") { harness.vehicleResponse.timeouts.count == expected }
+        }
+        XCTAssertEqual(harness.vehicleResponse.timeouts, [.standard, .adapterMaximum, .adapterMaximum])
     }
 
     /// 確認が失敗(throw)しても無応答と同じく再確認を予約し、検知も通知もしません。
@@ -178,50 +189,50 @@ final class AdapterLinkSupervisionUseCaseVehicleConfirmationTests: XCTestCase {
         XCTAssertEqual(harness.initialization.responses.callCount, 2)
     }
 
-    /// 時計が進まなくても、1窓の確認は20回(通常1回+最大19回)で止まり休止します。
+    /// 時計が進まなくても、1窓の確認は600回(通常1回+最大599回)で止まり休止します。
     ///
-    /// 責務: 確認回数とタイムアウト種別の内訳、休止後に待機も確認も追加されないことを確認します。
-    func testFrozenClockStopsAfterTwentyConfirmations() async throws {
+    /// 責務: 確認回数とタイムアウト種別の内訳、休止後に待機も確認も追加されないことを確認します(U3 受け入れ条件 4)。
+    func testFrozenClockStopsAfterAttemptLimit() async throws {
         let harness = makeHarness()
         try await harness.driveToConfirming()
-        try await runNoResponseCyclesUntilPaused(harness, advancingBy: 0)
+        try await runNoResponseCyclesUntilPaused(harness, eachTaking: 0)
         try await BLEBoundedWaiter.settle()
-        XCTAssertEqual(harness.vehicleResponse.timeouts.count, F.maximumAttempts)
+        XCTAssertEqual(harness.vehicleResponse.timeouts.count, attemptLimit)
         XCTAssertEqual(harness.vehicleResponse.timeouts.first, .standard)
-        XCTAssertEqual(harness.vehicleResponse.timeouts.dropFirst().filter { $0 == .adapterMaximum }.count, F.maximumAttempts - 1)
+        XCTAssertEqual(harness.vehicleResponse.timeouts.dropFirst().filter { $0 == .adapterMaximum }.count, attemptLimit - 1)
         XCTAssertEqual(harness.clock.sleeps.pendingCount, 0)
         XCTAssertEqual(harness.notifications.presentedVehicleDetectedVINs, [])
     }
 
     /// 確認窓は初期化完了ではなくリンク `ready` の時刻から10分で、窓を過ぎた再確認は行いません。
     ///
-    /// 責務: 初期化に100秒かかった場合、100〜580秒の17回で確認が止まり休止することを確認します。
+    /// 責務: 初期化に100秒かかり1回の確認に30秒かかる場合、100〜580秒に送った17回で確認が止まり休止することを確認します。
     func testWindowIsMeasuredFromLinkReadyTime() async throws {
         let harness = makeHarness()
         harness.startSignedIn()
         try await harness.makeLinkReady()
         harness.clock.now = F.date(100)
         try await harness.finishInitialization()
-        try await runNoResponseCyclesUntilPaused(harness, advancingBy: 30)
+        try await runNoResponseCyclesUntilPaused(harness, eachTaking: 30)
         XCTAssertEqual(harness.vehicleResponse.timeouts.count, 17)
         XCTAssertEqual(harness.link.stopCount, 0)
     }
 
-    /// 休止中にアプリ前面復帰したら、10分の窓を取り直して確認を再開し、新しい窓でも20回まで確認します。
+    /// 休止中にアプリ前面復帰したら、10分の窓を取り直して確認を再開し、新しい窓でも600回まで確認します。
     ///
     /// 責務: 再開の確認が最大タイムアウトであること、再開後にも回数上限が新しく数えられることを確認します。
     func testForegroundResumesPausedConfirmationWithNewWindow() async throws {
         let harness = makeHarness()
         try await harness.driveToConfirming()
-        try await runNoResponseCyclesUntilPaused(harness, advancingBy: 0)
+        try await runNoResponseCyclesUntilPaused(harness, eachTaking: 0)
         harness.clock.now = F.date(5_000)
         harness.useCase.appDidBecomeActive()
-        try await harness.wait("再開の確認") { harness.vehicleResponse.timeouts.count == F.maximumAttempts + 1 }
+        try await harness.wait("再開の確認") { harness.vehicleResponse.timeouts.count == attemptLimit + 1 }
         XCTAssertEqual(harness.vehicleResponse.timeouts.last, .adapterMaximum)
         XCTAssertTrue(harness.isConfirming(.probing))
 
-        try await runNoResponseCyclesUntilPaused(harness, advancingBy: 0)
-        XCTAssertEqual(harness.vehicleResponse.timeouts.count, F.maximumAttempts * 2)
+        try await runNoResponseCyclesUntilPaused(harness, eachTaking: 0)
+        XCTAssertEqual(harness.vehicleResponse.timeouts.count, attemptLimit * 2)
     }
 
     /// 休止中に再接続(リンク断→`ready`)したら、初期化からやり直します。
@@ -230,24 +241,28 @@ final class AdapterLinkSupervisionUseCaseVehicleConfirmationTests: XCTestCase {
     func testReconnectWhilePausedRestartsFromInitialization() async throws {
         let harness = makeHarness()
         try await harness.driveToConfirming()
-        try await runNoResponseCyclesUntilPaused(harness, advancingBy: 0)
+        try await runNoResponseCyclesUntilPaused(harness, eachTaking: 0)
         harness.link.emit(.disconnected(.peripheralDisconnected(errorDescription: nil)))
         XCTAssertEqual(harness.useCase.state, .standby)
         try await harness.makeLinkReady()
         XCTAssertEqual(harness.initialization.responses.callCount, 2)
     }
 
-    /// 低頻度確認中のアプリ前面復帰では、確認を二重に始めません。
+    /// 窓の内の低頻度確認中のアプリ前面復帰では、確認を二重に始めません。
     ///
-    /// 責務: 確認の保留中・待機中の前面復帰で確認の呼び出しが増えないことを確認します。
+    /// 責務: 1回目・2回目の確認の保留中の前面復帰で確認の呼び出しが増えないことを確認します(U3 受け入れ条件 5)。
     func testForegroundWhileProbingDoesNotDuplicateConfirmation() async throws {
         let harness = makeHarness()
         try await harness.driveToConfirming()
         harness.useCase.appDidBecomeActive()
-        try await harness.answerNoResponseAndWaitForSleep()
-        harness.useCase.appDidBecomeActive()
         try await BLEBoundedWaiter.settle()
         XCTAssertEqual(harness.vehicleResponse.timeouts.count, 1)
+        harness.clock.now = harness.clock.now.addingTimeInterval(30)
+        harness.vehicleResponse.responses.resumeOldest(with: .success(.noResponse))
+        try await harness.wait("2回目の確認") { harness.vehicleResponse.timeouts.count == 2 }
+        harness.useCase.appDidBecomeActive()
+        try await BLEBoundedWaiter.settle()
+        XCTAssertEqual(harness.vehicleResponse.timeouts.count, 2)
         XCTAssertEqual(harness.initialization.responses.callCount, 1)
     }
 }

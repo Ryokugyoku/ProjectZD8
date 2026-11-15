@@ -3,26 +3,26 @@ import XCTest
 
 /// `AdapterLinkSupervisionTiming` の定数と派生値を検証します。
 final class AdapterLinkSupervisionTimingTests: XCTestCase {
-    /// 本番の定数は確認窓10分・再確認間隔30秒です。
+    /// 本番の定数は確認窓10分・確認と確認の最短間隔1秒です(固定の30秒間隔は持ちません)。
     ///
-    /// 責務: 仕様の時間定数が `standard` に定義されていることを確認します。
-    func testStandardUsesTenMinuteWindowAndThirtySecondInterval() {
+    /// 責務: 仕様の時間定数が `standard` に定義されていることを確認します(U3 受け入れ条件 1・3・4)。
+    func testStandardUsesTenMinuteWindowAndOneSecondMinimumInterval() {
         XCTAssertEqual(AdapterLinkSupervisionTiming.standard.vehicleConfirmationWindow, 600)
-        XCTAssertEqual(AdapterLinkSupervisionTiming.standard.vehicleConfirmationInterval, 30)
+        XCTAssertEqual(AdapterLinkSupervisionTiming.standard.vehicleConfirmationInterval, 1)
     }
 
-    /// 本番の定数では1窓あたりの確認は最初の確認を含めて20回までです。
+    /// 本番の定数では1窓あたりの確認は最初の確認を含めて600回(窓 ÷ 最短間隔)までです。
     ///
-    /// 責務: 時計が進まない場合の確認回数の上限が仕様の20回であることを確認します。
-    func testStandardAllowsTwentyAttemptsPerWindow() {
-        XCTAssertEqual(AdapterLinkSupervisionTiming.standard.maximumVehicleConfirmationAttempts, 20)
+    /// 責務: 安全のための回数上限が仕様の600回であることを確認します(U3 受け入れ条件 4)。
+    func testStandardAllowsSixHundredAttemptsPerWindow() {
+        XCTAssertEqual(AdapterLinkSupervisionTiming.standard.maximumVehicleConfirmationAttempts, 600)
     }
 
-    /// 本番の再確認間隔は30秒の待機時間へ変換されます。
+    /// 本番の最短間隔は1秒の待機時間へ変換されます。
     ///
-    /// 責務: 待機ポートへ渡す `Duration` が30秒ちょうどであることを確認します。
-    func testStandardIntervalDurationIsThirtySeconds() {
-        XCTAssertEqual(AdapterLinkSupervisionTiming.standard.vehicleConfirmationIntervalDuration, .seconds(30))
+    /// 責務: 空回り防止の待機ポートへ渡す上限の `Duration` が1秒ちょうどであることを確認します(U3 受け入れ条件 3)。
+    func testStandardIntervalDurationIsOneSecond() {
+        XCTAssertEqual(AdapterLinkSupervisionTiming.standard.vehicleConfirmationIntervalDuration, .seconds(1))
     }
 
     /// 窓が間隔で割り切れる場合、回数の上限は窓の中に収まる確認回数と一致します。
