@@ -59,7 +59,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Recibes una notificación al detectar el vehículo. La grabación empieza al elegir [Iniciar grabación]."
+            "value" : "Recibes una notificación al detectar el vehículo. La grabación empieza al elegir [Iniciar registro]."
           }
         },
         "ja" : {
