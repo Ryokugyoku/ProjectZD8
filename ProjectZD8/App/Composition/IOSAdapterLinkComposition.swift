@@ -7,7 +7,7 @@ enum IOSAdapterLinkComposition {
     /// 常駐リンク上の具象ポートと記録制御を注入した常駐リンク監視を生成します。
     ///
     /// 責務: ELM初期化・車両確認・VIN読取・通知・自動記録設定・時計を1本の常駐リンクへ結び付け、
-    /// 調停役の記録終了と手動接続のアダプター使用の開始・終了を監視の入力へ結び付けます。
+    /// 調停役の記録開始の確定・記録終了と手動接続のアダプター使用の開始・終了を監視の入力へ結び付けます。
     /// - Parameters:
     ///   - residentLink: プロセスに1本だけの常駐リンク一式。
     ///   - notifier: 応答処理を有効化済みの車両検知通知。
@@ -33,6 +33,9 @@ enum IOSAdapterLinkComposition {
         )
         recordingControl.supervisedRecordingDidFinish = { [weak supervision] endReason in
             supervision?.recordingDidFinish(endReason: endReason)
+        }
+        recordingControl.supervisedRecordingDidStart = { [weak supervision] in
+            supervision?.recordingDidStart()
         }
         recordingControl.manualAdapterUseDidBegin = { [weak supervision] in
             supervision?.externalAdapterUseDidBegin()
@@ -90,6 +93,7 @@ enum IOSAdapterLinkComposition {
             )
         }
         coordinator.stopTelemetry = { reason in liveTelemetryModel.send(.endRequested(reason)) }
+        liveTelemetryModel.acquisitionDidStart = { [weak coordinator] in coordinator?.telemetryDidStart() }
         coordinator.telemetryLinkAvailabilityDidChange = { isAvailable in
             liveTelemetryModel.send(.adapterLinkAvailabilityChanged(isAvailable: isAvailable))
         }

@@ -31,6 +31,8 @@ final class LiveTelemetryModel {
     @ObservationIgnored private var refreshThrottle = LiveTelemetryDisplayRefreshThrottle()
     /// 初回周回で確定した取得対象です。表示順の基準に使います。
     @ObservationIgnored private var supportedDefinitions: [OBDPIDDefinition] = []
+    /// 取得が始まった(最初の取得対象が確定した)時に呼ぶ処理です。現在の世代で1回だけ呼びます。App の配線で設定します。
+    @ObservationIgnored var acquisitionDidStart: (@MainActor () -> Void)?
     /// 現在の取得セッションで受信した応答の件数です。表示状態へは観測値の反映時にまとめて写します。
     @ObservationIgnored private var receivedResponseCount = 0
 
@@ -233,14 +235,17 @@ final class LiveTelemetryModel {
     /// 取得ループの出来事を表示状態へ反映します。
     ///
     /// 責務: 観測は間引いて反映し、取得対象の確定・段階の変化・終了は間引かずに反映します。
+    /// 最初の取得対象の確定(取得が実際に始まった時点)で `acquisitionDidStart` を呼びます。
     /// - Parameter event: 取得ループが流した出来事。
     private func apply(_ event: LiveTelemetryAcquisitionEvent) {
         switch event {
         case let .targetsConfirmed(definitions):
+            let isFirstConfirmation = supportedDefinitions.isEmpty
             supportedDefinitions = definitions
             state.supportedPIDCount = definitions.count
             state.phase = .loaded
             applyPendingSamples(force: true)
+            if isFirstConfirmation { acquisitionDidStart?() }
         case let .sampleDecoded(sample):
             receivedResponseCount += 1
             refreshThrottle.hold(sample)

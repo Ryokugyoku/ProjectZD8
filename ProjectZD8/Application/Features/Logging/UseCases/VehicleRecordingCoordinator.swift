@@ -34,6 +34,9 @@ final class VehicleRecordingCoordinator: AdapterLinkRecordingControlPort {
     /// 引数は記録中から終わった時のテレメトリ終了理由で、記録が始まらなかった・辞退した・手動記録に置き換えた場合は `nil` です。
     var supervisedRecordingDidFinish: (@MainActor (ConnectionSessionEndReason?) -> Void)?
 
+    /// 常駐リンク監視から依頼された記録の開始が確定したことを監視へ伝える処理です(`AdapterLinkSupervisionUseCase.recordingDidStart()` を結び付けます)。
+    var supervisedRecordingDidStart: (@MainActor () -> Void)?
+
     /// 手動接続がアダプターを使い始めたことを常駐リンク監視へ伝える処理です(`externalAdapterUseDidBegin()` を結び付けます)。
     var manualAdapterUseDidBegin: (@MainActor () -> Void)?
 
@@ -162,6 +165,15 @@ final class VehicleRecordingCoordinator: AdapterLinkRecordingControlPort {
     func recordingLinkAvailabilityDidChange(isAvailable: Bool) {
         guard phase == .recording else { return }
         telemetryLinkAvailabilityDidChange?(isAvailable)
+    }
+
+    /// テレメトリの取得が始まった(取得対象が確定した)ことを受け取ります。
+    ///
+    /// 責務: 常駐リンク監視から依頼された記録中(接続セッションを作成してテレメトリを始めた後)の時だけ、開始の確定を監視へ伝えます。
+    /// 手動接続の記録・照合中・待機中(既に終わった記録の古い通知を含む)は何もしません。
+    func telemetryDidStart() {
+        guard phase == .recording else { return }
+        supervisedRecordingDidStart?()
     }
 
     /// テレメトリが終了したことを受け取ります(終了理由を問わず、テレメトリの終了通知ごとに呼びます)。

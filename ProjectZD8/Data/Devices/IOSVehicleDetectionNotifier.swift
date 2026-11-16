@@ -78,6 +78,14 @@ final class IOSVehicleDetectionNotifier: NSObject, VehicleDetectionNotificationP
         present(catalog.recordingStarted(vin: vin))
     }
 
+    /// 「記録を開始できませんでした」通知を、理由つきで提示します。
+    ///
+    /// 責務: 通知の[記録開始]から記録を始められなかったことを通知としてシステムへ渡します。
+    /// - Parameter reason: 記録を始められなかった理由。
+    func presentRecordingStartFailed(reason: AdapterLinkRecordingStartFailureReason) {
+        present(catalog.recordingStartFailed(reason: reason))
+    }
+
     /// 提示中の監視通知を取り下げます。
     ///
     /// 責務: 監視通知を配信済み・保留中の両方から取り除き、進行中の提示も取り消します。

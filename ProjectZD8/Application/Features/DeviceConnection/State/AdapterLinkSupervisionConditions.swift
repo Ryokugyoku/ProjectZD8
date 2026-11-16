@@ -31,6 +31,11 @@ nonisolated struct AdapterLinkSupervisionConditions: Equatable, Sendable {
     /// 確認の結果がこの時刻から最短間隔より早く返った場合に、残り時間だけ待つために使います。
     let lastVehicleConfirmationSentAt: Date?
 
+    /// 有効期限内の「記録開始の意思」(検知待ち以外で届いた[記録開始]の選択)を保持しているかどうかです。
+    ///
+    /// `true` の間に車両の検知が完了したら、自動記録がオフでも検知通知を出し直さずに記録を始めます。
+    let hasValidRecordingIntent: Bool
+
     /// 遷移の参照条件を固定して生成します。
     ///
     /// 責務: 1件のイベント処理で参照する条件を不変値へまとめます。
@@ -44,6 +49,7 @@ nonisolated struct AdapterLinkSupervisionConditions: Equatable, Sendable {
     ///   - isExternalAdapterUseActive: 手動接続がアダプターを使っている最中か。既定は `false`。
     ///   - isForeground: アプリが前面にいるか。既定は `false`。
     ///   - lastVehicleConfirmationSentAt: 最後に車両確認を送った時刻。既定は `nil`。
+    ///   - hasValidRecordingIntent: 有効期限内の記録開始の意思を保持しているか。既定は `false`。
     init(
         isSupervisionStarted: Bool,
         isSignedIn: Bool,
@@ -53,7 +59,8 @@ nonisolated struct AdapterLinkSupervisionConditions: Equatable, Sendable {
         now: Date,
         isExternalAdapterUseActive: Bool = false,
         isForeground: Bool = false,
-        lastVehicleConfirmationSentAt: Date? = nil
+        lastVehicleConfirmationSentAt: Date? = nil,
+        hasValidRecordingIntent: Bool = false
     ) {
         self.isSupervisionStarted = isSupervisionStarted
         self.isSignedIn = isSignedIn
@@ -64,6 +71,7 @@ nonisolated struct AdapterLinkSupervisionConditions: Equatable, Sendable {
         self.isExternalAdapterUseActive = isExternalAdapterUseActive
         self.isForeground = isForeground
         self.lastVehicleConfirmationSentAt = lastVehicleConfirmationSentAt
+        self.hasValidRecordingIntent = hasValidRecordingIntent
     }
 
     /// 稼働条件を満たす場合にリンクの接続対象とすべき既定アダプター設定です。

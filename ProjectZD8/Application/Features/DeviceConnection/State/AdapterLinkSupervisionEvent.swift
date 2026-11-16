@@ -46,6 +46,11 @@ nonisolated enum AdapterLinkSupervisionEvent: Equatable, Sendable {
     /// 記録終了を受けた終了処理が完了しました。
     case finishingDidComplete
 
+    /// 記録側が開始要求を受け入れ、接続セッションを作成し、取得が始まったと伝えました(記録開始の確定)。
+    ///
+    /// `announcesStart` は、自動記録で始めた記録なので「記録を開始しました」を出すべきかどうかです(ユースケースが決めます)。
+    case recordingStartConfirmed(announcesStart: Bool)
+
     /// 記録中から終わった記録(終了理由あり)の終了通知を処理し終え、監視がアダプターを使ってよくなりました。
     ///
     /// 待機でリンクが `ready` なら検知をやり直し、ユーザー切断後の抑止なら見張りを始める機会です。

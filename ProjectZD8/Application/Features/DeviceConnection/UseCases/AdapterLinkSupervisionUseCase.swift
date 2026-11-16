@@ -39,6 +39,12 @@ final class AdapterLinkSupervisionUseCase {
     /// 状態・イベント・条件から次の状態と作用を決める純粋な遷移です。
     private let transition: AdapterLinkSupervisionTransition
 
+    /// 検知待ち以外で届いた[記録開始]を有効期限つきの意思として保持する型です。
+    private let recordingIntents: AdapterLinkRecordingIntentTracker
+
+    /// いま記録中の記録が自動記録で始まり、開始の確定で「記録を開始しました」を出すべきかどうかです。
+    private var announcesRecordingStart = false
+
     /// 記録中のリンク状態の変化から、記録側へ伝える可用性の変化を決める方針です。
     private let recordingLinkAvailability = AdapterLinkRecordingLinkAvailabilityPolicy()
 
@@ -114,6 +120,7 @@ final class AdapterLinkSupervisionUseCase {
             clock: clock
         )
         transition = AdapterLinkSupervisionTransition(timing: timing)
+        recordingIntents = AdapterLinkRecordingIntentTracker(clock: clock, notifications: notifications)
         linkState = link.state
         operations.eventDidOccur = { [weak self] event in self?.send(event) }
         link.stateDidChange = { [weak self] linkState in self?.send(.linkStateChanged(linkState)) }
@@ -121,8 +128,10 @@ final class AdapterLinkSupervisionUseCase {
 
     /// 監視を開始します。アプリ起動時(バックグラウンド起動を含む)に呼びます。
     ///
-    /// 責務: 既定アダプター設定を読み込み、稼働条件を満たせば常駐リンクを開始します。重複して呼んでもリンクは二重に開始しません。
+    /// 責務: 前のプロセスが残した監視通知を取り下げ(その通知からは記録を始められないため)、既定アダプター設定を読み込み、
+    /// 稼働条件を満たせば常駐リンクを開始します。重複して呼んでもリンクは二重に開始しません。
     func start() {
+        notifications.dismiss()
         isSupervisionStarted = true
         currentDefaultAdapterPreference = defaultAdapterPreference.load()
         send(.operatingConditionsChanged)
@@ -170,9 +179,26 @@ final class AdapterLinkSupervisionUseCase {
 
     /// ユーザーが通知の[記録開始]を選んだことを反映します。
     ///
-    /// 責務: 検知済みの時だけ記録開始を要求します。それ以外の状態では記録を始めません。
+    /// 責務: 検知待ちなら記録開始を要求します。待機・初期化中・確認中・VIN読取中なら有効期限つきの意思として保持し
+    /// (処理できない条件なら捨てて理由を通知し)、記録中・終了処理中・抑止中は無視します。
     func recordingStartSelected() {
-        send(.recordingStartSelected)
+        switch recordingIntents.policy.disposition(for: state, conditions: currentConditions()) {
+        case .forwardToTransition:
+            send(.recordingStartSelected)
+        case .keepAsIntent:
+            recordingIntents.keep()
+        case let .reject(reason):
+            recordingIntents.rejectSelection(reason)
+        }
+    }
+
+    /// 記録側から記録開始の確定(接続セッションが作成され取得が始まった)を受け取ります。
+    ///
+    /// 責務: 自動記録で始めた記録なら「記録を開始しました」を出させます。記録中以外に届いた確定は遷移が無視します。
+    func recordingDidStart() {
+        let announces = announcesRecordingStart
+        announcesRecordingStart = false
+        send(.recordingStartConfirmed(announcesStart: announces))
     }
 
     /// 記録側から記録の終了を受け取ります。
@@ -184,6 +210,7 @@ final class AdapterLinkSupervisionUseCase {
     /// - Parameter endReason: 記録中から終わった時のテレメトリ終了理由。記録が始まらなかった・辞退した・手動記録に置き換えた場合は `nil`。
     func recordingDidFinish(endReason: ConnectionSessionEndReason?) {
         let finishedWhileRecording: Bool = if case .recording = state { true } else { false }
+        announcesRecordingStart = false
         send(.recordingDidFinish(endReason: endReason))
         if finishedWhileRecording, endReason != nil {
             send(.recordingEndSettled)
@@ -234,6 +261,7 @@ final class AdapterLinkSupervisionUseCase {
     /// - Parameter event: 処理するイベント。
     private func process(_ event: AdapterLinkSupervisionEvent) {
         let conditions = currentConditions()
+        let previous = state
         let result = transition.result(from: state, on: event, conditions: conditions)
         let availabilityChange = recordingLinkAvailability.availabilityChange(on: event, from: state, conditions: conditions)
         if case let .linkStateChanged(newLinkState) = event {
@@ -246,6 +274,35 @@ final class AdapterLinkSupervisionUseCase {
         result.effects.forEach(execute)
         if let availabilityChange {
             recordingControl.recordingLinkAvailabilityDidChange(isAvailable: availabilityChange)
+        }
+        updateRecordingIntent(after: event, from: previous, conditions: conditions)
+    }
+
+    /// 1件のイベントの処理後に、記録開始の意思と開始通知の要否を更新します。
+    ///
+    /// 責務: VIN読取の完了で意思を使い終え(期限切れなら理由を通知)、自動記録で記録中へ移ったかを覚えます。
+    /// 稼働条件の変化で意思を処理できなくなったら、意思を捨てて理由を通知します。
+    /// - Parameters:
+    ///   - event: 処理したイベント。
+    ///   - previous: 処理前の監視状態。
+    ///   - conditions: 処理時の条件。
+    private func updateRecordingIntent(
+        after event: AdapterLinkSupervisionEvent,
+        from previous: AdapterLinkSupervisionState,
+        conditions: AdapterLinkSupervisionConditions
+    ) {
+        switch event {
+        case let .vinReadCompleted(_, isAutomaticRecordingEnabled), let .vinReadFailed(isAutomaticRecordingEnabled):
+            guard case .vehicleDetected(_, .readingVIN) = previous else { return }
+            let isRecording: Bool = if case .recording = state { true } else { false }
+            announcesRecordingStart = isRecording && isAutomaticRecordingEnabled
+            recordingIntents.detectionDidComplete()
+        case .operatingConditionsChanged:
+            if let reason = recordingIntents.policy.rejectionReason(conditions) {
+                recordingIntents.discard(reason)
+            }
+        default:
+            return
         }
     }
 
@@ -263,7 +320,8 @@ final class AdapterLinkSupervisionUseCase {
             now: clock.now,
             isExternalAdapterUseActive: isExternalAdapterUseActive,
             isForeground: isForeground,
-            lastVehicleConfirmationSentAt: lastVehicleConfirmationSentAt
+            lastVehicleConfirmationSentAt: lastVehicleConfirmationSentAt,
+            hasValidRecordingIntent: recordingIntents.hasValidIntent
         )
     }
 

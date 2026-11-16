@@ -884,6 +884,94 @@
         }
       }
     },
+    "vehicle-detection-recording-start-failed-body-no-adapter" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No default adapter is set up. Set up an adapter, then try again."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No hay un adaptador predeterminado configurado. Configura un adaptador e inténtalo de nuevo."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "デフォルトアダプターが設定されていません。アダプターを設定してから、もう一度お試しください。"
+          }
+        }
+      }
+    },
+    "vehicle-detection-recording-start-failed-body-not-detected" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The vehicle wasn't detected within 2 minutes. Turn on the vehicle and try again."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se detectó el vehículo en 2 minutos. Enciende el vehículo e inténtalo de nuevo."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "2分以内に車両を検知できませんでした。車両の電源を入れてから、もう一度お試しください。"
+          }
+        }
+      }
+    },
+    "vehicle-detection-recording-start-failed-body-sign-in" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You need to sign in. Sign in to the app, then try again."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Debes iniciar sesión. Inicia sesión en la app e inténtalo de nuevo."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ログインが必要です。アプリでログインしてから、もう一度お試しください。"
+          }
+        }
+      }
+    },
+    "vehicle-detection-recording-start-failed-title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't Start Recording"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo iniciar el registro"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "記録を開始できませんでした"
+          }
+        }
+      }
+    },
     "vehicle-detection-recording-started-body" : {
       "localizations" : {
         "en" : {

@@ -12,6 +12,8 @@ nonisolated struct VehicleDetectionNotificationCatalog: Sendable {
     static let vehicleDetectedIdentifier = "VEHICLE_DETECTION_DETECTED"
     /// 「記録を開始しました」通知の固定識別子です。
     static let recordingStartedIdentifier = "VEHICLE_DETECTION_RECORDING_STARTED"
+    /// 「記録を開始できませんでした」通知の固定識別子です。取り下げ(`allIdentifiers`)には含めず、次の同じ通知で置き換えます。
+    static let recordingStartFailedIdentifier = "VEHICLE_DETECTION_RECORDING_START_FAILED"
     /// 監視通知の全識別子です。取り下げと置き換えで使います。
     static let allIdentifiers = [vehicleDetectedIdentifier, recordingStartedIdentifier]
 
@@ -43,6 +45,22 @@ nonisolated struct VehicleDetectionNotificationCatalog: Sendable {
             titleKey: "vehicle-detection-recording-started-title",
             bodyKey: vin == nil ? "vehicle-detection-recording-started-body" : "vehicle-detection-recording-started-body-vin",
             bodyArguments: vin.map { [$0] } ?? [],
+            interruptionLevel: .active
+        )
+    }
+
+    /// 「記録を開始できませんでした」通知の内容を作ります。
+    ///
+    /// 責務: 操作の無い・固定識別子・割り込みレベル `.active` の内容へ変換し、理由で本文を選びます。
+    /// - Parameter reason: 記録を始められなかった理由。
+    /// - Returns: 通知内容。
+    func recordingStartFailed(reason: AdapterLinkRecordingStartFailureReason) -> VehicleDetectionNotificationContent {
+        VehicleDetectionNotificationContent(
+            identifier: Self.recordingStartFailedIdentifier,
+            categoryIdentifier: nil,
+            titleKey: "vehicle-detection-recording-start-failed-title",
+            bodyKey: reason.bodyKey,
+            bodyArguments: [],
             interruptionLevel: .active
         )
     }

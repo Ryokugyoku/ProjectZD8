@@ -18,6 +18,9 @@ final class VehicleDetectionNotificationSpy: VehicleDetectionNotificationPort {
     /// 「記録を開始しました」通知に渡されたVINです(提示順)。
     private(set) var presentedRecordingStartedVINs: [String?] = []
 
+    /// 「記録を開始できませんでした」通知に渡された理由です(提示順)。
+    private(set) var presentedRecordingStartFailedReasons: [AdapterLinkRecordingStartFailureReason] = []
+
     /// 取り下げが呼ばれた回数です。
     private(set) var dismissCount = 0
 
@@ -46,6 +49,14 @@ final class VehicleDetectionNotificationSpy: VehicleDetectionNotificationPort {
     /// - Parameter vin: 読み取ったVIN。
     func presentRecordingStarted(vin: String?) {
         presentedRecordingStartedVINs.append(vin)
+    }
+
+    /// 記録開始の失敗通知の提示を記録します。
+    ///
+    /// 責務: 渡された理由を提示順に記録します。
+    /// - Parameter reason: 記録を始められなかった理由。
+    func presentRecordingStartFailed(reason: AdapterLinkRecordingStartFailureReason) {
+        presentedRecordingStartFailedReasons.append(reason)
     }
 
     /// 取り下げを記録します。

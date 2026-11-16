@@ -2,7 +2,8 @@
 nonisolated struct AdapterLinkRecordingTransition: Sendable {
     /// VIN読取の結果に対する遷移を返します。
     ///
-    /// 責務: VIN読取中であれば、自動記録オンなら記録開始を要求して記録中へ、オフなら検知通知を1回提示して操作待ちへ移します。
+    /// 責務: VIN読取中であれば、自動記録オン(または有効期限内の記録開始の意思あり)なら記録開始を要求して記録中へ、
+    /// それ以外は検知通知を1回提示して操作待ちへ移します。「記録を開始しました」通知は開始の確定(`recordingStartConfirmed`)の後に出します。
     /// - Parameters:
     ///   - vin: 読み取ったVIN。読めなかった・失敗した場合は `nil`。
     ///   - isAutomaticRecordingEnabled: 検知時点の自動記録設定。
@@ -19,7 +20,7 @@ nonisolated struct AdapterLinkRecordingTransition: Sendable {
             return AdapterLinkSupervisionTransitionResult(state: state)
         }
         let vehicle = AdapterLinkDetectedVehicle(adapterProbeEvidence: detected.adapterProbeEvidence, vin: vin)
-        guard isAutomaticRecordingEnabled else {
+        guard isAutomaticRecordingEnabled || conditions.hasValidRecordingIntent else {
             return AdapterLinkSupervisionTransitionResult(
                 state: .vehicleDetected(vehicle, phase: .awaitingRecordingStart),
                 effects: [.presentVehicleDetected(vin: vin)]
@@ -30,11 +31,26 @@ nonisolated struct AdapterLinkRecordingTransition: Sendable {
         }
         return AdapterLinkSupervisionTransitionResult(
             state: .recording(vehicle),
-            effects: [
-                .requestRecordingStart(AdapterLinkRecordingStartRequest(preference: linkPreference, vehicle: vehicle)),
-                .presentRecordingStarted(vin: vin),
-            ]
+            effects: [.requestRecordingStart(AdapterLinkRecordingStartRequest(preference: linkPreference, vehicle: vehicle))]
         )
+    }
+
+    /// 記録開始の確定に対する遷移を返します。
+    ///
+    /// 責務: 記録中で、自動記録で始めた記録なら「記録を開始しました」通知を出します。状態は変えません。
+    /// 記録中以外(既に終わった・別の段階)に届いた確定は、古い結果として無視します。
+    /// - Parameters:
+    ///   - announcesStart: 「記録を開始しました」を出すべき記録か。
+    ///   - state: 現在の監視状態。
+    /// - Returns: 記録中かつ通知すべきなら `[.presentRecordingStarted(vin:)]`、それ以外は何もしない遷移。
+    func recordingStartConfirmed(
+        announcesStart: Bool,
+        from state: AdapterLinkSupervisionState
+    ) -> AdapterLinkSupervisionTransitionResult {
+        guard case let .recording(vehicle) = state, announcesStart else {
+            return AdapterLinkSupervisionTransitionResult(state: state)
+        }
+        return AdapterLinkSupervisionTransitionResult(state: state, effects: [.presentRecordingStarted(vin: vehicle.vin)])
     }
 
     /// 通知の[記録開始]選択に対する遷移を返します。
