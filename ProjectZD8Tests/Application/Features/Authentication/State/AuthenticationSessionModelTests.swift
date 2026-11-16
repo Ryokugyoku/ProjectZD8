@@ -201,6 +201,60 @@ final class AuthenticationSessionModelTests: XCTestCase {
         XCTAssertEqual(dependencies.model.state.failure, .remoteLogoutPersistenceFailed)
     }
 
+    /// 起動時の資格の確認が失敗した(Apple 資格状態の照会が throw)場合は、確認できなかったとしてログイン画面とエラー表示にします。
+    ///
+    /// 責務: 照会の失敗で `.signedOut`・`.sessionCheckFailed`・セッションなし・失効の監視なしになり、保存済み識別子を消さないことを確認します
+    /// (U5 受け入れ条件 14・16・18)。
+    func testCredentialCheckFailureSignsOutWithSessionCheckFailed() async {
+        let dependencies = makeDependencies()
+        dependencies.store.identifier = "stored-user"
+        dependencies.authorization.credentialStateError = URLError(.notConnectedToInternet)
+
+        dependencies.model.send(.appeared)
+        await waitForTasks()
+
+        XCTAssertEqual(dependencies.model.state.phase, .signedOut)
+        XCTAssertEqual(dependencies.model.state.failure, .sessionCheckFailed)
+        XCTAssertNil(dependencies.model.state.session)
+        XCTAssertNil(dependencies.revocation.observedIdentifier)
+        XCTAssertEqual(dependencies.store.identifier, "stored-user", "確認できなかっただけなので保存済み識別子は残す")
+    }
+
+    /// 保存済み識別子を読めなかった(Keychain がまだ読めない)場合も、確認できなかったとしてエラー表示にします。
+    ///
+    /// 責務: 読み出しの失敗で `.signedOut`・`.sessionCheckFailed`・資格の照会なしになることを確認します(U5 受け入れ条件 14・18)。
+    func testStoredIdentifierLoadFailureSignsOutWithSessionCheckFailed() async {
+        let dependencies = makeDependencies()
+        dependencies.store.loadError = AuthenticationSessionStoreError.unavailable
+
+        dependencies.model.send(.appeared)
+        await waitForTasks()
+
+        XCTAssertEqual(dependencies.model.state.phase, .signedOut)
+        XCTAssertEqual(dependencies.model.state.failure, .sessionCheckFailed)
+        XCTAssertEqual(dependencies.authorization.credentialStateRequestCount, 0)
+    }
+
+    /// 本当に未サインイン・失効(保存なし・revoked・notFound・transferred)の場合は、エラー表示なしのサインアウトです。
+    ///
+    /// 責務: 4つの場合のどれでも `.signedOut`・失敗なし・セッションなしになり、確認できなかった場合と区別されることを確認します(U5 受け入れ条件 14)。
+    func testGenuinelySignedOutStatesHaveNoFailure() async {
+        let cases: [(String?, AppleAccountCredentialState)] = [(nil, .authorized), ("u", .revoked), ("u", .notFound), ("u", .transferred)]
+        for (identifier, credential) in cases {
+            let dependencies = makeDependencies()
+            dependencies.store.identifier = identifier
+            dependencies.authorization.credentialState = credential
+
+            dependencies.model.send(.appeared)
+            await waitForTasks()
+
+            let label = "\(String(describing: identifier)) / \(credential)"
+            XCTAssertEqual(dependencies.model.state.phase, .signedOut, label)
+            XCTAssertNil(dependencies.model.state.failure, label)
+            XCTAssertNil(dependencies.model.state.session, label)
+        }
+    }
+
     /// テスト用依存関係と認証モデルをまとめて生成します。
     ///
     /// 責務: 1件の認証モデルテストへ共有Fakeを同一構成で注入します。
@@ -291,6 +345,9 @@ private final class AuthenticationModelAuthorizationPortFake: AppleAccountAuthor
     /// Apple資格状態照会が返す状態です。
     var credentialState: AppleAccountCredentialState = .notFound
 
+    /// 設定するとApple資格状態照会がこのエラーを投げます(オフラインなどで確認できない状況)。
+    var credentialStateError: Error?
+
     /// Apple認証要求の実行回数です。
     private(set) var authorizationRequestCount = 0
 
@@ -314,6 +371,7 @@ private final class AuthenticationModelAuthorizationPortFake: AppleAccountAuthor
     /// - Returns: テストが設定したApple資格状態。
     func credentialState(for userIdentifier: String) async throws -> AppleAccountCredentialState {
         credentialStateRequestCount += 1
+        if let credentialStateError { throw credentialStateError }
         return credentialState
     }
 }
@@ -326,12 +384,16 @@ private final class AuthenticationModelSessionStorePortFake: AuthenticationSessi
     /// セッション削除時に送出するテスト指定エラーです。
     var removeError: Error?
 
+    /// 識別子の読み出し時に送出するテスト指定エラーです(Keychain がまだ読めない状況)。
+    var loadError: Error?
+
     /// 現在のテスト用識別子を返します。
     ///
     /// 責務: モデルの復元ユースケースへ保存済み識別子を返します。
     /// - Returns: 現在保存されているテスト用識別子。
     func loadUserIdentifier() throws -> String? {
-        identifier
+        if let loadError { throw loadError }
+        return identifier
     }
 
     /// テスト用識別子を置き換えます。
