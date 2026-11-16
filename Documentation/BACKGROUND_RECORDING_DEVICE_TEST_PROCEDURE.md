@@ -63,7 +63,7 @@ subsystem はすべてアプリの bundle ID(`Ryokugyoku.ProjectZD8`)です。
 | `VehicleRecording` | 記録開始を断った理由、車両照合の失敗 | `Recording start declined because another session is active`、`Registered vehicle lookup failed: …` |
 | `Acquisition` | 取得ループの状態遷移 | `Acquisition started`、`Acquisition phase: acquiring`、`Acquisition phase: recovering cause=<原因> stage=<段階> attempt=<回>`、`Acquisition phase: paused cause=<原因>`、`Acquisition ended: stopped`、`Acquisition ended: gracePeriodExpired cause=<原因>`、`Acquisition ended: recordingFailed` |
 | `LiveActivity` | Live Activity の状態遷移 | `Live Activity started`、`Live Activity ended`、`Live Activity closed by system`、`Live Activity stop requested: accepted`、`Live Activity stop requested: declined` |
-| `RecordingSessionActivity` | Live Activity の操作の失敗 | `Session activity <操作> failed: …` |
+| `LiveActivity` | Live Activity の操作の失敗 | `Session activity <操作> failed: …` |
 | `PostSessionProcessing` | セッション外の後処理 | `Post-session processing scheduled`、`Post-session processing started`、`Post-session processing deferred: recording active`、`Post-session processing step <upload\|eviction> succeeded`、`Post-session processing interrupted: expired`、`Post-session processing finished: completed` |
 
 - `BLELink` の状態は `idle`、`awaitingPeripheral`、`connecting`、`discovering`、`ready`、
@@ -250,7 +250,7 @@ Console.app
 - `category:LiveActivity`: `Live Activity started`、`Live Activity stop requested: accepted`、
   `Live Activity ended`。
 - `category:Acquisition`: `Acquisition ended: stopped`。手順4の間に `Acquisition started` が無い。
-- `category:RecordingSessionActivity`: `Session activity … failed:` が無い。
+- `category:LiveActivity`: `Session activity … failed:` が無い。
 
 残す証拠
 

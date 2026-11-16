@@ -5,7 +5,7 @@ import OSLog
 @MainActor
 final class OSLogRecordingSessionActivityDiagnosticsAdapter: RecordingSessionActivityDiagnosticsPort {
     /// 出力先のロガーです。
-    private let logger = Logger(subsystem: DiagnosticsLogSubsystem.identifier, category: "RecordingSessionActivity")
+    private let logger = Logger(subsystem: DiagnosticsLogSubsystem.identifier, category: "LiveActivity")
 
     /// 記録中表示の操作に失敗したことを出力します。
     ///

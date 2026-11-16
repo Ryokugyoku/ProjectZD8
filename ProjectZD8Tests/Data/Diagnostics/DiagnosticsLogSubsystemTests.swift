@@ -13,7 +13,7 @@ final class DiagnosticsLogSubsystemTests: XCTestCase {
     private static let expectedCategories: Set<String> = [
         "AppleCoreBluetoothOBDTransport", "ConnectionSessionPersistence", "AcquisitionEvidencePersistence",
         "AcquisitionChunkPersistence", "OBDSerialTransport", "OBDBluetoothRFCOMMTransport", "BLELink",
-        "VehicleDetectionNotification", "VehicleRecording", "RecordingSessionActivity", "PostSessionProcessing",
+        "VehicleDetectionNotification", "VehicleRecording", "PostSessionProcessing",
         "Acquisition", "LiveActivity", "AcquisitionPerformance"
     ]
 
