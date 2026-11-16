@@ -68,7 +68,11 @@ nonisolated struct AdapterLinkSupervisionAuthenticationRelay: Sendable {
     /// - Returns: 同じ段階なら `true`。
     private static func isSame(_ phase: AuthenticationPhase, as previous: AuthenticationPhase?) -> Bool {
         switch (phase, previous) {
-        case (.checkingSession, .checkingSession?), (.signedOut, .signedOut?), (.signingIn, .signingIn?), (.signedIn, .signedIn?), (.deletingAccount, .deletingAccount?):
+        case (.checkingSession, .checkingSession?),
+             (.signedOut, .signedOut?),
+             (.signingIn, .signingIn?),
+             (.signedIn, .signedIn?),
+             (.deletingAccount, .deletingAccount?):
             true
         default:
             false
