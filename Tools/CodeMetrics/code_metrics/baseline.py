@@ -10,7 +10,6 @@ from typing import Dict, Iterable, List, Optional
 
 from .limits import BASELINE_RELATIVE_PATH
 from .model import Finding, Judgement
-from .safe_paths import resolve_inside
 
 
 class BaselineError(Exception):
@@ -24,8 +23,9 @@ def _function_key(finding: Finding) -> str:
 
 def load_baseline(root: str) -> dict:
     """責務: ルート直下の固定パスのベースラインを読む。なければ空を返す。"""
-    path = resolve_inside(root, os.path.join(root, BASELINE_RELATIVE_PATH))
-    if path is None:
+    root_real = os.path.realpath(root)
+    path = os.path.realpath(os.path.join(root_real, BASELINE_RELATIVE_PATH))
+    if os.path.commonpath([root_real, path]) != root_real:
         raise BaselineError("ベースラインの実パスがルートの外を指している")
     if not os.path.exists(path):
         return {"files": {}, "functions": {}}
@@ -81,8 +81,9 @@ def build_baseline(findings: Iterable[Finding]) -> dict:
 
 def save_baseline(root: str, baseline: dict) -> None:
     """責務: キー順を固定し、末尾に改行を付けてルート直下の固定パスへ書く。"""
-    path = resolve_inside(root, os.path.join(root, BASELINE_RELATIVE_PATH))
-    if path is None:
+    root_real = os.path.realpath(root)
+    path = os.path.realpath(os.path.join(root_real, BASELINE_RELATIVE_PATH))
+    if os.path.commonpath([root_real, path]) != root_real:
         raise BaselineError("ベースラインの実パスがルートの外を指している")
     os.makedirs(os.path.dirname(path), exist_ok=True)
     text = json.dumps(baseline, sort_keys=True, indent=2, ensure_ascii=False)

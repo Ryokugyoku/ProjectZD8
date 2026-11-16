@@ -2,6 +2,7 @@
 
 import json
 import os
+import re
 import subprocess
 from typing import Iterable, List, Optional
 
@@ -9,6 +10,8 @@ from .limits import BASELINE_SCAN_DIRS, SWIFT_SUFFIX
 from .safe_paths import resolve_inside
 
 _GIT_TIMEOUT_SECONDS = 30
+_REF_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._/~^@-]{0,199}")
+_SHA_PATTERN = re.compile(r"[0-9a-f]{40}|[0-9a-f]{64}")
 
 
 class GitError(Exception):
@@ -37,15 +40,6 @@ def run_git(args: List[str], cwd: str) -> str:
     return done.stdout
 
 
-def find_root(cwd: str) -> str:
-    """責務: git のトップレベル、なければ cwd をリポジトリのルートとする。"""
-    try:
-        top = run_git(["rev-parse", "--show-toplevel"], cwd).strip()
-    except GitError:
-        return os.path.realpath(cwd)
-    return os.path.realpath(top) if top else os.path.realpath(cwd)
-
-
 def _relative(path: str, root: str, base: str) -> Optional[str]:
     """責務: ルート配下のパスを `/` 区切りの相対パスにする(外なら None)。"""
     absolute = path if os.path.isabs(path) else os.path.join(base, path)
@@ -68,11 +62,14 @@ def filter_swift(paths: Iterable[str], root: str, base: str) -> List[str]:
 
 
 def resolve_commit(root: str, ref: str) -> str:
-    """責務: REF を検証してコミットの SHA にする(`-` 始まりは拒否)。"""
-    if ref.startswith("-"):
-        raise SelectionError("--changed-since の REF が `-` で始まっている: " + ref)
+    """責務: REF を許可パターンで検証し、コミットの SHA(検証済み)にする。"""
+    if not _REF_PATTERN.fullmatch(ref):
+        raise SelectionError("--changed-since の REF が不正: " + ref)
     args = ["rev-parse", "--verify", "--end-of-options", ref + "^{commit}"]
-    return run_git(args, root).strip()
+    sha = run_git(args, root).strip()
+    if not _SHA_PATTERN.fullmatch(sha):
+        raise SelectionError("REF をコミットの SHA に解決できない: " + ref)
+    return sha
 
 
 def changed_paths(root: str, ref: str) -> List[str]:

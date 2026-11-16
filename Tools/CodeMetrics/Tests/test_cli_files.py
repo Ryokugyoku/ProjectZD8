@@ -2,7 +2,7 @@
 
 import os
 
-from metrics_support import (MetricsTestCase, TOOL, make_root, nested_ifs,
+from metrics_support import (MetricsTestCase, make_root, nested_ifs,
                              run_tool, swift_func, write)
 import subprocess
 import sys
@@ -56,8 +56,6 @@ class ExitCodeTests(MetricsTestCase):
                                env=env, timeout=60, capture_output=True)
         self.assertNotEqual(probe.returncode, 0, "lizard を隠せない環境")
         path = write(self.root, "ProjectZD8/A.swift", swift_func("work()"))
-        done = subprocess.run(
-            [sys.executable, str(TOOL), "--root", str(self.root), str(path)],
-            env=env, timeout=60, capture_output=True, text=True)
-        self.assertEqual(done.returncode, 3)
+        done = run_tool(self.root, path, env=env)
+        self.assertEqual(done.code, 3)
         self.assertTrue(done.stderr.strip())

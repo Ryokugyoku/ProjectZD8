@@ -62,19 +62,19 @@ lizard が返す関数のうち、宣言行(開始行)に `func`、`init`、`sub
 
 - **ルートの外は読まない**: 対象ファイル(FILE 引数、`--changed-since` の結果、`--hook` のパス)は、シンボリックリンクを解決した実パスがルートの実パスの配下にあるものだけを扱う。配下にないものは、存在しないファイルと同じく黙って飛ばす。
 - **ベースラインはルート直下の固定パスだけ**: `<root>/Tools/CodeMetrics/baseline.json` 以外を読み書きしない。実パスがルートの外を指す場合(リンクなど)は理由を標準エラーに出して終了コード 1。
-- **`--root`**: 実在するディレクトリでなければ理由を標準エラーに出して終了コード 1。
-- **`--changed-since REF`**: `-` で始まる REF は git に渡さず、理由を標準エラーに出して終了コード 1。git には `git rev-parse --verify --end-of-options <REF>^{commit}` で確かめたコミットの SHA だけを渡す。git のパス引数は `--` の後に置く。
+- **ルートはコマンドライン引数から受け取らない**: ルートは本ツールの置き場所から決める(`check_swift_metrics.py` の2つ上のディレクトリ = リポジトリのルート)。テスト用に限り、環境変数 `CODE_METRICS_ROOT` で上書きできる。上書き先が実在するディレクトリでなければ理由を標準エラーに出して終了コード 1。
+- **`--changed-since REF`**: REF は `[A-Za-z0-9._/~^@-]` だけからなり、先頭が英数字で、長さ 1〜200 文字のものだけを受け付ける(`re.fullmatch` で確かめる)。それ以外(`-` で始まるものを含む)は git に渡さず、理由を標準エラーに出して終了コード 1。git には `git rev-parse --verify --end-of-options <REF>^{commit}` で確かめたコミットの SHA だけを渡す。git のパス引数は `--` の後に置く。
 
 ## 5. コマンド
 
 ```sh
-python3 Tools/CodeMetrics/check_swift_metrics.py [--root DIR] FILE...
-python3 Tools/CodeMetrics/check_swift_metrics.py [--root DIR] --changed-since REF
-python3 Tools/CodeMetrics/check_swift_metrics.py [--root DIR] --update-baseline
-python3 Tools/CodeMetrics/check_swift_metrics.py [--root DIR] --hook < hook.json
+python3 Tools/CodeMetrics/check_swift_metrics.py FILE...
+python3 Tools/CodeMetrics/check_swift_metrics.py --changed-since REF
+python3 Tools/CodeMetrics/check_swift_metrics.py --update-baseline
+python3 Tools/CodeMetrics/check_swift_metrics.py --hook < hook.json
 ```
 
-- `--root`: リポジトリのルート。省略時は `git rev-parse --show-toplevel`、git でなければカレントディレクトリ。
+- ルート: §4.1 のとおり本ツールの置き場所から決める(`--root` オプションはない)。テストでは環境変数 `CODE_METRICS_ROOT` を使う。
 - 対象ファイル: 拡張子 `.swift` のみ。存在しないファイルと `.swift` 以外は黙って飛ばす。対象が0件なら終了コード 0。
 - `--changed-since REF`: `git diff --name-only --diff-filter=ACMR REF...HEAD` と、作業ツリーの未コミット変更(`git diff --name-only HEAD`)を合わせたファイルを対象にする。
 - `--update-baseline`: `ProjectZD8/`、`ProjectZD8Tests/`、`ProjectZD8UITests/`、`RecordingSessionLiveActivity/` 配下の全 `.swift` を計測し、超過だけを `Tools/CodeMetrics/baseline.json` に書き出す。終了コード 0。

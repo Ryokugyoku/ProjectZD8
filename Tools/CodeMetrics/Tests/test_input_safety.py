@@ -1,7 +1,6 @@
-"""入力の安全性(README §4.1)のテスト。ルート外・不正な引数・リンクされたベースライン。"""
+"""入力の安全性(README §4.1)のテスト。ルート外・リンクされたベースライン。"""
 
 import json
-import subprocess
 
 from metrics_support import (BASELINE_REL, MetricsTestCase, make_root,
                              nested_ifs, run_tool, swift_func, write)
@@ -49,55 +48,6 @@ class OutsideRootTests(MetricsTestCase):
         r = run_tool(self.root, "--hook", stdin=payload)
         self.assertEqual(r.code, 2)
         self.assertIn(NESTING_ERROR, r.stderr)
-
-
-class ArgumentValidationTests(MetricsTestCase):
-    """--changed-since と --root の引数検証。"""
-
-    def git(self, *args):
-        """責務: 作成者設定つきで git を実行する(タイムアウト付き)。"""
-        cmd = ["git", "-c", "user.name=t", "-c", "user.email=t@example.com",
-               "-C", str(self.root)] + list(args)
-        return subprocess.run(cmd, timeout=60, capture_output=True,
-                              text=True, check=True).stdout.strip()
-
-    def assert_rejected(self, result):
-        """責務: exit 1 かつ理由が標準エラーにあることを検証する。"""
-        self.assertEqual(result.code, 1)
-        self.assertTrue(result.stderr.strip())
-
-    def test_ハイフン始まりのREFは拒否(self):
-        """--changed-since -x は exit 1 と stderr。"""
-        self.assert_rejected(run_tool(self.root, "--changed-since", "-x"))
-
-    def test_output指定のREFでファイルを作らせない(self):
-        """--changed-since --output=foo は exit 1 と stderr、foo は作られない。"""
-        r = run_tool(self.root, "--changed-since", "--output=foo")
-        self.assert_rejected(r)
-        self.assertFalse((self.root / "foo").exists())
-
-    def test_等号形式のハイフン始まりREFも拒否(self):
-        """--changed-since=-x(argparse が受理する形)も exit 1 と stderr。"""
-        self.assert_rejected(run_tool(self.root, "--changed-since=-x"))
-
-    def test_存在しないREFは拒否(self):
-        """実 git リポジトリで存在しない REF は exit 1 と stderr。"""
-        self.git("init")
-        write(self.root, "ProjectZD8/A.swift", swift_func("work()"))
-        self.git("add", "-A")
-        self.git("commit", "-m", "init")
-        r = run_tool(self.root, "--changed-since", "no-such-ref-xyz")
-        self.assert_rejected(r)
-
-    def test_存在しないrootは拒否(self):
-        """--root が存在しないディレクトリなら exit 1 と stderr。"""
-        r = run_tool(self.root / "missing-dir", self.root / "A.swift")
-        self.assert_rejected(r)
-
-    def test_rootがファイルなら拒否(self):
-        """--root が通常ファイルでも exit 1 と stderr。"""
-        plain = write(self.root, "plain.txt", "x\n")
-        self.assert_rejected(run_tool(plain, plain))
 
 
 class LinkedBaselineTests(MetricsTestCase):

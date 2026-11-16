@@ -38,12 +38,29 @@ class Result:
         return [ln for ln in self.lines if ": warning: " in ln]
 
 
-def run_tool(root, *args, stdin=None, env=None):
-    """責務: ツールを CLI 経由で起動する(必ずタイムアウト付き)。"""
-    cmd = [sys.executable, str(TOOL), "--root", str(root)] + [str(a) for a in args]
-    done = subprocess.run(cmd, input=stdin, timeout=TIMEOUT,
-                          capture_output=True, text=True, env=env)
+def tool_env(root, env=None):
+    """責務: 既存の環境(env か os.environ)に CODE_METRICS_ROOT=root を足した環境を返す。"""
+    merged = dict(os.environ if env is None else env)
+    merged["CODE_METRICS_ROOT"] = str(root)
+    return merged
+
+
+def run_tool(root, *args, stdin=None, env=None, cwd=None):
+    """責務: ルートを環境変数で指定してツールを CLI 経由で起動する(必ずタイムアウト付き)。"""
+    cmd = [sys.executable, str(TOOL)] + [str(a) for a in args]
+    done = subprocess.run(cmd, input=stdin, timeout=TIMEOUT, cwd=cwd,
+                          capture_output=True, text=True,
+                          env=tool_env(root, env))
     return Result(done)
+
+
+def run_git(root, *args):
+    """責務: 作成者設定つきで git を root で実行し標準出力を返す(タイムアウト付き)。"""
+    cmd = ["git", "-c", "user.name=t", "-c", "user.email=t@example.com",
+           "-c", "commit.gpgsign=false", "-C", str(root)] + list(args)
+    done = subprocess.run(cmd, timeout=TIMEOUT, check=True,
+                          capture_output=True, text=True)
+    return done.stdout.strip()
 
 
 def make_root(case):

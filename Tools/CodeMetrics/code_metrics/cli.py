@@ -12,11 +12,11 @@ from .findings import collect_findings
 from .measure import LizardMissingError, measure_source
 from .model import Finding, Judgement
 from .report import format_report
-from .safe_paths import resolve_inside
 from .selection import (
-    GitError, SelectionError, changed_paths, filter_swift, find_root, hook_path, scan_all,
+    GitError, SelectionError, changed_paths, filter_swift, hook_path, scan_all,
 )
 
+ROOT_ENV_VAR = "CODE_METRICS_ROOT"
 EXIT_OK = 0
 EXIT_ERRORS = 1
 EXIT_HOOK_ERRORS = 2
@@ -27,7 +27,6 @@ def build_parser() -> argparse.ArgumentParser:
     """責務: コマンドライン引数の定義を作る。"""
     parser = argparse.ArgumentParser(description="Swift の複雑さチェック")
     parser.add_argument("files", nargs="*", metavar="FILE")
-    parser.add_argument("--root")
     parser.add_argument("--changed-since", metavar="REF")
     parser.add_argument("--update-baseline", action="store_true")
     parser.add_argument("--hook", action="store_true")
@@ -48,9 +47,10 @@ def join_changed_since(argv: List[str]) -> List[str]:
 def measure_findings(root: str, rel_paths: List[str]) -> List[Finding]:
     """責務: 指定ファイルを計測し、上限超過をすべて集める。"""
     found: List[Finding] = []
+    root_real = os.path.realpath(root)
     for rel in rel_paths:
-        full = resolve_inside(root, os.path.join(root, rel))
-        if full is None:
+        full = os.path.realpath(os.path.join(root_real, rel))
+        if os.path.commonpath([root_real, full]) != root_real:
             continue
         with open(full, encoding="utf-8", errors="replace") as handle:
             text = handle.read()
@@ -77,23 +77,26 @@ def _select_paths(args, root: str, stdin: TextIO) -> List[str]:
     if args.hook:
         path = hook_path(stdin.read())
         return filter_swift([path], root, root) if path else []
-    if args.changed_since:
+    if args.changed_since is not None:
         return filter_swift(changed_paths(root, args.changed_since), root, root)
     return filter_swift(args.files, root, os.getcwd())
 
 
-def _resolve_root(option: Optional[str]) -> str:
-    """責務: --root を検証して実パスにする。省略時は git のルートを使う。"""
-    if option is None:
-        return find_root(os.getcwd())
-    if not os.path.isdir(option):
-        raise SelectionError("--root が実在するディレクトリではない: " + option)
-    return os.path.realpath(option)
+def _resolve_root() -> str:
+    """責務: 本ツールの置き場所からルートを決める(環境変数 CODE_METRICS_ROOT で上書き可)。"""
+    override = os.environ.get(ROOT_ENV_VAR)
+    if override is not None:
+        if not os.path.isdir(override):
+            raise SelectionError(ROOT_ENV_VAR + " が実在するディレクトリではない: " + override)
+        return os.path.realpath(override)
+    here = os.path.realpath(__file__)
+    # cli.py -> code_metrics -> CodeMetrics -> Tools -> ルート
+    return os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(here))))
 
 
 def _run(args, stdin: TextIO, stdout: TextIO, stderr: TextIO) -> int:
     """責務: 引数に従って実行し、終了コードを返す。"""
-    root = _resolve_root(args.root)
+    root = _resolve_root()
     if args.update_baseline:
         return _update_baseline(root)
     judgements = _check(root, _select_paths(args, root, stdin))
