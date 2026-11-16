@@ -1,4 +1,3 @@
-#if os(iOS)
 /// Applicationの表示内容 `RecordingSessionActivityContent` を、Live Activityの `ContentState` へ写します。
 ///
 /// `RecordingSessionActivityAttributes` はWidget Extensionと共有する自己完結の型のため、Application型への変換はこの型が担います。
@@ -53,4 +52,3 @@ nonisolated struct RecordingSessionActivityContentStateMapper: Sendable {
         }
     }
 }
-#endif
