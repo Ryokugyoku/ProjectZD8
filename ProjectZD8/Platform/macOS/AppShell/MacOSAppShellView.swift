@@ -39,6 +39,9 @@ struct MacOSAppShellView: View {
     /// Authenticationが保持する直近のアカウント削除失敗です。
     let accountDeletionFailure: AccountDeletionFailure?
 
+    /// 「エンジン停止とみなす時間」の設定を提供するモデルです。
+    let vehicleOffDelayModel: VehicleOffDetectionDelayModel
+
     /// アカウント削除の型付き操作をAuthenticationへ通知します。
     let sendAuthenticationAction: (AuthenticationAction) -> Void
 
@@ -54,6 +57,7 @@ struct MacOSAppShellView: View {
     ///   - connectionHistoryModel: アカウント単位の接続履歴を提供するモデル。
     ///   - sessionLogAnalysisModel: 保存済みPID時系列解析を提供するモデル。
     ///   - startVehicleConnection: HOME接続要求を車両識別とPID取得へ展開するユースケース。
+    ///   - vehicleOffDelayModel: 「エンジン停止とみなす時間」の設定を提供するモデル。
     ///   - accountDeletionPhase: アカウント削除の現在段階。
     ///   - accountDeletionFailure: 直近のアカウント削除失敗。
     ///   - sendAuthenticationAction: アカウント削除操作の通知先。
@@ -66,12 +70,14 @@ struct MacOSAppShellView: View {
         connectionHistoryModel: ConnectionHistoryModel,
         sessionLogAnalysisModel: SessionLogAnalysisModel,
         startVehicleConnection: StartVehicleConnectionUseCase,
+        vehicleOffDelayModel: VehicleOffDetectionDelayModel,
         accountDeletionPhase: AccountDeletionPhase,
         accountDeletionFailure: AccountDeletionFailure?,
         sendAuthenticationAction: @escaping (AuthenticationAction) -> Void
     ) {
         self.accountSettingsModel = accountSettingsModel
         self.settingsModel = settingsModel
+        self.vehicleOffDelayModel = vehicleOffDelayModel
         self.vehicleManagementModel = vehicleManagementModel
         self.maintenanceModel = maintenanceModel
         self.liveTelemetryModel = liveTelemetryModel
@@ -139,6 +145,8 @@ struct MacOSAppShellView: View {
                     sendSessionLogAnalysisAction: sessionLogAnalysisModel.send,
                     accountDeletionPhase: accountDeletionPhase,
                     accountDeletionFailure: accountDeletionFailure,
+                    vehicleOffSection: vehicleOffDelayModel.section,
+                    sendVehicleOffAction: vehicleOffDelayModel.send,
                     sendAuthenticationAction: sendAuthenticationAction
                 )
             }

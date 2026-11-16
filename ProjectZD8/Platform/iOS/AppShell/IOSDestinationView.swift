@@ -57,6 +57,12 @@ struct IOSDestinationView: View {
     /// 記録開始方法の操作を自動記録設定モデルへ通知するクロージャです。
     let sendAutomaticRecordingAction: (AutomaticRecordingPreferenceAction) -> Void
 
+    /// 設定画面の「エンジン停止とみなす時間」区画に表示する内容です。
+    let vehicleOffSection: VehicleOffDetectionSettingsSection
+
+    /// 「エンジン停止とみなす時間」の操作を設定モデルへ通知するクロージャです。
+    let sendVehicleOffAction: (VehicleOffDetectionDelayAction) -> Void
+
     /// ホームと車両画面に表示する未登録車両の警告です。
     let unassignedVINWarning: UnassignedObservedVINWarning
 
@@ -124,6 +130,8 @@ struct IOSDestinationView: View {
                 sendAccountSettingsAction: sendAccountSettingsAction,
                 automaticRecordingSection: automaticRecordingSection,
                 sendAutomaticRecordingAction: sendAutomaticRecordingAction,
+                vehicleOffSection: vehicleOffSection,
+                sendVehicleOffAction: sendVehicleOffAction,
                 accountDeletionPhase: accountDeletionPhase,
                 accountDeletionFailure: accountDeletionFailure,
                 sendAuthenticationAction: sendAuthenticationAction

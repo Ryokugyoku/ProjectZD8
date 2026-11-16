@@ -33,6 +33,9 @@ struct IOSAppShellView: View {
     /// 自動記録設定と記録開始方法の選択画面の状態を提供するモデルです。
     let automaticRecordingModel: AutomaticRecordingPreferenceModel
 
+    /// 「エンジン停止とみなす時間」の設定を提供するモデルです。
+    let vehicleOffDelayModel: VehicleOffDetectionDelayModel
+
     /// 未登録車両の警告を提供するモデルです。
     let unassignedVINWarningModel: UnassignedObservedVINWarningModel
 
@@ -61,6 +64,7 @@ struct IOSAppShellView: View {
     ///   - sessionLogAnalysisModel: 保存済みPID時系列解析を提供するモデル。
     ///   - startVehicleConnection: HOME接続要求を車両識別とPID取得へ展開するユースケース。
     ///   - automaticRecordingModel: 自動記録設定と記録開始方法の選択画面の状態を提供するモデル。
+    ///   - vehicleOffDelayModel: 「エンジン停止とみなす時間」の設定を提供するモデル。
     ///   - unassignedVINWarningModel: 未登録車両の警告を提供するモデル。
     ///   - vehicleUnknownSessionModel: 車両を特定できなかったログの警告と紐付けを提供するモデル。
     ///   - accountDeletionPhase: アカウント削除の現在段階。
@@ -76,6 +80,7 @@ struct IOSAppShellView: View {
         sessionLogAnalysisModel: SessionLogAnalysisModel,
         startVehicleConnection: StartVehicleConnectionUseCase,
         automaticRecordingModel: AutomaticRecordingPreferenceModel,
+        vehicleOffDelayModel: VehicleOffDetectionDelayModel,
         unassignedVINWarningModel: UnassignedObservedVINWarningModel,
         vehicleUnknownSessionModel: VehicleUnknownSessionModel,
         accountDeletionPhase: AccountDeletionPhase,
@@ -91,6 +96,7 @@ struct IOSAppShellView: View {
         self.sessionLogAnalysisModel = sessionLogAnalysisModel
         self.startVehicleConnection = startVehicleConnection
         self.automaticRecordingModel = automaticRecordingModel
+        self.vehicleOffDelayModel = vehicleOffDelayModel
         self.unassignedVINWarningModel = unassignedVINWarningModel
         self.vehicleUnknownSessionModel = vehicleUnknownSessionModel
         self.accountDeletionPhase = accountDeletionPhase
@@ -183,6 +189,8 @@ struct IOSAppShellView: View {
             sendSessionLogAnalysisAction: sessionLogAnalysisModel.send,
             automaticRecordingSection: automaticRecordingModel.state.settingsSection,
             sendAutomaticRecordingAction: automaticRecordingModel.send,
+            vehicleOffSection: vehicleOffDelayModel.section,
+            sendVehicleOffAction: vehicleOffDelayModel.send,
             unassignedVINWarning: unassignedVINWarningModel.warning,
             sendUnassignedVINWarningAction: handleUnassignedVINWarningAction,
             vehicleUnknownSessionWarning: vehicleUnknownSessionModel.warning,
