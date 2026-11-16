@@ -38,9 +38,9 @@ final class AdapterLinkRecordingTransitionTests: XCTestCase {
         }
     }
 
-    /// 自動記録オンなら、操作なしで記録開始を要求し「記録を開始しました」通知を出して記録中へ移ります。
+    /// 自動記録オンなら、操作なしで記録開始を要求して記録中へ移ります。「記録を開始しました」通知は、記録開始が確定するまで出しません。
     ///
-    /// 責務: 記録開始要求の接続終端・VIN・判定結果が仕様どおりであることをVINあり・なしで確認します。
+    /// 責務: 作用が記録開始要求だけ(接続終端・VIN・判定結果が仕様どおり)で、開始通知を含まないことをVINあり・なしで確認します(U4 受け入れ条件 1・2)。
     func testVINReadWithAutomaticRecordingOnStartsRecording() {
         for vin in [F.vin, nil] {
             let result = transition.vinReadFinished(vin: vin, isAutomaticRecordingEnabled: true, from: readingVIN, conditions: F.conditions())
@@ -48,7 +48,7 @@ final class AdapterLinkRecordingTransitionTests: XCTestCase {
             A.assertResult(
                 result,
                 state: .recording(vehicle),
-                effects: [.requestRecordingStart(F.expectedStartRequest(vin: vin)), .presentRecordingStarted(vin: vin)],
+                effects: [.requestRecordingStart(F.expectedStartRequest(vin: vin))],
                 "\(String(describing: vin))"
             )
         }
@@ -100,11 +100,13 @@ final class AdapterLinkRecordingTransitionTests: XCTestCase {
         )
     }
 
-    /// 検知済み(操作待ち)以外で届いた[記録開始]は無視します。
+    /// 記録中・終了処理中・ユーザー切断後の抑止中に届いた[記録開始]は無視します。
     ///
-    /// 責務: VIN読取中・記録中・その他の全状態で記録開始を要求しないことを確認します。
-    func testRecordingStartSelectedOutsideAwaitingIsIgnored() {
-        for state in F.allStates where state != awaitingStart {
+    /// 責務: これらの状態で状態も作用も変えないことを確認します(U4 受け入れ条件 9)。
+    /// 待機・初期化中・確認中・VIN読取中に届いた選択は「記録開始の意思」として扱うため(受け入れ条件 5〜7)、ここには含めません。
+    func testRecordingStartSelectedWhileRecordingFinishingOrHeldIsIgnored() {
+        let states: [AdapterLinkSupervisionState] = [.recording(F.detectedVehicle), .finishing, .heldAfterUserStop(.awaitingStart), F.watching()]
+        for state in states {
             A.assertIgnored(transition.recordingStartSelected(from: state, conditions: F.conditions()), from: state, "\(state)")
         }
     }

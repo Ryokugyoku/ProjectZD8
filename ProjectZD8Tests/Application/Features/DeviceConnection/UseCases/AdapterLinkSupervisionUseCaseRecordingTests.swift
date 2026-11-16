@@ -32,9 +32,9 @@ final class AdapterLinkSupervisionUseCaseRecordingTests: XCTestCase {
         harness.vinReader.responses.resumeOldest(with: .success(vin))
     }
 
-    /// 自動記録オンなら、操作なしで記録開始を要求し「記録を開始しました」通知を出して記録中へ移ります。
+    /// 自動記録オンなら、操作なしで記録開始を要求して記録中へ移ります。「記録を開始しました」通知は、開始が確定するまで出しません。
     ///
-    /// 責務: 記録開始要求1件(接続終端・VIN・判定結果)・記録開始通知1件・検知通知なしを確認します。
+    /// 責務: 記録開始要求1件(接続終端・VIN・判定結果)・確定前の記録開始通知0件・検知通知なしを確認します(U4 受け入れ条件 1)。
     func testAutomaticRecordingOnStartsRecordingWithoutAction() async throws {
         let harness = makeHarness(isAutomaticRecordingEnabled: true)
         try await harness.driveToConfirming()
@@ -42,9 +42,25 @@ final class AdapterLinkSupervisionUseCaseRecordingTests: XCTestCase {
         try await harness.wait("記録開始要求") { harness.recordingControl.startRequests.count == 1 }
         try await BLEBoundedWaiter.settle()
         XCTAssertEqual(harness.recordingControl.startRequests, [F.expectedStartRequest(vin: F.vin)])
-        XCTAssertEqual(harness.notifications.presentedRecordingStartedVINs, [F.vin])
+        XCTAssertEqual(harness.notifications.presentedRecordingStartedVINs, [], "開始の確定前には出さない")
         XCTAssertEqual(harness.notifications.presentedVehicleDetectedVINs, [])
         XCTAssertEqual(harness.useCase.state, .recording(F.detectedVehicle))
+    }
+
+    /// 自動記録の開始要求が辞退・失敗で終わった(終了理由なしの記録終了)場合は、「記録を開始しました」通知を一度も出しません。
+    ///
+    /// 責務: 開始要求の後に記録が始まらずに終わっても、記録開始通知が0件のままであることを確認します(U4 受け入れ条件 2)。
+    func testDeclinedAutomaticRecordingNeverPresentsRecordingStarted() async throws {
+        let harness = makeHarness(isAutomaticRecordingEnabled: true)
+        try await harness.driveToConfirming()
+        try await detect(harness)
+        try await harness.wait("記録開始要求") { harness.recordingControl.startRequests.count == 1 }
+
+        harness.useCase.recordingDidFinish(endReason: nil)
+        try await BLEBoundedWaiter.settle()
+
+        XCTAssertEqual(harness.notifications.presentedRecordingStartedVINs, [])
+        XCTAssertEqual(harness.useCase.state, .standby)
     }
 
     /// 自動記録オフでは、検知しても記録は始まりません。
@@ -109,21 +125,20 @@ final class AdapterLinkSupervisionUseCaseRecordingTests: XCTestCase {
         XCTAssertEqual(harness.recordingControl.startRequests.count, 1)
     }
 
-    /// 検知済み以外(待機・初期化中・確認中・VIN読取中)で届いた[記録開始]は記録を始めません。
+    /// 記録中・終了処理中に届いた[記録開始]は無視し、記録開始を重ねて要求しません。
     ///
-    /// 責務: 各段階で選択しても記録開始要求が0件のままであることを確認します。
-    func testRecordingStartSelectedOutsideDetectedIsIgnored() async throws {
+    /// 責務: 記録中と(手動接続の開始による)終了処理中の選択で、記録開始要求が1件のままで状態も変わらないことを確認します(U4 受け入れ条件 9)。
+    func testRecordingStartSelectedWhileRecordingOrFinishingIsIgnored() async throws {
         let harness = makeHarness()
+        try await harness.driveToRecording()
+        let recording = harness.useCase.state
         harness.useCase.recordingStartSelected()
-        harness.startSignedIn()
+        XCTAssertEqual(harness.useCase.state, recording)
+
+        harness.useCase.externalAdapterUseDidBegin()
         harness.useCase.recordingStartSelected()
-        try await harness.makeLinkReady()
-        harness.useCase.recordingStartSelected()
-        try await harness.finishInitialization()
-        harness.useCase.recordingStartSelected()
-        try await harness.answerRespondingAndWaitForVINRead()
-        harness.useCase.recordingStartSelected()
-        XCTAssertEqual(harness.recordingControl.startRequests, [])
+        XCTAssertEqual(harness.useCase.state, .finishing)
+        XCTAssertEqual(harness.recordingControl.startRequests.count, 1)
     }
 
     /// 記録中に記録終了が通知されたら待機へ戻り、停止要求は出しません。

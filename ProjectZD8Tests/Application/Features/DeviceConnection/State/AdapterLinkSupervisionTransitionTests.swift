@@ -57,12 +57,31 @@ final class AdapterLinkSupervisionTransitionTests: XCTestCase {
                 let result = transition.result(from: state, on: event, conditions: conditions)
                 if case .recording = state, case let .linkStateChanged(linkState) = event, linkState != .ready {
                     A.assertRecordingContinuesAfterLinkLoss(result, from: state, "\(event)")
+                } else if isRecordingIntentCandidate(event, state) {
+                    continue
                 } else if handled.contains(state) {
                     XCTAssertTrue(result.state != state || !result.effects.isEmpty, "処理されなかった: \(state) / \(event)")
                 } else {
                     A.assertIgnored(result, from: state, "\(state) / \(event)")
                 }
             }
+        }
+    }
+
+    /// 検知待ち以外で届いた[記録開始]のうち、「記録開始の意思」として扱われ得る組かどうかを返します。
+    ///
+    /// 責務: 待機・初期化中・確認中・VIN読取中の[記録開始]は、意思を状態の外に持つ実装もあり得るため、振り分けの網羅から外します。
+    /// 記録中・終了処理中は従来どおり無視されるべきなので外しません(U4 受け入れ条件 5・9)。
+    /// - Parameters:
+    ///   - event: イベント。
+    ///   - state: 状態。
+    /// - Returns: 網羅の確認から外す組なら `true`。
+    private func isRecordingIntentCandidate(_ event: AdapterLinkSupervisionEvent, _ state: AdapterLinkSupervisionState) -> Bool {
+        guard case .recordingStartSelected = event else { return false }
+        switch state {
+        case .standby, .initializing, .confirmingVehicle: return true
+        case let .vehicleDetected(_, phase): return phase == .readingVIN
+        case .recording, .finishing, .heldAfterUserStop: return false
         }
     }
 
@@ -86,7 +105,7 @@ final class AdapterLinkSupervisionTransitionTests: XCTestCase {
 
     /// VIN読取の失敗でも検知は成立し、VINなしで通知または自動記録へ進みます。
     ///
-    /// 責務: 自動記録オフはVINなしの検知通知、オンはVINなしの記録開始要求と記録開始通知になることを確認します。
+    /// 責務: 自動記録オフはVINなしの検知通知、オンはVINなしの記録開始要求だけ(開始通知は確定後。U4 受け入れ条件 1)になることを確認します。
     func testVINReadFailedContinuesWithoutVIN() {
         let readingVIN = F.allStates[4]
         let vehicle = AdapterLinkDetectedVehicle(adapterProbeEvidence: F.evidence, vin: nil)
@@ -97,7 +116,7 @@ final class AdapterLinkSupervisionTransitionTests: XCTestCase {
         A.assertResult(
             on,
             state: .recording(vehicle),
-            effects: [.requestRecordingStart(F.expectedStartRequest(vin: nil)), .presentRecordingStarted(vin: nil)]
+            effects: [.requestRecordingStart(F.expectedStartRequest(vin: nil))]
         )
     }
 
