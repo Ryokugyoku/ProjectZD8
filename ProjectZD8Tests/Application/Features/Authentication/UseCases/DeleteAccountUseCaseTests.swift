@@ -103,9 +103,11 @@ final class DeleteAccountUseCaseTests: XCTestCase {
     private func makeUseCase(_ recorder: DeleteAccountUseCaseRecorder) -> DeleteAccountUseCase {
         DeleteAccountUseCase(
             sessionRevocation: DeleteAccountUseCaseRevocationFake(recorder: recorder),
-            sessionTransfers: DeleteAccountUseCaseTransferFake(recorder: recorder),
-            vehicleDataEraser: DeleteAccountUseCaseVehicleEraserFake(recorder: recorder),
-            maintenanceDataEraser: AuthenticationModelMaintenanceDataEraserFake(),
+            cloudErasers: AccountCloudDataErasers(
+                sessionTransfers: DeleteAccountUseCaseTransferFake(recorder: recorder),
+                vehicleDataEraser: DeleteAccountUseCaseVehicleEraserFake(recorder: recorder),
+                maintenanceDataEraser: AuthenticationModelMaintenanceDataEraserFake()
+            ),
             dataEraser: DeleteAccountUseCaseDataEraserFake(recorder: recorder),
             sessionStore: DeleteAccountUseCaseSessionStoreFake(recorder: recorder)
         )

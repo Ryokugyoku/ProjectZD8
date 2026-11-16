@@ -251,9 +251,11 @@ enum MacOSApplicationComposition: ApplicationPlatformComposing {
             ),
             deleteAccount: DeleteAccountUseCase(
                 sessionRevocation: sessionRevocation,
-                sessionTransfers: CloudKitConnectionSessionTransferRepository(),
-                vehicleDataEraser: vehicleDataEraser,
-                maintenanceDataEraser: CloudKitMaintenanceRemoteStore(),
+                cloudErasers: AccountCloudDataErasers(
+                    sessionTransfers: CloudKitConnectionSessionTransferRepository(),
+                    vehicleDataEraser: vehicleDataEraser,
+                    maintenanceDataEraser: CloudKitMaintenanceRemoteStore()
+                ),
                 dataEraser: dataEraser,
                 sessionStore: sessionStore,
                 deletionMarker: AccountDeletionMarkerComposition.marker,

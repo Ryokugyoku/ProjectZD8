@@ -107,9 +107,11 @@ final class AuthenticationUseCaseTests: XCTestCase {
         let recorder = AuthenticationDeletionOrderRecorder()
         let useCase = DeleteAccountUseCase(
             sessionRevocation: AuthenticationDeletionRevocationPortFake(recorder: recorder),
-            sessionTransfers: AuthenticationDeletionTransferRepositoryFake(recorder: recorder),
-            vehicleDataEraser: AuthenticationDeletionVehicleDataEraserFake(recorder: recorder),
-            maintenanceDataEraser: AuthenticationDeletionMaintenanceDataEraserFake(recorder: recorder),
+            cloudErasers: AccountCloudDataErasers(
+                sessionTransfers: AuthenticationDeletionTransferRepositoryFake(recorder: recorder),
+                vehicleDataEraser: AuthenticationDeletionVehicleDataEraserFake(recorder: recorder),
+                maintenanceDataEraser: AuthenticationDeletionMaintenanceDataEraserFake(recorder: recorder)
+            ),
             dataEraser: AuthenticationDeletionDataEraserFake(recorder: recorder),
             sessionStore: AuthenticationDeletionSessionStoreFake(recorder: recorder)
         )
@@ -133,12 +135,14 @@ final class AuthenticationUseCaseTests: XCTestCase {
         let recorder = AuthenticationDeletionOrderRecorder()
         let useCase = DeleteAccountUseCase(
             sessionRevocation: AuthenticationDeletionRevocationPortFake(recorder: recorder),
-            sessionTransfers: AuthenticationDeletionTransferRepositoryFake(
-                recorder: recorder,
-                deleteAllError: AuthenticationSessionStoreError.unavailable
+            cloudErasers: AccountCloudDataErasers(
+                sessionTransfers: AuthenticationDeletionTransferRepositoryFake(
+                    recorder: recorder,
+                    deleteAllError: AuthenticationSessionStoreError.unavailable
+                ),
+                vehicleDataEraser: AuthenticationDeletionVehicleDataEraserFake(recorder: recorder),
+                maintenanceDataEraser: AuthenticationDeletionMaintenanceDataEraserFake(recorder: recorder)
             ),
-            vehicleDataEraser: AuthenticationDeletionVehicleDataEraserFake(recorder: recorder),
-            maintenanceDataEraser: AuthenticationDeletionMaintenanceDataEraserFake(recorder: recorder),
             dataEraser: AuthenticationDeletionDataEraserFake(recorder: recorder),
             sessionStore: AuthenticationDeletionSessionStoreFake(recorder: recorder)
         )

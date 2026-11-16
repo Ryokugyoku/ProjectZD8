@@ -185,9 +185,11 @@ final class AuthenticationSessionModelAccountDeletionTests: XCTestCase {
             signInWithApple: SignInWithAppleUseCase(authorizationPort: authorization, sessionStore: store),
             deleteAccount: DeleteAccountUseCase(
                 sessionRevocation: revocation,
-                sessionTransfers: transfers,
-                vehicleDataEraser: AuthenticationModelVehicleDataEraserFake(),
-                maintenanceDataEraser: AuthenticationModelMaintenanceDataEraserFake(),
+                cloudErasers: AccountCloudDataErasers(
+                    sessionTransfers: transfers,
+                    vehicleDataEraser: AuthenticationModelVehicleDataEraserFake(),
+                    maintenanceDataEraser: AuthenticationModelMaintenanceDataEraserFake()
+                ),
                 dataEraser: dataEraser,
                 sessionStore: store
             ),

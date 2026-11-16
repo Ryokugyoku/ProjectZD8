@@ -25,9 +25,9 @@ extension AccountDataErasurePort {
     /// 責務: 車両IDを個別に扱わない実装を `eraseAllData(for:)` へ結び付けます。
     /// - Parameters:
     ///   - userIdentifier: Appleがこのアプリへ割り当てた空でないユーザー識別子。
-    ///   - vehicleIDs: 使用しない車両ID群。
+    ///   - _: 使用しない車両ID群。
     /// - Throws: `eraseAllData(for:)` が投げるエラー。
-    func eraseAllData(for userIdentifier: String, knownVehicleIDs vehicleIDs: [VehicleID]) async throws {
+    func eraseAllData(for userIdentifier: String, knownVehicleIDs _: [VehicleID]) async throws {
         try await eraseAllData(for: userIdentifier)
     }
 }

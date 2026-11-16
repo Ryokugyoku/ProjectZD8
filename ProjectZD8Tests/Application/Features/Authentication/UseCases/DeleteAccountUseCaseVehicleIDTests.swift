@@ -130,9 +130,11 @@ final class DeleteAccountUseCaseVehicleIDTests: XCTestCase {
         let eraser = DeleteAccountUseCaseKnownIDsDataEraserFake(recorder: recorder)
         let useCase = DeleteAccountUseCase(
             sessionRevocation: DeleteAccountUseCaseRevocationFake(recorder: recorder),
-            sessionTransfers: DeleteAccountUseCaseTransferFake(recorder: recorder),
-            vehicleDataEraser: vehicles,
-            maintenanceDataEraser: DeleteAccountUseCaseRecordingMaintenanceFake(recorder: recorder),
+            cloudErasers: AccountCloudDataErasers(
+                sessionTransfers: DeleteAccountUseCaseTransferFake(recorder: recorder),
+                vehicleDataEraser: vehicles,
+                maintenanceDataEraser: DeleteAccountUseCaseRecordingMaintenanceFake(recorder: recorder)
+            ),
             dataEraser: eraser,
             sessionStore: DeleteAccountUseCaseSessionStoreFake(recorder: recorder),
             deletionMarker: AccountDeletionMarkerPortFake(),

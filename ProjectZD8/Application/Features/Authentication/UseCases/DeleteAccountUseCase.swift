@@ -30,18 +30,14 @@ struct DeleteAccountUseCase {
     /// 責務: アカウント削除順序をCloudKit消去(運転データ、車両、整備)、削除済みの印の保存、失効発行、ローカル消去、資格情報削除へ固定します。
     /// - Parameters:
     ///   - sessionRevocation: 他端末へセッション失効を発行する境界。
-    ///   - sessionTransfers: CloudKit上の運転データ削除境界。
-    ///   - vehicleDataEraser: CloudKitと端末キャッシュの車両カタログ削除境界。
-    ///   - maintenanceDataEraser: CloudKit上の整備カタログ削除境界。
+    ///   - cloudErasers: CloudKit上の運転データ・車両・整備カタログの削除境界。
     ///   - dataEraser: アカウントに属するアプリ保存データの消去境界。
     ///   - sessionStore: 保存済みAppleユーザー識別子の削除境界。
     ///   - deletionMarker: クラウド削除の完了後に削除済みの印を保存する境界。省略時は印を残しません。
     ///   - vehicleIDStore: 削除開始時に控えた車両IDを成功まで保持する境界。省略時は控えを保持しません。
     init(
         sessionRevocation: any AccountSessionRevocationPort,
-        sessionTransfers: any ConnectionSessionTransferRepository,
-        vehicleDataEraser: any AccountVehicleDataErasurePort,
-        maintenanceDataEraser: any AccountMaintenanceDataErasurePort,
+        cloudErasers: AccountCloudDataErasers,
         dataEraser: any AccountDataErasurePort,
         sessionStore: any AuthenticationSessionStorePort,
         deletionMarker: (any AccountDeletionMarkerPort)? = nil,
@@ -50,9 +46,9 @@ struct DeleteAccountUseCase {
         self.vehicleIDStore = vehicleIDStore
         self.deletionMarker = deletionMarker
         self.sessionRevocation = sessionRevocation
-        self.sessionTransfers = sessionTransfers
-        self.vehicleDataEraser = vehicleDataEraser
-        self.maintenanceDataEraser = maintenanceDataEraser
+        self.sessionTransfers = cloudErasers.sessionTransfers
+        self.vehicleDataEraser = cloudErasers.vehicleDataEraser
+        self.maintenanceDataEraser = cloudErasers.maintenanceDataEraser
         self.dataEraser = dataEraser
         self.sessionStore = sessionStore
     }

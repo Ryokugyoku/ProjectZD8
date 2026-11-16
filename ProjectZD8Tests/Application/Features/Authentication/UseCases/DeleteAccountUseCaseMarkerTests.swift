@@ -122,9 +122,11 @@ final class DeleteAccountUseCaseMarkerTests: XCTestCase {
         let store = AccountDeletionVehicleIDStoreFake(recorder: recorder)
         let useCase = DeleteAccountUseCase(
             sessionRevocation: DeleteAccountUseCaseRevocationFake(recorder: recorder),
-            sessionTransfers: DeleteAccountUseCaseTransferFake(recorder: recorder),
-            vehicleDataEraser: DeleteAccountUseCaseCachedVehicleEraserFake(recorder: recorder, cachedVehicleIDs: cachedVehicleIDs),
-            maintenanceDataEraser: DeleteAccountUseCaseRecordingMaintenanceFake(recorder: recorder),
+            cloudErasers: AccountCloudDataErasers(
+                sessionTransfers: DeleteAccountUseCaseTransferFake(recorder: recorder),
+                vehicleDataEraser: DeleteAccountUseCaseCachedVehicleEraserFake(recorder: recorder, cachedVehicleIDs: cachedVehicleIDs),
+                maintenanceDataEraser: DeleteAccountUseCaseRecordingMaintenanceFake(recorder: recorder)
+            ),
             dataEraser: DeleteAccountUseCaseDataEraserFake(recorder: recorder),
             sessionStore: DeleteAccountUseCaseSessionStoreFake(recorder: recorder),
             deletionMarker: marker,

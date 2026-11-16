@@ -283,9 +283,11 @@ final class AuthenticationSessionModelTests: XCTestCase {
             ),
             deleteAccount: DeleteAccountUseCase(
                 sessionRevocation: revocation,
-                sessionTransfers: transfers,
-                vehicleDataEraser: vehicleDataEraser,
-                maintenanceDataEraser: AuthenticationModelMaintenanceDataEraserFake(),
+                cloudErasers: AccountCloudDataErasers(
+                    sessionTransfers: transfers,
+                    vehicleDataEraser: vehicleDataEraser,
+                    maintenanceDataEraser: AuthenticationModelMaintenanceDataEraserFake()
+                ),
                 dataEraser: dataEraser,
                 sessionStore: store
             ),
