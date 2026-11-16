@@ -14,7 +14,9 @@ final class ConnectionSessionTransferRepositoryFake: ConnectionSessionTransferRe
     ///
     /// 責務: 全削除の要求を、呼び出し側が指定した記録・失敗注入へ結び付けます。
     /// - Parameter onDeleteAll: 識別子を記録した後に呼ぶ動作。省略時は何もしません。
-    init(onDeleteAll: @escaping @MainActor (String) throws -> Void = { _ in }) {
+    init(onDeleteAll: @escaping @MainActor (String) throws -> Void = { _ in
+        // 省略時は識別子の記録以外に何もしない。
+    }) {
         self.onDeleteAll = onDeleteAll
     }
 
