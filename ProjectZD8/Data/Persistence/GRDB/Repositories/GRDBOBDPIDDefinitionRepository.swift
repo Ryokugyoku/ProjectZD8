@@ -16,15 +16,6 @@ final class GRDBOBDPIDDefinitionRepository: OBDPIDDefinitionRepository {
         try ProjectZD8DatabaseMigrator.migrator.migrate(databaseQueue)
     }
 
-    /// Application Support内の製品DBを開いて生成します。
-    ///
-    /// 責務: PID定義DBの製品保存先を作成してリポジトリを返します。
-    /// - Returns: Migration済みのPID定義リポジトリ。
-    /// - Throws: 保存先作成、DB接続、Migrationに失敗した場合のエラー。
-    static func openApplicationRepository() throws -> GRDBOBDPIDDefinitionRepository {
-        try GRDBOBDPIDDefinitionRepository(databaseQueue: ProjectZD8DatabaseLocation.openApplicationDatabaseQueue())
-    }
-
     /// 登録済みの現在PID定義を識別子順で取得します。
     ///
     /// 責務: PIDテーブルの全レコードをService/PIDの昇順でDomain定義へ復元します。
