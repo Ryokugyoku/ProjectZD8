@@ -21,6 +21,10 @@ EXIT_OK = 0
 EXIT_ERRORS = 1
 EXIT_HOOK_ERRORS = 2
 EXIT_LIZARD_MISSING = 3
+HOOK_WARNING_NOTE = (
+    "note: 改修したファイルの既存の超過(warning)も、この変更の中で解消する(共通ルール §5)。"
+    "解消したら --update-baseline でベースラインから外す。"
+)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -94,18 +98,27 @@ def _resolve_root() -> str:
     return os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(here))))
 
 
+def _report_hook(lines: List[str], judgements: List[Judgement], stderr: TextIO) -> int:
+    """責務: フック用に error・warning を標準エラーへ出し、1件でもあれば終了コード2を返す。"""
+    if not lines:
+        return EXIT_OK
+    out = list(lines)
+    if any(not j.is_error for j in judgements):
+        out.append(HOOK_WARNING_NOTE)
+    stderr.write("\n".join(out) + "\n")
+    return EXIT_HOOK_ERRORS
+
+
 def _run(args, stdin: TextIO, stdout: TextIO, stderr: TextIO) -> int:
     """責務: 引数に従って実行し、終了コードを返す。"""
     root = _resolve_root()
     if args.update_baseline:
         return _update_baseline(root)
     judgements = _check(root, _select_paths(args, root, stdin))
-    lines = format_report(judgements, errors_only=args.hook)
-    has_error = any(j.is_error for j in judgements)
+    lines = format_report(judgements, errors_only=False)
     if args.hook:
-        if has_error:
-            stderr.write("\n".join(lines) + "\n")
-        return EXIT_HOOK_ERRORS if has_error else EXIT_OK
+        return _report_hook(lines, judgements, stderr)
+    has_error = any(j.is_error for j in judgements)
     if lines:
         stdout.write("\n".join(lines) + "\n")
     return EXIT_ERRORS if has_error else EXIT_OK

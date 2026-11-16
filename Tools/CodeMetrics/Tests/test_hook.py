@@ -7,6 +7,9 @@ from metrics_support import (MetricsTestCase, nested_ifs, run_tool,
 
 DEEP = swift_func(nested_ifs(4))
 LINE = "ProjectZD8/A.swift:1: error: nesting 4 > 3 (f)"
+WARN_LINE = "ProjectZD8/A.swift:1: warning: nesting 4 > 3 (f) [baseline 4]"
+NOTE = ("note: 改修したファイルの既存の超過(warning)も、この変更の中で解消する"
+        "(共通ルール §5)。解消したら --update-baseline でベースラインから外す。")
 
 
 class HookTests(MetricsTestCase):
@@ -44,14 +47,44 @@ class HookTests(MetricsTestCase):
         ok = write(self.root, "ProjectZD8/A.swift", swift_func("work()"))
         self.assert_clean(self.hook({"tool_input": {"file_path": str(ok)}}))
 
-    def test_ベースライン許容の警告のみなら無出力で0(self):
-        """警告だけ(記録済みの超過)ならエラー無しとして無出力・exit 0。"""
+    def test_警告のみは2で警告行と注記を標準エラーに出す(self):
+        """記録済みの超過だけでも exit 2。warning 行の後に注記が最終行で付く。"""
         path = write(self.root, "ProjectZD8/A.swift", DEEP)
         run_tool(self.root, "--update-baseline")
         r = self.hook({"tool_input": {"file_path": str(path)}})
+        self.assertEqual(r.code, 2)
         self.assertEqual(r.stdout.strip(), "")
-        self.assertEqual(r.stderr.strip(), "")
+        self.assertEqual(r.stderr.splitlines(), [WARN_LINE, NOTE])
+
+    def test_エラーのみは2で注記を出さない(self):
+        """エラーだけなら error 行のみで、警告用の注記は出ない。"""
+        path = write(self.root, "ProjectZD8/A.swift", DEEP)
+        r = self.hook({"tool_input": {"file_path": str(path)}})
+        self.assertEqual(r.code, 2)
+        self.assertEqual(r.stdout.strip(), "")
+        self.assertEqual(r.stderr.splitlines(), [LINE])
+        self.assertNotIn(NOTE, r.stderr)
+
+    def test_エラーと警告が同居すれば両方の行の後に注記が最終行(self):
+        """同一ファイルに警告(記録済み)とエラー(新規)があれば両行と末尾の注記。"""
+        path = write(self.root, "ProjectZD8/A.swift", DEEP)
+        run_tool(self.root, "--update-baseline")
+        both = DEEP + swift_func(nested_ifs(4), name="g")
+        write(self.root, "ProjectZD8/A.swift", both)
+        r = self.hook({"tool_input": {"file_path": str(path)}})
+        self.assertEqual(r.code, 2)
+        self.assertEqual(r.stdout.strip(), "")
+        self.assertEqual(r.stderr.splitlines(), [
+            WARN_LINE, "ProjectZD8/A.swift:12: error: nesting 4 > 3 (g)", NOTE])
+
+    def test_通常モードの警告のみは0のまま(self):
+        """退行防止: --hook 以外では警告だけなら exit 0(警告行は出る)。"""
+        path = write(self.root, "ProjectZD8/A.swift", DEEP)
+        run_tool(self.root, "--update-baseline")
+        r = run_tool(self.root, path)
         self.assertEqual(r.code, 0)
+        self.assertEqual(r.warnings, [WARN_LINE])
+        self.assertNotIn(NOTE, r.stdout + r.stderr)
 
     def test_swift以外のパスは検査せず0(self):
         """.swift 以外のパスは対象外で exit 0、出力なし。"""

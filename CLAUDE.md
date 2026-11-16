@@ -16,7 +16,7 @@ python3 Tools/CodeMetrics/check_swift_metrics.py --changed-since origin/main
 python3 -m unittest discover -s Tools/CodeMetrics/Tests -v
 ```
 
-- 複雑さチェック(`Tools/CodeMetrics/`、仕様は同 README): Swift の編集のたびに PostToolUse フック(`.claude/settings.json`)が自動で走り、上限超過を Claude に返す。CI も変更ファイルを確かめる。既存の超過は `baseline.json` で許容し、値が増えたらエラー。要 `pip install --user -r Tools/CodeMetrics/requirements.txt`。ベースラインは超過を解消した時だけ `--update-baseline` で更新し、超過を増やすために更新しない。
+- 複雑さチェック(`Tools/CodeMetrics/`、仕様は同 README): Swift の編集のたびに PostToolUse フック(`.claude/settings.json`)が自動で走り、そのファイルの上限超過(既存の超過の警告を含む)を Claude に返す。CI も変更ファイルを確かめる。既存の超過は `baseline.json` で許容し、値が増えたらエラー。**改修で触ったファイルの警告は、その変更の中で解消する**(共通ルール §5)。要 `pip install --user -r Tools/CodeMetrics/requirements.txt`。ベースラインは超過を解消した時だけ `--update-baseline` で更新し、超過を増やすために更新しない。
 
 - 実行範囲: Swift は変更した型の `-only-testing:ProjectZD8Tests/<TestClass>`(複数可)、`Tools/VehicleChangeDataQuality/` は unittest 全件、`.github/` は ruby テスト。PR 説明の「テスト」欄にコマンドと結果を書く。
 - CI: `tests.yml`(PR と main push。macOS 単体テスト全件 `-only-testing:ProjectZD8Tests`、UI テストは署名なしで起動不可のため対象外。Ruby・Python テストも実行。Xcode 26.6、`CODE_SIGNING_ALLOWED=NO`)、`testflight.yml`(main で手動、iOS/macOS アーカイブ→TestFlight)。
