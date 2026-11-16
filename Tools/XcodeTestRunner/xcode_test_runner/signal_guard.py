@@ -72,18 +72,30 @@ class SignalGuard:
 
     @contextmanager
     def deferred(self) -> Iterator[None]:
-        """責務: ブロックの間に来たシグナルの例外を、ブロックを抜けた直後まで遅らせる(マスクは変えない)。"""
+        """責務: ブロックの間に来たシグナルの例外を、ブロックを抜けた直後まで遅らせる(マスクは変えない)。
+
+        ブロックが最後まで(または return で)抜けた時だけ、遅らせたシグナルを `ReceivedSignal` で投げる。
+        ブロックが例外で抜けた時はその例外を優先し、遅らせたシグナルは捨てる(起動失敗なら 127 を返すため)。
+        """
         self._deferring = True
+        block_completed = False
         try:
             yield
+            block_completed = True
         finally:
-            self._deferring = False
-        self._raise_deferred()
+            signum = self._end_deferral()
+            if block_completed:
+                self._raise_if_armed(signum)
 
-    def _raise_deferred(self) -> None:
-        """責務: 遅らせていたシグナルがあり、まだ武装中なら `ReceivedSignal` を投げる。"""
+    def _end_deferral(self) -> Optional[int]:
+        """責務: 遅延を終え、遅らせていたシグナルの番号を取り出して消す(無ければ None)。"""
+        self._deferring = False
         signum = self._deferred_signal
         self._deferred_signal = None
+        return signum
+
+    def _raise_if_armed(self, signum: Optional[int]) -> None:
+        """責務: シグナルの番号があり、まだ武装中なら `ReceivedSignal` を投げる。"""
         if signum is not None and self._armed:
             self._armed = False
             raise ReceivedSignal(signum)

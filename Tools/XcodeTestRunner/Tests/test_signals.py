@@ -4,7 +4,7 @@ import os
 import signal
 import time
 
-from runner_support import RunnerTestCase, pid_alive
+from runner_support import RunnerTestCase, assert_lock_released, pid_alive, spawn_holder
 
 READY_AND_SLEEP = (
     "import os, signal, sys, time\n"
@@ -32,7 +32,7 @@ class RunnerSignalTests(RunnerTestCase):
         result = self.finish(proc, timeout=15)
         self.assertEqual(result.code, 128 + signum, result.stderr)
         self.wait_for(lambda: not pid_alive(child_pid), "子の停止", timeout=3.0)
-        self.assert_lock_released()
+        assert_lock_released(self)
         return result
 
     def test_SIGTERMで子を止めて143(self):
@@ -54,7 +54,7 @@ class WaitingRunnerSignalTests(RunnerTestCase):
 
     def test_ロック待ち中のSIGTERMは他者のロックを消さず143(self):
         """責務: 他者のロックを待っている間に SIGTERM を受けると 143 で終わり、子は始まらず、他者のロックは元のまま。"""
-        holder = self.spawn_holder()
+        holder = spawn_holder(self)
         self.write_lock(str(holder.pid))
         touched = self.path("touched")
         code = "import sys; open(sys.argv[1], 'w').close()"

@@ -2,7 +2,7 @@
 
 import re
 
-from runner_support import SLEEP_FOREVER, RunnerTestCase, pid_alive
+from runner_support import SLEEP_FOREVER, RunnerTestCase, assert_lock_released, pid_alive
 
 IGNORE_TERM = (
     "import os, signal, sys, time\n"
@@ -42,7 +42,7 @@ class ExceededLimitTests(RunnerTestCase):
         self.assertRegex(lines[0], r"(?<![0-9.])2(?![0-9])", "TIMEOUT 行に上限の秒数が無い")
         self.assertGreaterEqual(result.elapsed, 1.9, "上限より前に止めた")
         self.assertLess(result.elapsed, 8.0, "上限を過ぎてもすぐに止めなかった")
-        self.assert_lock_released()
+        assert_lock_released(self)
 
     def test_SIGTERMを無視する子も猶予の後にSIGKILLで止まる(self):
         """責務: 子が SIGTERM を無視しても、GRACE_SECONDS(1秒)の後に止まり 124 で、子は残らない。"""
@@ -54,7 +54,7 @@ class ExceededLimitTests(RunnerTestCase):
         self.assertLess(result.elapsed, 8.0)
         child_pid = int(pid_file.read_text())
         self.wait_for(lambda: not pid_alive(child_pid), "SIGTERM を無視する子の停止", timeout=3.0)
-        self.assert_lock_released()
+        assert_lock_released(self)
 
     def test_子が起動した孫も残らない(self):
         """責務: 同じプロセスグループにいる孫プロセスも、時間上限で止まる。"""
@@ -63,7 +63,7 @@ class ExceededLimitTests(RunnerTestCase):
         self.assertEqual(result.code, 124, result.stderr)
         grandchild = int(pid_file.read_text())
         self.wait_for(lambda: not pid_alive(grandchild), "孫プロセスの停止", timeout=3.0)
-        self.assert_lock_released()
+        assert_lock_released(self)
 
     def test_TIMEOUT行は標準エラーに出る(self):
         """責務: 本ツールのメッセージは標準エラーへ出し、標準出力には TIMEOUT 行を出さない。"""

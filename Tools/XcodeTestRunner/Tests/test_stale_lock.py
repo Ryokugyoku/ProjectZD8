@@ -5,7 +5,7 @@ import shutil
 import subprocess
 import time
 
-from runner_support import TOUCH, RunnerTestCase, pid_alive
+from runner_support import TOUCH, RunnerTestCase, assert_lock_released, pid_alive
 
 BROKEN_PID_CONTENTS = {"pid が無い": None, "pid が空": "", "pid が数字でない": "abc"}
 
@@ -34,14 +34,14 @@ class DeadOwnerLockTests(RunnerTestCase):
         self.assertEqual(result.code, 0, result.stderr)
         self.assertTrue(self.touched.exists(), "回収後にコマンドが実行されなかった")
         self.assertLess(result.elapsed, 2.5, "回収を取り直し間隔の後まで遅らせた")
-        self.assert_lock_released()
+        assert_lock_released(self)
 
     def test_lock_wait_0でも存在しないPIDのロックは回収して実行する(self):
         """責務: 回収は「すぐ取り直す」ので、待たない指定(--lock-wait 0)でも実行される。"""
         result = self.run_with_dead_owner(0)
         self.assertEqual(result.code, 0, result.stderr)
         self.assertTrue(self.touched.exists(), "回収後にコマンドが実行されなかった")
-        self.assert_lock_released()
+        assert_lock_released(self)
 
 
 class BrokenPidLockTests(RunnerTestCase):
@@ -70,7 +70,7 @@ class BrokenPidLockTests(RunnerTestCase):
                 result = self.run_child(touched, lock_wait=5, stale=1)
                 self.assertEqual(result.code, 0, result.stderr)
                 self.assertTrue(touched.exists(), "古いロックが回収されずコマンドが実行されなかった")
-                self.assert_lock_released()
+                assert_lock_released(self)
 
     def test_新しければ回収せずに待つ(self):
         """責務: 更新時刻が STALE_SECONDS(30秒)より新しい壊れたロックは回収せず、--lock-wait 1 の後 125。"""
@@ -91,4 +91,4 @@ class BrokenPidLockTests(RunnerTestCase):
         self.assertEqual(result.code, 0, result.stderr)
         self.assertTrue(touched.exists(), "古くなったロックが回収されなかった")
         self.assertGreaterEqual(result.elapsed, 0.9, "STALE_SECONDS より前に回収した")
-        self.assert_lock_released()
+        assert_lock_released(self)

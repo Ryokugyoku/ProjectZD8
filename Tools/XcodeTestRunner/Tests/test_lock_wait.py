@@ -3,7 +3,7 @@
 import shutil
 import time
 
-from runner_support import TOUCH, RunnerTestCase
+from runner_support import TOUCH, RunnerTestCase, assert_lock_released, spawn_holder
 
 RECORD_INTERVAL = (
     "import sys, time\n"
@@ -18,7 +18,7 @@ class LockTimeoutTests(RunnerTestCase):
 
     def hold_lock(self):
         """責務: 生きている持ち主役を起動し、その PID を書いたロックを作って PID の文字列を返す。"""
-        holder = self.spawn_holder()
+        holder = spawn_holder(self)
         self.write_lock(str(holder.pid))
         return str(holder.pid)
 
@@ -54,7 +54,7 @@ class LockHandOverTests(RunnerTestCase):
 
     def test_待機中にロックが外れたら実行して終了コードを返す(self):
         """責務: 持ち主のロックがある間は子が始まらず、ロックが消えた後に子が実行されて終了コード 5 が返る。"""
-        holder = self.spawn_holder()
+        holder = spawn_holder(self)
         self.write_lock(str(holder.pid))
         touched = self.path("touched")
         code = "import sys; open(sys.argv[1], 'w').close(); sys.exit(5)"
@@ -66,7 +66,7 @@ class LockHandOverTests(RunnerTestCase):
         result = self.finish(proc)
         self.assertEqual(result.code, 5, result.stderr)
         self.assertTrue(touched.exists(), "ロックが空いた後もコマンドが実行されなかった")
-        self.assert_lock_released()
+        assert_lock_released(self)
 
 
 class ConcurrentRunnerTests(RunnerTestCase):
@@ -86,4 +86,4 @@ class ConcurrentRunnerTests(RunnerTestCase):
         self.assertEqual([r.code for r in results], [0, 0], [r.stderr for r in results])
         first, second = sorted(self.read_interval(record) for record in records)
         self.assertLessEqual(first[1], second[0], "2つの子の実行区間が重なった: %r %r" % (first, second))
-        self.assert_lock_released()
+        assert_lock_released(self)

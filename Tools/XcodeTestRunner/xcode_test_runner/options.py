@@ -7,7 +7,7 @@ from typing import List, Pattern, Sequence, Tuple
 
 COMMAND_SEPARATOR = "--"
 DEFAULT_LOCK_WAIT_SECONDS = 3600
-_DIGITS = re.compile(r"[0-9]+")
+_DIGITS = re.compile(r"\d+", re.ASCII)
 
 
 class UsageError(Exception):

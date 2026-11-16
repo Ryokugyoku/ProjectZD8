@@ -1,6 +1,6 @@
 """ロックの取得と解放のテスト(README §3)。"""
 
-from runner_support import SLEEP_FOREVER, TOUCH, WAIT_FOR_FILE, RunnerTestCase
+from runner_support import SLEEP_FOREVER, TOUCH, WAIT_FOR_FILE, RunnerTestCase, assert_lock_released
 
 
 class LockAcquireTests(RunnerTestCase):
@@ -15,7 +15,7 @@ class LockAcquireTests(RunnerTestCase):
         self.assertEqual((self.lock_dir / "pid").read_text().strip(), str(proc.pid))
         release.touch()
         self.assertEqual(self.finish(proc).code, 0)
-        self.assert_lock_released()
+        assert_lock_released(self)
 
     def test_ロックの親ディレクトリが無ければ作る(self):
         """責務: XCODE_TEST_RUNNER_LOCK_DIR の親が無くても作って実行し、終了後はロックを消す。"""
@@ -25,7 +25,7 @@ class LockAcquireTests(RunnerTestCase):
         self.assertEqual(result.code, 0, result.stderr)
         self.assertTrue(touched.exists(), "コマンドが実行されなかった")
         self.assertTrue(self.lock_dir.parent.is_dir(), "親ディレクトリが作られていない")
-        self.assert_lock_released()
+        assert_lock_released(self)
 
 
 class LockReleaseTests(RunnerTestCase):
@@ -35,19 +35,19 @@ class LockReleaseTests(RunnerTestCase):
         """責務: 子が 0 で終わった後、ロックのディレクトリは無い。"""
         result = self.run_runner(["--limit", "10", "--"] + self.py("pass"))
         self.assertEqual(result.code, 0, result.stderr)
-        self.assert_lock_released()
+        assert_lock_released(self)
 
     def test_子の失敗後にロックが残らない(self):
         """責務: 子が 0 以外で終わった後も、ロックのディレクトリは無い。"""
         result = self.run_runner(["--limit", "10", "--"] + self.py("import sys; sys.exit(3)"))
         self.assertEqual(result.code, 3, result.stderr)
-        self.assert_lock_released()
+        assert_lock_released(self)
 
     def test_時間上限後にロックが残らない(self):
         """責務: 時間上限で止めた後(124)も、ロックのディレクトリは無い。"""
         result = self.run_runner(["--limit", "1", "--"] + self.py(SLEEP_FOREVER))
         self.assertEqual(result.code, 124, result.stderr)
-        self.assert_lock_released()
+        assert_lock_released(self)
 
     def test_続けて実行すると毎回ロックを取り直せる(self):
         """責務: 解放が完全なら、同じロック場所で2回続けて実行しても待たずに両方実行される。"""

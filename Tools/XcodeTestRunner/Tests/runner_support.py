@@ -1,6 +1,7 @@
 """XcodeTestRunner テスト共通の補助。CLI の起動、一時ロック、プロセスの起動と後始末、上限つきの待ちだけを担う。
 
-どのテストもロックは一時ディレクトリ配下(XCODE_TEST_RUNNER_LOCK_DIR)に置き、既定の本物のロックには触らない。
+どのテストもロックは一時ディレクトリ配下(XCODE_TEST_RUNNER_LOCK_DIR)に置き、既定の場所(README §3)の本物のロックには触らない。
+既定の場所を検証するテストも HOME を一時ディレクトリへ差し替え、実際のホームには作らない。
 テストが起動するプロセスの引数には必ずテストごとに一意な目印(uuid)を入れ、後始末ではその目印で探して止める。
 """
 
@@ -155,10 +156,6 @@ class RunnerTestCase(unittest.TestCase):
         self.procs.append(proc)
         return proc
 
-    def spawn_holder(self):
-        """責務: ロックの持ち主役として、しばらく生き続けるプロセスを起動して返す。"""
-        return self.spawn(self.py(SLEEP_FOREVER, "holder"))
-
     def write_lock(self, pid_text):
         """責務: 一時ロックのディレクトリを作り、pid_text(None なら pid ファイル無し)を書く。"""
         self.lock_dir.mkdir()
@@ -170,6 +167,12 @@ class RunnerTestCase(unittest.TestCase):
         if not wait_until(predicate, timeout=timeout):
             self.fail("%s が %.1f 秒以内に成り立たなかった" % (what, timeout))
 
-    def assert_lock_released(self):
-        """責務: 一時ロックのディレクトリが残っていないことを検証する。"""
-        self.assertFalse(self.lock_dir.exists(), "ロックが解放されずに残っている")
+
+def spawn_holder(case):
+    """責務: case の後始末対象として、ロックの持ち主役になるしばらく生き続けるプロセスを起動して返す。"""
+    return case.spawn(case.py(SLEEP_FOREVER, "holder"))
+
+
+def assert_lock_released(case):
+    """責務: case の一時ロックのディレクトリが残っていないことを検証する。"""
+    case.assertFalse(case.lock_dir.exists(), "ロックが解放されずに残っている")

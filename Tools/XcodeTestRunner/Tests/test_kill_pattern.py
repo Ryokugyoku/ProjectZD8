@@ -3,7 +3,7 @@
 import sys
 import uuid
 
-from runner_support import SLEEP_FOREVER, TOOL, RunnerTestCase
+from runner_support import SLEEP_FOREVER, TOOL, RunnerTestCase, assert_lock_released
 
 IGNORE_TERM_TARGET = (
     "import signal, sys, time\n"
@@ -50,7 +50,7 @@ class KillPatternOnTimeoutTests(KillPatternTestCase):
         result = self.run_timeout_with_patterns([token])
         self.assertEqual(result.code, 124, result.stderr)
         self.assert_stopped(target, "一致する標的")
-        self.assert_lock_released()
+        assert_lock_released(self)
 
     def test_一致しないプロセスは止めない(self):
         """責務: パターンに一致する標的だけが止まり、一致しない標的は生きている。"""
@@ -89,7 +89,7 @@ class KillPatternSelfExclusionTests(KillPatternTestCase):
         result = self.run_timeout_with_patterns([token])
         self.assertEqual(result.code, 124, result.stderr)
         self.assertEqual(len(result.lines_starting("TIMEOUT")), 1, result.stderr)
-        self.assert_lock_released()
+        assert_lock_released(self)
 
     def test_ラッパーの祖先は一致しても止めない(self):
         """責務: パターンを含む祖父母→親の2段を経由して起動しても、祖先は止められずラッパーの 124 が届く。"""
@@ -100,4 +100,4 @@ class KillPatternSelfExclusionTests(KillPatternTestCase):
         self.assert_stopped(grandparent, "祖先プロセス", timeout=10.0)
         self.assertEqual(grandparent.returncode, 124, "祖先が止められたか、ラッパーの 124 が届いていない")
         self.assert_stopped(target, "一致する標的")
-        self.assert_lock_released()
+        assert_lock_released(self)

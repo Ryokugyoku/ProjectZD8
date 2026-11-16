@@ -2,7 +2,7 @@
 
 import signal
 
-from runner_support import RunnerTestCase
+from runner_support import RunnerTestCase, assert_lock_released
 
 SELF_SIGNAL = "import os, signal, sys; os.kill(os.getpid(), getattr(signal, sys.argv[1]))"
 WRITE_BOTH = "import sys; sys.stdout.write(sys.argv[1] + '\\n'); sys.stderr.write(sys.argv[2] + '\\n')"
@@ -57,7 +57,7 @@ class CommandNotRunnableTests(RunnerTestCase):
         """責務: 127 で終わった後もロックは解放されている。"""
         missing = self.path("no-such-command-" + self.marker)
         self.assertEqual(self.run_runner(["--limit", "10", "--", str(missing)]).code, 127)
-        self.assert_lock_released()
+        assert_lock_released(self)
 
 
 class OutputPassThroughTests(RunnerTestCase):

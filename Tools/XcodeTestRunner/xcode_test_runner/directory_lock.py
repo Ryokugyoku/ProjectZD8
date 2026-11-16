@@ -12,7 +12,7 @@ MAX_RECLAIMS_PER_TRY = 3
 
 
 class DirectoryLock:
-    """ディレクトリとその中の `pid` ファイルで表すロック。古い bash スクリプトと同じ形。"""
+    """ディレクトリとその中の `pid` ファイルで表すロック。本ツール同士だけで共有する。"""
 
     def __init__(self, path: str, stale_seconds: float, own_pid: Optional[int] = None) -> None:
         """責務: ロックの場所・回収までの秒数・自分の PID を保持する(未取得で始める)。"""

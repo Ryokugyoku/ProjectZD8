@@ -2,6 +2,7 @@
 
 import math
 import os
+import pwd
 from dataclasses import dataclass
 from typing import Mapping
 
@@ -14,7 +15,9 @@ GRACE_SECONDS_ENV = "XCODE_TEST_RUNNER_GRACE_SECONDS"
 DEFAULT_POLL_SECONDS = 5.0
 DEFAULT_STALE_SECONDS = 30.0
 DEFAULT_GRACE_SECONDS = 5.0
-LOCK_DIR_NAME = "projectzd8-xcodebuild.lock"
+HOME_ENV = "HOME"
+LOCK_PARENT_SEGMENTS = ("Library", "Caches", "ProjectZD8")
+LOCK_DIR_NAME = "xcodebuild.lock"
 
 
 @dataclass(frozen=True)
@@ -27,9 +30,17 @@ class TimingSettings:
     grace_seconds: float
 
 
-def default_lock_path(uid: int) -> str:
-    """責務: 古い bash スクリプトと共有する既定のロックの場所を返す。"""
-    return os.path.join("/private/tmp", "claude-{}".format(uid), LOCK_DIR_NAME)
+def home_directory(environ: Mapping[str, str]) -> str:
+    """責務: 環境変数 `HOME` を返す。無い・空ならユーザー情報のホームディレクトリを返す。"""
+    home = environ.get(HOME_ENV, "")
+    if home:
+        return home
+    return pwd.getpwuid(os.getuid()).pw_dir
+
+
+def default_lock_path(environ: Mapping[str, str]) -> str:
+    """責務: 本人しか書けないユーザーのキャッシュ置き場にある、既定のロックの場所を返す。"""
+    return os.path.join(home_directory(environ), *LOCK_PARENT_SEGMENTS, LOCK_DIR_NAME)
 
 
 def read_seconds(environ: Mapping[str, str], name: str, default: float, allow_zero: bool) -> float:
@@ -49,7 +60,7 @@ def read_seconds(environ: Mapping[str, str], name: str, default: float, allow_ze
 
 def load_timing_settings(environ: Mapping[str, str]) -> TimingSettings:
     """責務: 環境変数から `TimingSettings` を組み立てる。"""
-    lock_path = environ.get(LOCK_DIR_ENV, "") or default_lock_path(os.getuid())
+    lock_path = environ.get(LOCK_DIR_ENV, "") or default_lock_path(environ)
     return TimingSettings(
         lock_path=lock_path,
         poll_seconds=read_seconds(environ, POLL_SECONDS_ENV, DEFAULT_POLL_SECONDS, allow_zero=False),

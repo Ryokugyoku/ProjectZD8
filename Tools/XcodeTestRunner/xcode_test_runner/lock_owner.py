@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from typing import Callable, Optional
 
 PID_FILE_NAME = "pid"
-_DIGITS = re.compile(r"[0-9]+")
+_DIGITS = re.compile(r"\d+", re.ASCII)
 
 
 @dataclass(frozen=True)
