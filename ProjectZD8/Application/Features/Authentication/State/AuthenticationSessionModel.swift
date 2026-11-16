@@ -338,8 +338,9 @@ final class AuthenticationSessionModel {
     /// 他端末から失効された現在アカウントを端末内からログアウトします。
     ///
     /// 責務: 1件の遠隔失効を端末内消去結果とログイン画面への状態遷移へ変換します。消去の完了を待ってから遷移します。
-    /// - Parameter userIdentifier: 失効通知の対象となったAppleユーザー識別子。
-    private func applyRemoteSessionRevocation(for userIdentifier: String) {
+    /// 削除済みの印を検出した場合も、同じ処理でログアウトします。
+    /// - Parameter userIdentifier: 失効通知または削除済みの印の対象となったAppleユーザー識別子。
+    func applyRemoteSessionRevocation(for userIdentifier: String) {
         guard
             state.phase == .signedIn,
             state.session?.userIdentifier == userIdentifier,

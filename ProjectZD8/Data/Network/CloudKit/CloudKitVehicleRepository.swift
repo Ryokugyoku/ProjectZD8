@@ -15,6 +15,8 @@ final class CloudKitVehicleRepository: VehicleRepository, AccountVehicleDataEras
     private let injectedContainer: CKContainer?
     /// Asset用一時ファイルを作成するファイルシステム境界です。
     private let fileManager: FileManager
+    /// 保存の直前にアカウントの削除済みの印を確認する処理です。印があれば投げ、未設定なら確認しません。
+    private let accountDeletionCheck: (@MainActor (String) async throws -> Void)?
 
     /// CloudKitコンテナ、ローカル保存先、ファイルシステムを注入します。
     ///
@@ -23,11 +25,14 @@ final class CloudKitVehicleRepository: VehicleRepository, AccountVehicleDataEras
     ///   - container: private databaseを提供するCloudKitコンテナ。
     ///   - defaults: オフライン用キャッシュ保存先。
     ///   - fileManager: Asset一時ファイルの操作境界。
+    ///   - accountDeletionCheck: 保存の直前に削除済みの印を確認する処理。省略時は確認しません。
     init(
         container: CKContainer? = nil,
         defaults: UserDefaults = .standard,
-        fileManager: FileManager = .default
+        fileManager: FileManager = .default,
+        accountDeletionCheck: (@MainActor (String) async throws -> Void)? = nil
     ) {
+        self.accountDeletionCheck = accountDeletionCheck
         injectedContainer = container
         self.defaults = defaults
         self.fileManager = fileManager
@@ -119,11 +124,12 @@ final class CloudKitVehicleRepository: VehicleRepository, AccountVehicleDataEras
 
     /// 車両カタログ全体をAssetとしてCloudKitへ保存します。
     ///
-    /// 責務: 1件のアカウントカタログを端末キャッシュとCloudKitレコードへ同じ内容で保存します。
+    /// 責務: 1件のアカウントカタログを端末キャッシュとCloudKitレコードへ同じ内容で保存します。保存の前に削除済みの印を確認し、印があれば何も保存しません。
     /// - Parameters:
     ///   - vehicles: 保存する全登録車両。
     ///   - accountIdentifier: Appleアカウントのアプリ固有識別子。
     private func persist(_ vehicles: [VehicleProfile], for accountIdentifier: String) async throws {
+        try await accountDeletionCheck?(accountIdentifier)
         let sorted = vehicles.sorted { $0.updatedAt > $1.updatedAt }
         let data = try JSONEncoder().encode(sorted)
         cache(sorted, for: accountIdentifier)

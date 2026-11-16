@@ -96,7 +96,9 @@ enum MacOSApplicationComposition: ApplicationPlatformComposing {
         connectionIdentificationWillBegin: @escaping @MainActor () -> Void = {},
         connectionIdentificationDidEnd: @escaping @MainActor () -> Void = {}
     ) -> VehicleManagementModel {
-        let vehicleRepository = CloudKitVehicleRepository()
+        let vehicleRepository = CloudKitVehicleRepository(
+            accountDeletionCheck: AccountDeletionMarkerComposition.check
+        )
         return VehicleManagementModel(
             state: VehicleManagementState(),
             repository: vehicleRepository,
@@ -142,7 +144,8 @@ enum MacOSApplicationComposition: ApplicationPlatformComposing {
             repository: repository,
             synchronize: SynchronizeMaintenanceRecordsUseCase(
                 localRepository: repository,
-                remoteStore: CloudKitMaintenanceRemoteStore()
+                remoteStore: CloudKitMaintenanceRemoteStore(),
+                accountDeletionCheck: AccountDeletionMarkerComposition.check
             ),
             photoImporter: MaintenancePhotoFileImporter()
         )
@@ -189,7 +192,8 @@ enum MacOSApplicationComposition: ApplicationPlatformComposing {
             rawLogRepository: storage,
             sessionErasureRepository: storage,
             transferRepository: CloudKitConnectionSessionTransferRepository(),
-            role: .macOS
+            role: .macOS,
+            accountDeletionCheck: AccountDeletionMarkerComposition.check
         )
     }
 
@@ -234,7 +238,7 @@ enum MacOSApplicationComposition: ApplicationPlatformComposing {
             vehiclePIDCapabilityEraser: vehiclePIDCapabilityEraser,
             maintenanceRecordRepository: ProductDatabaseRepositoryFactory().makeMaintenanceRecordRepository(database: database)
         )
-        return AuthenticationSessionModel(
+        let model = AuthenticationSessionModel(
             state: initialAuthenticationState,
             restoreSession: RestoreAuthenticationSessionUseCase(
                 authorizationPort: authorization,
@@ -242,7 +246,8 @@ enum MacOSApplicationComposition: ApplicationPlatformComposing {
             ),
             signInWithApple: SignInWithAppleUseCase(
                 authorizationPort: authorization,
-                sessionStore: sessionStore
+                sessionStore: sessionStore,
+                deletionMarker: AccountDeletionMarkerComposition.marker
             ),
             deleteAccount: DeleteAccountUseCase(
                 sessionRevocation: sessionRevocation,
@@ -250,7 +255,8 @@ enum MacOSApplicationComposition: ApplicationPlatformComposing {
                 vehicleDataEraser: vehicleDataEraser,
                 maintenanceDataEraser: CloudKitMaintenanceRemoteStore(),
                 dataEraser: dataEraser,
-                sessionStore: sessionStore
+                sessionStore: sessionStore,
+                deletionMarker: AccountDeletionMarkerComposition.marker
             ),
             remoteAccountLogout: RemoteAccountLogoutUseCase(
                 dataEraser: dataEraser,
@@ -258,6 +264,10 @@ enum MacOSApplicationComposition: ApplicationPlatformComposing {
             ),
             sessionRevocation: sessionRevocation
         )
+        AccountDeletionMarkerComposition.gate.onAccountDeleted = { [weak model] accountIdentifier in
+            model?.applyRemoteSessionRevocation(for: accountIdentifier)
+        }
+        return model
     }
 
     /// 実デバイス探索とConnection設定保存を注入した設定プレゼンテーションモデルを生成します。

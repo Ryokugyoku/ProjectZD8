@@ -7,6 +7,8 @@ struct SynchronizeMaintenanceRecordsUseCase {
     private let localRepository: any MaintenanceRecordRepository
     /// 端末間で共有する遠隔保存先です。
     private let remoteStore: any MaintenanceRemoteStore
+    /// 同期の直前にアカウントの削除済みの印を確認する処理です。印があれば投げ、未設定なら確認しません。
+    private let accountDeletionCheck: (@MainActor (String) async throws -> Void)?
 
     /// ローカル保存先と遠隔保存先を注入します。
     ///
@@ -14,7 +16,13 @@ struct SynchronizeMaintenanceRecordsUseCase {
     /// - Parameters:
     ///   - localRepository: GRDBなどの端末内保存先。
     ///   - remoteStore: CloudKitなどの端末間共有先。
-    init(localRepository: any MaintenanceRecordRepository, remoteStore: any MaintenanceRemoteStore) {
+    ///   - accountDeletionCheck: 同期の直前に削除済みの印を確認する処理。省略時は確認しません。
+    init(
+        localRepository: any MaintenanceRecordRepository,
+        remoteStore: any MaintenanceRemoteStore,
+        accountDeletionCheck: (@MainActor (String) async throws -> Void)? = nil
+    ) {
+        self.accountDeletionCheck = accountDeletionCheck
         self.localRepository = localRepository
         self.remoteStore = remoteStore
     }
@@ -24,8 +32,9 @@ struct SynchronizeMaintenanceRecordsUseCase {
     /// 責務: 1件のアカウントについて記録IDごとの最新更新を採用し双方向へ反映します。
     /// - Parameter accountIdentifier: 同期対象のAppleアカウント識別子。
     /// - Returns: 削除墓石を除き実施日時の新しい順に並べた整備記録。
-    /// - Throws: ローカルまたは遠隔の読書きに失敗した場合のエラー。
+    /// - Throws: ローカルまたは遠隔の読書きに失敗した場合、削除済みの印がある場合、または印を確認できない場合のエラー。
     func execute(accountIdentifier: String) async throws -> [MaintenanceRecord] {
+        try await accountDeletionCheck?(accountIdentifier)
         async let localTask = localRepository.records(for: accountIdentifier)
         let remote = try await remoteStore.fetchRecords(for: accountIdentifier)
         let local = try await localTask

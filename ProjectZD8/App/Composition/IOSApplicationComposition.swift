@@ -112,7 +112,9 @@ enum IOSApplicationComposition: ApplicationPlatformComposing {
         connectionIdentificationWillBegin: @escaping @MainActor () -> Void = {},
         connectionIdentificationDidEnd: @escaping @MainActor () -> Void = {}
     ) -> VehicleManagementModel {
-        let vehicleRepository = CloudKitVehicleRepository()
+        let vehicleRepository = CloudKitVehicleRepository(
+            accountDeletionCheck: AccountDeletionMarkerComposition.check
+        )
         let residentLink = residentLink
         let externalAccessoryConfiguration = IOSExternalAccessoryProtocolConfiguration()
         return VehicleManagementModel(
@@ -165,7 +167,8 @@ enum IOSApplicationComposition: ApplicationPlatformComposing {
             repository: repository,
             synchronize: SynchronizeMaintenanceRecordsUseCase(
                 localRepository: repository,
-                remoteStore: CloudKitMaintenanceRemoteStore()
+                remoteStore: CloudKitMaintenanceRemoteStore(),
+                accountDeletionCheck: AccountDeletionMarkerComposition.check
             ),
             photoImporter: MaintenancePhotoFileImporter()
         )
@@ -212,7 +215,8 @@ enum IOSApplicationComposition: ApplicationPlatformComposing {
             rawLogRepository: storage,
             sessionErasureRepository: storage,
             transferRepository: CloudKitConnectionSessionTransferRepository(),
-            role: .iPhone
+            role: .iPhone,
+            accountDeletionCheck: AccountDeletionMarkerComposition.check
         )
     }
 
@@ -259,7 +263,7 @@ enum IOSApplicationComposition: ApplicationPlatformComposing {
             vehiclePIDCapabilityEraser: vehiclePIDCapabilityEraser,
             maintenanceRecordRepository: ProductDatabaseRepositoryFactory().makeMaintenanceRecordRepository(database: database)
         )
-        return AuthenticationSessionModel(
+        let model = AuthenticationSessionModel(
             state: initialAuthenticationState,
             restoreSession: RestoreAuthenticationSessionUseCase(
                 authorizationPort: authorization,
@@ -267,7 +271,8 @@ enum IOSApplicationComposition: ApplicationPlatformComposing {
             ),
             signInWithApple: SignInWithAppleUseCase(
                 authorizationPort: authorization,
-                sessionStore: sessionStore
+                sessionStore: sessionStore,
+                deletionMarker: AccountDeletionMarkerComposition.marker
             ),
             deleteAccount: DeleteAccountUseCase(
                 sessionRevocation: sessionRevocation,
@@ -275,7 +280,8 @@ enum IOSApplicationComposition: ApplicationPlatformComposing {
                 vehicleDataEraser: vehicleDataEraser,
                 maintenanceDataEraser: CloudKitMaintenanceRemoteStore(),
                 dataEraser: dataEraser,
-                sessionStore: sessionStore
+                sessionStore: sessionStore,
+                deletionMarker: AccountDeletionMarkerComposition.marker
             ),
             remoteAccountLogout: RemoteAccountLogoutUseCase(
                 dataEraser: dataEraser,
@@ -283,6 +289,10 @@ enum IOSApplicationComposition: ApplicationPlatformComposing {
             ),
             sessionRevocation: sessionRevocation
         )
+        AccountDeletionMarkerComposition.gate.onAccountDeleted = { [weak model] accountIdentifier in
+            model?.applyRemoteSessionRevocation(for: accountIdentifier)
+        }
+        return model
     }
 
     /// iOS Bluetooth探索とConnection設定保存を注入した設定プレゼンテーションモデルを生成します。
