@@ -3,7 +3,9 @@ import SwiftUI
 
 /// iOS専用の設定画面レイアウトを描画します。
 ///
-/// 設定項目を追加する際は、アカウント同期対象に含めるか、Connection固有の同期除外対象にするかを併せて検討する必要があります。
+/// 設定項目を追加する際は、アカウント同期対象に含めるか、
+/// Connection固有の同期除外対象にするかを併せて検討する必要があります。
+/// 画面ルートは部品の配置・シート・オーバーレイ・Action 送出だけを持ち、各カードは `IOSSettings` 接頭辞の部品 View に分けています。
 struct IOSSettingsView: View {
     /// アクセシビリティ設定で動きを抑える必要があるかどうかです。
     @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
@@ -14,8 +16,8 @@ struct IOSSettingsView: View {
     /// このViewが最後に処理した注目要求番号です。
     @State private var handledAdapterAttentionSequence: UInt = 0
 
-    /// スクロール対象として使うアダプター設定カードの識別子です。
-    private static let adapterCardID = "ios-settings-adapter-card"
+    /// 注目要求を強調表示すべきかの判定です。
+    private let attentionPolicy = AdapterSettingsAttentionPolicy()
 
     /// 設定画面に表示する現在のConnection選択状態です。
     let state: IOSSettingsState
@@ -50,20 +52,10 @@ struct IOSSettingsView: View {
     var body: some View {
         ScrollViewReader { scrollProxy in
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: 16) {
-                    header
-                    languageCard
-                    appearanceCard
-                    adapterCard
-                    IOSSettingsAutomaticRecordingCard(section: automaticRecordingSection) {
-                        sendAutomaticRecordingAction(.settingsChoiceSelected($0))
-                    }
-                    uploadCard
-                    accountDeletionCard
-                }
-                .padding(.horizontal, 20)
-                .padding(.top, 18)
-                .padding(.bottom, 28)
+                cards
+                    .padding(.horizontal, IOSSettingsMetrics.screenHorizontalPadding)
+                    .padding(.top, IOSSettingsMetrics.screenTopPadding)
+                    .padding(.bottom, IOSSettingsMetrics.screenBottomPadding)
             }
             .scrollIndicators(.hidden)
             .onAppear {
@@ -105,103 +97,38 @@ struct IOSSettingsView: View {
         .accessibilityIdentifier("ios-settings-screen")
     }
 
-    /// 設定画面の目的を示すモバイル向け見出しです。
-    private var header: some View {
-        HStack(alignment: .center, spacing: 15) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(Color.accentColor.opacity(0.14))
-
-                Image(systemName: "slider.horizontal.3")
-                    .font(.system(size: 23, weight: .semibold))
-                    .foregroundStyle(.tint)
+    /// 設定カードを上から順に並べた列です。
+    private var cards: some View {
+        LazyVStack(alignment: .leading, spacing: IOSSettingsMetrics.screenSpacing) {
+            IOSSettingsHeader()
+            IOSSettingsLanguageCard(language: accountSettings.language) {
+                sendAccountSettingsAction(.languageSelected($0))
             }
-            .frame(width: 58, height: 58)
-            .overlay {
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .stroke(Color.accentColor.opacity(0.2), lineWidth: 1)
+            IOSSettingsAppearanceCard(appearance: accountSettings.appearance) {
+                sendAccountSettingsAction(.appearanceSelected($0))
             }
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text("settings.title")
-                    .font(.system(.title, design: .rounded, weight: .bold))
-
-                Text("settings.subtitle")
-                    .font(.footnote.weight(.medium))
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-        }
-        .padding(.bottom, 8)
-    }
-
-    /// 表示言語を切り替える設定カードです。
-    private var languageCard: some View {
-        IOSSettingsCard(
-            eyebrow: "settings.language.eyebrow",
-            title: "settings.language.title",
-            description: "settings.language.description",
-            systemImage: "character.bubble.fill"
-        ) {
-            Picker(
-                "settings.language.title",
-                selection: Binding(
-                    get: { accountSettings.language },
-                    set: { sendAccountSettingsAction(.languageSelected($0)) }
-                )
+            IOSSettingsAdapterCard(
+                selectedAdapters: state.selectedAdapters,
+                attentionProgress: accessibilityReduceMotion ? 0 : adapterAttentionProgress
             ) {
-                ForEach(SettingsLanguage.allCases) { language in
-                    Text(language.title).tag(language)
-                }
+                send(.adapterSelectionRequested($0))
             }
-            .labelsHidden()
-            .pickerStyle(.segmented)
-            .accessibilityIdentifier("ios-settings-language")
-        }
-    }
-
-    /// 外観モードを切り替える設定カードです。
-    private var appearanceCard: some View {
-        IOSSettingsCard(
-            eyebrow: "settings.appearance.eyebrow",
-            title: "settings.appearance.title",
-            description: "settings.appearance.description",
-            systemImage: "circle.lefthalf.filled"
-        ) {
-            HStack(spacing: 8) {
-                ForEach(SettingsAppearance.allCases) { appearance in
-                    appearanceButton(for: appearance)
-                }
+            IOSSettingsAutomaticRecordingCard(section: automaticRecordingSection) {
+                sendAutomaticRecordingAction(.settingsChoiceSelected($0))
+            }
+            IOSSettingsUploadCard(isEnabled: accountSettings.automaticSessionUploadEnabled) {
+                sendAccountSettingsAction(.automaticSessionUploadChanged($0))
+            }
+            IOSSettingsAccountDeletionCard {
+                sendAuthenticationAction(.accountDeletionRequested)
             }
         }
-    }
-
-    /// プライマリーと受信専用セカンダリーを示すアダプター設定カードです。
-    private var adapterCard: some View {
-        IOSSettingsCard(
-            eyebrow: "settings.adapter.eyebrow",
-            title: "settings.adapter.title",
-            description: "settings.adapter.description",
-            systemImage: "cable.connector.horizontal"
-        ) {
-            VStack(spacing: 10) {
-                adapterRow(for: .primary)
-                adapterRow(for: .secondary)
-            }
-        }
-        .id(Self.adapterCardID)
-        .accessibilityIdentifier(Self.adapterCardID)
-        .modifier(
-            AttentionShakeEffect(
-                progress: accessibilityReduceMotion ? 0 : adapterAttentionProgress,
-                amplitude: 8
-            )
-        )
     }
 
     /// HOMEの「アダプターを設定」ボタン由来で未消費の注目要求がある場合だけ設定カードへスクロールして振動させます。
     ///
-    /// 責務: 「アダプターを設定」ボタンを押すたびに遷移直後の1回だけを強調し、通常の手動遷移では再表示されない消費済み状態へ変換します。
+    /// 責務: 判定 `AdapterSettingsAttentionPolicy` が許す時だけ、要求を消費済みにしてスクロールと振動を始めます。
+    /// 「アダプターを設定」ボタンを押すたびに遷移直後の1回だけを強調し、通常の手動遷移では再表示しません。
     /// - Parameters:
     ///   - sequence: 処理対象の注目要求番号。
     ///   - isPending: 直前の「アダプターを設定」ボタン押下による未消費要求が残っているかどうか。
@@ -211,168 +138,20 @@ struct IOSSettingsView: View {
         isPending: Bool,
         scrollProxy: ScrollViewProxy
     ) {
-        guard isPending,
-              sequence != handledAdapterAttentionSequence else { return }
+        guard attentionPolicy.shouldPresent(
+            sequence: sequence,
+            isPending: isPending,
+            handledSequence: handledAdapterAttentionSequence
+        ) else { return }
         handledAdapterAttentionSequence = sequence
         send(.adapterAttentionConsumed(sequence))
-        withAnimation(.snappy(duration: 0.26)) {
-            scrollProxy.scrollTo(Self.adapterCardID, anchor: .center)
+        withAnimation(.snappy(duration: IOSSettingsMetrics.attentionScrollDuration)) {
+            scrollProxy.scrollTo(IOSSettingsAdapterCard.scrollID, anchor: .center)
         }
         adapterAttentionProgress = 0
         guard !accessibilityReduceMotion else { return }
-        withAnimation(.linear(duration: 0.56)) {
+        withAnimation(.linear(duration: IOSSettingsMetrics.attentionShakeDuration)) {
             adapterAttentionProgress = 1
-        }
-    }
-
-    /// セッション終了時のiCloud自動アップロードを切り替えるカードです。
-    private var uploadCard: some View {
-        IOSSettingsCard(
-            eyebrow: "settings.upload.eyebrow",
-            title: "settings.upload.title",
-            description: "settings.upload.description",
-            systemImage: "icloud.and.arrow.up.fill"
-        ) {
-            Toggle(
-                "settings.upload.automatic",
-                isOn: Binding(
-                    get: { accountSettings.automaticSessionUploadEnabled },
-                    set: { sendAccountSettingsAction(.automaticSessionUploadChanged($0)) }
-                )
-            )
-                .font(.system(.body, design: .rounded, weight: .semibold))
-                .frame(maxWidth: .infinity, minHeight: 48, alignment: .leading)
-                .padding(.horizontal, 14)
-                .background(Color.primary.opacity(0.045), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-        }
-        .accessibilityIdentifier("ios-settings-automatic-upload")
-    }
-
-    /// 通常設定から視覚的に分離したアカウント削除カードです。
-    private var accountDeletionCard: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Label("account.delete.card.title", systemImage: "exclamationmark.shield.fill")
-                .font(.system(.headline, design: .rounded, weight: .bold))
-                .foregroundStyle(.red)
-            Text("account.delete.card.description")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-            Button("account.delete.start", role: .destructive) {
-                sendAuthenticationAction(.accountDeletionRequested)
-            }
-                .buttonStyle(.bordered)
-                .frame(minHeight: 44)
-                .accessibilityIdentifier("ios-account-delete-start")
-        }
-        .padding(18)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.red.opacity(0.055), in: RoundedRectangle(cornerRadius: 24, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .stroke(.red.opacity(0.22), lineWidth: 1)
-        }
-    }
-
-    /// 1件の外観モードを選択するボタンを生成します。
-    ///
-    /// 責務: 1件の外観モードを選択状態が分かる操作として描画します。
-    /// - Parameter appearance: ボタンが表す外観モード。
-    /// - Returns: 選択状態を複数の視覚手掛かりで示すボタン。
-    private func appearanceButton(for appearance: SettingsAppearance) -> some View {
-        let isSelected = accountSettings.appearance == appearance
-
-        return Button {
-            sendAccountSettingsAction(.appearanceSelected(appearance))
-        } label: {
-            VStack(spacing: 7) {
-                Image(systemName: appearance.systemImage)
-                    .font(.system(size: 17, weight: .semibold))
-
-                Text(appearance.title)
-                    .font(.system(size: 10, weight: .semibold, design: .rounded))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.72)
-            }
-            .foregroundStyle(isSelected ? Color.white : Color.primary.opacity(0.72))
-            .frame(maxWidth: .infinity, minHeight: 64)
-            .background(
-                isSelected ? Color.accentColor : Color.primary.opacity(0.04),
-                in: RoundedRectangle(cornerRadius: 15, style: .continuous)
-            )
-            .overlay {
-                RoundedRectangle(cornerRadius: 15, style: .continuous)
-                    .stroke(isSelected ? Color.white.opacity(0.2) : Color.primary.opacity(0.06), lineWidth: 1)
-            }
-        }
-        .buttonStyle(.plain)
-        .accessibilityAddTraits(isSelected ? .isSelected : [])
-        .accessibilityIdentifier("ios-settings-appearance-\(appearance.rawValue)")
-    }
-
-    /// 1件のアダプタースロットの要件と未選択状態を描画します。
-    ///
-    /// 責務: 1件のアダプタースロットを役割と選択導線を持つ行として描画します。
-    /// - Parameter slot: 行が表すアダプタースロット。
-    /// - Returns: 実接続を装わず選択導線を提供するアダプター行。
-    private func adapterRow(for slot: AdapterConnectionRole) -> some View {
-        Button {
-            send(.adapterSelectionRequested(slot))
-        } label: {
-            HStack(spacing: 12) {
-                Image(systemName: slot.systemImage)
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(slot == .primary ? Color.accentColor : Color.secondary)
-                    .frame(width: 38, height: 38)
-                    .background(
-                        slot == .primary ? Color.accentColor.opacity(0.12) : Color.primary.opacity(0.055),
-                        in: Circle()
-                    )
-
-                VStack(alignment: .leading, spacing: 3) {
-                    HStack(spacing: 6) {
-                        Text(slot.title)
-                            .font(.system(.subheadline, design: .rounded, weight: .semibold))
-
-                        Text(slot.badge)
-                            .font(.system(size: 8, weight: .bold, design: .rounded))
-                            .foregroundStyle(slot == .primary ? Color.accentColor : Color.secondary)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 3)
-                            .background(Color.primary.opacity(0.055), in: Capsule())
-                    }
-
-                    Text(adapterDescription(for: slot))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-
-                Spacer(minLength: 4)
-
-                Image(systemName: "chevron.right")
-                    .font(.caption.bold())
-                    .foregroundStyle(.tertiary)
-            }
-            .padding(12)
-            .frame(maxWidth: .infinity, minHeight: 62, alignment: .leading)
-            .background(Color.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityHint(Text("settings.adapter.select"))
-        .accessibilityIdentifier("ios-settings-adapter-\(slot.rawValue)")
-    }
-
-    /// アダプタースロットに対応する現在の設定内容を返します。
-    ///
-    /// 責務: 1件のiOSアダプタースロットを一覧表示用の設定説明へ変換します。
-    /// - Parameter slot: 表示対象のアダプタースロット。
-    /// - Returns: 選択済み名称または未選択を示すローカライズ値。
-    private func adapterDescription(for slot: AdapterConnectionRole) -> LocalizedStringKey {
-        if let adapter = state.selectedAdapters[slot] {
-            LocalizedStringKey(adapter.displayName)
-        } else {
-            "settings.adapter.not_selected"
         }
     }
 }
