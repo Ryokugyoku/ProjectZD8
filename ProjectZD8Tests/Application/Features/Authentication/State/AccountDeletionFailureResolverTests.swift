@@ -26,7 +26,7 @@ final class AccountDeletionFailureResolverTests: XCTestCase {
         /// 責務: 呼び出しを数えて固定の原因を返します。
         /// - Parameter error: 使用しないエラー。
         /// - Returns: 固定の原因。
-        func failure(for error: Error) -> AccountDeletionFailure {
+        func failure(for _: Error) -> AccountDeletionFailure {
             callCount += 1
             return result
         }

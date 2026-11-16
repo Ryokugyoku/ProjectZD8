@@ -34,7 +34,7 @@ final class DeleteAccountUseCaseCachedVehicleEraserFake: AccountVehicleDataErasu
     /// 責務: 控えとの合成を検証できるよう、現在のキャッシュ内容を返します。
     /// - Parameter accountIdentifier: 照会対象のアカウント識別子。
     /// - Returns: 端末キャッシュにある車両ID群。
-    func localVehicleIDs(for accountIdentifier: String) -> [VehicleID] { cachedVehicleIDs }
+    func localVehicleIDs(for _: String) -> [VehicleID] { cachedVehicleIDs }
 
     /// 端末内車両キャッシュ削除を履歴へ追加します。
     ///

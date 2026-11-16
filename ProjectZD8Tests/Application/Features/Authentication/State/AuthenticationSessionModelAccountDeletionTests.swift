@@ -163,7 +163,7 @@ final class AuthenticationSessionModelAccountDeletionTests: XCTestCase {
         /// 責務: 分類の結果を固定します。
         /// - Parameter error: 使用しないエラー。
         /// - Returns: 固定の原因。
-        func failure(for error: Error) -> AccountDeletionFailure { result }
+        func failure(for _: Error) -> AccountDeletionFailure { result }
     }
 
     /// サインイン済みで、終了待ちのFakeを結び付けたモデルを組み立てます。

@@ -98,7 +98,9 @@ private final class MaintenanceEraserSessionRepositoryFake: AccountConnectionSes
     ///
     /// 責務: このテストで対象外の削除境界を満たします。
     /// - Parameter accountIdentifier: 使用しないアカウント識別子。
-    func deleteSessions(for accountIdentifier: String) throws {}
+    func deleteSessions(for _: String) throws {
+        // このテストでは呼び出しを観測しないため、何もしない。
+    }
 }
 
 /// 車両の端末キャッシュ削除要求を受け流すFakeです。
@@ -108,20 +110,24 @@ private final class MaintenanceEraserVehiclePortFake: AccountVehicleDataErasureP
     ///
     /// 責務: このテストで対象外の境界を満たします。
     /// - Parameter accountIdentifier: 使用しないアカウント識別子。
-    func deleteAllVehicleData(for accountIdentifier: String) async throws {}
+    func deleteAllVehicleData(for _: String) async throws {
+        // このテストでは呼び出しを観測しないため、何もしない。
+    }
 
     /// 空の車両ID群を返します。
     ///
     /// 責務: このテストで対象外の照会を満たします。
     /// - Parameter accountIdentifier: 使用しないアカウント識別子。
     /// - Returns: 空配列。
-    func localVehicleIDs(for accountIdentifier: String) -> [VehicleID] { [] }
+    func localVehicleIDs(for _: String) -> [VehicleID] { [] }
 
     /// キャッシュ削除を受け流します。
     ///
     /// 責務: このテストで対象外の境界を満たします。
     /// - Parameter accountIdentifier: 使用しないアカウント識別子。
-    func removeLocalVehicleCache(for accountIdentifier: String) {}
+    func removeLocalVehicleCache(for _: String) {
+        // このテストでは呼び出しを観測しないため、何もしない。
+    }
 }
 
 /// 車両別PID設定の削除要求を受け流すFakeです。
@@ -130,7 +136,9 @@ private final class MaintenanceEraserCapabilityRepositoryFake: AccountVehiclePID
     ///
     /// 責務: このテストで対象外の削除境界を満たします。
     /// - Parameter vehicleIDs: 使用しない車両ID群。
-    func deleteCapabilities(for vehicleIDs: [VehicleID]) throws {}
+    func deleteCapabilities(for _: [VehicleID]) throws {
+        // このテストでは呼び出しを観測しないため、何もしない。
+    }
 }
 
 /// iCloud KVSを空のメモリ上保存先として再現するFakeです。

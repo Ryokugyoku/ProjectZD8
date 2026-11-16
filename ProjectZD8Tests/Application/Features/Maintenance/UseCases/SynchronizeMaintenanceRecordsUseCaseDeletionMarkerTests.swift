@@ -116,7 +116,7 @@ nonisolated final class MaintenanceMarkerLocalFake: MaintenanceRecordRepository,
     /// 責務: 現在の端末内集合を返します。
     /// - Parameter accountIdentifier: 使用しないアカウント識別子。
     /// - Returns: 現在の記録集合。
-    func records(for accountIdentifier: String) async throws -> [MaintenanceRecord] { storedRecords }
+    func records(for _: String) async throws -> [MaintenanceRecord] { storedRecords }
 
     /// 1件をupsertします。
     ///
@@ -124,7 +124,7 @@ nonisolated final class MaintenanceMarkerLocalFake: MaintenanceRecordRepository,
     /// - Parameters:
     ///   - record: 保存する記録。
     ///   - accountIdentifier: 使用しないアカウント識別子。
-    func save(_ record: MaintenanceRecord, for accountIdentifier: String) async throws {
+    func save(_ record: MaintenanceRecord, for _: String) async throws {
         storedRecords.removeAll { $0.id == record.id }
         storedRecords.append(record)
     }
@@ -135,7 +135,7 @@ nonisolated final class MaintenanceMarkerLocalFake: MaintenanceRecordRepository,
     /// - Parameters:
     ///   - records: 置き換える記録集合。
     ///   - accountIdentifier: 使用しないアカウント識別子。
-    func replaceAll(_ records: [MaintenanceRecord], for accountIdentifier: String) async throws {
+    func replaceAll(_ records: [MaintenanceRecord], for _: String) async throws {
         storedRecords = records
     }
 }
@@ -157,7 +157,7 @@ final class MaintenanceMarkerRemoteFake: MaintenanceRemoteStore {
     /// 責務: 現在の遠隔集合を返します。
     /// - Parameter accountIdentifier: 使用しないアカウント識別子。
     /// - Returns: 現在の記録集合。
-    func fetchRecords(for accountIdentifier: String) async throws -> [MaintenanceRecord] { storedRecords }
+    func fetchRecords(for _: String) async throws -> [MaintenanceRecord] { storedRecords }
 
     /// 集合を置き換えます。
     ///
@@ -165,7 +165,7 @@ final class MaintenanceMarkerRemoteFake: MaintenanceRemoteStore {
     /// - Parameters:
     ///   - records: 置き換える記録集合。
     ///   - accountIdentifier: 使用しないアカウント識別子。
-    func saveRecords(_ records: [MaintenanceRecord], for accountIdentifier: String) async throws {
+    func saveRecords(_ records: [MaintenanceRecord], for _: String) async throws {
         storedRecords = records
     }
 }

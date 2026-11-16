@@ -108,7 +108,7 @@ private final class SignInAuthorizationFake: AppleAccountAuthorizationPort {
     /// 責務: 境界を満たすために固定値を返します。
     /// - Parameter userIdentifier: 使用しない識別子。
     /// - Returns: 常に `.notFound`。
-    func credentialState(for userIdentifier: String) async throws -> AppleAccountCredentialState { .notFound }
+    func credentialState(for _: String) async throws -> AppleAccountCredentialState { .notFound }
 }
 
 /// 保存を共有履歴へ記録するセッション保存Fakeです。
@@ -137,5 +137,7 @@ private final class SignInRecordingStoreFake: AuthenticationSessionStorePort {
     /// 使用しない削除です。
     ///
     /// 責務: 境界を満たします。
-    func removeUserIdentifier() throws {}
+    func removeUserIdentifier() throws {
+        // このテストでは呼び出しを観測しないため、何もしない。
+    }
 }

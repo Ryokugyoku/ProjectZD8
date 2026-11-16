@@ -83,7 +83,9 @@ final class AccountDeletionAcquisitionDrainTests: XCTestCase {
         let sleeps = SleepProbe { await MainActor.run { fixture.start() } }
         let drain = AccountDeletionAcquisitionDrain(
             liveTelemetry: fixture.model,
-            suspendAutomaticUpload: {},
+            suspendAutomaticUpload: {
+                // このテストでは自動アップロードの停止を観測しないため、何もしない。
+            },
             maximumPollCount: 5,
             pollInterval: .milliseconds(1),
             sleep: { try await sleeps.sleep($0) }
@@ -136,7 +138,9 @@ final class AccountDeletionAcquisitionDrainTests: XCTestCase {
         let sleeps = SleepProbe { throw CancellationError() }
         let drain = AccountDeletionAcquisitionDrain(
             liveTelemetry: fixture.model,
-            suspendAutomaticUpload: {},
+            suspendAutomaticUpload: {
+                // このテストでは自動アップロードの停止を観測しないため、何もしない。
+            },
             maximumPollCount: 5,
             sleep: { try await sleeps.sleep($0) }
         )
@@ -180,7 +184,9 @@ private final class SleepProbe: @unchecked Sendable {
     ///
     /// 責務: sleep の代わりに実行する動作を保持します。省略時は何もしません。
     /// - Parameter action: 呼び出しごとに実行する動作。
-    init(action: @escaping @Sendable () async throws -> Void = {}) {
+    init(action: @escaping @Sendable () async throws -> Void = {
+        // 省略時は待機の代わりに何も実行しない。
+    }) {
         self.action = action
     }
 

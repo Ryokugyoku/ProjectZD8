@@ -20,14 +20,14 @@ final class DeleteAccountUseCaseTransferFake: ConnectionSessionTransferRepositor
     ///   - package: 使用しない転送Payload。
     ///   - accountIdentifier: 使用しないアカウント識別子。
     /// - Returns: 固定Digest。
-    func upload(_ package: ConnectionSessionTransferPackage, for accountIdentifier: String) async throws -> String { "digest" }
+    func upload(_: ConnectionSessionTransferPackage, for _: String) async throws -> String { "digest" }
 
     /// 使用しない転送取得へ空配列を返します。
     ///
     /// 責務: 削除テストに不要な境界を満たします。
     /// - Parameter accountIdentifier: 使用しないアカウント識別子。
     /// - Returns: 空配列。
-    func downloadTransfers(for accountIdentifier: String) async throws -> [VerifiedConnectionSessionTransfer] { [] }
+    func downloadTransfers(for _: String) async throws -> [VerifiedConnectionSessionTransfer] { [] }
 
     /// 使用しない受領証公開を無視します。
     ///
@@ -37,10 +37,12 @@ final class DeleteAccountUseCaseTransferFake: ConnectionSessionTransferRepositor
     ///   - sessionID: 使用しないセッションID。
     ///   - accountIdentifier: 使用しないアカウント識別子。
     func publishMacReceipt(
-        _ receipt: ConnectionSessionMacImportReceipt,
-        sessionID: ConnectionSessionID,
-        for accountIdentifier: String
-    ) async throws {}
+        _: ConnectionSessionMacImportReceipt,
+        sessionID _: ConnectionSessionID,
+        for _: String
+    ) async throws {
+        // このテストでは呼び出しを観測しないため、何もしない。
+    }
 
     /// 使用しない受領証取得へ空配列を返します。
     ///
@@ -48,7 +50,7 @@ final class DeleteAccountUseCaseTransferFake: ConnectionSessionTransferRepositor
     /// - Parameter accountIdentifier: 使用しないアカウント識別子。
     /// - Returns: 空配列。
     func downloadMacReceipts(
-        for accountIdentifier: String
+        for _: String
     ) async throws -> [(ConnectionSessionID, ConnectionSessionMacImportReceipt)] { [] }
 
     /// 使用しない削除マーカー取得へ空集合を返します。
@@ -56,7 +58,7 @@ final class DeleteAccountUseCaseTransferFake: ConnectionSessionTransferRepositor
     /// 責務: 削除テストに不要な境界を満たします。
     /// - Parameter accountIdentifier: 使用しないアカウント識別子。
     /// - Returns: 空集合。
-    func deletedSessionIDs(for accountIdentifier: String) async throws -> Set<ConnectionSessionID> { [] }
+    func deletedSessionIDs(for _: String) async throws -> Set<ConnectionSessionID> { [] }
 
     /// 使用しないセッション単位削除を無視します。
     ///
@@ -64,7 +66,9 @@ final class DeleteAccountUseCaseTransferFake: ConnectionSessionTransferRepositor
     /// - Parameters:
     ///   - sessionID: 使用しないセッションID。
     ///   - accountIdentifier: 使用しないアカウント識別子。
-    func deleteSession(_ sessionID: ConnectionSessionID, for accountIdentifier: String) async throws {}
+    func deleteSession(_: ConnectionSessionID, for _: String) async throws {
+        // このテストでは呼び出しを観測しないため、何もしない。
+    }
 
     /// CloudKit運転データ全削除を履歴へ追加します。
     ///
