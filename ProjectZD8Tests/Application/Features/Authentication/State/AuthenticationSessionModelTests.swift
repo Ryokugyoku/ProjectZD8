@@ -314,7 +314,7 @@ final class AuthenticationSessionModelTests: XCTestCase {
 
 /// 認証モデルテストで共有するモデルとFakeの組です。
 @MainActor
-private struct AuthenticationModelDependencies {
+struct AuthenticationModelDependencies {
     /// 検証対象の認証セッションモデルです。
     let model: AuthenticationSessionModel
 
@@ -336,7 +336,7 @@ private struct AuthenticationModelDependencies {
 
 /// 認証モデルテストでApple認証結果を制御します。
 @MainActor
-private final class AuthenticationModelAuthorizationPortFake: AppleAccountAuthorizationPort {
+final class AuthenticationModelAuthorizationPortFake: AppleAccountAuthorizationPort {
     /// Apple認証要求が返す結果です。
     var authorizationResult: Result<AppleAccountSession, Error> = .success(
         AppleAccountSession(userIdentifier: "model-user")
@@ -347,6 +347,33 @@ private final class AuthenticationModelAuthorizationPortFake: AppleAccountAuthor
 
     /// 設定するとApple資格状態照会がこのエラーを投げます(オフラインなどで確認できない状況)。
     var credentialStateError: Error?
+
+    /// 真の間、Apple資格状態照会はテストが `releaseHeldCredentialCheck()` で再開させるまで戻りません。
+    var holdsCredentialCheck = false
+
+    /// 再開を待っている資格状態照会の継続です(古い順)。
+    private var heldCredentialChecks: [CheckedContinuation<Void, Never>] = []
+
+    /// 再開を待っている資格状態照会の件数です。
+    var heldCredentialCheckCount: Int { heldCredentialChecks.count }
+
+    /// 最も古い保留中の資格状態照会を再開させます。
+    ///
+    /// 責務: 保留が無ければ何もしません。再開後の照会は、その時点の `credentialStateError` と `credentialState` で結果を返します。
+    func releaseHeldCredentialCheck() {
+        guard !heldCredentialChecks.isEmpty else { return }
+        heldCredentialChecks.removeFirst().resume()
+    }
+
+    /// 保留中の資格状態照会をすべて再開させ、以後は保留しません。
+    ///
+    /// 責務: テスト終了後に再開されない継続を残さないようにします。
+    func releaseAllHeldCredentialChecks() {
+        holdsCredentialCheck = false
+        let held = heldCredentialChecks
+        heldCredentialChecks.removeAll()
+        held.forEach { $0.resume() }
+    }
 
     /// Apple認証要求の実行回数です。
     private(set) var authorizationRequestCount = 0
@@ -371,13 +398,16 @@ private final class AuthenticationModelAuthorizationPortFake: AppleAccountAuthor
     /// - Returns: テストが設定したApple資格状態。
     func credentialState(for userIdentifier: String) async throws -> AppleAccountCredentialState {
         credentialStateRequestCount += 1
+        if holdsCredentialCheck {
+            await withCheckedContinuation { heldCredentialChecks.append($0) }
+        }
         if let credentialStateError { throw credentialStateError }
         return credentialState
     }
 }
 
 /// 認証モデルテストでセッション保存結果を記録します。
-private final class AuthenticationModelSessionStorePortFake: AuthenticationSessionStorePort {
+final class AuthenticationModelSessionStorePortFake: AuthenticationSessionStorePort {
     /// 現在保存されているテスト用Appleユーザー識別子です。
     var identifier: String?
 
@@ -417,7 +447,7 @@ private final class AuthenticationModelSessionStorePortFake: AuthenticationSessi
 
 /// 認証モデルテストでアカウントデータ消去要求を記録します。
 @MainActor
-private final class AuthenticationModelAccountDataEraserFake: AccountDataErasurePort {
+final class AuthenticationModelAccountDataEraserFake: AccountDataErasurePort {
     /// 消去を要求されたAppleユーザー識別子です。
     private(set) var erasedIdentifiers: [String] = []
 
@@ -432,7 +462,7 @@ private final class AuthenticationModelAccountDataEraserFake: AccountDataErasure
 
 /// 認証モデルテストでCloudKit運転データ操作を記録します。
 @MainActor
-private final class AuthenticationModelTransferRepositoryFake: ConnectionSessionTransferRepository {
+final class AuthenticationModelTransferRepositoryFake: ConnectionSessionTransferRepository {
     /// 全削除を要求されたアカウント識別子です。
     private(set) var deletedAccountIdentifiers: [String] = []
 
@@ -500,7 +530,7 @@ private final class AuthenticationModelTransferRepositoryFake: ConnectionSession
 
 /// 認証モデルテストで車両データ削除境界を再現します。
 @MainActor
-private final class AuthenticationModelVehicleDataEraserFake: AccountVehicleDataErasurePort {
+final class AuthenticationModelVehicleDataEraserFake: AccountVehicleDataErasurePort {
     /// 全削除されたアカウント識別子です。
     private(set) var deletedAccountIdentifiers: [String] = []
 
@@ -528,7 +558,7 @@ private final class AuthenticationModelVehicleDataEraserFake: AccountVehicleData
 
 /// 認証モデルテストで端末間セッション失効操作を記録します。
 @MainActor
-private final class AuthenticationModelSessionRevocationPortFake: AccountSessionRevocationPort {
+final class AuthenticationModelSessionRevocationPortFake: AccountSessionRevocationPort {
     /// 現在世代の受理を要求されたユーザー識別子です。
     private(set) var registeredIdentifiers: [String] = []
 

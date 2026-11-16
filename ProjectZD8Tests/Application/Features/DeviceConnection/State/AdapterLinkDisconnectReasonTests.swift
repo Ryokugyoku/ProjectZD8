@@ -11,7 +11,7 @@ final class AdapterLinkDisconnectReasonTests: XCTestCase {
         reasons.forEach { XCTAssertTrue($0.isTerminal, "\($0)") }
     }
 
-    /// Bluetooth利用不可・切断・接続失敗・探索失敗・探索待機超過は終端ではありません。
+    /// Bluetooth利用不可・切断・接続失敗・探索失敗・探索待機超過・書き込み期限切れ(U5 受け入れ条件 2)は終端ではありません。
     ///
     /// 責務: 自動でやり直す理由が説明の有無にかかわらず全て `false` になることを確認します。
     func testNonTerminalReasons() {
@@ -25,7 +25,8 @@ final class AdapterLinkDisconnectReasonTests: XCTestCase {
             .connectionFailed(errorDescription: "failed"),
             .discoveryFailed(errorDescription: nil),
             .discoveryFailed(errorDescription: "failed"),
-            .discoveryTimedOut
+            .discoveryTimedOut,
+            .writeTimedOut
         ]
         reasons.forEach { XCTAssertFalse($0.isTerminal, "\($0)") }
     }
