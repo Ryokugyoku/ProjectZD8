@@ -24,8 +24,10 @@ final class AuthenticationDeletionSessionStoreFake: AuthenticationSessionStorePo
     /// このテストでは使用しない識別子保存を無視します。
     ///
     /// 責務: 削除順序テストに不要な保存境界を副作用なしで満たします。
-    /// - Parameter userIdentifier: 使用しないユーザー識別子。
-    func saveUserIdentifier(_ userIdentifier: String) throws {}
+    /// - Parameter _: 使用しないユーザー識別子。
+    func saveUserIdentifier(_: String) throws {
+        // このテストでは呼び出しを観測しないため、何もしない。
+    }
 
     /// 資格情報削除を共有履歴へ追加します。
     ///

@@ -29,6 +29,23 @@ final class ConnectionSessionTransferRepositoryFake: ConnectionSessionTransferRe
         ConnectionSessionTransferRepositoryFake { try recorder.record("delete-cloud-driving-data:\($0)") }
     }
 
+    /// 削除順序レコーダーへ全削除を記録し、必要なら失敗させるFakeを生成します。
+    ///
+    /// 責務: `AuthenticationDeletionOrderRecorder` を使うテスト用に、記録とエラー注入を結び付けたFakeを返します。
+    /// - Parameters:
+    ///   - recorder: 副作用名を発生順に保持する記録先。
+    ///   - deleteAllError: 全削除要求を失敗させる場合のエラー。
+    /// - Returns: 全削除時に `delete-cloud-driving-data:<識別子>` を記録するFake。
+    static func recording(
+        into recorder: AuthenticationDeletionOrderRecorder,
+        deleteAllError: Error? = nil
+    ) -> ConnectionSessionTransferRepositoryFake {
+        ConnectionSessionTransferRepositoryFake {
+            recorder.events.append("delete-cloud-driving-data:\($0)")
+            if let deleteAllError { throw deleteAllError }
+        }
+    }
+
     /// このテストでは転送送信を使用しません。
     ///
     /// 責務: テスト対象外の送信要求を固定Digestで満たします。

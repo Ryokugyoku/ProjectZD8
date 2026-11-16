@@ -18,8 +18,10 @@ final class AuthenticationDeletionRevocationPortFake: AccountSessionRevocationPo
     /// このテストでは使用しないセッション基準登録を無視します。
     ///
     /// 責務: 削除順序テストに不要な基準登録境界を副作用なしで満たします。
-    /// - Parameter userIdentifier: 使用しないユーザー識別子。
-    func registerCurrentSession(for userIdentifier: String) {}
+    /// - Parameter _: 使用しないユーザー識別子。
+    func registerCurrentSession(for _: String) {
+        // このテストでは呼び出しを観測しないため、何もしない。
+    }
 
     /// 失効発行を共有履歴へ追加します。
     ///
@@ -33,15 +35,19 @@ final class AuthenticationDeletionRevocationPortFake: AccountSessionRevocationPo
     ///
     /// 責務: 削除順序テストに不要な監視境界を副作用なしで満たします。
     /// - Parameters:
-    ///   - userIdentifier: 使用しないユーザー識別子。
-    ///   - receive: 使用しない失効受信処理。
+    ///   - _: 使用しないユーザー識別子。
+    ///   - _: 使用しない失効受信処理。
     func startObserving(
-        for userIdentifier: String,
-        receive: @escaping () -> Void
-    ) {}
+        for _: String,
+        receive _: @escaping () -> Void
+    ) {
+        // このテストでは呼び出しを観測しないため、何もしない。
+    }
 
     /// このテストでは使用しない監視終了を無視します。
     ///
     /// 責務: 削除順序テストに不要な監視終了境界を副作用なしで満たします。
-    func stopObserving() {}
+    func stopObserving() {
+        // このテストでは呼び出しを観測しないため、何もしない。
+    }
 }

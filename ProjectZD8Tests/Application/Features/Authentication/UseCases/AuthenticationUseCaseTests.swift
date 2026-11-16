@@ -108,7 +108,7 @@ final class AuthenticationUseCaseTests: XCTestCase {
         let useCase = DeleteAccountUseCase(
             sessionRevocation: AuthenticationDeletionRevocationPortFake(recorder: recorder),
             cloudErasers: AccountCloudDataErasers(
-                sessionTransfers: AuthenticationDeletionTransferRepositoryFake(recorder: recorder),
+                sessionTransfers: ConnectionSessionTransferRepositoryFake.recording(into: recorder),
                 vehicleDataEraser: AuthenticationDeletionVehicleDataEraserFake(recorder: recorder),
                 maintenanceDataEraser: AuthenticationDeletionMaintenanceDataEraserFake(recorder: recorder)
             ),
@@ -136,8 +136,8 @@ final class AuthenticationUseCaseTests: XCTestCase {
         let useCase = DeleteAccountUseCase(
             sessionRevocation: AuthenticationDeletionRevocationPortFake(recorder: recorder),
             cloudErasers: AccountCloudDataErasers(
-                sessionTransfers: AuthenticationDeletionTransferRepositoryFake(
-                    recorder: recorder,
+                sessionTransfers: ConnectionSessionTransferRepositoryFake.recording(
+                    into: recorder,
                     deleteAllError: AuthenticationSessionStoreError.unavailable
                 ),
                 vehicleDataEraser: AuthenticationDeletionVehicleDataEraserFake(recorder: recorder),
