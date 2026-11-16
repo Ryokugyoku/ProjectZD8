@@ -2,6 +2,10 @@ import Foundation
 
 /// 記録セッション終了後の後処理を、アップロード → Rawキャッシュの整理の順に1回実行します。
 ///
+/// 順序はRawを端末から消す整理の前にCloudKitへの保存を確かめるためです。整理の対象は保存が確認できた
+/// (`cloudState == .uploaded` かつ manifest digest あり)終了済みセッションだけなので、アップロードを先に行うと、
+/// 送信待ちだったセッションもこの実行の中で整理の対象になり得ます(詳細は `PostSessionProcessingStep`)。
+///
 /// 処理本体は既存の `SynchronizeConnectionSessionsUseCase`(送信待ちを含む同期)と
 /// `EvictStaleConnectionSessionRawLogsUseCase` で、この型は実行条件・順序・結果・再予約だけを決めます。
 /// 呼び出し元(OSのバックグラウンド実行)は期限切れのときこの処理の `Task` をキャンセルします。
