@@ -86,4 +86,33 @@ final class AdapterLinkSupervisionAuthenticationRelayTests: XCTestCase {
         XCTAssertEqual(relay.apply(phase: .signedIn, userIdentifier: "u1"), instruction(account: Change(accountIdentifier: "u1"), signedIn: true))
         XCTAssertEqual(relay.lastPhase, .signedIn)
     }
+
+    /// アカウント削除中は、サインイン中でも識別子を nil にし、サインインなしを伝えます。
+    ///
+    /// 責務: サインイン済み → 削除中で、識別子が外れ、サインインなしになり、保持する識別子も nil になることを確認します。
+    func testDeletingAccountClearsIdentifierAndReportsNotSignedIn() {
+        var relay = AdapterLinkSupervisionAuthenticationRelay()
+        _ = relay.apply(phase: .signedIn, userIdentifier: "u1")
+
+        let result = relay.apply(phase: .deletingAccount, userIdentifier: "u1")
+
+        XCTAssertEqual(result.accountIdentifierChange, Change(accountIdentifier: nil))
+        XCTAssertEqual(result.isSignedIn, false)
+        XCTAssertNil(relay.lastAccountIdentifier)
+        XCTAssertEqual(relay.lastPhase, .deletingAccount)
+    }
+
+    /// 削除に失敗してサインイン済みへ戻ると、識別子とサインイン済みを再び伝えます。
+    ///
+    /// 責務: 削除中 → サインイン済みで、再試行に備えて監視が復帰する指示が出ることを確認します。
+    func testReturningToSignedInAfterFailedDeletionReportsIdentifierAgain() {
+        var relay = AdapterLinkSupervisionAuthenticationRelay()
+        _ = relay.apply(phase: .signedIn, userIdentifier: "u1")
+        _ = relay.apply(phase: .deletingAccount, userIdentifier: "u1")
+
+        XCTAssertEqual(
+            relay.apply(phase: .signedIn, userIdentifier: "u1"),
+            instruction(account: Change(accountIdentifier: "u1"), signedIn: true)
+        )
+    }
 }

@@ -404,7 +404,7 @@ final class SynchronizeConnectionSessionsUseCaseTests: XCTestCase {
 }
 
 /// 同期ユースケースのローカル保存操作を記録します。
-private final class SynchronizationLocalRepository: ConnectionSessionRepository, ConnectionSessionRawLogRepository, ConnectionSessionErasureRepository {
+final class SynchronizationLocalRepository: ConnectionSessionRepository, ConnectionSessionRawLogRepository, ConnectionSessionErasureRepository {
     /// 一覧取得で返すセッションです。
     private var storedSessions: [ConnectionSession]
     /// 取り込まれた検証済み転送です。
@@ -518,7 +518,7 @@ private final class SynchronizationLocalRepository: ConnectionSessionRepository,
 
 /// 同期ユースケースのCloudKit操作をメモリ上で再現します。
 @MainActor
-private final class SynchronizationTransferRepository: ConnectionSessionTransferRepository {
+final class SynchronizationTransferRepository: ConnectionSessionTransferRepository {
     /// 取得で返す検証済み転送です。
     private var transfers: [VerifiedConnectionSessionTransfer]
     /// 取得で返すRaw非包含セッション概要です。

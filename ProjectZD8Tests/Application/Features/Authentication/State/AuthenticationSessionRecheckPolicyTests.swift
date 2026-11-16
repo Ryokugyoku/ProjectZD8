@@ -75,4 +75,13 @@ final class AuthenticationSessionRecheckPolicyTests: XCTestCase {
             }
         }
     }
+
+    /// アカウント削除中(`.deletingAccount`)は、未解決の有無にかかわらず再確認しません。
+    ///
+    /// 責務: 削除中の段階で、未解決が true でも false でも再確認しないことを確認します。
+    func testShouldNotRecheckWhileDeletingAccount() {
+        for unresolved in [false, true] {
+            XCTAssertFalse(policy.shouldRecheck(phase: .deletingAccount, isSessionCheckUnresolved: unresolved), "\(unresolved)")
+        }
+    }
 }
