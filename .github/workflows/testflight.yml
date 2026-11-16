@@ -17,8 +17,57 @@ permissions:
   contents: read
 
 jobs:
+  # Runs on any branch (upload below stays main-only), so the key can be checked before merging.
+  # HTTP 200 = the key authenticates; HTTP 401 = the key is revoked or the secrets do not match.
+  check-api-key:
+    name: Check the App Store Connect API key
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    env:
+      ASC_APP_ID: "6794738083"
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - name: Call the App Store Connect API with the key
+        env:
+          API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          API_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_API_PRIVATE_KEY }}
+        run: |
+          key_path="${RUNNER_TEMP}/asc-key-check.p8"
+          trap 'rm -f "$key_path"' EXIT
+          umask 077
+          printf '%s' "$API_PRIVATE_KEY" > "$key_path"
+          KEY_PATH="$key_path" ruby -I .github -r app_store_connect_client -e '
+            client = AppStoreConnectClient.new(
+              key_id: ENV.fetch("API_KEY_ID"),
+              issuer_id: ENV.fetch("API_ISSUER_ID"),
+              private_key_path: ENV.fetch("KEY_PATH")
+            )
+            begin
+              app = client.get("/v1/apps/#{ENV.fetch("ASC_APP_ID")}")
+              puts "Key authenticated: app #{app.dig("data", "attributes", "bundleId")}"
+            rescue RuntimeError => error
+              puts "::error::The key could not read the app. #{error.message}"
+              exit 1
+            end
+            %w[Ryokugyoku.ProjectZD8 Ryokugyoku.ProjectZD8.RecordingSessionLiveActivity].each do |identifier|
+              found = client.get("/v1/bundleIds", query: { "filter[identifier]" => identifier })
+              exact = Array(found["data"]).select { |item| item.dig("attributes", "identifier") == identifier }
+              puts "Bundle ID #{identifier}: #{exact.empty? ? "not registered" : "registered"}"
+            rescue RuntimeError => error
+              puts "::warning::Could not look up bundle ID #{identifier}. #{error.message}"
+            end
+          '
+
   upload:
     name: Build and upload the iOS and native macOS variants
+    needs: check-api-key
     if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
     runs-on: macos-26
     timeout-minutes: 90
