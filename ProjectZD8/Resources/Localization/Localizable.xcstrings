@@ -1504,6 +1504,94 @@
         }
       }
     },
+    "account.delete.error.acquisition_timeout" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Waiting for the recording to finish timed out. Please retry in a moment. Your sign-in information was retained."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se agotó el tiempo de espera para finalizar la grabación. Inténtalo de nuevo en unos instantes. Se conservó la información de inicio de sesión."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "記録の終了を待っても完了しませんでした。しばらくしてから再試行してください。ログイン情報は保持されています。"
+          }
+        }
+      }
+    },
+    "account.delete.error.busy" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The service is busy. Please wait a moment and retry. Your sign-in information was retained."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El servicio está saturado. Espera un momento y vuelve a intentarlo. Se conservó la información de inicio de sesión."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "サーバーが混み合っています。時間をおいて再試行してください。ログイン情報は保持されています。"
+          }
+        }
+      }
+    },
+    "account.delete.error.icloud" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You are not signed in to iCloud, or iCloud is restricted. Check your iCloud status and retry. Your sign-in information was retained."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No has iniciado sesión en iCloud o está restringido. Revisa el estado de iCloud y vuelve a intentarlo. Se conservó la información de inicio de sesión."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iCloud にサインインしていないか、利用が制限されています。iCloud の状態を確認して再試行してください。ログイン情報は保持されています。"
+          }
+        }
+      }
+    },
+    "account.delete.error.network" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Could not connect. Check your network connection and retry. Your sign-in information was retained."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo conectar. Revisa tu conexión de red y vuelve a intentarlo. Se conservó la información de inicio de sesión."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "通信できませんでした。ネットワーク接続を確認して再試行してください。ログイン情報は保持されています。"
+          }
+        }
+      }
+    },
     "account.delete.item.adapter" : {
       "localizations" : {
         "en" : {

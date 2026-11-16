@@ -263,7 +263,8 @@ enum MacOSApplicationComposition: ApplicationPlatformComposing {
                 dataEraser: dataEraser,
                 sessionStore: sessionStore
             ),
-            sessionRevocation: sessionRevocation
+            sessionRevocation: sessionRevocation,
+            deletionFailureClassifier: CloudKitAccountDeletionFailureClassifier()
         )
         AccountDeletionMarkerComposition.gate.onAccountDeleted = { [weak model] accountIdentifier in
             model?.applyRemoteSessionRevocation(for: accountIdentifier)

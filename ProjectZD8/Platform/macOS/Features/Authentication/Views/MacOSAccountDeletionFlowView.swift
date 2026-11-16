@@ -88,8 +88,8 @@ struct MacOSAccountDeletionFlowView: View {
                 deletionItem(symbol: "cable.connector.slash", key: "account.delete.item.adapter")
                 deletionItem(symbol: "key.slash", key: "account.delete.item.credential")
 
-                if failure != nil {
-                    Label("account.delete.error", systemImage: "exclamationmark.triangle.fill")
+                if let failure {
+                    Label(LocalizedStringKey(AccountDeletionFailureMessage.key(for: failure)), systemImage: "exclamationmark.triangle.fill")
                         .font(.footnote.weight(.semibold))
                         .foregroundStyle(.red)
                         .padding(13)

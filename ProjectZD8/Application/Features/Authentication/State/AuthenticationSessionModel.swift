@@ -31,6 +31,10 @@ final class AuthenticationSessionModel {
     @ObservationIgnored
     var acquisitionDrain: (any AccountDeletionAcquisitionDrainPort)?
 
+    /// 削除で投げられたエラーを、表示する失敗の原因へ決める判定です。
+    @ObservationIgnored
+    private let deletionFailureResolver: AccountDeletionFailureResolver
+
     /// 重複した起動時確認を防ぐ復元タスクです。
     @ObservationIgnored
     private var restorationTask: Task<Void, Never>?
@@ -69,6 +73,7 @@ final class AuthenticationSessionModel {
     ///   - deleteAccount: アカウント保存データとログイン識別子を削除するユースケース。
     ///   - remoteAccountLogout: 他端末から失効されたアカウントを端末内からログアウトするユースケース。
     ///   - sessionRevocation: アカウント別セッション失効の同期境界。
+    ///   - deletionFailureClassifier: 基盤固有の削除エラーを表示用の原因へ分類する境界。省略時は分類しません。
     ///   - recheckPolicy: サインイン確認が照会の失敗だった時の再確認の待ち時間と上限。
     ///   - recheckSleep: 再確認の待機に使う処理。テストは実時間を待たない実装を渡します。
     init(
@@ -78,6 +83,7 @@ final class AuthenticationSessionModel {
         deleteAccount: DeleteAccountUseCase,
         remoteAccountLogout: RemoteAccountLogoutUseCase,
         sessionRevocation: any AccountSessionRevocationPort,
+        deletionFailureClassifier: (any AccountDeletionFailureClassifying)? = nil,
         recheckPolicy: AuthenticationSessionRecheckPolicy = .standard,
         recheckSleep: @escaping AuthenticationSessionRecheckScheduler.Sleep = { try await Task.sleep(for: $0) }
     ) {
@@ -89,6 +95,7 @@ final class AuthenticationSessionModel {
         self.deleteAccount = deleteAccount
         self.remoteAccountLogout = remoteAccountLogout
         self.sessionRevocation = sessionRevocation
+        deletionFailureResolver = AccountDeletionFailureResolver(classifier: deletionFailureClassifier)
 
         if state.phase == .signedIn, let userIdentifier = state.session?.userIdentifier {
             sessionRevocation.registerCurrentSession(for: userIdentifier)
@@ -177,7 +184,7 @@ final class AuthenticationSessionModel {
 
     /// 進行中の取得を終わらせてからアカウントを削除し、結果を状態へ反映します。
     ///
-    /// 責務: 成功ならログイン画面へ、失敗なら認証済みへ戻して同じ画面から再試行できる状態にします。
+    /// 責務: 成功ならログイン画面へ、失敗なら原因を分類して認証済みへ戻し、同じ画面から再試行できる状態にします。
     /// - Parameter userIdentifier: 削除対象のAppleユーザー識別子。
     private func runAccountDeletion(userIdentifier: String) async {
         do {
@@ -189,7 +196,7 @@ final class AuthenticationSessionModel {
             state.session = nil
             state.phase = .signedOut
         } catch {
-            state.accountDeletionFailure = .deletionFailed
+            state.accountDeletionFailure = deletionFailureResolver.failure(for: error)
             state.accountDeletionPhase = .failed
             state.phase = .signedIn
         }
