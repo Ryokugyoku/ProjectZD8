@@ -5,7 +5,7 @@ nonisolated struct LiveTelemetryPauseWindow: Equatable, Sendable {
     /// 一時停止を始めた時点の単調時計の値です。定期試行の起点にだけ使います。
     let pausedAtNanoseconds: UInt64
     /// 最後の受信からの猶予です。
-    let grace: LiveTelemetryReceiveGrace
+    private(set) var grace: LiveTelemetryReceiveGrace
     /// 次に定期的な復帰の試行を行ってよい単調時計の値です。
     private(set) var nextRetryNanoseconds: UInt64
 
@@ -35,6 +35,13 @@ nonisolated struct LiveTelemetryPauseWindow: Equatable, Sendable {
     /// 責務: 期限待ちに渡す値として、最後の受信からの猶予の期限を返します。
     var deadlineNanoseconds: UInt64 {
         grace.deadlineNanoseconds
+    }
+
+    /// アダプターは応答するのに車両が無応答だと分かったことを猶予へ反映します。
+    ///
+    /// 責務: 猶予と期限を「エンジン停止とみなす時間」へ縮めます。期限待ちは呼び出し側が張り直します。
+    mutating func suspectVehicleOff() {
+        grace.suspectVehicleOff()
     }
 
     /// 現在の時点で定期的な復帰の試行を行ってよいかを返します。

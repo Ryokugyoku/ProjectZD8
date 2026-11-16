@@ -33,6 +33,9 @@ struct ProjectZD8App: App {
     /// HOME接続要求を車両識別とPID継続取得へ展開するユースケースです。
     private let startVehicleConnection: StartVehicleConnectionUseCase
 
+    /// 「エンジン停止とみなす時間」の設定を保持するモデルです。
+    @State private var vehicleOffDelayModel: VehicleOffDetectionDelayModel
+
     #if os(iOS)
     /// iOS設定画面へ注入するプレゼンテーションモデルです。
     @State private var iOSSettingsModel: IOSSettingsPresentationModel
@@ -70,6 +73,7 @@ struct ProjectZD8App: App {
         let models = ApplicationRootAssembly.makeModels(MacOSApplicationComposition.self)
         #endif
         _authenticationModel = State(initialValue: models.authentication)
+        _vehicleOffDelayModel = State(initialValue: ApplicationRootAssembly.makeVehicleOffDetectionDelayModel())
         _accountSettingsModel = State(initialValue: models.accountSettings)
         #if os(iOS)
         _iOSSettingsModel = State(initialValue: IOSApplicationComposition.makeSettingsPresentationModel())
@@ -112,6 +116,7 @@ struct ProjectZD8App: App {
                         sessionLogAnalysisModel: sessionLogAnalysisModel,
                         startVehicleConnection: startVehicleConnection,
                         automaticRecordingModel: automaticRecordingModel,
+                        vehicleOffDelayModel: vehicleOffDelayModel,
                         unassignedVINWarningModel: unassignedVINWarningModel,
                         vehicleUnknownSessionModel: vehicleUnknownSessionModel,
                         accountDeletionPhase: authenticationModel.state.accountDeletionPhase,
@@ -138,6 +143,7 @@ struct ProjectZD8App: App {
                         connectionHistoryModel: connectionHistoryModel,
                         sessionLogAnalysisModel: sessionLogAnalysisModel,
                         startVehicleConnection: startVehicleConnection,
+                        vehicleOffDelayModel: vehicleOffDelayModel,
                         accountDeletionPhase: authenticationModel.state.accountDeletionPhase,
                         accountDeletionFailure: authenticationModel.state.accountDeletionFailure,
                         sendAuthenticationAction: authenticationModel.send

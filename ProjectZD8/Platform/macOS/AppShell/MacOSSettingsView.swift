@@ -32,6 +32,12 @@ struct MacOSSettingsView: View {
     /// 表示設定と自動アップロード設定の操作をアカウント設定モデルへ通知するクロージャです。
     let sendAccountSettingsAction: (AccountSettingsAction) -> Void
 
+    /// 「エンジン停止とみなす時間」の区画に表示する内容です。
+    let vehicleOffSection: VehicleOffDetectionSettingsSection
+
+    /// 「エンジン停止とみなす時間」の操作を設定モデルへ通知するクロージャです。
+    let sendVehicleOffAction: (VehicleOffDetectionDelayAction) -> Void
+
     /// Authenticationが管理するアカウント削除の現在段階です。
     let accountDeletionPhase: AccountDeletionPhase
 
@@ -165,6 +171,7 @@ struct MacOSSettingsView: View {
 
                 VStack(spacing: 18 * metrics.scale) {
                     adapterCard
+                    vehicleOffCard
                     uploadCard
                 }
             }
@@ -173,9 +180,15 @@ struct MacOSSettingsView: View {
                 languageCard
                 appearanceCard
                 adapterCard
+                vehicleOffCard
                 uploadCard
             }
         }
+    }
+
+    /// 「エンジン停止とみなす時間」を選ぶ設定カードです。
+    private var vehicleOffCard: some View {
+        MacOSSettingsVehicleOffCard(section: vehicleOffSection, select: { sendVehicleOffAction(.delaySelected($0)) }, metrics: metrics)
     }
 
     /// 表示言語を切り替える設定カードです。
