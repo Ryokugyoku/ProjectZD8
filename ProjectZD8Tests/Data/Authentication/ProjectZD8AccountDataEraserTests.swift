@@ -8,7 +8,7 @@ final class ProjectZD8AccountDataEraserTests: XCTestCase {
     /// 運転履歴、車両キャッシュ、設定、アダプター選択を同じアカウント削除で消去します。
     ///
     /// 責務: 別端末の失効検知後に現在端末へアカウント固有ローカルデータが残らないことを確認します。
-    func testEraseAllDataRemovesEveryAccountScopedLocalStore() throws {
+    func testEraseAllDataRemovesEveryAccountScopedLocalStore() async throws {
         let suiteName = "ProjectZD8AccountDataEraserTests.\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
         defer { defaults.removePersistentDomain(forName: suiteName) }
@@ -22,6 +22,7 @@ final class ProjectZD8AccountDataEraserTests: XCTestCase {
         let sessions = AccountConnectionSessionErasureRepositoryFake()
         let vehicles = AccountVehicleDataErasurePortFake()
         let capabilities = AccountVehiclePIDCapabilityErasureRepositoryFake()
+        let maintenance = AccountMaintenanceRecordRepositoryFake()
         settings.save(AccountSettings(language: .english, appearance: .dark), for: "account")
         adapter.save(
             DefaultAdapterPreference(
@@ -36,17 +37,81 @@ final class ProjectZD8AccountDataEraserTests: XCTestCase {
             defaultAdapterStore: adapter,
             connectionSessionStorage: sessions,
             vehicleDataEraser: vehicles,
-            vehiclePIDCapabilityEraser: capabilities
+            vehiclePIDCapabilityEraser: capabilities,
+            maintenanceRecordRepository: maintenance
         )
 
-        try eraser.eraseAllData(for: "account")
+        try await eraser.eraseAllData(for: "account")
 
         XCTAssertEqual(sessions.deletedAccountIdentifiers, ["account"])
         XCTAssertEqual(vehicles.removedLocalCacheIdentifiers, ["account"])
         XCTAssertEqual(capabilities.deletedVehicleIDs, vehicles.localIDs)
+        let replaced = await maintenance.replacedAccounts
+        XCTAssertEqual(replaced, ["account"])
         XCTAssertNil(settings.load(for: "account"))
         XCTAssertNil(adapter.load())
         XCTAssertTrue(cloud.values.isEmpty)
+    }
+
+    /// 車両キャッシュが既に消えていても、控えた車両IDの別PID設定を消去することを検証します。
+    ///
+    /// 責務: 車両のクラウド削除直後にキャッシュを消す削除順序でも、PID設定が取り残されないことを確認します。
+    func testEraseAllDataUsesKnownVehicleIDsWhenCacheIsAlreadyEmpty() async throws {
+        let suiteName = "ProjectZD8AccountDataEraserTests.known.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let capabilities = AccountVehiclePIDCapabilityErasureRepositoryFake()
+        let eraser = ProjectZD8AccountDataEraser(
+            accountSettingsStore: UbiquitousKeyValueStoreAccountSettingsStore(
+                defaults: defaults,
+                ubiquitousStore: AccountDataErasureUbiquitousStoreFake(),
+                notificationCenter: NotificationCenter()
+            ),
+            defaultAdapterStore: UserDefaultsDefaultAdapterPreferenceStore(defaults: defaults),
+            connectionSessionStorage: AccountConnectionSessionErasureRepositoryFake(),
+            vehicleDataEraser: AccountVehicleDataErasurePortFake(),
+            vehiclePIDCapabilityEraser: capabilities,
+            maintenanceRecordRepository: AccountMaintenanceRecordRepositoryFake()
+        )
+        let known = [VehicleID(), VehicleID()]
+
+        try await eraser.eraseAllData(for: "account", knownVehicleIDs: known)
+
+        XCTAssertEqual(capabilities.deletedVehicleIDs, known)
+    }
+}
+
+/// 整備記録の全置換(空集合)要求を記録します。
+private actor AccountMaintenanceRecordRepositoryFake: MaintenanceRecordRepository {
+    /// 全置換を要求されたアカウント識別子です。
+    private(set) var replacedAccounts: [String] = []
+
+    /// 使用しない読込へ空配列を返します。
+    ///
+    /// 責務: このテストで対象外の読込境界を満たします。
+    /// - Parameter _: 使用しないアカウント識別子。
+    /// - Returns: 空配列。
+    func records(for _: String) async throws -> [MaintenanceRecord] { [] }
+
+    /// 使用しない保存を受け流します。
+    ///
+    /// 責務: このテストで対象外の保存境界を満たします。
+    /// - Parameters:
+    ///   - _: 使用しない記録。
+    ///   - _: 使用しないアカウント識別子。
+    func save(_: MaintenanceRecord, for _: String) async throws {
+        // このテストでは呼び出しを観測しないため、何もしない。
+    }
+
+    /// 空集合での全置換だけを受け付けて記録します。
+    ///
+    /// 責務: 1件の整備記録全削除要求を検査可能な履歴へ追加します。
+    /// - Parameters:
+    ///   - records: 置き換える集合。空であることを要求します。
+    ///   - accountIdentifier: 削除対象アカウント識別子。
+    func replaceAll(_ records: [MaintenanceRecord], for accountIdentifier: String) async throws {
+        guard records.isEmpty else { return }
+        replacedAccounts.append(accountIdentifier)
     }
 }
 

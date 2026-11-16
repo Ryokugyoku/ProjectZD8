@@ -42,7 +42,7 @@ final class AuthenticationSessionModelRecheckTests: XCTestCase {
         let authorization = AuthenticationModelAuthorizationPortFake()
         let store = AuthenticationModelSessionStorePortFake()
         let dataEraser = AuthenticationModelAccountDataEraserFake()
-        let transfers = AuthenticationModelTransferRepositoryFake()
+        let transfers = ConnectionSessionTransferRepositoryFake()
         let revocation = AuthenticationModelSessionRevocationPortFake()
         let model = AuthenticationSessionModel(
             state: AuthenticationState(),
@@ -50,8 +50,11 @@ final class AuthenticationSessionModelRecheckTests: XCTestCase {
             signInWithApple: SignInWithAppleUseCase(authorizationPort: authorization, sessionStore: store),
             deleteAccount: DeleteAccountUseCase(
                 sessionRevocation: revocation,
-                sessionTransfers: transfers,
-                vehicleDataEraser: AuthenticationModelVehicleDataEraserFake(),
+                cloudErasers: AccountCloudDataErasers(
+                    sessionTransfers: transfers,
+                    vehicleDataEraser: AuthenticationModelVehicleDataEraserFake(),
+                    maintenanceDataEraser: AuthenticationModelMaintenanceDataEraserFake()
+                ),
                 dataEraser: dataEraser,
                 sessionStore: store
             ),

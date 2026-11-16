@@ -94,7 +94,7 @@ struct IOSPostSessionProcessingComposition {
         for _ in 0..<accountResolutionMaximumPollCount {
             switch authentication.state.phase {
             case .signedIn: return authentication.state.session?.userIdentifier
-            case .signedOut: return nil
+            case .signedOut, .deletingAccount: return nil
             case .checkingSession, .signingIn: break
             }
             do {

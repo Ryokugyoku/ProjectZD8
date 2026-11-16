@@ -72,6 +72,7 @@ struct ProjectZD8App: App {
         #elseif os(macOS)
         let models = ApplicationRootAssembly.makeModels(MacOSApplicationComposition.self)
         #endif
+        models.connectAccountDeletionDrain()
         _authenticationModel = State(initialValue: models.authentication)
         _vehicleOffDelayModel = State(initialValue: ApplicationRootAssembly.makeVehicleOffDetectionDelayModel())
         _accountSettingsModel = State(initialValue: models.accountSettings)
@@ -105,7 +106,7 @@ struct ProjectZD8App: App {
         WindowGroup {
             Group {
 #if os(iOS)
-                if authenticationModel.state.phase == .signedIn {
+                if authenticationModel.state.phase.showsAuthenticatedShell {
                     IOSAppShellView(
                         accountSettingsModel: accountSettingsModel,
                         settingsModel: iOSSettingsModel,
@@ -133,7 +134,7 @@ struct ProjectZD8App: App {
                     .transition(.opacity)
                 }
 #elseif os(macOS)
-                if authenticationModel.state.phase == .signedIn {
+                if authenticationModel.state.phase.showsAuthenticatedShell {
                     MacOSAppShellView(
                         accountSettingsModel: accountSettingsModel,
                         settingsModel: macOSSettingsModel,
@@ -159,8 +160,8 @@ struct ProjectZD8App: App {
                 }
 #endif
             }
-            .onChange(of: authenticationModel.state.phase) { _, phase in
-                handleAuthenticationPhaseChange(phase)
+            .onChange(of: authenticationModel.state.phase) { previous, phase in
+                handleAuthenticationPhaseChange(phase, previous: previous)
             }
             .onChange(of: scenePhase) { _, phase in
                 handleScenePhaseChange(phase)
@@ -245,22 +246,39 @@ struct ProjectZD8App: App {
         #endif
     }
 
-    /// ログアウト状態へ変わったときに設定スコープと端末内表示状態を初期化します。
+    /// 認証段階の変化に応じて、各機能のアカウントスコープと端末内表示状態を切り替えます。
     ///
-    /// 責務: 認証段階の変化をアカウント設定監視解除とプラットフォーム設定状態の再生成へ反映します。
-    /// 進行中の取得は `AuthenticationAcquisitionEndPolicy` が決めた理由(サインアウトなら `accountSignedOut`)で終えます。
-    /// - Parameter phase: Authenticationが確定した新しい認証段階。
-    private func handleAuthenticationPhaseChange(_ phase: AuthenticationPhase) {
+    /// 責務: 認証段階の変化をアカウントスコープの解除・復元とプラットフォーム設定状態の再生成へ反映します。
+    /// 進行中の取得は `AuthenticationAcquisitionEndPolicy` が決めた理由(サインアウトとアカウント削除の開始なら `accountSignedOut`)で終えます。
+    /// アカウント削除の開始(`deletingAccount`)では各機能のスコープを外して同期・保存・自動アップロード・自動記録を止め、
+    /// 削除が失敗して認証済みへ戻ったときはスコープを復元します。
+    /// - Parameters:
+    ///   - phase: Authenticationが確定した新しい認証段階。
+    ///   - previous: 変化前の認証段階。
+    private func handleAuthenticationPhaseChange(_ phase: AuthenticationPhase, previous: AuthenticationPhase) {
         if let reason = AuthenticationAcquisitionEndPolicy().endReason(forChangeTo: phase) {
             liveTelemetryModel.send(.endRequested(reason))
         }
-        if phase == .signedIn {
+        switch phase {
+        case .signedIn:
+            if previous == .deletingAccount { activateAuthenticatedSettingsScope() }
             #if os(iOS)
             automaticRecordingModel.send(.signInStateChanged(isSignedIn: true))
             #endif
-            return
+        case .deletingAccount:
+            detachAccountScope()
+        case .signedOut:
+            detachAccountScope()
+            resetPlatformSettingsModel()
+        case .checkingSession, .signingIn:
+            break
         }
-        guard phase == .signedOut else { return }
+    }
+
+    /// 全機能のアカウントスコープを外します。
+    ///
+    /// 責務: 同期・保存・自動アップロード・自動記録が現在のアカウントへ作用しない状態にします。
+    private func detachAccountScope() {
         connectionSessionLifecycleModel.send(.accountIdentifierChanged(nil))
         connectionHistoryModel.send(.accountIdentifierChanged(nil))
         accountSettingsModel.send(.accountIdentifierChanged(nil))
@@ -270,6 +288,14 @@ struct ProjectZD8App: App {
         automaticRecordingModel.send(.signInStateChanged(isSignedIn: false))
         unassignedVINWarningModel.send(.accountIdentifierChanged(nil))
         vehicleUnknownSessionModel.send(.accountIdentifierChanged(nil))
+        #endif
+    }
+
+    /// ログアウトで端末内の設定画面状態を初期化します。
+    ///
+    /// 責務: プラットフォーム別の設定プレゼンテーションモデルを作り直します。
+    private func resetPlatformSettingsModel() {
+        #if os(iOS)
         iOSSettingsModel = IOSApplicationComposition.makeSettingsPresentationModel()
         #elseif os(macOS)
         macOSSettingsModel = MacOSApplicationComposition.makeSettingsPresentationModel()

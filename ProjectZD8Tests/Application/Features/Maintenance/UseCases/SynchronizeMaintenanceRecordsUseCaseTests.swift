@@ -86,11 +86,10 @@ final class SynchronizeMaintenanceRecordsUseCaseTests: XCTestCase {
     }
 }
 
-/// 同期テスト用の端末内整備保存先です。
-@MainActor
-private final class MaintenanceRecordRepositoryFake: MaintenanceRecordRepository {
+/// 同期テスト用の端末内整備保存先です。契約が非隔離になったため、テストの単一スレッド利用を前提に隔離なしで保持します。
+private nonisolated final class MaintenanceRecordRepositoryFake: MaintenanceRecordRepository, @unchecked Sendable {
     /// 現在保持する整備記録です。
-    var storedRecords: [MaintenanceRecord]
+    nonisolated(unsafe) var storedRecords: [MaintenanceRecord]
 
     /// 初期の端末内記録を保持します。
     ///

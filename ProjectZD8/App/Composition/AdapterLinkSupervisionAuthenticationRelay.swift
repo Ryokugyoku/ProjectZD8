@@ -31,7 +31,7 @@ nonisolated struct AdapterLinkSupervisionAuthenticationRelay: Sendable {
 
     /// 認証状態を反映し、伝える指示を返します。
     ///
-    /// 責務: サインイン済みなら識別子を、サインアウトなら `nil` を、確認中・サインイン中なら前の識別子を保ち、変化した時だけ伝えます。
+    /// 責務: サインイン済みなら識別子を、サインアウトとアカウント削除中なら `nil` を、確認中・サインイン中なら前の識別子を保ち、変化した時だけ伝えます。
     /// 段階が変わった時だけサインイン有無を伝え、サインアウトへ変わった時は既定アダプター設定を読み直させます。
     /// - Parameters:
     ///   - phase: 現在の認証段階。
@@ -40,7 +40,7 @@ nonisolated struct AdapterLinkSupervisionAuthenticationRelay: Sendable {
     mutating func apply(phase: AuthenticationPhase, userIdentifier: String?) -> Instruction {
         let accountIdentifier: String? = switch phase {
         case .signedIn: userIdentifier
-        case .signedOut: nil
+        case .signedOut, .deletingAccount: nil
         case .checkingSession, .signingIn: lastAccountIdentifier
         }
         var accountIdentifierChange: AccountIdentifierChange?
@@ -68,7 +68,11 @@ nonisolated struct AdapterLinkSupervisionAuthenticationRelay: Sendable {
     /// - Returns: 同じ段階なら `true`。
     private static func isSame(_ phase: AuthenticationPhase, as previous: AuthenticationPhase?) -> Bool {
         switch (phase, previous) {
-        case (.checkingSession, .checkingSession?), (.signedOut, .signedOut?), (.signingIn, .signingIn?), (.signedIn, .signedIn?):
+        case (.checkingSession, .checkingSession?),
+             (.signedOut, .signedOut?),
+             (.signingIn, .signingIn?),
+             (.signedIn, .signedIn?),
+             (.deletingAccount, .deletingAccount?):
             true
         default:
             false

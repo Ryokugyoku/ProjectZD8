@@ -96,7 +96,9 @@ enum MacOSApplicationComposition: ApplicationPlatformComposing {
         connectionIdentificationWillBegin: @escaping @MainActor () -> Void = {},
         connectionIdentificationDidEnd: @escaping @MainActor () -> Void = {}
     ) -> VehicleManagementModel {
-        let vehicleRepository = CloudKitVehicleRepository()
+        let vehicleRepository = CloudKitVehicleRepository(
+            accountDeletionCheck: AccountDeletionMarkerComposition.check
+        )
         return VehicleManagementModel(
             state: VehicleManagementState(),
             repository: vehicleRepository,
@@ -142,7 +144,8 @@ enum MacOSApplicationComposition: ApplicationPlatformComposing {
             repository: repository,
             synchronize: SynchronizeMaintenanceRecordsUseCase(
                 localRepository: repository,
-                remoteStore: CloudKitMaintenanceRemoteStore()
+                remoteStore: CloudKitMaintenanceRemoteStore(),
+                accountDeletionCheck: AccountDeletionMarkerComposition.check
             ),
             photoImporter: MaintenancePhotoFileImporter()
         )
@@ -189,7 +192,8 @@ enum MacOSApplicationComposition: ApplicationPlatformComposing {
             rawLogRepository: storage,
             sessionErasureRepository: storage,
             transferRepository: CloudKitConnectionSessionTransferRepository(),
-            role: .macOS
+            role: .macOS,
+            accountDeletionCheck: AccountDeletionMarkerComposition.check
         )
     }
 
@@ -231,30 +235,16 @@ enum MacOSApplicationComposition: ApplicationPlatformComposing {
             defaultAdapterStore: defaultAdapterStore,
             connectionSessionStorage: connectionSessionStorage,
             vehicleDataEraser: vehicleDataEraser,
-            vehiclePIDCapabilityEraser: vehiclePIDCapabilityEraser
+            vehiclePIDCapabilityEraser: vehiclePIDCapabilityEraser,
+            maintenanceRecordRepository: ProductDatabaseRepositoryFactory().makeMaintenanceRecordRepository(database: database)
         )
-        return AuthenticationSessionModel(
+        return AccountDeletionComposition.makeAuthenticationSessionModel(
             state: initialAuthenticationState,
-            restoreSession: RestoreAuthenticationSessionUseCase(
-                authorizationPort: authorization,
-                sessionStore: sessionStore
-            ),
-            signInWithApple: SignInWithAppleUseCase(
-                authorizationPort: authorization,
-                sessionStore: sessionStore
-            ),
-            deleteAccount: DeleteAccountUseCase(
-                sessionRevocation: sessionRevocation,
-                sessionTransfers: CloudKitConnectionSessionTransferRepository(),
-                vehicleDataEraser: vehicleDataEraser,
-                dataEraser: dataEraser,
-                sessionStore: sessionStore
-            ),
-            remoteAccountLogout: RemoteAccountLogoutUseCase(
-                dataEraser: dataEraser,
-                sessionStore: sessionStore
-            ),
-            sessionRevocation: sessionRevocation
+            authorization: authorization,
+            sessionStore: sessionStore,
+            sessionRevocation: sessionRevocation,
+            vehicleDataEraser: vehicleDataEraser,
+            dataEraser: dataEraser
         )
     }
 

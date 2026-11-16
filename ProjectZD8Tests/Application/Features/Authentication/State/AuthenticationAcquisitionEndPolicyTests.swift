@@ -21,4 +21,11 @@ final class AuthenticationAcquisitionEndPolicyTests: XCTestCase {
             XCTAssertNil(AuthenticationAcquisitionEndPolicy().endReason(forChangeTo: phase), "\(phase)")
         }
     }
+
+    /// アカウント削除の開始(`.deletingAccount`)では、`accountSignedOut` で取得を終わらせます。
+    ///
+    /// 責務: 削除中の段階が、サインアウトと同じ終了理由になることを確認します。
+    func testDeletingAccountEndsWithAccountSignedOut() {
+        XCTAssertEqual(AuthenticationAcquisitionEndPolicy().endReason(forChangeTo: .deletingAccount), .accountSignedOut)
+    }
 }

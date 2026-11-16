@@ -21,6 +21,8 @@ struct SynchronizeConnectionSessionsUseCase {
     private let transferRepository: any ConnectionSessionTransferRepository
     /// 現在端末が担う同期役割です。
     private let role: ConnectionSessionSyncDeviceRole
+    /// アップロードの直前にアカウントの削除済みの印を確認する処理です。印があれば投げ、未設定なら確認しません。
+    private let accountDeletionCheck: (@MainActor (String) async throws -> Void)?
     /// ローカル保存先、CloudKit境界、端末役割を固定して生成します。
     ///
     /// 責務: セッションのローカル正本を現在端末のCloudKit同期役割へ結び付けます。
@@ -30,13 +32,16 @@ struct SynchronizeConnectionSessionsUseCase {
     ///   - sessionErasureRepository: 削除マーカーを反映するローカル物理削除境界。
     ///   - transferRepository: CloudKitセッション転送境界。
     ///   - role: 既存受領証を反映するiPhoneまたは対等同期するMacの役割。
+    ///   - accountDeletionCheck: アップロード・公開の直前に削除済みの印を確認する処理。省略時は確認しません。
     init(
         sessionRepository: any ConnectionSessionRepository,
         rawLogRepository: any ConnectionSessionRawLogRepository,
         sessionErasureRepository: any ConnectionSessionErasureRepository,
         transferRepository: any ConnectionSessionTransferRepository,
-        role: ConnectionSessionSyncDeviceRole
+        role: ConnectionSessionSyncDeviceRole,
+        accountDeletionCheck: (@MainActor (String) async throws -> Void)? = nil
     ) {
+        self.accountDeletionCheck = accountDeletionCheck
         self.sessionRepository = sessionRepository
         self.rawLogRepository = rawLogRepository
         self.sessionErasureRepository = sessionErasureRepository
@@ -50,7 +55,7 @@ struct SynchronizeConnectionSessionsUseCase {
     /// - Parameters:
     ///   - accountIdentifier: 同期対象のAppleアカウント識別子。
     ///   - uploadsPendingSessions: 送信待ちセッションも同期する場合は `true`。通常の履歴更新では `false`。
-    /// - Throws: ローカル保存、CloudKit概要・Raw転送、または整合性検証に失敗した場合のエラー。
+    /// - Throws: ローカル保存、CloudKit概要・Raw転送、または整合性検証に失敗した場合のエラー。削除済みの印がある場合、または印を確認できない場合は、アップロードと概要公開の前に投げます。
     func execute(
         accountIdentifier: String,
         uploadsPendingSessions: Bool = false
@@ -60,6 +65,7 @@ struct SynchronizeConnectionSessionsUseCase {
         let remoteManifestDigests = try await transferRepository.downloadTransferManifests(
             for: accountIdentifier
         )
+        try await accountDeletionCheck?(accountIdentifier)
         let uploadedTransfers = uploadsPendingSessions
             ? try await uploadPendingSessions(
                 accountIdentifier: accountIdentifier,
@@ -118,6 +124,7 @@ struct SynchronizeConnectionSessionsUseCase {
             throw ConnectionSessionRepositoryError.invalidState
         }
         guard session.rawLogSummary.cloudState != .uploaded else { return }
+        try await accountDeletionCheck?(accountIdentifier)
         _ = try await uploadSession(
             session,
             accountIdentifier: accountIdentifier,

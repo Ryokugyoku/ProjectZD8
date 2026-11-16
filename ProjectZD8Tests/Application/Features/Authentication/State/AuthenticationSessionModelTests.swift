@@ -165,7 +165,7 @@ final class AuthenticationSessionModelTests: XCTestCase {
     /// 他端末の失効通知が現在端末のデータとセッションを削除してログアウトすることを検証します。
     ///
     /// 責務: 遠隔失効コールバックをローカル消去とログイン画面状態へ変換することを確認します。
-    func testRemoteRevocationErasesLocalDataAndSignsOut() {
+    func testRemoteRevocationErasesLocalDataAndSignsOut() async {
         let session = AppleAccountSession(userIdentifier: "remote-user")
         let dependencies = makeDependencies(
             state: AuthenticationState(phase: .signedIn, session: session)
@@ -173,6 +173,7 @@ final class AuthenticationSessionModelTests: XCTestCase {
         dependencies.store.identifier = session.userIdentifier
 
         dependencies.revocation.deliverRevocation()
+        await waitForTasks()
 
         XCTAssertEqual(dependencies.dataEraser.erasedIdentifiers, ["remote-user"])
         XCTAssertEqual(dependencies.revocation.publishedIdentifiers, [])
@@ -185,7 +186,7 @@ final class AuthenticationSessionModelTests: XCTestCase {
     /// 他端末ログアウトのKeychain削除失敗を案内しつつ現在表示をログイン画面へ戻すことを検証します。
     ///
     /// 責務: 遠隔失効の端末内永続化失敗を成功扱いせず区別可能なログイン画面状態へ保持します。
-    func testRemoteRevocationPersistenceFailureSignsOutWithFailureNotice() {
+    func testRemoteRevocationPersistenceFailureSignsOutWithFailureNotice() async {
         let session = AppleAccountSession(userIdentifier: "remote-retry-user")
         let dependencies = makeDependencies(
             state: AuthenticationState(phase: .signedIn, session: session)
@@ -194,6 +195,7 @@ final class AuthenticationSessionModelTests: XCTestCase {
         dependencies.store.removeError = AuthenticationSessionStoreError.unavailable
 
         dependencies.revocation.deliverRevocation()
+        await waitForTasks()
 
         XCTAssertEqual(dependencies.dataEraser.erasedIdentifiers, ["remote-retry-user"])
         XCTAssertEqual(dependencies.store.identifier, "remote-retry-user")
@@ -266,7 +268,7 @@ final class AuthenticationSessionModelTests: XCTestCase {
         let authorization = AuthenticationModelAuthorizationPortFake()
         let store = AuthenticationModelSessionStorePortFake()
         let dataEraser = AuthenticationModelAccountDataEraserFake()
-        let transfers = AuthenticationModelTransferRepositoryFake()
+        let transfers = ConnectionSessionTransferRepositoryFake()
         let vehicleDataEraser = AuthenticationModelVehicleDataEraserFake()
         let revocation = AuthenticationModelSessionRevocationPortFake()
         let model = AuthenticationSessionModel(
@@ -281,8 +283,11 @@ final class AuthenticationSessionModelTests: XCTestCase {
             ),
             deleteAccount: DeleteAccountUseCase(
                 sessionRevocation: revocation,
-                sessionTransfers: transfers,
-                vehicleDataEraser: vehicleDataEraser,
+                cloudErasers: AccountCloudDataErasers(
+                    sessionTransfers: transfers,
+                    vehicleDataEraser: vehicleDataEraser,
+                    maintenanceDataEraser: AuthenticationModelMaintenanceDataEraserFake()
+                ),
                 dataEraser: dataEraser,
                 sessionStore: store
             ),
@@ -328,7 +333,7 @@ struct AuthenticationModelDependencies {
     let dataEraser: AuthenticationModelAccountDataEraserFake
 
     /// CloudKit運転データ削除を記録するFakeです。
-    let transfers: AuthenticationModelTransferRepositoryFake
+    let transfers: ConnectionSessionTransferRepositoryFake
 
     /// 失効登録、発行、監視を記録するFakeです。
     let revocation: AuthenticationModelSessionRevocationPortFake
@@ -457,166 +462,5 @@ final class AuthenticationModelAccountDataEraserFake: AccountDataErasurePort {
     /// - Parameter userIdentifier: 消去を要求されたAppleユーザー識別子。
     func eraseAllData(for userIdentifier: String) throws {
         erasedIdentifiers.append(userIdentifier)
-    }
-}
-
-/// 認証モデルテストでCloudKit運転データ操作を記録します。
-@MainActor
-final class AuthenticationModelTransferRepositoryFake: ConnectionSessionTransferRepository {
-    /// 全削除を要求されたアカウント識別子です。
-    private(set) var deletedAccountIdentifiers: [String] = []
-
-    /// このテストでは転送送信を使用しません。
-    ///
-    /// 責務: テスト対象外の送信要求を固定Digestで満たします。
-    /// - Parameters:
-    ///   - package: 使用しない転送Payload。
-    ///   - accountIdentifier: 使用しないアカウント識別子。
-    /// - Returns: 固定Digest。
-    func upload(_ package: ConnectionSessionTransferPackage, for accountIdentifier: String) async throws -> String { "digest" }
-
-    /// このテストでは転送を返しません。
-    ///
-    /// 責務: テスト対象外の転送取得要求へ空配列を返します。
-    /// - Parameter accountIdentifier: 使用しないアカウント識別子。
-    /// - Returns: 空配列。
-    func downloadTransfers(for accountIdentifier: String) async throws -> [VerifiedConnectionSessionTransfer] { [] }
-
-    /// このテストでは受領証公開を使用しません。
-    ///
-    /// 責務: テスト対象外の受領証公開要求を副作用なしで満たします。
-    /// - Parameters:
-    ///   - receipt: 使用しないMac受領証。
-    ///   - sessionID: 使用しないセッションID。
-    ///   - accountIdentifier: 使用しないアカウント識別子。
-    func publishMacReceipt(
-        _ receipt: ConnectionSessionMacImportReceipt,
-        sessionID: ConnectionSessionID,
-        for accountIdentifier: String
-    ) async throws {}
-
-    /// このテストでは受領証を返しません。
-    ///
-    /// 責務: テスト対象外の受領証取得要求へ空配列を返します。
-    /// - Parameter accountIdentifier: 使用しないアカウント識別子。
-    /// - Returns: 空配列。
-    func downloadMacReceipts(
-        for accountIdentifier: String
-    ) async throws -> [(ConnectionSessionID, ConnectionSessionMacImportReceipt)] { [] }
-
-    /// このテストでは削除マーカーを返しません。
-    ///
-    /// 責務: テスト対象外の削除マーカー取得へ空集合を返します。
-    /// - Parameter accountIdentifier: 使用しないアカウント識別子。
-    /// - Returns: 空集合。
-    func deletedSessionIDs(for accountIdentifier: String) async throws -> Set<ConnectionSessionID> { [] }
-
-    /// このテストではセッション単位削除を使用しません。
-    ///
-    /// 責務: テスト対象外のセッション削除要求を副作用なしで満たします。
-    /// - Parameters:
-    ///   - sessionID: 使用しないセッションID。
-    ///   - accountIdentifier: 使用しないアカウント識別子。
-    func deleteSession(_ sessionID: ConnectionSessionID, for accountIdentifier: String) async throws {}
-
-    /// CloudKit運転データ全削除を記録します。
-    ///
-    /// 責務: 1件のアカウント識別子を削除要求履歴へ追加します。
-    /// - Parameter accountIdentifier: 削除対象アカウント識別子。
-    func deleteAll(for accountIdentifier: String) async throws {
-        deletedAccountIdentifiers.append(accountIdentifier)
-    }
-}
-
-/// 認証モデルテストで車両データ削除境界を再現します。
-@MainActor
-final class AuthenticationModelVehicleDataEraserFake: AccountVehicleDataErasurePort {
-    /// 全削除されたアカウント識別子です。
-    private(set) var deletedAccountIdentifiers: [String] = []
-
-    /// 車両カタログ全削除を記録します。
-    ///
-    /// 責務: 1件のアカウント識別子を車両データ削除履歴へ追加します。
-    /// - Parameter accountIdentifier: 削除対象アカウント識別子。
-    func deleteAllVehicleData(for accountIdentifier: String) async throws {
-        deletedAccountIdentifiers.append(accountIdentifier)
-    }
-
-    /// このテストでは端末キャッシュに車両を保持しません。
-    ///
-    /// 責務: テスト対象外のローカル車両ID照会へ空配列を返します。
-    /// - Parameter accountIdentifier: 使用しないアカウント識別子。
-    /// - Returns: 空配列。
-    func localVehicleIDs(for accountIdentifier: String) -> [VehicleID] { [] }
-
-    /// このテストでは端末キャッシュ単独削除を使用しません。
-    ///
-    /// 責務: テスト対象外の車両キャッシュ削除要求を副作用なしで満たします。
-    /// - Parameter accountIdentifier: 使用しないアカウント識別子。
-    func removeLocalVehicleCache(for accountIdentifier: String) {}
-}
-
-/// 認証モデルテストで端末間セッション失効操作を記録します。
-@MainActor
-final class AuthenticationModelSessionRevocationPortFake: AccountSessionRevocationPort {
-    /// 現在世代の受理を要求されたユーザー識別子です。
-    private(set) var registeredIdentifiers: [String] = []
-
-    /// 失効発行を要求されたユーザー識別子です。
-    private(set) var publishedIdentifiers: [String] = []
-
-    /// 現在監視中のユーザー識別子です。
-    private(set) var observedIdentifier: String?
-
-    /// 監視終了を要求された回数です。
-    private(set) var stopCount = 0
-
-    /// テストから実行する現在の失効通知処理です。
-    private var receiveRevocation: (() -> Void)?
-
-    /// 現在世代の受理要求を記録します。
-    ///
-    /// 責務: 1件のセッション基準登録をテストから検証可能な履歴へ追加します。
-    /// - Parameter userIdentifier: 登録を要求されたユーザー識別子。
-    func registerCurrentSession(for userIdentifier: String) {
-        registeredIdentifiers.append(userIdentifier)
-    }
-
-    /// 新しい失効世代の発行要求を記録します。
-    ///
-    /// 責務: 1件の失効発行をテストから検証可能な履歴へ追加します。
-    /// - Parameter userIdentifier: 発行を要求されたユーザー識別子。
-    func publishRevocation(for userIdentifier: String) {
-        publishedIdentifiers.append(userIdentifier)
-    }
-
-    /// 失効監視対象とコールバックを保持します。
-    ///
-    /// 責務: 1件の失効監視要求をテストから起動可能なコールバックへ保存します。
-    /// - Parameters:
-    ///   - userIdentifier: 監視を要求されたユーザー識別子。
-    ///   - receive: テストが失効を模擬するときに実行する処理。
-    func startObserving(
-        for userIdentifier: String,
-        receive: @escaping () -> Void
-    ) {
-        observedIdentifier = userIdentifier
-        receiveRevocation = receive
-    }
-
-    /// 失効監視の終了要求を記録します。
-    ///
-    /// 責務: 現在のFake監視状態を未購読へ戻して終了回数を加算します。
-    func stopObserving() {
-        stopCount += 1
-        observedIdentifier = nil
-        receiveRevocation = nil
-    }
-
-    /// 保存済み失効コールバックをテストから実行します。
-    ///
-    /// 責務: 他端末からの失効受信を1回のFakeコールバック実行として再現します。
-    func deliverRevocation() {
-        receiveRevocation?()
     }
 }

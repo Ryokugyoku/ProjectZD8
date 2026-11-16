@@ -26,8 +26,8 @@ struct RemoteAccountLogoutUseCase {
     /// 責務: 1件の遠隔失効を現在端末の再起動後も維持されるログアウトへ変換します。
     /// - Parameter userIdentifier: Appleがこのアプリへ割り当てたユーザー識別子。
     /// - Throws: ログイン識別子を安全な保存領域から削除できない場合は `AuthenticationSessionStoreError`。
-    func execute(userIdentifier: String) throws {
-        try dataEraser.eraseAllData(for: userIdentifier)
+    func execute(userIdentifier: String) async throws {
+        try await dataEraser.eraseAllData(for: userIdentifier)
         try sessionStore.removeUserIdentifier()
     }
 }
