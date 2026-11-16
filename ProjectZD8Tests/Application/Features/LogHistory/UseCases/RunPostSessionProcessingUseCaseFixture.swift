@@ -66,14 +66,17 @@ final class RunPostSessionProcessingUseCaseFixture {
     ///
     /// 責務: キャンセルを `Task` 単位で起こせるように、実行を独立した `Task` で行います。
     /// - Parameter cancelsBeforeStart: `true` なら実行前にその `Task` 自身をキャンセルします。
-    /// - Returns: 実行結果。
-    func run(cancelsBeforeStart: Bool = false) async -> PostSessionProcessingOutcome {
+    /// 結果は `LiveTelemetryBoundedWaiter` の上限付きで待ち、終わらなければ `XCTFail` して `nil` を返します。
+    /// - Returns: 実行結果。上限内に終わらなければ `nil`。
+    func run(
+        cancelsBeforeStart: Bool = false, file: StaticString = #filePath, line: UInt = #line
+    ) async -> PostSessionProcessingOutcome? {
         let useCase = makeUseCase()
         let task = Task { @MainActor in
             if cancelsBeforeStart { Self.cancelCurrentTask() }
             return await useCase.execute()
         }
-        return await task.value
+        return await LiveTelemetryBoundedWaiter.value("後処理の実行", file: file, line: line) { await task.value }
     }
 
     /// 呼び出し元の `Task` を決定的にキャンセルします(期限切れの代わり)。

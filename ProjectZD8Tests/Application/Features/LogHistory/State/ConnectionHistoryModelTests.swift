@@ -384,9 +384,9 @@ private final class PausingConnectionSessionTransferRepository: ConnectionSessio
 
     /// 最初の削除マーカー取得開始まで待機します。
     ///
-    /// 責務: テスト実行を同期Taskが停止点へ到達した時点まで進めます。
-    func waitForDeletionRequest() async {
-        while deletionRequestCount == 0 { await Task.yield() }
+    /// 責務: テスト実行を同期Taskが停止点へ到達した時点まで、上限付きで進めます(超えたら `XCTFail`)。
+    func waitForDeletionRequest(file: StaticString = #filePath, line: UInt = #line) async {
+        await LiveTelemetryBoundedWaiter.waitUntil("削除マーカー取得の開始", file: file, line: line) { deletionRequestCount > 0 }
     }
 
     /// 停止中の削除マーカー取得へ空集合を返して再開します。
@@ -399,9 +399,9 @@ private final class PausingConnectionSessionTransferRepository: ConnectionSessio
 
     /// 中間アップロード進捗が通知されるまで待機します。
     ///
-    /// 責務: テスト実行をアップロード進捗が履歴状態へ届く時点まで進めます。
-    func waitForUploadProgress() async {
-        while !didPublishUploadProgress { await Task.yield() }
+    /// 責務: テスト実行をアップロード進捗が履歴状態へ届く時点まで、上限付きで進めます(超えたら `XCTFail`)。
+    func waitForUploadProgress(file: StaticString = #filePath, line: UInt = #line) async {
+        await LiveTelemetryBoundedWaiter.waitUntil("アップロード進捗の通知", file: file, line: line) { didPublishUploadProgress }
         await Task.yield()
     }
 
