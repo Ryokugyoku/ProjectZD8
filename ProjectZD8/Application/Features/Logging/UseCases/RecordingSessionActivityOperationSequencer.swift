@@ -101,11 +101,16 @@ final class RecordingSessionActivityOperationSequencer {
     /// 責務: 先に受け付けた開始の完了後、実行時点で表示が出ていれば最終内容で閉じ、閉じられたら `didEnd` を呼びます。
     /// - Parameters:
     ///   - finalContent: 終了時に出す最終内容。
+    ///   - dismissAt: 終了表示を自動で消す時刻。
     ///   - didEnd: 閉じられた後の処理。
-    func enqueueEnd(_ finalContent: RecordingSessionActivityContent, didEnd: @escaping @MainActor () -> Void) {
+    func enqueueEnd(
+        _ finalContent: RecordingSessionActivityContent,
+        dismissAt: Date,
+        didEnd: @escaping @MainActor () -> Void
+    ) {
         enqueue(.end) { activity in
             guard activity.isPresenting else { return }
-            try await activity.end(finalContent)
+            try await activity.end(finalContent, dismissAt: dismissAt)
             didEnd()
         }
     }

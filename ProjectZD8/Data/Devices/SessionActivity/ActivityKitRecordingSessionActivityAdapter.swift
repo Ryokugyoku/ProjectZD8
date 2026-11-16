@@ -65,15 +65,17 @@ final class ActivityKitRecordingSessionActivityAdapter: SessionActivityPort {
 
     /// 最終内容を出して追跡中の表示を終了します。
     ///
-    /// 責務: 最終内容を渡して表示を閉じ、追跡を外します。閉じた後の表示はシステムの既定の時間だけロック画面に残ります。
-    /// - Parameter finalContent: 終了時に出す最終内容。
+    /// 責務: 最終内容を渡して表示を閉じ、追跡を外します。閉じた後の表示は `dismissAt` までロック画面に残り、その後に消えます。
+    /// - Parameters:
+    ///   - finalContent: 終了時に出す最終内容。
+    ///   - dismissAt: 終了表示を自動で消す時刻。
     /// - Throws: 表示が出ていなければ `SessionActivityPortError.notPresenting`。
-    func end(_ finalContent: RecordingSessionActivityContent) async throws {
+    func end(_ finalContent: RecordingSessionActivityContent, dismissAt: Date) async throws {
         guard isPresenting, let activity else { throw SessionActivityPortError.notPresenting }
         stopTracking()
         await activity.end(
             ActivityContent(state: mapper.contentState(from: finalContent), staleDate: nil),
-            dismissalPolicy: .default
+            dismissalPolicy: .after(dismissAt)
         )
     }
 
