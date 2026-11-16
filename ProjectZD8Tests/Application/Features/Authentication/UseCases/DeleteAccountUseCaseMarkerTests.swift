@@ -59,7 +59,7 @@ final class DeleteAccountUseCaseMarkerTests: XCTestCase {
             do {
                 try await fixture.useCase.execute(userIdentifier: "user")
                 XCTFail("\(step) の失敗後も削除が成功しました。")
-            } catch {}
+            } catch { XCTAssertTrue(error is StepFailure, "想定外のエラー: \(error)") }
 
             XCTAssertEqual(fixture.recorder.events, Array(Self.fullOrder[0...failingIndex]), step)
             XCTAssertNotNil(fixture.store.stored["user"], "\(step): 失敗後は控えを残して再試行に備えます。")
@@ -76,7 +76,7 @@ final class DeleteAccountUseCaseMarkerTests: XCTestCase {
         do {
             try await fixture.useCase.execute(userIdentifier: "user")
             XCTFail("印の保存に失敗したのに削除が成功しました。")
-        } catch {}
+        } catch { XCTAssertTrue(error is StepFailure, "想定外のエラー: \(error)") }
 
         XCTAssertNil(fixture.recorder.index(of: "publish"))
         XCTAssertNil(fixture.recorder.index(of: "erase"))

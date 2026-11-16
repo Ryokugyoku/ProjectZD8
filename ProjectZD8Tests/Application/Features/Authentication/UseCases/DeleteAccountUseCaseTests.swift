@@ -92,7 +92,7 @@ final class DeleteAccountUseCaseTests: XCTestCase {
         do {
             try await makeUseCase(recorder).execute(userIdentifier: "user")
             XCTFail("失敗指定の削除が成功しました。")
-        } catch {}
+        } catch { XCTAssertTrue(error is StepFailure, "想定外のエラー: \(error)") }
     }
 
     /// 共有Fakeからユースケースを組み立てます。

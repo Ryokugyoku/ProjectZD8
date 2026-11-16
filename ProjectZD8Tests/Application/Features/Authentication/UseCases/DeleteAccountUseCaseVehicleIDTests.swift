@@ -63,7 +63,7 @@ final class DeleteAccountUseCaseVehicleIDTests: XCTestCase {
         do {
             try await fixture.useCase.execute(userIdentifier: "user")
             XCTFail("整備削除の失敗後も削除が成功しました。")
-        } catch {}
+        } catch { XCTAssertTrue(error is StepFailure, "想定外のエラー: \(error)") }
         XCTAssertEqual(fixture.store.stored["user"], [a])
         XCTAssertTrue(fixture.eraser.receivedVehicleIDs.isEmpty)
 
