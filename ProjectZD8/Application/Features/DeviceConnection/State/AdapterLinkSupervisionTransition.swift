@@ -2,7 +2,7 @@
 ///
 /// 分岐はイベントの種類ごとに `AdapterLinkLifecycleTransition`・`AdapterLinkVehicleConfirmationTransition`・
 /// `AdapterLinkRecordingTransition` へ委ね、ユーザー切断後の抑止中の確認・前面復帰・記録終了後の再開は
-/// `AdapterLinkHeldWatchTransition` へ委ねます。
+/// `AdapterLinkHeldWatchTransition` へ、リンク待ちの保持でのリンク状態の変化は `AdapterLinkHeldLinkWaitTransition` へ委ねます。
 nonisolated struct AdapterLinkSupervisionTransition: Sendable {
     /// 稼働条件とリンク状態の変化を扱う遷移です。
     private let lifecycle = AdapterLinkLifecycleTransition()
@@ -19,6 +19,9 @@ nonisolated struct AdapterLinkSupervisionTransition: Sendable {
     /// ユーザー切断後の抑止中の見張りの遷移です。
     private let heldWatch: AdapterLinkHeldWatchTransition
 
+    /// リンク待ちの保持でのリンク状態の変化の遷移です。
+    private let heldLinkWait: AdapterLinkHeldLinkWaitTransition
+
     /// 確認窓と再確認間隔を固定して生成します。
     ///
     /// 責務: 車両確認の時間定数を遷移全体へ結び付けます。
@@ -26,6 +29,7 @@ nonisolated struct AdapterLinkSupervisionTransition: Sendable {
     init(timing: AdapterLinkSupervisionTiming = .standard) {
         confirmation = AdapterLinkVehicleConfirmationTransition(timing: timing)
         heldWatch = AdapterLinkHeldWatchTransition(timing: timing)
+        heldLinkWait = AdapterLinkHeldLinkWaitTransition(timing: timing)
     }
 
     /// 1件のイベントに対する次の状態と作用の列を返します。
@@ -45,7 +49,11 @@ nonisolated struct AdapterLinkSupervisionTransition: Sendable {
         case .operatingConditionsChanged:
             lifecycle.operatingConditionsChanged(from: state, conditions: conditions)
         case let .linkStateChanged(linkState):
-            lifecycle.linkStateChanged(to: linkState, from: state, conditions: conditions)
+            if case let .heldAfterUserStop(watch) = state, case let .awaitingLink(userStoppedAt) = watch.phase {
+                heldLinkWait.linkStateChanged(to: linkState, userStoppedAt: userStoppedAt, watch: watch, conditions: conditions)
+            } else {
+                lifecycle.linkStateChanged(to: linkState, from: state, conditions: conditions)
+            }
         case .vehicleConfirmationCompleted, .vehicleConfirmationFailed, .vehicleConfirmationIntervalElapsed,
              .appDidBecomeActive, .recordingEndSettled:
             if case let .heldAfterUserStop(watch) = state {

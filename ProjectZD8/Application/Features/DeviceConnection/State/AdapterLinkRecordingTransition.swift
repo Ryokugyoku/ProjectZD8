@@ -81,7 +81,8 @@ nonisolated struct AdapterLinkRecordingTransition: Sendable {
     ///
     /// 責務: 記録中なら通知を取り下げて終了へ移し終了処理の完了を促し、終了中なら待機へ戻します。
     /// 記録中にユーザーが切断し、リンクが `ready` のままなら、終了中を経ずに抑止状態へ移し、同じリンク接続のあいだ再検知しません。
-    /// リンクが `ready` でない(リンク断で一時停止中など)ユーザー切断は、保持すべき同じ接続が無いため抑止せず終了を経て待機へ戻します。
+    /// リンクが `ready` でない(リンク断で一時停止中など)ユーザー切断も、終了中を経ずにリンク待ちの保持へ移します
+    /// (切断の時刻から上限以内にリンクが戻れば同じ走行とみなすため。アダプターへは何も送りません)。
     /// - Parameters:
     ///   - endReason: テレメトリの終了理由。記録が始まらなかった・辞退した・手動記録に置き換えた場合は `nil`。
     ///   - state: 現在の監視状態。
@@ -95,6 +96,11 @@ nonisolated struct AdapterLinkRecordingTransition: Sendable {
         switch state {
         case .recording where endReason == .userDisconnected && conditions.isLinkReady:
             AdapterLinkSupervisionTransitionResult(state: .heldAfterUserStop(.awaitingStart), effects: [.dismissNotification])
+        case .recording where endReason == .userDisconnected:
+            AdapterLinkSupervisionTransitionResult(
+                state: .heldAfterUserStop(.awaitingLink(userStoppedAt: conditions.now)),
+                effects: [.dismissNotification]
+            )
         case .recording:
             AdapterLinkSupervisionTransitionResult(state: .finishing, effects: [.dismissNotification, .completeFinishing])
         case .finishing:

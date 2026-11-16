@@ -8,7 +8,9 @@ import Foundation
 /// 無応答が連続2回なら走行の終わりとみなし、抑止を解いて初期化からやり直します(窓は解いた時刻から)。
 /// 見張りは抑止に入ってから(または前面復帰で取り直してから)上限の時間を超えたらやめ(ちょうどは続ける)、従来の抑止へ戻ります。
 /// 手動接続が使い始めたら進行中の見張りの確認を取り消し、使っている間は新しい確認を送らず抑止も解きません。
-/// 使い終えたらリンクが `ready` なら見張りを再開します(上限はそのまま)。確認の失敗は無応答として数えません。
+/// 使い終えたらリンクが `ready` なら見張りを再開します(上限はそのまま)。見張りの開始待ちで使い終えたら、その時刻から見張りを始めます。
+/// 確認の失敗は無応答として数えません。リンク待ちの保持(`awaitingLink`)の間は何も送らず、リンクの復帰は
+/// `AdapterLinkHeldLinkWaitTransition` が扱います。
 nonisolated struct AdapterLinkHeldWatchTransition: Sendable {
     /// 走行の終わりとみなす連続無応答の回数です。
     static let consecutiveNoResponsesToRelease = 2
@@ -48,6 +50,7 @@ nonisolated struct AdapterLinkHeldWatchTransition: Sendable {
     /// 抑止中の前面復帰に対する遷移を返します。
     ///
     /// 責務: 見張り中なら上限だけを取り直し(確認は重複させない)、開始待ち・停止中なら上限を設けて見張りを直ちに再開します。
+    /// リンク待ちの保持では何もしません(リンクの復帰を待つため)。
     /// - Parameters:
     ///   - watch: 現在の見張りの進行状況。
     ///   - conditions: リンク状態と現在時刻を含む条件。
@@ -56,7 +59,7 @@ nonisolated struct AdapterLinkHeldWatchTransition: Sendable {
         _ watch: AdapterLinkHeldWatch,
         conditions: AdapterLinkSupervisionConditions
     ) -> AdapterLinkSupervisionTransitionResult {
-        guard canSend(conditions) else {
+        guard canSend(conditions), !isAwaitingLink(watch) else {
             return AdapterLinkSupervisionTransitionResult(state: .heldAfterUserStop(watch))
         }
         if case .watching = watch.phase {
@@ -137,6 +140,7 @@ nonisolated struct AdapterLinkHeldWatchTransition: Sendable {
     ///
     /// 責務: 見張り中で、上限を超えておらず、リンクが `ready` なら、前面復帰を待たずに見張りの確認を再開します。
     /// 上限は保持に入った(または前面復帰で取り直した)時点からのままにします。上限を超えていれば見張りをやめます。
+    /// 見張りの開始待ち(記録の終了時点で手動接続が使用中だった)で、リンクが `ready` なら、この時刻から上限を設けて見張りを始めます。
     /// - Parameters:
     ///   - watch: 現在の見張りの進行状況。
     ///   - conditions: リンク状態と現在時刻を含む条件。
@@ -145,6 +149,9 @@ nonisolated struct AdapterLinkHeldWatchTransition: Sendable {
         _ watch: AdapterLinkHeldWatch,
         conditions: AdapterLinkSupervisionConditions
     ) -> AdapterLinkSupervisionTransitionResult {
+        if watch.phase == .awaitingStart, canSend(conditions) {
+            return started(watch, conditions: conditions)
+        }
         guard case .watching = watch.phase else {
             return AdapterLinkSupervisionTransitionResult(state: .heldAfterUserStop(watch))
         }
@@ -155,6 +162,24 @@ nonisolated struct AdapterLinkHeldWatchTransition: Sendable {
             return AdapterLinkSupervisionTransitionResult(state: .heldAfterUserStop(watch))
         }
         return AdapterLinkSupervisionTransitionResult(state: .heldAfterUserStop(watch), effects: [.confirmVehicle(.heldWatch)])
+    }
+
+    /// リンク待ちの保持で、同じ走行とみなす上限以内にリンクが `ready` へ戻った時の遷移を返します。
+    ///
+    /// 責務: 手動接続が使っていなければ、リンクの復帰の時刻から上限を設けて見張りを始めます。
+    /// 使っている間は見張りの開始待ちにして、使い終えた時に始めさせます。直前のリンク状態は見ません(復帰の入力そのものなので)。
+    /// - Parameters:
+    ///   - watch: 現在の見張りの進行状況。
+    ///   - conditions: 復帰の時刻と手動接続の使用中かどうかを含む条件。
+    /// - Returns: 抑止のままの遷移。
+    func linkReturned(
+        _ watch: AdapterLinkHeldWatch,
+        conditions: AdapterLinkSupervisionConditions
+    ) -> AdapterLinkSupervisionTransitionResult {
+        guard !conditions.isExternalAdapterUseActive else {
+            return AdapterLinkSupervisionTransitionResult(state: .heldAfterUserStop(.awaitingStart))
+        }
+        return started(watch, conditions: conditions)
     }
 
     /// 結果を反映した見張りを、上限と送信の可否に応じて続ける遷移を返します。
@@ -224,6 +249,16 @@ nonisolated struct AdapterLinkHeldWatchTransition: Sendable {
     private func stoppedIfExpired(_ watch: AdapterLinkHeldWatch, now: Date) -> AdapterLinkHeldWatch {
         guard case .watching = watch.phase else { return watch }
         return AdapterLinkHeldWatch(consecutiveNoResponses: watch.consecutiveNoResponses, phase: .stopped)
+    }
+
+    /// リンク待ちの保持かどうかを返します。
+    ///
+    /// 責務: 見張りの段階がリンクの復帰待ちであることを判定します。
+    /// - Parameter watch: 見張りの進行状況。
+    /// - Returns: リンク待ちの保持なら `true`。
+    private func isAwaitingLink(_ watch: AdapterLinkHeldWatch) -> Bool {
+        if case .awaitingLink = watch.phase { return true }
+        return false
     }
 
     /// 見張りの確認をアダプターへ送ってよいかどうかを返します。

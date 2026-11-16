@@ -25,7 +25,8 @@ nonisolated enum AdapterLinkSupervisionState: Equatable, Sendable {
     /// ユーザーが記録を切断した。同じ走行が続いている間は初期化・検知・記録開始をしない。
     ///
     /// 保持中は ECU が応答しているかを見張り(`AdapterLinkHeldWatch`)、無応答が連続2回で走行の終わりとみなして初期化からやり直す。
-    /// リンクが切れるか稼働条件でリンクを張り直しても待機へ戻る。
+    /// リンクが切れるか稼働条件でリンクを張り直しても待機へ戻る。リンクが `ready` でない間に切断した場合はリンク待ちの保持
+    /// (`AdapterLinkHeldWatchPhase.awaitingLink`)で、切断から3分以内にリンクが戻れば見張りを始め、超えて戻れば検知からやり直す。
     case heldAfterUserStop(AdapterLinkHeldWatch)
 
     /// ユーザー切断後の抑止中かどうかです。
