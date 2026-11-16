@@ -16,7 +16,7 @@ nonisolated final class VehicleOffDetectionDelayPreferencePortFake: VehicleOffDe
     ///
     /// 責務: 初期の保存値を持つフェイクを構築します。
     /// - Parameter initial: 最初に読める値。
-    init(initial: VehicleOffDetectionDelay = .default) {
+    init(initial: VehicleOffDetectionDelay = .standard) {
         stored = initial
     }
 

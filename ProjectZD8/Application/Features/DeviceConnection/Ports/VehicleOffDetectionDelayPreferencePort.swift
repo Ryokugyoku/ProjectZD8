@@ -5,7 +5,7 @@ nonisolated protocol VehicleOffDetectionDelayPreferencePort: Sendable {
     /// 保存済みの時間を読み込みます。
     ///
     /// 責務: 端末ローカルに保存された時間を1件返します。
-    /// - Returns: 保存済みの時間。未保存または解釈できない値の場合は `VehicleOffDetectionDelay.default`。
+    /// - Returns: 保存済みの時間。未保存または解釈できない値の場合は `VehicleOffDetectionDelay.standard`。
     func load() -> VehicleOffDetectionDelay
 
     /// 時間を保存します。

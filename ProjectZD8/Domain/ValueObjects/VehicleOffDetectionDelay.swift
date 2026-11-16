@@ -12,7 +12,7 @@ nonisolated enum VehicleOffDetectionDelay: Int, CaseIterable, Identifiable, Equa
     case seconds180 = 180
 
     /// 未設定の場合に使う既定の時間です。
-    static let `default`: VehicleOffDetectionDelay = .seconds30
+    static let standard: VehicleOffDetectionDelay = .seconds30
 
     /// 一覧表示とアクセシビリティ参照に使う安定識別子です。
     var id: Int { rawValue }
