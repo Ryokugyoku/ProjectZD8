@@ -2,6 +2,8 @@
 ///
 /// 判定(扱い方・有効期限・理由)は `AdapterLinkRecordingIntentPolicy` に任せ、この型は意思の保持と期限の待ち、
 /// 捨てた時の「記録を開始できませんでした」通知だけを行います。意思は検知の完了で1回だけ使われ、使わなくても消えます。
+/// 検知の完了時点で期限切れだった意思は黙って消します(検知通知が残り、ユーザーはそこから記録を始められるため)。
+/// 検知が完了しないまま期限が来た時だけ「車両を検知できなかった」を知らせます。
 @MainActor
 final class AdapterLinkRecordingIntentTracker {
     /// 保持している意思です。無ければ `nil` です。
@@ -63,14 +65,11 @@ final class AdapterLinkRecordingIntentTracker {
 
     /// 検知の完了(VIN読取の完了)で意思を使い終えます。
     ///
-    /// 責務: 有効な意思は使われたものとして黙って消し、期限切れの意思は捨てて「車両を検知できなかった」を知らせます。
+    /// 責務: 有効な意思は使われたものとして、期限切れの意思は検知通知に任せるものとして、どちらも通知を出さずに消します。
+    /// 期限の待ちが明ける前に検知が完了した場合も、失敗通知で検知通知を上書きしません。
     func detectionDidComplete() {
         guard intent != nil else { return }
-        if hasValidIntent {
-            clear()
-        } else {
-            reject(.vehicleNotDetected)
-        }
+        clear()
     }
 
     /// 意思を捨て、理由を知らせます。

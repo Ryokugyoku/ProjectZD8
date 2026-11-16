@@ -22,8 +22,8 @@ final class IOSVehicleDetectionNotifier: NSObject, VehicleDetectionNotificationP
     private var recordingStartSelected: (@MainActor () -> Void)?
     /// 準備より先に[記録開始]が選ばれていたかどうかです(通知からの起動直後)。
     private var hasPendingRecordingStartSelection = false
-    /// 提示・取り下げの世代です。非同期の提示が後から来た取り下げを追い越さないために使います。
-    private var requestGeneration: UInt64 = 0
+    /// 提示・取り下げの世代です(種類ごと)。非同期の提示が後から来た同じ種類の提示・取り下げを追い越さないために使います。
+    private var requestGenerations = VehicleDetectionNotificationRequestGenerations()
 
     /// 通知センターを固定して生成します。
     ///
@@ -88,9 +88,9 @@ final class IOSVehicleDetectionNotifier: NSObject, VehicleDetectionNotificationP
 
     /// 提示中の監視通知を取り下げます。
     ///
-    /// 責務: 監視通知を配信済み・保留中の両方から取り除き、進行中の提示も取り消します。
+    /// 責務: 監視通知を配信済み・保留中の両方から取り除き、進行中の監視通知の提示も取り消します(失敗の通知は残します)。
     func dismiss() {
-        requestGeneration &+= 1
+        requestGenerations.advanceForDismissal()
         center.removeDeliveredNotifications(withIdentifiers: VehicleDetectionNotificationCatalog.allIdentifiers)
         center.removePendingNotificationRequests(withIdentifiers: VehicleDetectionNotificationCatalog.allIdentifiers)
     }
@@ -166,11 +166,10 @@ final class IOSVehicleDetectionNotifier: NSObject, VehicleDetectionNotificationP
 
     /// 監視通知を、許可がある場合だけ置き換え式で提示します。
     ///
-    /// 責務: 許可状態を確かめ、その間に新しい提示や取り下げが無かった場合だけ他の監視通知を消して追加します。
+    /// 責務: 許可状態を確かめ、その間に同じ種類の新しい提示や取り下げが無かった場合だけ、置き換える監視通知を消して追加します。
     /// - Parameter content: 提示する通知内容。
     private func present(_ content: VehicleDetectionNotificationContent) {
-        requestGeneration &+= 1
-        let generation = requestGeneration
+        let generation = requestGenerations.advance(forPresenting: content.identifier)
         Task { @MainActor [weak self] in
             await self?.deliver(content, generation: generation)
         }
@@ -178,7 +177,7 @@ final class IOSVehicleDetectionNotifier: NSObject, VehicleDetectionNotificationP
 
     /// 許可状態を確かめてから通知を追加します。
     ///
-    /// 責務: 許可が無い・世代が古い場合は提示せず、追加失敗は記録します。
+    /// 責務: 許可が無い・同じ種類の世代が古い場合は提示せず、追加失敗は記録します。
     /// - Parameters:
     ///   - content: 提示する通知内容。
     ///   - generation: 提示を要求した時点の世代。
@@ -188,7 +187,7 @@ final class IOSVehicleDetectionNotifier: NSObject, VehicleDetectionNotificationP
             logger.info("Vehicle detection notification skipped: not authorized")
             return
         }
-        guard generation == requestGeneration else { return }
+        guard requestGenerations.isCurrent(generation, forPresenting: content.identifier) else { return }
         let replaced = catalog.identifiersReplaced(by: content)
         center.removeDeliveredNotifications(withIdentifiers: replaced)
         center.removePendingNotificationRequests(withIdentifiers: replaced)
