@@ -123,7 +123,7 @@ final class DeleteAccountUseCaseMarkerTests: XCTestCase {
         let useCase = DeleteAccountUseCase(
             sessionRevocation: DeleteAccountUseCaseRevocationFake(recorder: recorder),
             cloudErasers: AccountCloudDataErasers(
-                sessionTransfers: DeleteAccountUseCaseTransferFake(recorder: recorder),
+                sessionTransfers: ConnectionSessionTransferRepositoryFake.recording(into: recorder),
                 vehicleDataEraser: DeleteAccountUseCaseCachedVehicleEraserFake(recorder: recorder, cachedVehicleIDs: cachedVehicleIDs),
                 maintenanceDataEraser: DeleteAccountUseCaseRecordingMaintenanceFake(recorder: recorder)
             ),

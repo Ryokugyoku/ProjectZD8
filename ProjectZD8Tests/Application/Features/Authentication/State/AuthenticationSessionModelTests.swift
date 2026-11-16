@@ -268,7 +268,7 @@ final class AuthenticationSessionModelTests: XCTestCase {
         let authorization = AuthenticationModelAuthorizationPortFake()
         let store = AuthenticationModelSessionStorePortFake()
         let dataEraser = AuthenticationModelAccountDataEraserFake()
-        let transfers = AuthenticationModelTransferRepositoryFake()
+        let transfers = ConnectionSessionTransferRepositoryFake()
         let vehicleDataEraser = AuthenticationModelVehicleDataEraserFake()
         let revocation = AuthenticationModelSessionRevocationPortFake()
         let model = AuthenticationSessionModel(
@@ -333,7 +333,7 @@ struct AuthenticationModelDependencies {
     let dataEraser: AuthenticationModelAccountDataEraserFake
 
     /// CloudKit運転データ削除を記録するFakeです。
-    let transfers: AuthenticationModelTransferRepositoryFake
+    let transfers: ConnectionSessionTransferRepositoryFake
 
     /// 失効登録、発行、監視を記録するFakeです。
     let revocation: AuthenticationModelSessionRevocationPortFake

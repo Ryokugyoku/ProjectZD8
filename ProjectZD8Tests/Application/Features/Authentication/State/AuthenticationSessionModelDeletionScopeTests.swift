@@ -69,7 +69,7 @@ final class AuthenticationSessionModelDeletionScopeTests: XCTestCase {
             deleteAccount: DeleteAccountUseCase(
                 sessionRevocation: revocation,
                 cloudErasers: AccountCloudDataErasers(
-                    sessionTransfers: AuthenticationModelTransferRepositoryFake(),
+                    sessionTransfers: ConnectionSessionTransferRepositoryFake(),
                     vehicleDataEraser: gate,
                     maintenanceDataEraser: AuthenticationModelMaintenanceDataEraserFake()
                 ),

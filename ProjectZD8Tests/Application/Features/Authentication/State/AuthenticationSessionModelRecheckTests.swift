@@ -42,7 +42,7 @@ final class AuthenticationSessionModelRecheckTests: XCTestCase {
         let authorization = AuthenticationModelAuthorizationPortFake()
         let store = AuthenticationModelSessionStorePortFake()
         let dataEraser = AuthenticationModelAccountDataEraserFake()
-        let transfers = AuthenticationModelTransferRepositoryFake()
+        let transfers = ConnectionSessionTransferRepositoryFake()
         let revocation = AuthenticationModelSessionRevocationPortFake()
         let model = AuthenticationSessionModel(
             state: AuthenticationState(),

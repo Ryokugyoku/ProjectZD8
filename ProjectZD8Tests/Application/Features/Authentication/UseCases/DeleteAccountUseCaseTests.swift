@@ -104,7 +104,7 @@ final class DeleteAccountUseCaseTests: XCTestCase {
         DeleteAccountUseCase(
             sessionRevocation: DeleteAccountUseCaseRevocationFake(recorder: recorder),
             cloudErasers: AccountCloudDataErasers(
-                sessionTransfers: DeleteAccountUseCaseTransferFake(recorder: recorder),
+                sessionTransfers: ConnectionSessionTransferRepositoryFake.recording(into: recorder),
                 vehicleDataEraser: DeleteAccountUseCaseVehicleEraserFake(recorder: recorder),
                 maintenanceDataEraser: AuthenticationModelMaintenanceDataEraserFake()
             ),

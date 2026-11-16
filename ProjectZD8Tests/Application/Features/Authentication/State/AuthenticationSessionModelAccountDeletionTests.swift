@@ -146,7 +146,7 @@ final class AuthenticationSessionModelAccountDeletionTests: XCTestCase {
         /// セッション保存のFakeです。
         let store: AuthenticationModelSessionStorePortFake
         /// クラウド運転データ削除のFakeです。
-        let transfers: AuthenticationModelTransferRepositoryFake
+        let transfers: ConnectionSessionTransferRepositoryFake
         /// ローカルデータ消去のFakeです。
         let dataEraser: AuthenticationModelAccountDataEraserFake
         /// 失効のFakeです。
@@ -177,7 +177,7 @@ final class AuthenticationSessionModelAccountDeletionTests: XCTestCase {
         let store = AuthenticationModelSessionStorePortFake()
         store.identifier = session.userIdentifier
         let dataEraser = AuthenticationModelAccountDataEraserFake()
-        let transfers = AuthenticationModelTransferRepositoryFake()
+        let transfers = ConnectionSessionTransferRepositoryFake()
         let revocation = AuthenticationModelSessionRevocationPortFake()
         let model = AuthenticationSessionModel(
             state: AuthenticationState(phase: .signedIn, session: session),

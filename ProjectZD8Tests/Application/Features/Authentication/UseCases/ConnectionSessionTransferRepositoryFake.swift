@@ -1,11 +1,31 @@
 import Foundation
 @testable import ProjectZD8
 
-/// 認証モデルテストでCloudKit運転データ操作を記録します。
+/// 認証系テストでCloudKit運転データ(接続セッション)の全削除を記録する共有Fakeです。
 @MainActor
-final class AuthenticationModelTransferRepositoryFake: ConnectionSessionTransferRepository {
+final class ConnectionSessionTransferRepositoryFake: ConnectionSessionTransferRepository {
     /// 全削除を要求されたアカウント識別子です。
     private(set) var deletedAccountIdentifiers: [String] = []
+
+    /// 全削除の要求ごとに追加で実行する動作です(順序記録や失敗の注入に使います)。
+    private let onDeleteAll: @MainActor (String) throws -> Void
+
+    /// 全削除時の追加動作を注入します。
+    ///
+    /// 責務: 全削除の要求を、呼び出し側が指定した記録・失敗注入へ結び付けます。
+    /// - Parameter onDeleteAll: 識別子を記録した後に呼ぶ動作。省略時は何もしません。
+    init(onDeleteAll: @escaping @MainActor (String) throws -> Void = { _ in }) {
+        self.onDeleteAll = onDeleteAll
+    }
+
+    /// 共有記録先へ全削除を順序つきで記録するFakeを生成します。
+    ///
+    /// 責務: アカウント削除ユースケースの副作用順序テスト用に、記録先へ結び付けたFakeを返します。
+    /// - Parameter recorder: 副作用名を発生順に保持し、失敗も注入する記録先。
+    /// - Returns: 全削除時に `delete-cloud-driving-data:<識別子>` を記録するFake。
+    static func recording(into recorder: DeleteAccountUseCaseRecorder) -> ConnectionSessionTransferRepositoryFake {
+        ConnectionSessionTransferRepositoryFake { try recorder.record("delete-cloud-driving-data:\($0)") }
+    }
 
     /// このテストでは転送送信を使用しません。
     ///
@@ -68,7 +88,9 @@ final class AuthenticationModelTransferRepositoryFake: ConnectionSessionTransfer
     ///
     /// 責務: 1件のアカウント識別子を削除要求履歴へ追加します。
     /// - Parameter accountIdentifier: 削除対象アカウント識別子。
+    /// - Throws: 注入された追加動作が投げるエラー。
     func deleteAll(for accountIdentifier: String) async throws {
         deletedAccountIdentifiers.append(accountIdentifier)
+        try onDeleteAll(accountIdentifier)
     }
 }
