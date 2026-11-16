@@ -13,6 +13,10 @@
 /// `LiveTelemetryPauseWakeEvaluator`(`AcquisitionGracePeriodPolicy`)に任せ、この型は副作用の順序づけだけを行います。
 /// 回復操作の成功はアダプターとの通信を立て直せたことだけを表すため、続けて1件の要求(確認要求)を送り、
 /// 正応答を得たときだけ復帰とします。確認要求の応答は区間が閉じている間のものなので記録しません。
+///
+/// 応答途絶の回復で、回復操作が成功する(アダプターは応答する)のに確認要求が正応答にならない状態は、
+/// 車両が応答しない(エンジン停止)とみなし、猶予を `LiveTelemetryReceiveGrace.suspectVehicleOff()` で縮めます。
+/// 以後は最後の受信から「エンジン停止とみなす時間」に達した時点で猶予切れとします。リンク断と、回復操作が失敗する場合は縮めません。
 nonisolated struct LiveTelemetryAcquisitionRecovery: Sendable {
     /// 回復を終えた結果です。
     enum Outcome: Equatable, Sendable {
@@ -75,7 +79,8 @@ nonisolated struct LiveTelemetryAcquisitionRecovery: Sendable {
         linkAvailability: @Sendable () async -> LiveTelemetryLinkAvailability,
         report: @Sendable (LiveTelemetryAcquisitionPhase) -> Void
     ) async throws -> Outcome {
-        if let outcome = try await runStages(after: cause, grace: grace, probe: probe, endpoint: endpoint, report: report) {
+        var grace = grace
+        if let outcome = try await runStages(after: cause, grace: &grace, probe: probe, endpoint: endpoint, report: report) {
             return outcome
         }
         let pausedAt = clock.nowNanoseconds()
@@ -98,7 +103,7 @@ nonisolated struct LiveTelemetryAcquisitionRecovery: Sendable {
     /// 責務: 各試行の前に期限を確かめ、過ぎていれば試行せずに猶予切れとし、成功したら確定時点の経過で復帰か猶予切れかを決めます。
     /// - Parameters:
     ///   - cause: 途切れの原因。
-    ///   - grace: 最後の受信からの猶予。
+    ///   - grace: 最後の受信からの猶予。車両応答なしと分かった場合は縮めた状態へ更新します。
     ///   - probe: 復帰の確認に送る定義。
     ///   - endpoint: 取得に使っているOBD終端。
     ///   - report: 段階の変化を購読者へ流す処理。
@@ -106,7 +111,7 @@ nonisolated struct LiveTelemetryAcquisitionRecovery: Sendable {
     /// - Throws: 取消された場合は `CancellationError`。
     private func runStages(
         after cause: LiveTelemetryInterruptionCause,
-        grace: LiveTelemetryReceiveGrace,
+        grace: inout LiveTelemetryReceiveGrace,
         probe: OBDPIDDefinition?,
         endpoint: OBDConnectionEndpoint,
         report: @Sendable (LiveTelemetryAcquisitionPhase) -> Void
@@ -116,9 +121,9 @@ nonisolated struct LiveTelemetryAcquisitionRecovery: Sendable {
             try Task.checkCancellation()
             guard !grace.isExpired(nowNanoseconds: clock.nowNanoseconds()) else { return .expired }
             report(.recovering(cause: cause, stage: progress.stage, attempt: progress.attempt))
-            if try await attempt(progress.stage, probe: probe, endpoint: endpoint) {
-                return outcomeOfSuccess(within: grace)
-            }
+            let result = try await attempt(progress.stage, probe: probe, endpoint: endpoint)
+            if result == .resumed { return outcomeOfSuccess(within: grace) }
+            if result.isVehicleOffEvidence(for: cause) { grace.suspectVehicleOff() }
             if progress.recordFailure() == .enterGracePeriod { return nil }
         }
     }
@@ -181,14 +186,44 @@ nonisolated struct LiveTelemetryAcquisitionRecovery: Sendable {
                 continue
             case let .attemptResume(stage):
                 retry.cancel()
-                if try await attempt(stage, probe: probe, endpoint: endpoint) {
-                    return outcomeOfSuccess(within: window.grace)
+                if let outcome = try await resumeAttempt(stage, cause: cause, window: &window, probe: probe, endpoint: endpoint) {
+                    return outcome
                 }
-                window.scheduleNextRetry(afterAttemptEndedAt: clock.nowNanoseconds())
+                deadline.cancel()
+                deadline = arm(.deadlineReached, until: window.deadlineNanoseconds, channel: channel)
                 retry = arm(.retryDue, until: window.nextRetryNanoseconds, channel: channel)
             }
         }
         throw CancellationError()
+    }
+
+    /// 一時停止中の復帰の試行を1回行い、決着したか、次の試行へ進むかを決めます。
+    ///
+    /// 責務: 成功なら成功の確定時点の経過で結果を決め、車両応答なしと分かったら猶予を縮めて期限を判定し、
+    /// 決着しなければ次の定期試行を1間隔後に予定します。
+    /// - Parameters:
+    ///   - stage: 試す回復段階。
+    ///   - cause: 一時停止に入った途切れの原因。
+    ///   - window: 猶予と定期試行の予定。車両応答なしと分かった場合は猶予を縮め、次の試行時刻を更新します。
+    ///   - probe: 復帰の確認に送る定義。
+    ///   - endpoint: 取得に使っているOBD終端。
+    /// - Returns: 復帰または猶予切れで決着した結果。決着しなければ `nil`。
+    /// - Throws: 取消された場合は `CancellationError`。
+    private func resumeAttempt(
+        _ stage: AcquisitionRecoveryStage,
+        cause: LiveTelemetryInterruptionCause,
+        window: inout LiveTelemetryPauseWindow,
+        probe: OBDPIDDefinition?,
+        endpoint: OBDConnectionEndpoint
+    ) async throws -> Outcome? {
+        let result = try await attempt(stage, probe: probe, endpoint: endpoint)
+        if result == .resumed { return outcomeOfSuccess(within: window.grace) }
+        if result.isVehicleOffEvidence(for: cause) {
+            window.suspectVehicleOff()
+            if window.decision(nowNanoseconds: clock.nowNanoseconds()) == .terminate { return .expired }
+        }
+        window.scheduleNextRetry(afterAttemptEndedAt: clock.nowNanoseconds())
+        return nil
     }
 
     /// 猶予切れの期限、または次の定期試行の時刻までの待ちを始めます。
@@ -225,28 +260,29 @@ nonisolated struct LiveTelemetryAcquisitionRecovery: Sendable {
     ///   - stage: 試す回復段階。
     ///   - probe: 復帰の確認に送る定義。
     ///   - endpoint: 取得に使っているOBD終端。
-    /// - Returns: 回復操作が成功し、確認要求に正応答があった場合は `true`。
+    /// - Returns: 回復操作が成功し確認要求に正応答があれば `.resumed`、回復操作が失敗すれば `.adapterFailed`、
+    ///   回復操作は成功したが確認要求が正応答にならなければ `.vehicleSilent`。
     /// - Throws: 取消された場合は `CancellationError`。
     private func attempt(
         _ stage: AcquisitionRecoveryStage,
         probe: OBDPIDDefinition?,
         endpoint: OBDConnectionEndpoint
-    ) async throws -> Bool {
+    ) async throws -> LiveTelemetryRecoveryAttempt {
         do {
             try await perform(stage, using: endpoint)
         } catch is CancellationError {
             throw CancellationError()
         } catch {
             try Task.checkCancellation()
-            return false
+            return .adapterFailed
         }
         try Task.checkCancellation()
-        guard let probe else { return true }
+        guard let probe else { return .resumed }
         let outcome = await reader.read(probe, using: endpoint)
         if outcome == .cancelled { throw CancellationError() }
         try Task.checkCancellation()
-        if case .responded = outcome { return true }
-        return false
+        if case .responded = outcome { return .resumed }
+        return .vehicleSilent
     }
 
     /// 回復段階に対応する回復操作を実行します。

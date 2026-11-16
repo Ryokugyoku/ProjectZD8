@@ -8,6 +8,7 @@ enum LiveTelemetryModelAssembly {
     /// OS固有の境界を受け取り、取得記録付きのLiveTelemetryモデルを組み立てます。
     ///
     /// 責務: 取得ループ、Loggingの取得記録、単調時計、表示モデルを1組の構成へ結び付けます。
+    /// 取得ループには、取得開始時点の「エンジン停止とみなす時間」(端末ローカルの設定)を読む処理を渡します。
     /// - Parameters:
     ///   - telemetry: PID単位のtyped Transport観測を返す取得境界。
     ///   - linkRecovery: 途切れた後の回復操作の境界。
@@ -37,6 +38,7 @@ enum LiveTelemetryModelAssembly {
         acquisitionDiagnostics: any LiveTelemetryAcquisitionDiagnosticsPort
     ) -> LiveTelemetryModel {
         let clock = ContinuousMonotonicClock()
+        let vehicleOffDelayStore = UserDefaultsVehicleOffDetectionDelayStore()
         let recorder = makeRecorder(
             storage: storage,
             acquisitionPlatform: acquisitionPlatform,
@@ -61,7 +63,8 @@ enum LiveTelemetryModelAssembly {
                 recorder: recorder,
                 clock: clock,
                 linkRecovery: linkRecovery,
-                deadlineWaiter: ContinuousMonotonicDeadlineWaiter(clock: clock)
+                deadlineWaiter: ContinuousMonotonicDeadlineWaiter(clock: clock),
+                vehicleOffDelay: { vehicleOffDelayStore.load() }
             ),
             clock: clock,
             sessionDidEnd: sessionDidEnd,

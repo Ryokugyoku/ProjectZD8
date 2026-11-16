@@ -45,6 +45,18 @@ enum ApplicationRootAssembly {
         )
     }
 
+    /// 「エンジン停止とみなす時間」の設定モデルを組み立てます。
+    ///
+    /// 責務: 端末ローカル(`UserDefaults`)の保存先をユースケースとモデルへ結び付けます。iOSとmacOSで共通です。
+    /// - Returns: 設定画面へ渡す設定モデル。
+    static func makeVehicleOffDetectionDelayModel() -> VehicleOffDetectionDelayModel {
+        VehicleOffDetectionDelayModel(
+            preference: VehicleOffDetectionDelayPreferenceUseCase(
+                preferencePort: UserDefaultsVehicleOffDetectionDelayStore()
+            )
+        )
+    }
+
     /// 各モデルが共有する保存先と接続セッション系のモデルを組み立てます。
     ///
     /// 責務: 計測境界・DB接続・接続セッション保存先を1回ずつ生成し、それらを共有する履歴・解析・ライフサイクルのモデルを生成します。
