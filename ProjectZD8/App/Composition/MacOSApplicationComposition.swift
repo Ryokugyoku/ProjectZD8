@@ -256,7 +256,8 @@ enum MacOSApplicationComposition: ApplicationPlatformComposing {
                 maintenanceDataEraser: CloudKitMaintenanceRemoteStore(),
                 dataEraser: dataEraser,
                 sessionStore: sessionStore,
-                deletionMarker: AccountDeletionMarkerComposition.marker
+                deletionMarker: AccountDeletionMarkerComposition.marker,
+                vehicleIDStore: UserDefaultsAccountDeletionVehicleIDStore()
             ),
             remoteAccountLogout: RemoteAccountLogoutUseCase(
                 dataEraser: dataEraser,

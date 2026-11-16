@@ -16,6 +16,9 @@ struct DeleteAccountUseCase {
     /// クラウド削除の完了を、他端末向けの削除済みの印として残す境界です。未設定なら印を残しません。
     private let deletionMarker: (any AccountDeletionMarkerPort)?
 
+    /// 削除開始時に控えた車両IDを、成功するまで保持する境界です。未設定なら控えを保持しません。
+    private let vehicleIDStore: (any AccountDeletionVehicleIDStorePort)?
+
     /// アカウントに属する同期設定と端末設定を消去する境界です。
     private let dataEraser: any AccountDataErasurePort
 
@@ -33,6 +36,7 @@ struct DeleteAccountUseCase {
     ///   - dataEraser: アカウントに属するアプリ保存データの消去境界。
     ///   - sessionStore: 保存済みAppleユーザー識別子の削除境界。
     ///   - deletionMarker: クラウド削除の完了後に削除済みの印を保存する境界。省略時は印を残しません。
+    ///   - vehicleIDStore: 削除開始時に控えた車両IDを成功まで保持する境界。省略時は控えを保持しません。
     init(
         sessionRevocation: any AccountSessionRevocationPort,
         sessionTransfers: any ConnectionSessionTransferRepository,
@@ -40,8 +44,10 @@ struct DeleteAccountUseCase {
         maintenanceDataEraser: any AccountMaintenanceDataErasurePort,
         dataEraser: any AccountDataErasurePort,
         sessionStore: any AuthenticationSessionStorePort,
-        deletionMarker: (any AccountDeletionMarkerPort)? = nil
+        deletionMarker: (any AccountDeletionMarkerPort)? = nil,
+        vehicleIDStore: (any AccountDeletionVehicleIDStorePort)? = nil
     ) {
+        self.vehicleIDStore = vehicleIDStore
         self.deletionMarker = deletionMarker
         self.sessionRevocation = sessionRevocation
         self.sessionTransfers = sessionTransfers
@@ -54,14 +60,14 @@ struct DeleteAccountUseCase {
     /// 指定アカウントのCloudKit全データを削除し、成功後に他端末へ失効通知してからローカルデータとログイン識別子を削除します。
     ///
     /// 責務: 1件の認証済みアカウントを再試行可能な順序(クラウド削除、失効発行、ローカル消去、資格情報削除)で端末から削除します。
-    /// クラウド削除と削除済みの印の保存が1つでも失敗したら失効通知もローカル消去もしません。車両のクラウド削除が成功した直後に車両の端末キャッシュも消します。
+    /// クラウド削除と削除済みの印の保存が1つでも失敗したら失効通知もローカル消去もしません。車両のクラウド削除が成功した直後に車両の端末キャッシュも消します。削除開始時に控えた車両IDは成功するまで保存し、再試行で合わせて使います。
     /// - Parameter userIdentifier: Appleがこのアプリへ割り当てた空でないユーザー識別子。
     /// - Throws: CloudKit、ローカル保存、またはログイン識別子の削除を完了できない場合のエラー。
     func execute(userIdentifier: String) async throws {
         guard !userIdentifier.isEmpty else {
             throw AuthenticationSessionStoreError.unavailable
         }
-        let vehicleIDs = vehicleDataEraser.localVehicleIDs(for: userIdentifier)
+        let vehicleIDs = recordVehicleIDs(for: userIdentifier)
         try await sessionTransfers.deleteAll(for: userIdentifier)
         try await vehicleDataEraser.deleteAllVehicleData(for: userIdentifier)
         vehicleDataEraser.removeLocalVehicleCache(for: userIdentifier)
@@ -70,5 +76,21 @@ struct DeleteAccountUseCase {
         sessionRevocation.publishRevocation(for: userIdentifier)
         try await dataEraser.eraseAllData(for: userIdentifier, knownVehicleIDs: vehicleIDs)
         try sessionStore.removeUserIdentifier()
+        vehicleIDStore?.clearPendingVehicleIDs(for: userIdentifier)
+    }
+
+    /// 削除対象の車両IDを控え、前回までの控えと合わせて返します。
+    ///
+    /// 責務: 今の車両キャッシュと永続化済みの控えを重複なく合わせ、成功するまで残る控えとして保存します。
+    /// 再試行では車両キャッシュが既に空でも、前回の控えから車両別PID設定を消せます。
+    /// - Parameter userIdentifier: 削除対象のAppleユーザー識別子。
+    /// - Returns: 車両別PID設定の消去に使う車両ID群。
+    private func recordVehicleIDs(for userIdentifier: String) -> [VehicleID] {
+        let pending = vehicleIDStore?.pendingVehicleIDs(for: userIdentifier) ?? []
+        var seen = Set<VehicleID>()
+        let merged = (pending + vehicleDataEraser.localVehicleIDs(for: userIdentifier))
+            .filter { seen.insert($0).inserted }
+        vehicleIDStore?.savePendingVehicleIDs(merged, for: userIdentifier)
+        return merged
     }
 }
