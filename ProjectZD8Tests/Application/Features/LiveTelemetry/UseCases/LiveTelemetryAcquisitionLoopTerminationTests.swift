@@ -98,7 +98,7 @@ final class LiveTelemetryAcquisitionLoopTerminationTests: XCTestCase {
             await fixture.waitForSentRequests(1)
             let loop = fixture.loop
             let termination = await LiveTelemetryBoundedWaiter.value("取得ループの停止") {
-                if let reason { await loop.stop(reason: reason) } else { await loop.stop() }
+                await loop.stop(reason: reason ?? .userDisconnected)
             } ?? nil
 
             XCTAssertEqual(termination, .stopped, "\(String(describing: reason))")

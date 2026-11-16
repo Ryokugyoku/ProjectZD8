@@ -18,13 +18,6 @@ final class AdapterLinkSupervisionTimingTests: XCTestCase {
         XCTAssertEqual(AdapterLinkSupervisionTiming.standard.maximumVehicleConfirmationAttempts, 600)
     }
 
-    /// 本番の最短間隔は1秒の待機時間へ変換されます。
-    ///
-    /// 責務: 空回り防止の待機ポートへ渡す上限の `Duration` が1秒ちょうどであることを確認します(U3 受け入れ条件 3)。
-    func testStandardIntervalDurationIsOneSecond() {
-        XCTAssertEqual(AdapterLinkSupervisionTiming.standard.vehicleConfirmationIntervalDuration, .seconds(1))
-    }
-
     /// 窓が間隔で割り切れる場合、回数の上限は窓の中に収まる確認回数と一致します。
     ///
     /// 責務: 90秒窓・30秒間隔(0・30・60秒の3回)で上限が3になることを確認します。
@@ -57,13 +50,5 @@ final class AdapterLinkSupervisionTimingTests: XCTestCase {
         let negative = AdapterLinkSupervisionTiming(vehicleConfirmationWindow: 600, vehicleConfirmationInterval: -5)
         XCTAssertEqual(zero.maximumVehicleConfirmationAttempts, 1)
         XCTAssertEqual(negative.maximumVehicleConfirmationAttempts, 1)
-    }
-
-    /// 秒数の端数はミリ秒単位の待機時間へ変換されます。
-    ///
-    /// 責務: 1.5秒の間隔が1500ミリ秒の `Duration` になることを確認します。
-    func testIntervalDurationKeepsMilliseconds() {
-        let timing = AdapterLinkSupervisionTiming(vehicleConfirmationWindow: 60, vehicleConfirmationInterval: 1.5)
-        XCTAssertEqual(timing.vehicleConfirmationIntervalDuration, .milliseconds(1500))
     }
 }

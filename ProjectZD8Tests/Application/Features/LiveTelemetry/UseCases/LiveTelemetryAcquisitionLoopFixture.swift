@@ -107,7 +107,7 @@ final class LiveTelemetryAcquisitionLoopFixture {
     /// - Returns: `stop` の結果。上限を超えた場合(失敗済み)と、動いていなかった場合は `nil`。
     func stopLoop(file: StaticString = #filePath, line: UInt = #line) async -> LiveTelemetryAcquisitionTermination? {
         let loop = loop
-        return await LiveTelemetryBoundedWaiter.value("取得ループの停止", file: file, line: line) { await loop.stop() } ?? nil
+        return await LiveTelemetryBoundedWaiter.value("取得ループの停止", file: file, line: line) { await loop.stop(reason: .userDisconnected) } ?? nil
     }
 
     /// 動いている世代を止め、購読をやめます。

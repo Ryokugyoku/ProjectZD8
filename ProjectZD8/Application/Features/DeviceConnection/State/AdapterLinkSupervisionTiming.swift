@@ -53,11 +53,4 @@ nonisolated struct AdapterLinkSupervisionTiming: Equatable, Sendable {
         guard vehicleConfirmationInterval > 0 else { return 1 }
         return max(1, Int(vehicleConfirmationWindow / vehicleConfirmationInterval))
     }
-
-    /// 最短間隔を `Duration` で返します。
-    ///
-    /// 責務: 秒数の最短間隔を待機ポートへ渡せる型へ変換します。
-    var vehicleConfirmationIntervalDuration: Duration {
-        .milliseconds(Int64((vehicleConfirmationInterval * 1000).rounded()))
-    }
 }

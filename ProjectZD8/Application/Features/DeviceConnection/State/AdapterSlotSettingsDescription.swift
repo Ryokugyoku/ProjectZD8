@@ -2,7 +2,7 @@
 ///
 /// アダプター名は機器が名乗る任意の文字列なのでローカライズキーとして扱いません(`%` などを含んでも崩さず、そのまま表示します)。
 /// 未選択の時だけローカライズキーを返し、View側で `LocalizedStringKey` へ変換します。
-enum AdapterSlotSettingsDescription: Equatable {
+nonisolated enum AdapterSlotSettingsDescription: Equatable, Sendable {
     /// 未選択を表す文言のローカライズキーです。
     static let notSelectedKey = "settings.adapter.not_selected"
 

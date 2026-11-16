@@ -131,9 +131,9 @@ actor LiveTelemetryAcquisitionLoop {
     /// 現在の世代の取得を止め、終わるまで待ちます。
     ///
     /// 責務: 停止の理由を世代へ結び付けてから取得Taskを取り消し、記録の終了と通信資源の解放を待って終了理由を返します。
-    /// - Parameter reason: 停止の理由。取得記録の終了原因になります。既定はユーザーの[切断]。
+    /// - Parameter reason: 停止の理由。取得記録の終了原因になります。
     /// - Returns: 取得Taskの終了理由。動いていなかった場合は `nil`。
-    func stop(reason: ConnectionSessionEndReason = .userDisconnected) async -> LiveTelemetryAcquisitionTermination? {
+    func stop(reason: ConnectionSessionEndReason) async -> LiveTelemetryAcquisitionTermination? {
         guard let task = runningTask else { return nil }
         if let runningGeneration { stopReasons.register(reason, for: runningGeneration) }
         task.cancel()

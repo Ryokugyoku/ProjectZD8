@@ -140,29 +140,13 @@ struct IOSAppShellView: View {
         .onChange(of: vehicleManagementModel.state.vehicles) { _, _ in
             unassignedVINWarningModel.send(.refreshRequested)
         }
-        .sheet(isPresented: vehicleUnknownSessionAssignmentBinding) {
-            IOSVehicleUnknownSessionAssignmentView(
-                state: vehicleUnknownSessionModel.assignment,
-                vehicles: vehicleManagementModel.state.vehicles,
-                send: vehicleUnknownSessionModel.send
+        .modifier(
+            IOSAppShellSheetPresentation(
+                vehicleUnknownSessionModel: vehicleUnknownSessionModel,
+                vehicleManagementModel: vehicleManagementModel,
+                automaticRecordingModel: automaticRecordingModel,
+                localeIdentifier: accountSettingsModel.settings.language.localeIdentifier
             )
-            .environment(\.locale, Locale(identifier: accountSettingsModel.settings.language.localeIdentifier))
-        }
-        .sheet(isPresented: automaticRecordingChoicePromptBinding) {
-            IOSAutomaticRecordingChoiceView { automaticRecordingModel.send(.promptChoiceSelected($0)) }
-                .environment(\.locale, Locale(identifier: accountSettingsModel.settings.language.localeIdentifier))
-        }
-    }
-
-    /// 車両を特定できなかったログの紐付け画面の表示状態です。
-    ///
-    /// スワイプで閉じた時は、閉じる操作としてモデルへ通知します。
-    private var vehicleUnknownSessionAssignmentBinding: Binding<Bool> {
-        Binding(
-            get: { vehicleUnknownSessionModel.assignment.isPresented },
-            set: { isPresented in
-                if !isPresented { vehicleUnknownSessionModel.send(.assignmentDismissed) }
-            }
         )
     }
 
@@ -172,16 +156,6 @@ struct IOSAppShellView: View {
     private func refreshWarnings() {
         unassignedVINWarningModel.send(.refreshRequested)
         vehicleUnknownSessionModel.send(.refreshRequested)
-    }
-
-    /// 記録開始方法の選択画面の表示状態です。
-    ///
-    /// 選択せずに閉じる経路は持たないため、書き込みは無視し、表示済みになった時だけ閉じます。
-    private var automaticRecordingChoicePromptBinding: Binding<Bool> {
-        Binding(
-            get: { automaticRecordingModel.state.isChoicePromptPresented },
-            set: { _ in }
-        )
     }
 
     /// 指定されたタブに対応するiOS専用画面を生成します。
