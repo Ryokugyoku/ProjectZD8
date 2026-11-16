@@ -18,10 +18,10 @@ final class VehicleOffDetectionDelayTests: XCTestCase {
 
     /// 既定は30秒です。
     ///
-    /// 責務: `default` が30秒の選択肢であることを確認します。
+    /// 責務: `standard` が30秒の選択肢であることを確認します。
     func testDefaultIsThirtySeconds() {
-        XCTAssertEqual(VehicleOffDetectionDelay.default, .seconds30)
-        XCTAssertEqual(VehicleOffDetectionDelay.default.rawValue, 30)
+        XCTAssertEqual(VehicleOffDetectionDelay.standard, .seconds30)
+        XCTAssertEqual(VehicleOffDetectionDelay.standard.rawValue, 30)
     }
 
     /// ナノ秒は秒数に10億を掛けた値です。

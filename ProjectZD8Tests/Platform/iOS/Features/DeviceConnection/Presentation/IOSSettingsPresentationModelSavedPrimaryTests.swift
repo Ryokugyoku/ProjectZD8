@@ -135,10 +135,10 @@ private final class SavedPrimaryDiscoveryPortFake: AdapterDiscoveryPort {
     /// 固定結果を返します。
     ///
     /// 責務: 探索要求へ注入済みの結果で応答します。
-    /// - Parameter mode: 要求された接続方式。
+    /// - Parameter _: 要求された接続方式(固定結果のため参照しない)。
     /// - Returns: 候補一覧。
     /// - Throws: 注入済みの探索エラー。
-    func discoverAdapters(for mode: AdapterTransportMode) async throws -> [DiscoveredAdapter] {
+    func discoverAdapters(for _: AdapterTransportMode) async throws -> [DiscoveredAdapter] {
         try result.get()
     }
 }
@@ -167,7 +167,9 @@ private final class SavedPrimaryPreferencePortFake: DefaultAdapterPreferencePort
     /// 保存要求を無視します。
     ///
     /// 責務: このテストでは保存を使わないため何もしません。
-    /// - Parameter preference: 保存要求の設定。
-    func save(_ preference: DefaultAdapterPreference) {}
+    /// - Parameter _: 保存要求の設定(保存しないため参照しない)。
+    func save(_: DefaultAdapterPreference) {
+        // このテストでは保存結果を観測しないため、何もしない。
+    }
 }
 #endif

@@ -4,7 +4,7 @@ import XCTest
 /// `RecordingSessionActivityUseCase` が終了時に終了表示と5分後の消去時刻で `end` を呼ぶことのテストです。
 @MainActor
 final class RecordingSessionActivityUseCaseEndedDisplayTests: XCTestCase {
-    private func loaded(_ harness: RecordingSessionActivityUseCaseHarness, speed: Double, rpm: Double? = nil) -> LiveTelemetryState {
+    private func loaded(speed: Double, rpm: Double? = nil) -> LiveTelemetryState {
         var samples = [RecordingSessionActivityTestSupport.sample(RecordingSessionActivityContent.vehicleSpeedRequest, value: speed)]
         if let rpm {
             samples.append(RecordingSessionActivityTestSupport.sample(RecordingSessionActivityContent.engineSpeedRequest, value: rpm))
@@ -15,9 +15,9 @@ final class RecordingSessionActivityUseCaseEndedDisplayTests: XCTestCase {
     /// 責務: 終了時に、走行時間・最大値を持つ終了表示が5分後の消去時刻で渡されることを確認します。
     func testEndPassesEndedContentAndDismissAtFiveMinutesLater() async {
         let harness = RecordingSessionActivityUseCaseHarness()
-        await harness.send(loaded(harness, speed: 30, rpm: 2000))
-        await harness.send(loaded(harness, speed: 80, rpm: 5000))
-        await harness.send(loaded(harness, speed: 50, rpm: 3000))
+        await harness.send(loaded(speed: 30, rpm: 2000))
+        await harness.send(loaded(speed: 80, rpm: 5000))
+        await harness.send(loaded(speed: 50, rpm: 3000))
         harness.currentDate = Date(timeIntervalSince1970: 1_600)
         await harness.send(harness.state(.idle, speed: 50))
 
@@ -35,9 +35,9 @@ final class RecordingSessionActivityUseCaseEndedDisplayTests: XCTestCase {
     /// 責務: 記録中の更新は終了表示にならず、切断操作とタイマーを保つことを確認します。
     func testUpdatesWhileRecordingAreNotEnded() async {
         let harness = RecordingSessionActivityUseCaseHarness()
-        await harness.send(loaded(harness, speed: 30))
+        await harness.send(loaded(speed: 30))
         harness.currentDate = harness.currentDate.addingTimeInterval(5)
-        await harness.send(loaded(harness, speed: 40))
+        await harness.send(loaded(speed: 40))
         let contents = harness.activity.startedContents + harness.activity.updatedContents
         XCTAssertFalse(contents.isEmpty)
         XCTAssertTrue(contents.allSatisfy { !$0.isEnded && $0.showsDisconnectAction && $0.isTimerRunning })
@@ -46,7 +46,7 @@ final class RecordingSessionActivityUseCaseEndedDisplayTests: XCTestCase {
     /// 責務: 失敗で終わっても終了表示と5分後の消去時刻で閉じることを確認します。
     func testFailedEndAlsoUsesEndedDisplay() async {
         let harness = RecordingSessionActivityUseCaseHarness()
-        await harness.send(loaded(harness, speed: 60))
+        await harness.send(loaded(speed: 60))
         harness.currentDate = Date(timeIntervalSince1970: 1_120)
         await harness.send(harness.state(.failed, speed: 60))
 
@@ -58,10 +58,10 @@ final class RecordingSessionActivityUseCaseEndedDisplayTests: XCTestCase {
     /// 責務: 次のセッションの最大値が前のセッションから引き継がれないことを確認します。
     func testMaximumsResetAtNextSession() async {
         let harness = RecordingSessionActivityUseCaseHarness()
-        await harness.send(loaded(harness, speed: 200))
+        await harness.send(loaded(speed: 200))
         await harness.send(harness.state(.idle))
         harness.currentDate = Date(timeIntervalSince1970: 5_000)
-        await harness.send(loaded(harness, speed: 20))
+        await harness.send(loaded(speed: 20))
         harness.currentDate = Date(timeIntervalSince1970: 5_100)
         await harness.send(harness.state(.idle))
 

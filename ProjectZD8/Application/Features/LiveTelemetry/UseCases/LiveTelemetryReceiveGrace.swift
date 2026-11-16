@@ -19,7 +19,7 @@ nonisolated struct LiveTelemetryReceiveGrace: Equatable, Sendable {
     /// - Parameters:
     ///   - lastReceivedNanoseconds: 最後に正応答を受信した(または区間を開始した)時点の単調時計の値。
     ///   - vehicleOffDelay: 車両応答なしと疑われたときに猶予を縮める先の時間。
-    init(lastReceivedNanoseconds: UInt64, vehicleOffDelay: VehicleOffDetectionDelay = .default) {
+    init(lastReceivedNanoseconds: UInt64, vehicleOffDelay: VehicleOffDetectionDelay = .standard) {
         self.lastReceivedNanoseconds = lastReceivedNanoseconds
         self.vehicleOffDelay = vehicleOffDelay
     }

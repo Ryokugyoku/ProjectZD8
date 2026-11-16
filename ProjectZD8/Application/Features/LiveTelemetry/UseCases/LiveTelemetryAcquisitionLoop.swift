@@ -95,7 +95,7 @@ actor LiveTelemetryAcquisitionLoop {
         clock: any MonotonicClockPort,
         linkRecovery: any LiveTelemetryLinkRecoveryPort,
         deadlineWaiter: any LiveTelemetryDeadlineWaitPort,
-        vehicleOffDelay: @escaping @Sendable () -> VehicleOffDetectionDelay = { .default }
+        vehicleOffDelay: @escaping @Sendable () -> VehicleOffDetectionDelay = { .standard }
     ) {
         reader = OBDPIDSingleRequestReader(telemetry: telemetry)
         self.telemetry = telemetry

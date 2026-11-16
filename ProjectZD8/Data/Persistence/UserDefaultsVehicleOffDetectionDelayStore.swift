@@ -26,8 +26,8 @@ nonisolated final class UserDefaultsVehicleOffDetectionDelayStore: VehicleOffDet
     /// 責務: 保存済みの秒数を返し、未保存・整数でない値・選択肢にない秒数は既定の30秒として扱います。
     /// - Returns: 保存済みの時間。
     func load() -> VehicleOffDetectionDelay {
-        guard let seconds = defaults.object(forKey: key) as? Int else { return .default }
-        return VehicleOffDetectionDelay(rawValue: seconds) ?? .default
+        guard let seconds = defaults.object(forKey: key) as? Int else { return .standard }
+        return VehicleOffDetectionDelay(rawValue: seconds) ?? .standard
     }
 
     /// 時間を保存します。

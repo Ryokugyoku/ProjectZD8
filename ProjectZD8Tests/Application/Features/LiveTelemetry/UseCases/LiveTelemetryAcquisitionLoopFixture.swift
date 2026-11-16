@@ -33,7 +33,7 @@ final class LiveTelemetryAcquisitionLoopFixture {
     ///   - vehicleOffDelay: ループへ注入するエンジン停止とみなす時間。
     init(
         recorder: LiveTelemetryRecordingPortSpy? = LiveTelemetryRecordingPortSpy(),
-        vehicleOffDelay: VehicleOffDetectionDelay = .default
+        vehicleOffDelay: VehicleOffDetectionDelay = .standard
     ) {
         self.recorder = recorder
         let dates = dates
