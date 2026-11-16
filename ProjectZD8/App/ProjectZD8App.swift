@@ -242,8 +242,12 @@ struct ProjectZD8App: App {
     /// ログアウト状態へ変わったときに設定スコープと端末内表示状態を初期化します。
     ///
     /// 責務: 認証段階の変化をアカウント設定監視解除とプラットフォーム設定状態の再生成へ反映します。
+    /// 進行中の取得は `AuthenticationAcquisitionEndPolicy` が決めた理由(サインアウトなら `accountSignedOut`)で終えます。
     /// - Parameter phase: Authenticationが確定した新しい認証段階。
     private func handleAuthenticationPhaseChange(_ phase: AuthenticationPhase) {
+        if let reason = AuthenticationAcquisitionEndPolicy().endReason(forChangeTo: phase) {
+            liveTelemetryModel.send(.endRequested(reason))
+        }
         if phase == .signedIn {
             #if os(iOS)
             automaticRecordingModel.send(.signInStateChanged(isSignedIn: true))
@@ -251,7 +255,6 @@ struct ProjectZD8App: App {
             return
         }
         guard phase == .signedOut else { return }
-        liveTelemetryModel.send(.stopRequested)
         connectionSessionLifecycleModel.send(.accountIdentifierChanged(nil))
         connectionHistoryModel.send(.accountIdentifierChanged(nil))
         accountSettingsModel.send(.accountIdentifierChanged(nil))
