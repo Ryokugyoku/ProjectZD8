@@ -88,6 +88,69 @@ final class AdapterLinkRecordingTransitionTests: XCTestCase {
         }
     }
 
+    /// 有効期限内の記録開始の意思があれば、自動記録オフでも検知通知を出さずに記録開始を要求して記録中へ移ります。
+    ///
+    /// 責務: VINあり・なしの両方で、作用が記録開始要求だけ(検知通知・開始通知なし)であることを確認します(U4 受け入れ条件 6)。
+    func testVINReadWithValidIntentStartsRecordingEvenWhenAutomaticRecordingIsOff() {
+        for vin in [F.vin, nil] {
+            let result = transition.vinReadFinished(
+                vin: vin, isAutomaticRecordingEnabled: false, from: readingVIN, conditions: F.conditions(hasValidRecordingIntent: true)
+            )
+            let vehicle = AdapterLinkDetectedVehicle(adapterProbeEvidence: F.evidence, vin: vin)
+            A.assertResult(
+                result,
+                state: .recording(vehicle),
+                effects: [.requestRecordingStart(F.expectedStartRequest(vin: vin))],
+                "\(String(describing: vin))"
+            )
+        }
+    }
+
+    /// 意思があってもリンクの接続対象が無ければ、記録開始を要求しません。
+    ///
+    /// 責務: 接続終端を作れない条件では、意思があっても記録中へ移らないことを確認します。
+    func testVINReadWithValidIntentWithoutLinkPreferenceDoesNotStartRecording() {
+        let result = transition.vinReadFinished(
+            vin: F.vin,
+            isAutomaticRecordingEnabled: false,
+            from: readingVIN,
+            conditions: F.conditions(linkPreference: nil, hasValidRecordingIntent: true)
+        )
+        XCTAssertFalse(result.effects.contains { if case .requestRecordingStart = $0 { true } else { false } })
+        if case .recording = result.state { XCTFail("記録中へ移った: \(result.state)") }
+    }
+
+    /// 記録中に開始の確定が届き、自動記録で始めた記録なら、検知した車両のVINで「記録を開始しました」を出します。状態は変えません。
+    ///
+    /// 責務: VINあり・なしの記録中で、作用が開始通知1件だけで記録中のままであることを確認します(U4 受け入れ条件 1)。
+    func testRecordingStartConfirmedWhileRecordingAnnouncesStart() {
+        for vin in [F.vin, nil] {
+            let recording = AdapterLinkSupervisionState.recording(AdapterLinkDetectedVehicle(adapterProbeEvidence: F.evidence, vin: vin))
+            let result = transition.recordingStartConfirmed(announcesStart: true, from: recording)
+            A.assertResult(result, state: recording, effects: [.presentRecordingStarted(vin: vin)], "\(String(describing: vin))")
+        }
+    }
+
+    /// 通知すべきでない記録(手動・意思で始めた記録)の確定では、記録中でも何も出しません。
+    ///
+    /// 責務: `announcesStart` が偽なら状態も作用も変えないことを確認します(U4 受け入れ条件 4)。
+    func testRecordingStartConfirmedWithoutAnnouncementIsIgnored() {
+        let recording = AdapterLinkSupervisionState.recording(F.detectedVehicle)
+        A.assertIgnored(transition.recordingStartConfirmed(announcesStart: false, from: recording), from: recording)
+    }
+
+    /// 記録中以外(既に終わった・別の段階)に届いた確定は、古い結果として無視します。
+    ///
+    /// 責務: 記録中以外の全状態と抑止中で、`announcesStart` が真でも状態も作用も変えないことを確認します(U4 受け入れ条件 3)。
+    func testRecordingStartConfirmedOutsideRecordingIsIgnored() {
+        let states = F.allStates.filter { if case .recording = $0 { false } else { true } } + [.heldAfterUserStop(.awaitingStart), F.watching()]
+        for state in states {
+            for announces in [true, false] {
+                A.assertIgnored(transition.recordingStartConfirmed(announcesStart: announces, from: state), from: state, "\(state) \(announces)")
+            }
+        }
+    }
+
     /// [記録開始]の選択で、検知通知を取り下げ、記録開始を要求して記録中へ移ります。記録開始通知は出しません。
     ///
     /// 責務: 手動開始の作用が「取り下げ」と「接続終端・VIN・判定結果付きの開始要求」だけであることを確認します。

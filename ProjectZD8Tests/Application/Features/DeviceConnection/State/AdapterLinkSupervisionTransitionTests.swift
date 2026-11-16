@@ -43,6 +43,8 @@ final class AdapterLinkSupervisionTransitionTests: XCTestCase {
             (.recordingStartSelected, [awaiting]),
             (.recordingDidFinish(endReason: nil), [recording, .finishing]),
             (.finishingDidComplete, [.finishing]),
+            (.recordingStartConfirmed(announcesStart: true), [recording]),
+            (.recordingStartConfirmed(announcesStart: false), []),
         ]
     }
 

@@ -126,6 +126,7 @@ enum AdapterLinkSupervisionFixtures {
     ///   - isExternalAdapterUseActive: 手動接続がアダプターを使っているか。
     ///   - isForeground: アプリが前面にいるか。
     ///   - lastVehicleConfirmationSentAt: 最後に車両確認を送った時刻。
+    ///   - hasValidRecordingIntent: 有効期限内の記録開始の意思を保持しているか。
     /// - Returns: 遷移の条件。
     static func conditions(
         isSupervisionStarted: Bool = true,
@@ -136,7 +137,8 @@ enum AdapterLinkSupervisionFixtures {
         now: Date = referenceDate,
         isExternalAdapterUseActive: Bool = false,
         isForeground: Bool = false,
-        lastVehicleConfirmationSentAt: Date? = nil
+        lastVehicleConfirmationSentAt: Date? = nil,
+        hasValidRecordingIntent: Bool = false
     ) -> AdapterLinkSupervisionConditions {
         AdapterLinkSupervisionConditions(
             isSupervisionStarted: isSupervisionStarted,
@@ -147,7 +149,8 @@ enum AdapterLinkSupervisionFixtures {
             now: now,
             isExternalAdapterUseActive: isExternalAdapterUseActive,
             isForeground: isForeground,
-            lastVehicleConfirmationSentAt: lastVehicleConfirmationSentAt
+            lastVehicleConfirmationSentAt: lastVehicleConfirmationSentAt,
+            hasValidRecordingIntent: hasValidRecordingIntent
         )
     }
 

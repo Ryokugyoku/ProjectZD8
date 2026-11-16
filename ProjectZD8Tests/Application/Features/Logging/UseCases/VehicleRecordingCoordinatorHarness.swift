@@ -63,6 +63,9 @@ final class VehicleRecordingCoordinatorHarness {
     /// 監視へ返された記録終了の理由を、返された順に記録します。
     private(set) var finishReasons: [ConnectionSessionEndReason?] = []
 
+    /// 監視へ記録開始の確定を伝えた回数です。
+    private(set) var startConfirmationCount = 0
+
     /// 監視へ手動使用の開始を伝えた回数です。
     private(set) var manualUseBeganCount = 0
 
@@ -90,7 +93,7 @@ final class VehicleRecordingCoordinatorHarness {
 
     /// 調停役の出力クロージャを記録先へ結び付けます。
     ///
-    /// 責務: テレメトリ開始・停止(理由)・リンク可用性、記録終了、手動使用の開始・終了を回数と順序へ記録します。
+    /// 責務: テレメトリ開始・停止(理由)・リンク可用性、記録終了・開始の確定、手動使用の開始・終了を回数と順序へ記録します。
     /// - Parameter connectsTelemetry: テレメトリ開始の出力を設定するかどうか。
     private func connectOutputs(connectsTelemetry: Bool) {
         if connectsTelemetry {
@@ -111,6 +114,10 @@ final class VehicleRecordingCoordinatorHarness {
             self?.finishCount += 1
             self?.finishReasons.append(reason)
             self?.events.append("supervision.finish")
+        }
+        coordinator.supervisedRecordingDidStart = { [weak self] in
+            self?.startConfirmationCount += 1
+            self?.events.append("supervision.start")
         }
         coordinator.manualAdapterUseDidBegin = { [weak self] in
             self?.manualUseBeganCount += 1
