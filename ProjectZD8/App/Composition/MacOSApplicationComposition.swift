@@ -47,30 +47,22 @@ enum MacOSApplicationComposition: ApplicationPlatformComposing {
     ///
     /// 責務: macOSのPID定義永続化を利用可能なGRDB実装または明示的利用不能境界へ変換します。
     /// - Parameter database: プロセス内で共有する製品DB接続。
-    /// - Returns: seed登録済みPID Repository。準備失敗時は利用不能Repository。
+    /// - Returns: seed登録済みPID Repository。準備失敗時は元のエラーを診断へ残し、利用不能Repository。
     static func makeOBDPIDDefinitionRepository(
         database: ApplicationDatabaseConnection
     ) -> any OBDPIDDefinitionRepository {
-        do {
-            let repository = try GRDBOBDPIDDefinitionRepository(databaseQueue: database.databaseQueue())
-            try StandardOBDPIDSeed.install(into: repository)
-            try ZD8OBDPIDSeed.install(into: repository)
-            return repository
-        } catch {
-            return UnavailableOBDPIDDefinitionRepository()
-        }
+        ProductDatabaseRepositoryFactory().makeOBDPIDDefinitionRepository(database: database)
     }
 
     /// 共有製品DB接続から車両別対応PID保存先を生成します。
     ///
     /// 責務: macOSの車両別対応PID永続化を利用可能または明示的利用不能境界へ変換します。
     /// - Parameter database: プロセス内で共有する製品DB接続。
-    /// - Returns: 車両別対応PID Repository。準備失敗時は利用不能Repository。
+    /// - Returns: 車両別対応PID Repository。準備失敗時は元のエラーを診断へ残し、利用不能Repository。
     static func makeVehiclePIDCapabilityRepository(
         database: ApplicationDatabaseConnection
     ) -> any VehiclePIDCapabilityRepository & AccountVehiclePIDCapabilityErasureRepository {
-        (try? GRDBVehiclePIDCapabilityRepository(databaseQueue: database.databaseQueue()))
-            ?? UnavailableVehiclePIDCapabilityRepository()
+        ProductDatabaseRepositoryFactory().makeVehiclePIDCapabilityRepository(database: database)
     }
 
     /// CloudKit同期と選択済みELM/STNアダプター通信を注入した車両管理モデルを生成します。
@@ -144,9 +136,7 @@ enum MacOSApplicationComposition: ApplicationPlatformComposing {
     /// - Parameter database: プロセス内で共有する製品DB接続。
     /// - Returns: オフライン保存とCloudKit双方向同期を使用する整備モデル。DB準備失敗時は保存先が利用不能境界になります。
     static func makeMaintenanceModel(database: ApplicationDatabaseConnection) -> MaintenanceModel {
-        let repository: any MaintenanceRecordRepository =
-            (try? GRDBMaintenanceRecordRepository(databaseQueue: database.databaseQueue()))
-            ?? UnavailableMaintenanceRecordRepository()
+        let repository = ProductDatabaseRepositoryFactory().makeMaintenanceRecordRepository(database: database)
         return MaintenanceModel(
             state: MaintenanceState(),
             repository: repository,
