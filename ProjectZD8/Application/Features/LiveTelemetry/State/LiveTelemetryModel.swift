@@ -27,6 +27,10 @@ final class LiveTelemetryModel {
     @ObservationIgnored private var acquisitionTask: Task<Void, Never>?
     /// 古い取得の出来事を新しい接続状態へ反映しないための世代です。
     @ObservationIgnored private var generation: UInt = 0
+    /// 受け付けて終わりを待っている停止の世代です(停止で進めた後の世代)。停止を待っていなければ `nil` です。
+    ///
+    /// 同じ世代のうちに届いた2つ目の停止は受け付けず、先の停止の理由で取得記録と終了通知を1回だけ終えます。
+    @ObservationIgnored private var pendingStopGeneration: UInt?
     /// 表示更新の間引き状態です。
     @ObservationIgnored private var refreshThrottle = LiveTelemetryDisplayRefreshThrottle()
     /// 初回周回で確定した取得対象です。表示順の基準に使います。
@@ -144,15 +148,19 @@ final class LiveTelemetryModel {
     ///
     /// 責務: 停止理由を取得中の世代へ先に結び付けてから購読を無効化して取得ループを止め、終了を待ってスリープ抑止解除済みの待機状態へ戻します。
     /// 理由を取り消しより先に結び付けるので、購読の終了で取得Taskが先に取り消されても記録の終了原因は同じ理由になります。
+    /// 先に受け付けた停止の終わりを待っている間(その後に新しい取得が始まっていない間)に届いた停止は受け付けません
+    /// (取得記録と終了通知の理由を先の停止の理由で揃え、終了通知を1回にするため)。取得が動いていなければ理由を結び付けません。
     /// - Parameter reason: 停止の理由。取得記録と終了通知の両方へ同じ値を渡します。
     private func stop(reason: ConnectionSessionEndReason) {
+        guard pendingStopGeneration != generation else { return }
         let shouldNotifySessionEnd = acquisitionTask != nil || state.isConnectionActive
         let previousTask = acquisitionTask
-        acquisitionLoop.registerStopReason(reason, forGeneration: generation)
+        if previousTask != nil { acquisitionLoop.registerStopReason(reason, forGeneration: generation) }
         previousTask?.cancel()
         acquisitionTask = nil
         generation &+= 1
         let generation = generation
+        pendingStopGeneration = generation
         state.phase = .stopping
         state.failureKey = nil
         state.pauseStatus = nil
@@ -161,6 +169,7 @@ final class LiveTelemetryModel {
             let termination = await acquisitionLoop.stop(reason: reason)
             await prepareAcquisition.endSession()
             guard let self, self.generation == generation else { return }
+            self.pendingStopGeneration = nil
             self.finishStop(termination: termination, stopReason: reason, notifiesSessionEnd: shouldNotifySessionEnd)
         }
     }
@@ -194,7 +203,8 @@ final class LiveTelemetryModel {
 
     /// 取得対象を確定して取得ループを始め、その出来事を購読します。
     ///
-    /// 責務: 1世代の取得準備と出来事の購読を行い、古い世代の出来事を捨てます。
+    /// 責務: 1世代の取得準備と出来事の購読を行い、古い世代の出来事を捨てます。取得ループを始めずに終える世代
+    /// (準備の失敗・準備中の取り消し)は、結び付けた停止の理由を取り出されないまま残さないよう消します。
     /// - Parameters:
     ///   - endpoint: OBDアダプターの物理終端。
     ///   - vehicle: 登録済み車両(ID・型式コード)または未登録。
@@ -210,12 +220,16 @@ final class LiveTelemetryModel {
         do {
             prepared = try await prepareAcquisition.execute(vehicle: vehicle, endpoint: endpoint)
         } catch {
+            acquisitionLoop.discardStopReason(forGeneration: generation)
             await prepareAcquisition.endSession()
             guard self.generation == generation, !(error is CancellationError) else { return }
             handlePreparationFailure(error)
             return
         }
-        guard self.generation == generation, !Task.isCancelled else { return }
+        guard self.generation == generation, !Task.isCancelled else {
+            acquisitionLoop.discardStopReason(forGeneration: generation)
+            return
+        }
         let events = await acquisitionLoop.start(
             LiveTelemetryAcquisitionLoopInput(
                 generation: generation,

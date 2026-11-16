@@ -34,7 +34,8 @@ import Foundation
 ///   届いたリンク復帰も、一時停止に入った時点でリンクが使えると分かっていれば待たずに復帰を試させます。
 /// - 停止の理由は `LiveTelemetryStopReasonRegistry` で世代ごとに覚えます。`registerStopReason` は取得Taskの取り消しより先に
 ///   同期的に結び付けるための入口で、`stop(reason:)` も取り消しの前に結び付けます。新しい世代の `start` で取り消された前の世代は
-///   置き換え(`superseded`)です。理由の無い世代はユーザー切断として記録を終えます。取得記録の終了原因は
+///   置き換え(`superseded`)です。理由の無い世代はユーザー切断として記録を終えます。1世代の取得を終えた時に、その世代以前の
+///   (取得が始まらず取り出されなかった世代を含む)理由を消します。取得記録の終了原因は
 ///   `LiveTelemetryAcquisitionTermination.sessionEndReason(stoppedFor:)` でその理由から決めます。
 actor LiveTelemetryAcquisitionLoop {
     /// 1件ずつ要求を送る読取部品です。
@@ -155,6 +156,21 @@ actor LiveTelemetryAcquisitionLoop {
         stopReasons.register(reason, for: generation)
     }
 
+    /// 取得ループを始めずに終えた世代の停止の理由を消します。
+    ///
+    /// 責務: 準備の失敗・準備中の取り消しで取得Taskが作られなかった世代の理由を、取り出されないまま残さないよう消します。
+    /// - Parameter generation: 取得ループを始めなかった世代。
+    nonisolated func discardStopReason(forGeneration generation: UInt) {
+        _ = stopReasons.take(for: generation)
+    }
+
+    /// 停止の理由を結び付けたまま取り出されていない世代の件数です。
+    ///
+    /// 責務: 取得が始まらなかった世代の登録が溜まり続けていないかを確かめられるよう、件数を返します。
+    nonisolated var registeredStopReasonCount: Int {
+        stopReasons.registeredCount
+    }
+
     /// 件数や経過にかかわらず保存待ちの記録を保存させます。
     ///
     /// 責務: 現在の世代の記録境界へflushを指示し、失敗を世代ごとに保持します。
@@ -207,7 +223,7 @@ actor LiveTelemetryAcquisitionLoop {
             termination = Task.isCancelled || error is CancellationError ? .stopped : .recordingFailed
         }
         termination = await finishRecording(generation: input.generation, termination: termination)
-        _ = stopReasons.take(for: input.generation)
+        stopReasons.discard(through: input.generation)
         await telemetry.endSession()
         if flushFailedGeneration == input.generation { flushFailedGeneration = nil }
         if runningGeneration == input.generation {
