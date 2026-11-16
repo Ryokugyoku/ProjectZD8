@@ -16,11 +16,8 @@ final class IOSAdapterLinkSupervisionDriver {
     /// サインイン中アカウントの識別子(サインアウトでは `nil`)を記録側へ伝える処理です。
     private let accountIdentifierDidChange: @MainActor (String?) -> Void
 
-    /// 最後に伝えた認証段階です。同じ段階の再通知を省くために使います。
-    private var lastAuthenticationPhase: AuthenticationPhase?
-
-    /// 最後に伝えたアカウント識別子です。
-    private var lastAccountIdentifier: String?
+    /// 認証状態から監視と記録側へ伝える指示を決める純粋型です。同じ段階・同じ識別子の再通知を省きます。
+    private var authenticationRelay = AdapterLinkSupervisionAuthenticationRelay()
 
     /// 常駐リンク監視と認証状態の持ち主を固定して生成します。
     ///
@@ -87,23 +84,18 @@ final class IOSAdapterLinkSupervisionDriver {
 
     /// 現在の認証状態を監視と記録側へ伝えます。
     ///
-    /// 責務: 段階が変わった時だけサインイン有無を監視へ伝え、サインイン/サインアウトのアカウント識別子を記録側へ伝えます。
-    /// サインアウト(アカウント削除・他端末からのログアウトを含む)では既定アダプター設定が消えている場合があるので読み直させます。
+    /// 責務: 認証状態を `AdapterLinkSupervisionAuthenticationRelay` へ渡し、返った指示(識別子の変化・サインイン有無・
+    /// 既定アダプター設定の読み直し)だけを記録側と監視へ写します。
     private func applyAuthenticationState() {
         let state = authentication.state
-        let accountIdentifier: String? = switch state.phase {
-        case .signedIn: state.session?.userIdentifier
-        case .signedOut: nil
-        default: lastAccountIdentifier
+        let instruction = authenticationRelay.apply(phase: state.phase, userIdentifier: state.session?.userIdentifier)
+        if let change = instruction.accountIdentifierChange {
+            accountIdentifierDidChange(change.accountIdentifier)
         }
-        if accountIdentifier != lastAccountIdentifier {
-            lastAccountIdentifier = accountIdentifier
-            accountIdentifierDidChange(accountIdentifier)
+        if let isSignedIn = instruction.isSignedIn {
+            supervision.authenticationDidChange(isSignedIn: isSignedIn)
         }
-        guard state.phase != lastAuthenticationPhase else { return }
-        lastAuthenticationPhase = state.phase
-        supervision.authenticationDidChange(isSignedIn: state.phase == .signedIn)
-        if state.phase == .signedOut {
+        if instruction.reloadsDefaultAdapterPreference {
             supervision.defaultAdapterPreferenceDidChange()
         }
     }

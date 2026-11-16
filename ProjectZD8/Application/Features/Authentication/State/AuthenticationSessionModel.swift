@@ -39,6 +39,18 @@ final class AuthenticationSessionModel {
     @ObservationIgnored
     private var accountDeletionTask: Task<Void, Never>?
 
+    /// サインイン確認の再確認をすべき状態かの判定です。
+    @ObservationIgnored
+    private let recheckPolicy: AuthenticationSessionRecheckPolicy
+
+    /// サインイン確認の再確認を待ち時間と上限に沿って実行する列です。
+    @ObservationIgnored
+    private let recheckScheduler: AuthenticationSessionRecheckScheduler
+
+    /// 直近のサインイン確認が照会の失敗(throw)のまま解決していないかどうかです。手動サインインの開始で解除します。
+    @ObservationIgnored
+    private var isSessionCheckUnresolved = false
+
     /// 初期表示状態、認証ユースケース、端末間失効境界を注入します。
     ///
     /// 責務: 認証入口の状態遷移をApple認証と端末間セッション失効のApplication境界へ結び付けます。
@@ -49,15 +61,21 @@ final class AuthenticationSessionModel {
     ///   - deleteAccount: アカウント保存データとログイン識別子を削除するユースケース。
     ///   - remoteAccountLogout: 他端末から失効されたアカウントを端末内からログアウトするユースケース。
     ///   - sessionRevocation: アカウント別セッション失効の同期境界。
+    ///   - recheckPolicy: サインイン確認が照会の失敗だった時の再確認の待ち時間と上限。
+    ///   - recheckSleep: 再確認の待機に使う処理。テストは実時間を待たない実装を渡します。
     init(
         state: AuthenticationState,
         restoreSession: RestoreAuthenticationSessionUseCase,
         signInWithApple: SignInWithAppleUseCase,
         deleteAccount: DeleteAccountUseCase,
         remoteAccountLogout: RemoteAccountLogoutUseCase,
-        sessionRevocation: any AccountSessionRevocationPort
+        sessionRevocation: any AccountSessionRevocationPort,
+        recheckPolicy: AuthenticationSessionRecheckPolicy = .standard,
+        recheckSleep: @escaping AuthenticationSessionRecheckScheduler.Sleep = { try await Task.sleep(for: $0) }
     ) {
         self.state = state
+        self.recheckPolicy = recheckPolicy
+        recheckScheduler = AuthenticationSessionRecheckScheduler(policy: recheckPolicy, sleep: recheckSleep)
         self.restoreSession = restoreSession
         self.signInWithApple = signInWithApple
         self.deleteAccount = deleteAccount
@@ -78,6 +96,8 @@ final class AuthenticationSessionModel {
         switch action {
         case .appeared:
             beginSessionRestorationIfNeeded()
+        case .foregroundEntered:
+            restartSessionRecheckIfNeeded(immediately: true)
         case .loginTapped:
             presentDisclaimerIfPossible()
         case .disclaimerDismissed:
@@ -165,18 +185,77 @@ final class AuthenticationSessionModel {
             guard let self else { return }
             defer { restorationTask = nil }
             do {
-                let session = try await restoreSession.execute()
-                state.session = session
-                state.phase = session == nil ? .signedOut : .signedIn
-                if let userIdentifier = session?.userIdentifier {
-                    startObservingSessionRevocation(for: userIdentifier)
-                }
+                applyConfirmedSession(try await restoreSession.execute())
             } catch {
-                state.session = nil
-                state.phase = .signedOut
-                state.failure = .sessionCheckFailed
+                applyUnconfirmedSessionCheck()
+                restartSessionRecheckIfNeeded(immediately: false)
             }
         }
+    }
+
+    /// 照会で確かめられたセッションを状態へ反映します。
+    ///
+    /// 責務: 有効なセッションならサインイン済みにして失効の監視を始め、`nil`(本当に未サインイン/失効)ならエラーなしのサインアウトにします。
+    /// どちらも確認は解決したものとして再確認をやめます。
+    /// - Parameter session: 照会の結果。
+    private func applyConfirmedSession(_ session: AppleAccountSession?) {
+        isSessionCheckUnresolved = false
+        recheckScheduler.cancel()
+        state.session = session
+        if state.failure == .sessionCheckFailed {
+            state.failure = nil
+        }
+        guard let userIdentifier = session?.userIdentifier else {
+            state.phase = .signedOut
+            return
+        }
+        state.isDisclaimerPresented = false
+        state.phase = .signedIn
+        startObservingSessionRevocation(for: userIdentifier)
+    }
+
+    /// 照会に失敗した(確認できなかった)ことを状態へ反映します。
+    ///
+    /// 責務: 確認できていない資格を信用せず、ログイン画面と `.sessionCheckFailed` を出し、再確認の対象にします。
+    private func applyUnconfirmedSessionCheck() {
+        isSessionCheckUnresolved = true
+        state.session = nil
+        state.phase = .signedOut
+        state.failure = .sessionCheckFailed
+    }
+
+    /// 再確認すべき状態なら、回数を取り直して再確認の列を始めます。
+    ///
+    /// 責務: 判定が再確認を許す時だけ、即時(前面復帰)または待ち時間の後からの再確認を始めます。
+    /// - Parameter immediately: 待たずに1回再確認するかどうか。
+    private func restartSessionRecheckIfNeeded(immediately: Bool) {
+        guard recheckPolicy.shouldRecheck(phase: state.phase, isSessionCheckUnresolved: isSessionCheckUnresolved) else { return }
+        recheckScheduler.start(immediately: immediately) { [weak self] in
+            await self?.recheckSession() ?? .resolved
+        }
+    }
+
+    /// サインイン確認を1回やり直し、結果を状態へ反映します。
+    ///
+    /// 責務: 再確認すべき状態の時だけ照会し、取り消し後や手動サインイン開始後に戻った結果は捨てます。
+    /// - Returns: 確認が解決したか、まだ確認できないか。
+    private func recheckSession() async -> AuthenticationSessionRecheckScheduler.Outcome {
+        guard recheckPolicy.shouldRecheck(phase: state.phase, isSessionCheckUnresolved: isSessionCheckUnresolved) else {
+            return .resolved
+        }
+        let result: AppleAccountSession??
+        do {
+            result = .some(try await restoreSession.execute())
+        } catch {
+            result = nil
+        }
+        guard !Task.isCancelled,
+              recheckPolicy.shouldRecheck(phase: state.phase, isSessionCheckUnresolved: isSessionCheckUnresolved) else {
+            return .resolved
+        }
+        guard let session = result else { return .unresolved }
+        applyConfirmedSession(session)
+        return .resolved
     }
 
     /// ログイン待機中の場合に限り免責事項を提示します。
@@ -201,6 +280,8 @@ final class AuthenticationSessionModel {
         state.isDisclaimerPresented = false
         state.failure = nil
         state.phase = .signingIn
+        isSessionCheckUnresolved = false
+        recheckScheduler.cancel()
         signInTask = Task { [weak self] in
             guard let self else { return }
             defer { signInTask = nil }
