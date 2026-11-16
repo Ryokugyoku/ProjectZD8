@@ -28,7 +28,7 @@
 | 現在の事実 | 設計への含意 | 区分 |
 | --- | --- | --- |
 | `OBDPIDPollingPolicy`は高優先4 PIDを毎tick、その他を8 tickごとに選ぶ | policy versionとtickごとの選択集合がなければcadence差と欠測を分離できない | `currentImplementation` |
-| `ReadMajorOBDPIDsUseCase`は応答辞書に存在するPIDだけをRaw通知する | 現Rawだけから要求分母、非応答、timeoutを復元できない | `currentImplementation` |
+| `ReadMajorOBDPIDsUseCase`は応答辞書に存在するPIDだけをRaw通知する(計画時点。この一括読取は後に削除され、現在の取得は取得ループと取得記録が担う) | 現Rawだけから要求分母、非応答、timeoutを復元できない | `currentImplementation` |
 | `OBDPIDTelemetryPort`は応答辞書または一括errorを返す | PID別結果を保存する前に、Data adapterが観測できる結果を構造化する契約が必要である | `currentImplementation` |
 | Rawは`ConnectionSessionLifecycleModel`を経由してGRDBへ追記される | metadataと要求結果もdevice callbackからApplication orchestrationを経てDomain repositoryへ渡す | `currentImplementation` |
 | Rawの主キーは`(sessionID, sequence)`で、明示batch IDがない | batch、request outcome、Raw payloadは別の永続化表現にし、Raw行を上書きしない | `currentImplementation` |
