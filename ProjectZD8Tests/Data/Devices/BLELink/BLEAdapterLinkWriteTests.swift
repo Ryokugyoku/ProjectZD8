@@ -5,7 +5,9 @@ import XCTest
 /// `BLEAdapterLink.write(_:)` の分割・書き込み種別・送信制御・順序・未接続時の失敗を検証します(受け入れ条件9)。
 @MainActor
 final class BLEAdapterLinkWriteTests: XCTestCase {
+    /// 実物のリンクとフェイクを組み合わせた準備の型です。
     private typealias Harness = BLEAdapterLinkTestHarness
+    /// BLE UART の Characteristic 能力の共通 fixture です。
     private typealias Fixtures = BLEUARTCapabilityFixtures
 
     /// 応答なし書き込みの最大書き込み長です。

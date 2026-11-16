@@ -5,7 +5,9 @@ import XCTest
 /// `BLEAdapterLink` の探索・プロファイル解決・Notify有効化と未知プロファイルの終端を検証します(受け入れ条件3・4)。
 @MainActor
 final class BLEAdapterLinkDiscoveryTests: XCTestCase {
+    /// 実物のリンクとフェイクを組み合わせた準備の型です。
     private typealias Harness = BLEAdapterLinkTestHarness
+    /// BLE UART の Characteristic 能力の共通 fixture です。
     private typealias Fixtures = BLEUARTCapabilityFixtures
 
     /// 条件3: 接続成功で `discovering` になり、Service探索を要求します。

@@ -1,10 +1,12 @@
 import Foundation
 import XCTest
 
-/// 製品ソースの統合ログの生成箇所が、すべて共通の subsystem(`DiagnosticsLogSubsystem.identifier`)と決まった category を使うことを検証します。
+/// 製品ソース(アプリと Widget Extension)の統合ログの生成箇所が、すべて共通の subsystem(`DiagnosticsLogSubsystem.identifier`)と決まった category を使うことを検証します。
 final class DiagnosticsLogSubsystemTests: XCTestCase {
     /// 共通の subsystem の式です。
     private static let sharedSubsystem = "DiagnosticsLogSubsystem.identifier"
+    /// 走査する製品ソースのディレクトリです(アプリと Live Activity の Widget Extension)。
+    private static let productDirectories = ["ProjectZD8", "RecordingSessionLiveActivity"]
     /// 共通の subsystem を定義するファイルです。
     private static let definitionPath = "ProjectZD8/Data/Diagnostics/DiagnosticsLogSubsystem.swift"
     /// 製品ソースで使ってよい category の集合です(signpost は変更前の値 `AcquisitionPerformance`)。
@@ -19,7 +21,8 @@ final class DiagnosticsLogSubsystemTests: XCTestCase {
     ///
     /// 責務: 複数行の引数を含む各生成箇所の subsystem を確認します。
     func testEveryCreationSiteUsesSharedSubsystem() throws {
-        let sites = try DiagnosticsLogSourceScanner().creationSites(under: "ProjectZD8")
+        let scanner = try DiagnosticsLogSourceScanner()
+        let sites = try Self.productDirectories.flatMap { try scanner.creationSites(under: $0) }
 
         XCTAssertFalse(sites.isEmpty, "生成箇所が見つかりません(走査の不具合)")
         for site in sites {
@@ -34,7 +37,9 @@ final class DiagnosticsLogSubsystemTests: XCTestCase {
         let scanner = try DiagnosticsLogSourceScanner()
         let regex = try NSRegularExpression(pattern: #"subsystem:\s*([^,\)\n]+)"#)
         var occurrences = 0
-        for source in try scanner.swiftSources(under: "ProjectZD8") where source.path != Self.definitionPath {
+        let sources = try Self.productDirectories.flatMap { try scanner.swiftSources(under: $0) }
+        XCTAssertTrue(sources.contains { $0.path.hasPrefix("RecordingSessionLiveActivity/") }, "Extension のソースを走査していません")
+        for source in sources where source.path != Self.definitionPath {
             let code = DiagnosticsLogSourceScanner.removingCommentLines(source.text)
             for match in regex.matches(in: code, range: NSRange(code.startIndex..., in: code)) {
                 occurrences += 1
@@ -49,7 +54,8 @@ final class DiagnosticsLogSubsystemTests: XCTestCase {
     ///
     /// 責務: 各生成箇所が category を持ち、その集合が期待どおりであることを確認します。
     func testCategoriesMatchExpectedSet() throws {
-        let sites = try DiagnosticsLogSourceScanner().creationSites(under: "ProjectZD8")
+        let scanner = try DiagnosticsLogSourceScanner()
+        let sites = try Self.productDirectories.flatMap { try scanner.creationSites(under: $0) }
 
         XCTAssertFalse(sites.isEmpty, "生成箇所が見つかりません(走査の不具合)")
         for site in sites {

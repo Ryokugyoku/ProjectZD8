@@ -5,7 +5,9 @@ import XCTest
 /// `BLEAdapterLink` のNotify受信の受け渡しを検証します(受け入れ条件10)。
 @MainActor
 final class BLEAdapterLinkReceiveTests: XCTestCase {
+    /// 実物のリンクとフェイクを組み合わせた準備の型です。
     private typealias Harness = BLEAdapterLinkTestHarness
+    /// BLE UART の Characteristic 能力の共通 fixture です。
     private typealias Fixtures = BLEUARTCapabilityFixtures
 
     /// Notifyで届いたバイト列が届いた順に・欠落なく・内容を変えずにハンドラへ渡ります。

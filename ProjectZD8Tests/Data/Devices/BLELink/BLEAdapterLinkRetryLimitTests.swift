@@ -5,6 +5,7 @@ import XCTest
 /// `BLEAdapterLink` の再接続上限と探索待機上限を検証します(受け入れ条件11)。
 @MainActor
 final class BLEAdapterLinkRetryLimitTests: XCTestCase {
+    /// 実物のリンクとフェイクを組み合わせた準備の型です。
     private typealias Harness = BLEAdapterLinkTestHarness
 
     /// 上限ちょうどの回数までは再試行し、上限を超えたら connect を呼ばず `retryLimitExceeded` で止まります。

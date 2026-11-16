@@ -3,6 +3,7 @@ import XCTest
 
 /// `BLEUARTDiscoveryAggregator` の探索結果の集約と送受信路の解決を検証します。
 final class BLEUARTDiscoveryAggregatorTests: XCTestCase {
+    /// BLE UART の Characteristic 能力の共通 fixture です。
     private typealias Fixtures = BLEUARTCapabilityFixtures
 
     /// 生成直後は未完了で、解決できません。

@@ -4,6 +4,7 @@ import XCTest
 
 /// `BLEWriteChunker.chunks(of:maximumLength:)` の分割と境界値を検証します。
 final class BLEWriteChunkerTests: XCTestCase {
+    /// 検証対象の分割器です。
     private let chunker = BLEWriteChunker()
 
     /// 最大長が0以下なら明示的に失敗します。

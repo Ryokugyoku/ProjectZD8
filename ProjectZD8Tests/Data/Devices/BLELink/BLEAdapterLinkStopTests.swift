@@ -5,6 +5,7 @@ import XCTest
 /// `BLEAdapterLink.stop()` と終端からのやり直しを検証します(受け入れ条件12)。
 @MainActor
 final class BLEAdapterLinkStopTests: XCTestCase {
+    /// 実物のリンクとフェイクを組み合わせた準備の型です。
     private typealias Harness = BLEAdapterLinkTestHarness
 
     /// スキャン中の `stop()` はスキャンを止めて `idle` になります。

@@ -8,7 +8,9 @@ import XCTest
 /// 期限の待機は「書き込みを始めた後に新しく要求され、まだ戻していない待機」として探します(探索の期限とは別の期限)。
 @MainActor
 final class BLEAdapterLinkWriteTimeoutTests: XCTestCase {
+    /// 実物のリンクとフェイクを組み合わせた準備の型です。
     private typealias Harness = BLEAdapterLinkTestHarness
+    /// BLE UART の Characteristic 能力の共通 fixture です。
     private typealias Fixtures = BLEUARTCapabilityFixtures
 
     /// 応答なし書き込みの最大書き込み長です。
