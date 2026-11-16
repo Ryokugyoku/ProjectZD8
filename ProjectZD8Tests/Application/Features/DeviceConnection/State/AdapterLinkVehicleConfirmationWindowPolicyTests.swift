@@ -34,24 +34,24 @@ final class AdapterLinkVehicleConfirmationWindowPolicyTests: XCTestCase {
         }
     }
 
-    /// 窓の外では、前面なら取り直し、背面なら休止です。
+    /// 窓の外では、前面なら取り直し、背面なら窓後の間隔の確認です。
     ///
-    /// 責務: 終了時刻ちょうどと直後で、前面は `.renewWindow`、背面は `.pause` になることを確認します。
-    func testOutsideWindowRenewsInForegroundAndPausesInBackground() {
+    /// 責務: 終了時刻ちょうどと直後で、前面は `.renewWindow`、背面は `.extendedConfirmation` になることを確認します。
+    func testOutsideWindowRenewsInForegroundAndExtendsInBackground() {
         for now in [F.date(600), F.date(600.001)] {
             XCTAssertEqual(policy.decision(for: F.confirmation(attemptCount: 3), now: now, isForeground: true), .renewWindow, "\(now)")
-            XCTAssertEqual(policy.decision(for: F.confirmation(attemptCount: 3), now: now, isForeground: false), .pause, "\(now)")
+            XCTAssertEqual(policy.decision(for: F.confirmation(attemptCount: 3), now: now, isForeground: false), .extendedConfirmation, "\(now)")
         }
     }
 
-    /// 回数上限に達したら、背面では窓の内外によらず休止し、前面では休止せず窓と回数を取り直します。
+    /// 回数上限に達したら、背面では窓の内外によらず窓後の間隔の確認へ移り、前面では休止せず窓と回数を取り直します。
     ///
-    /// 責務: 回数600で、背面は窓の内外とも `.pause`、前面は窓の内外とも `.renewWindow` になることを確認します
+    /// 責務: 回数600で、背面は窓の内外とも `.extendedConfirmation`、前面は窓の内外とも `.renewWindow` になることを確認します
     /// (U8 R6。仕様「前面にいる間は休止に入らない」)。
-    func testAttemptLimitPausesInBackgroundAndRenewsInForeground() {
+    func testAttemptLimitExtendsInBackgroundAndRenewsInForeground() {
         for now in [F.date(10), F.date(600)] {
             let confirmation = F.confirmation(attemptCount: F.maximumAttempts)
-            XCTAssertEqual(policy.decision(for: confirmation, now: now, isForeground: false), .pause, "背面 \(now)")
+            XCTAssertEqual(policy.decision(for: confirmation, now: now, isForeground: false), .extendedConfirmation, "背面 \(now)")
             XCTAssertEqual(policy.decision(for: confirmation, now: now, isForeground: true), .renewWindow, "前面 \(now)")
         }
     }

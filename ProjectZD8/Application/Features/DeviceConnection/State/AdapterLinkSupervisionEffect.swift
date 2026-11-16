@@ -21,6 +21,11 @@ nonisolated enum AdapterLinkSupervisionEffect: Equatable, Sendable {
     /// 最短間隔に達するまでの残り時間だけ待ってから次の確認を促します(`vehicleConfirmationIntervalElapsed` を入力します)。
     case scheduleVehicleConfirmation(after: Duration)
 
+    /// 指定した時間だけ待ってから再初期化を促します(`adapterInitializationRetryElapsed` を入力します)。
+    ///
+    /// 初期化の失敗で待機へ戻ったとき、リンクが `ready` のままなら出します。取り消し・リンク断・手動接続の開始・停止で取り消されます。
+    case scheduleAdapterInitializationRetry(after: Duration)
+
     /// 自動記録設定を読み込んだ上でVINを読み取ります。
     case readVIN
 

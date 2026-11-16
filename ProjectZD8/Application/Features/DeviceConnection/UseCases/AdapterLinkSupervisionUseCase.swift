@@ -164,7 +164,7 @@ final class AdapterLinkSupervisionUseCase {
 
     /// アプリの前面復帰を反映します。
     ///
-    /// 責務: 前面にいることを稼働条件へ反映し、リンクが `ready` の待機・休止中または窓切れの車両確認・抑止中の見張りを再開します。
+    /// 責務: 前面にいることを稼働条件へ反映し、リンクが `ready` の待機・窓切れの車両確認・抑止中の見張りを再開します。
     func appDidBecomeActive() {
         isForeground = true
         send(.appDidBecomeActive)
@@ -172,7 +172,7 @@ final class AdapterLinkSupervisionUseCase {
 
     /// アプリが背面へ移ったことを反映します。
     ///
-    /// 責務: 前面ではないことを稼働条件へ反映します。背面では窓切れで車両確認を休止します。状態は変えません。
+    /// 責務: 前面ではないことを稼働条件へ反映します。状態は変えません。背面でも車両確認は窓後の間隔(60秒)で続きます。
     func appDidEnterBackground() {
         isForeground = false
     }
@@ -219,15 +219,17 @@ final class AdapterLinkSupervisionUseCase {
 
     /// 常駐リンク以外の経路(手動接続)がアダプターを使い始めたことを反映します。
     ///
-    /// 責務: 使い終えるまで初期化・車両確認を抑止し、進行中の確認・検知を取り消します。記録中なら置き換えとして停止を要求します。リンクは止めません。
+    /// 責務: 使い終えるまで初期化・車両確認を抑止し、進行中の確認・検知と予約中の初期化再試行を取り消します。
+    /// 記録中なら置き換えとして停止を要求します。リンクは止めません。
     func externalAdapterUseDidBegin() {
         isExternalAdapterUseActive = true
+        operations.cancelInitializationRetry()
         send(.externalAdapterUseBegan)
     }
 
     /// 常駐リンク以外の経路(手動接続)がアダプターを使い終えたことを反映します。
     ///
-    /// 責務: 抑止を解きます。すぐには再確認せず、次の再接続か前面復帰で初期化からやり直します。
+    /// 責務: 抑止を解きます。待機でリンクが `ready` なら、すぐ初期化からやり直します。
     func externalAdapterUseDidEnd() {
         isExternalAdapterUseActive = false
         send(.externalAdapterUseEnded)
@@ -336,6 +338,7 @@ final class AdapterLinkSupervisionUseCase {
             link.start(preference: preference)
         case .stopLink:
             linkPreference = nil
+            operations.cancelInitializationRetry()
             link.stop()
         case .prepareNotifications:
             prepareNotificationsIfNeeded()
@@ -350,6 +353,8 @@ final class AdapterLinkSupervisionUseCase {
             operations.confirmVehicle(timeout: timeout)
         case let .scheduleVehicleConfirmation(duration):
             operations.scheduleVehicleConfirmation(after: duration)
+        case let .scheduleAdapterInitializationRetry(duration):
+            operations.scheduleInitializationRetry(after: duration)
         case .readVIN:
             lastVehicleConfirmationSentAt = nil
             operations.readVIN()

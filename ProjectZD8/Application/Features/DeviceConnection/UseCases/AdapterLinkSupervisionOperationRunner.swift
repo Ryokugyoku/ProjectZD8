@@ -1,6 +1,7 @@
-/// 常駐リンク監視の非同期の作用(初期化・車両確認・見張りの確認・最短間隔の待機・VIN読取)を世代管理付きで実行します。
+/// 常駐リンク監視の非同期の作用(初期化・車両確認・見張りの確認・最短間隔の待機・VIN読取・初期化再試行の待機)を世代管理付きで実行します。
 ///
 /// `cancel()` の後に古い処理の結果が届いても `eventDidOccur` へは渡しません。
+/// 初期化再試行の待機は他の処理と並行して1件だけ持ち、`cancelInitializationRetry()`・`cancel()`・`initializeAdapter()` で取り消されます。
 @MainActor
 final class AdapterLinkSupervisionOperationRunner {
     /// 非同期の作用が完了したときに状態機械へ入力するイベントの受け口です。
@@ -27,6 +28,12 @@ final class AdapterLinkSupervisionOperationRunner {
     /// 実行中の非同期処理です。
     private var task: Task<Void, Never>?
 
+    /// 予約中の初期化再試行の待機です。
+    private var retryTask: Task<Void, Never>?
+
+    /// 現在有効な初期化再試行の世代です。取り消し・再予約のたびに進めます。
+    private var retryGeneration = 0
+
     /// 非同期の作用に使う能力を注入して生成します。
     ///
     /// 責務: 初期化・車両確認・VIN読取・自動記録設定・待機の依存関係を固定します。
@@ -52,17 +59,48 @@ final class AdapterLinkSupervisionOperationRunner {
 
     /// 進行中の処理を取り消し、後から届く結果を無効にします。
     ///
-    /// 責務: 世代を進めて実行中のタスクをキャンセルします。
+    /// 責務: 世代を進めて実行中のタスクをキャンセルし、予約中の初期化再試行も取り消します。
     func cancel() {
         generation &+= 1
         task?.cancel()
         task = nil
+        cancelInitializationRetry()
+    }
+
+    /// 予約中の初期化再試行を取り消します。
+    ///
+    /// 責務: 予約の世代を進めてタスクをキャンセルし、待機が明けても何も入力させません。進行中の他の処理は止めません。
+    func cancelInitializationRetry() {
+        retryGeneration &+= 1
+        retryTask?.cancel()
+        retryTask = nil
+    }
+
+    /// 指定した時間の後に初期化の再試行を促します。
+    ///
+    /// 責務: 既存の予約を取り消してから、注入された待機(単調時計基準)の完了を `adapterInitializationRetryElapsed` へ変換します。
+    /// キャンセルされた予約は何も入力しません。進行中の他の処理は止めません。
+    /// - Parameter duration: 待機する時間。
+    func scheduleInitializationRetry(after duration: Duration) {
+        cancelInitializationRetry()
+        let launchedGeneration = retryGeneration
+        retryTask = Task { [weak self, clock] in
+            do {
+                try await clock.sleep(for: duration)
+            } catch {
+                return
+            }
+            guard let self, !Task.isCancelled, launchedGeneration == retryGeneration else { return }
+            retryTask = nil
+            eventDidOccur?(.adapterInitializationRetryElapsed)
+        }
     }
 
     /// アダプター初期化を実行します。
     ///
-    /// 責務: 初期化の成功を判定結果付きのイベントへ、失敗を初期化失敗のイベントへ変換します。
+    /// 責務: 予約中の初期化再試行を取り消した上で、初期化の成功を判定結果付きのイベントへ、失敗を初期化失敗のイベントへ変換します。
     func initializeAdapter() {
+        cancelInitializationRetry()
         launch { [initialization] in
             do {
                 return .adapterInitializationSucceeded(try await initialization.initializeAdapter())
