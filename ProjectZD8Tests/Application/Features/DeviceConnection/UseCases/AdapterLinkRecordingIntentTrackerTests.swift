@@ -4,7 +4,8 @@ import XCTest
 
 /// `AdapterLinkRecordingIntentTracker` の意思の保持・有効期限・1回で消えること・捨てた時の理由つき通知を、fake の時計で検証します。
 ///
-/// 仕様: U4 受け入れ条件 5〜7・10。有効期限は選択から2分(ちょうど2分は有効)。
+/// 仕様: U4 受け入れ条件 5〜7・10、U8 R2。有効期限は選択から2分(ちょうど2分は有効)。検知の完了で意思は通知なしで消え、
+/// 検知が完了しないまま期限が来た時だけ「車両を検知できなかった」を知らせます。
 @MainActor
 final class AdapterLinkRecordingIntentTrackerTests: XCTestCase {
     /// 共通の fixture です。
@@ -100,10 +101,11 @@ final class AdapterLinkRecordingIntentTrackerTests: XCTestCase {
         XCTAssertEqual(notifications.presentedRecordingStartFailedReasons, [], "2回目の検知では何もしない")
     }
 
-    /// 期限を過ぎてからの検知の完了では、意思を捨てて「車両を検知できなかった」を1回知らせます。
+    /// 期限を過ぎてからの検知の完了では、意思を黙って消し、「記録を開始できませんでした」は出しません。後から期限の待ちが明けても出しません。
     ///
-    /// 責務: 120.001 秒の検知完了で `intent` が `nil`、理由が `.vehicleNotDetected` の1件であることを確認します(受け入れ条件 7)。
-    func testDetectionAfterExpiryDiscardsWithVehicleNotDetected() async throws {
+    /// 責務: 120.001 秒の検知完了で `intent` が `nil`・通知0件で、その後に期限の待ちを明けさせても通知0件であることを確認します
+    /// (U8 R2。検知が完了したら期限切れでも失敗通知を出さない)。
+    func testDetectionAfterExpiryDiscardsSilently() async throws {
         let tracker = makeTracker()
         try await keepAndWaitForExpirySleep(tracker)
         clock.now = F.date(120.001)
@@ -111,7 +113,11 @@ final class AdapterLinkRecordingIntentTrackerTests: XCTestCase {
         tracker.detectionDidComplete()
 
         XCTAssertNil(tracker.intent)
-        XCTAssertEqual(notifications.presentedRecordingStartFailedReasons, [.vehicleNotDetected])
+        XCTAssertFalse(tracker.hasValidIntent)
+        XCTAssertEqual(notifications.presentedRecordingStartFailedReasons, [])
+        guard clock.finishOldestSleep(advancingBy: 0) else { return }
+        try await BLEBoundedWaiter.settle()
+        XCTAssertEqual(notifications.presentedRecordingStartFailedReasons, [], "期限の待ちが明けても通知しない")
     }
 
     /// 意思が無い時の検知の完了は何もしません。

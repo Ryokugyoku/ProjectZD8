@@ -72,6 +72,22 @@ final class VehicleDetectionNotificationCatalogTests: XCTestCase {
         }
     }
 
+    /// 失敗の通知は、検知・開始の通知を置き換えません(取り除く識別子が無い)。検知・開始の通知は互いを置き換えます。
+    ///
+    /// 責務: 失敗の通知(理由ごと)の置き換え対象が `[]`、検知の通知は開始の通知だけを、開始の通知は検知の通知だけを置き換えることを確認します
+    /// (U8 R2。失敗通知は同時に有効な検知通知を取り下げない)。
+    func testIdentifiersReplacedKeepsDetectionWhenPresentingFailure() {
+        for reason in AdapterLinkRecordingStartFailureReason.allCases {
+            XCTAssertEqual(catalog.identifiersReplaced(by: catalog.recordingStartFailed(reason: reason)), [], "\(reason)")
+        }
+        XCTAssertEqual(
+            catalog.identifiersReplaced(by: catalog.vehicleDetected(vin: Self.vin)), [VehicleDetectionNotificationCatalog.recordingStartedIdentifier]
+        )
+        XCTAssertEqual(
+            catalog.identifiersReplaced(by: catalog.recordingStarted(vin: nil)), [VehicleDetectionNotificationCatalog.vehicleDetectedIdentifier]
+        )
+    }
+
     /// [記録開始]操作の選択だけを記録開始として扱います。
     ///
     /// 責務: 監視カテゴリの[記録開始]操作は `true`、本文タップ・閉じる操作・別カテゴリは `false` であることを確認します。

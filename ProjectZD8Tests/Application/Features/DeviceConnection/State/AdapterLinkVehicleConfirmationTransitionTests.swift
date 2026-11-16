@@ -120,25 +120,35 @@ final class AdapterLinkVehicleConfirmationTransitionTests: XCTestCase {
         }
     }
 
-    /// 時計が進まなくても、600回目の確認が無応答なら(前面でも)休止し、601回目を送りません。599回目の無応答では600回目を送ります。
+    /// 背面では、時計が進まなくても600回目の確認が無応答なら休止し、601回目を送りません。599回目の無応答では600回目を送ります。
     ///
-    /// 責務: 回数上限の直前(599回目→600回目)と到達(600回目→休止)の境界を、背面・前面の両方で確認します(U3 受け入れ条件 4)。
-    func testNoResponseHonorsAttemptLimitWithFrozenClock() {
-        for isForeground in [false, true] {
-            let conditions = F.conditions(
-                now: F.referenceDate, isForeground: isForeground, lastVehicleConfirmationSentAt: F.date(-F.intervalSeconds)
-            )
-            let beforeLimit = AdapterLinkSupervisionState.confirmingVehicle(F.confirmation(attemptCount: F.maximumAttempts - 1))
-            let confirmed = transition.vehicleConfirmationCompleted(.noResponse, from: beforeLimit, conditions: conditions)
-            A.assertResult(
-                confirmed, state: .confirmingVehicle(F.confirmation(attemptCount: F.maximumAttempts)), effects: [.confirmVehicle(.adapterMaximum)],
-                "\(isForeground)"
-            )
+    /// 責務: 回数上限の直前(599回目→600回目)と到達(600回目→休止)の境界を背面で確認します(U3 受け入れ条件 4)。
+    func testNoResponseHonorsAttemptLimitWithFrozenClockInBackground() {
+        let conditions = F.conditions(now: F.referenceDate, isForeground: false, lastVehicleConfirmationSentAt: F.date(-F.intervalSeconds))
+        let beforeLimit = AdapterLinkSupervisionState.confirmingVehicle(F.confirmation(attemptCount: F.maximumAttempts - 1))
+        let confirmed = transition.vehicleConfirmationCompleted(.noResponse, from: beforeLimit, conditions: conditions)
+        A.assertResult(confirmed, state: .confirmingVehicle(F.confirmation(attemptCount: F.maximumAttempts)), effects: [.confirmVehicle(.adapterMaximum)])
 
-            let atLimit = F.confirmation(attemptCount: F.maximumAttempts)
-            let paused = transition.vehicleConfirmationCompleted(.noResponse, from: .confirmingVehicle(atLimit), conditions: conditions)
-            A.assertResult(paused, state: .confirmingVehicle(F.confirmation(attemptCount: F.maximumAttempts, phase: .paused)), effects: [], "\(isForeground)")
-        }
+        let atLimit = F.confirmation(attemptCount: F.maximumAttempts)
+        let paused = transition.vehicleConfirmationCompleted(.noResponse, from: .confirmingVehicle(atLimit), conditions: conditions)
+        A.assertResult(paused, state: .confirmingVehicle(F.confirmation(attemptCount: F.maximumAttempts, phase: .paused)), effects: [])
+    }
+
+    /// 前面では、時計が進まず600回目の確認が無応答でも休止せず、その時刻から窓と回数(1)を取り直して確認を続けます。
+    /// 599回目の無応答では、窓を取り直さずに600回目を送ります。
+    ///
+    /// 責務: 回数上限の直前と到達の境界を前面で確認します(U8 R6。仕様「前面にいる間は休止に入らない」)。
+    func testNoResponseAtAttemptLimitWithFrozenClockInForegroundRenewsWindow() {
+        let now = F.referenceDate
+        let conditions = F.conditions(now: now, isForeground: true, lastVehicleConfirmationSentAt: F.date(-F.intervalSeconds))
+        let beforeLimit = AdapterLinkSupervisionState.confirmingVehicle(F.confirmation(attemptCount: F.maximumAttempts - 1))
+        let confirmed = transition.vehicleConfirmationCompleted(.noResponse, from: beforeLimit, conditions: conditions)
+        A.assertResult(confirmed, state: .confirmingVehicle(F.confirmation(attemptCount: F.maximumAttempts)), effects: [.confirmVehicle(.adapterMaximum)])
+
+        let atLimit = F.confirmation(attemptCount: F.maximumAttempts)
+        let renewedResult = transition.vehicleConfirmationCompleted(.noResponse, from: .confirmingVehicle(atLimit), conditions: conditions)
+        let renewed = F.confirmation(windowEndsAt: now.addingTimeInterval(F.windowSeconds), attemptCount: 1, phase: .probing)
+        A.assertResult(renewedResult, state: .confirmingVehicle(renewed), effects: [.confirmVehicle(.adapterMaximum)])
     }
 
     /// 低頻度確認中以外で届いた確認結果は、応答ありでも無視します。
@@ -181,17 +191,24 @@ final class AdapterLinkVehicleConfirmationTransitionTests: XCTestCase {
         }
     }
 
-    /// 600回確認した後の待ち明けでは、時計が進んでいなくても(前面でも)601回目を送らず休止します。
+    /// 背面では、600回確認した後の待ち明けで、時計が進んでいなくても601回目を送らず休止します。
     ///
-    /// 責務: 回数上限の境界(600回目の後)を背面・前面の両方で確認します(U3 受け入れ条件 4)。
-    func testIntervalElapsedAfterAttemptLimitPauses() {
+    /// 責務: 回数上限の境界(600回目の後)を背面で確認します(U3 受け入れ条件 4)。
+    func testIntervalElapsedAfterAttemptLimitPausesInBackground() {
         let state = AdapterLinkSupervisionState.confirmingVehicle(F.confirmation(attemptCount: F.maximumAttempts))
-        for isForeground in [false, true] {
-            let result = transition.vehicleConfirmationIntervalElapsed(from: state, conditions: F.conditions(now: F.referenceDate, isForeground: isForeground))
-            A.assertResult(
-                result, state: .confirmingVehicle(F.confirmation(attemptCount: F.maximumAttempts, phase: .paused)), effects: [], "\(isForeground)"
-            )
-        }
+        let result = transition.vehicleConfirmationIntervalElapsed(from: state, conditions: F.conditions(now: F.referenceDate, isForeground: false))
+        A.assertResult(result, state: .confirmingVehicle(F.confirmation(attemptCount: F.maximumAttempts, phase: .paused)), effects: [])
+    }
+
+    /// 前面では、600回確認した後の待ち明けで、窓の内でも休止せず、その時刻から窓と回数(1)を取り直して確認を送ります。
+    ///
+    /// 責務: 回数上限の境界(600回目の後)を前面で確認します(U8 R6)。
+    func testIntervalElapsedAfterAttemptLimitInForegroundRenewsWindow() {
+        let now = F.referenceDate
+        let state = AdapterLinkSupervisionState.confirmingVehicle(F.confirmation(attemptCount: F.maximumAttempts))
+        let result = transition.vehicleConfirmationIntervalElapsed(from: state, conditions: F.conditions(now: now, isForeground: true))
+        let renewed = F.confirmation(windowEndsAt: now.addingTimeInterval(F.windowSeconds), attemptCount: 1, phase: .probing)
+        A.assertResult(result, state: .confirmingVehicle(renewed), effects: [.confirmVehicle(.adapterMaximum)])
     }
 
     /// 前面にいる間は、窓切れの後の待ち明けでも休止せず、窓を取り直して確認を送ります。

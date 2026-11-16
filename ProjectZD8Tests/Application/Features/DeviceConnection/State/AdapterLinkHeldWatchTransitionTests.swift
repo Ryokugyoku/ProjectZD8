@@ -157,6 +157,74 @@ final class AdapterLinkHeldWatchTransitionTests: XCTestCase {
         XCTAssertEqual(result.effects, [])
     }
 
+    /// 見張りの開始待ちで手動接続が終わり、リンクが `ready` なら、その時刻から8時間の見張りを始めます。
+    ///
+    /// 責務: `externalAdapterUseEnded` で、見張りの終わり=受けた時刻+8時間と見張りの確認1件になることを確認します(U8 R5)。
+    func testExternalAdapterUseEndedStartsWatchFromAwaitingStart() {
+        let now = F.date(45)
+        let result = transition.externalAdapterUseEnded(awaiting, conditions: F.conditions(now: now))
+        A.assertResult(result, state: F.watching(endsAt: now.addingTimeInterval(F.heldWatchSeconds)), effects: [.confirmVehicle(.heldWatch)])
+    }
+
+    /// 見張りの開始待ちで手動接続が終わっても、リンクが `ready` でない・まだ手動接続が使っている・リンク未開始なら始めません。
+    ///
+    /// 責務: 3つの条件で、開始待ちのまま作用なしであることを確認します(U8 R5 の条件)。
+    func testExternalAdapterUseEndedWithoutSendableConditionsKeepsAwaitingStart() {
+        let variants = [
+            F.conditions(linkState: .connecting),
+            F.conditions(isExternalAdapterUseActive: true),
+            F.conditions(linkPreference: nil),
+        ]
+        for conditions in variants {
+            A.assertIgnored(transition.externalAdapterUseEnded(awaiting, conditions: conditions), from: .heldAfterUserStop(awaiting), "\(conditions)")
+        }
+    }
+
+    /// リンク待ちの保持で上限以内にリンクが戻ったら、復帰の時刻から8時間の見張りを始めます。
+    ///
+    /// 責務: `linkReturned` で、見張りの終わり=復帰時刻+8時間と見張りの確認1件になることを確認します(U8 R4)。
+    func testLinkReturnedStartsWatchFromReturnTime() {
+        let now = F.date(150)
+        let result = transition.linkReturned(.awaitingLink(userStoppedAt: F.date(10)), conditions: F.conditions(now: now))
+        A.assertResult(result, state: F.watching(endsAt: now.addingTimeInterval(F.heldWatchSeconds)), effects: [.confirmVehicle(.heldWatch)])
+    }
+
+    /// 手動接続の使用中にリンクが戻ったら、確認を送らずに見張りの開始待ちにします。
+    ///
+    /// 責務: `linkReturned` で `.heldAfterUserStop(.awaitingStart)`・作用なしになることを確認します(U8 R4・R5)。
+    func testLinkReturnedWhileExternalAdapterUseAwaitsStart() {
+        let result = transition.linkReturned(.awaitingLink(userStoppedAt: F.date(10)), conditions: F.conditions(isExternalAdapterUseActive: true))
+        A.assertResult(result, state: .heldAfterUserStop(.awaitingStart), effects: [])
+    }
+
+    /// リンク待ちでは、前面復帰しても見張りを始めず、何も送りません。
+    ///
+    /// 責務: `appDidBecomeActive` を `.awaitingLink` で受けると、状態不変・作用なしであることを確認します(U8 R4)。
+    func testAppDidBecomeActiveWhileAwaitingLinkDoesNothing() {
+        let waiting = AdapterLinkHeldWatch.awaitingLink(userStoppedAt: F.date(10))
+        let result = transition.appDidBecomeActive(waiting, conditions: F.conditions(now: F.date(20), isForeground: true))
+        A.assertIgnored(result, from: .heldAfterUserStop(waiting))
+    }
+
+    /// リンク待ちでは、記録の終了の確定を受けても見張りを始めません(開始待ちだけが始めます)。
+    ///
+    /// 責務: `recordingEndSettled` を `.awaitingLink` で受けると、状態不変・作用なしであることを確認します(U8 R4)。
+    func testRecordingEndSettledWhileAwaitingLinkDoesNothing() {
+        let waiting = AdapterLinkHeldWatch.awaitingLink(userStoppedAt: F.date(10))
+        A.assertIgnored(transition.recordingEndSettled(waiting, conditions: F.conditions(now: F.date(20))), from: .heldAfterUserStop(waiting))
+    }
+
+    /// リンク待ちの進行状況は、無応答0回・切断の時刻を持つリンク待ちの段階です。
+    ///
+    /// 責務: `AdapterLinkHeldWatch.awaitingLink(userStoppedAt:)` の値を確認します。
+    func testAwaitingLinkValue() {
+        let stoppedAt = F.date(10)
+        XCTAssertEqual(
+            AdapterLinkHeldWatch.awaitingLink(userStoppedAt: stoppedAt),
+            AdapterLinkHeldWatch(consecutiveNoResponses: 0, phase: .awaitingLink(userStoppedAt: stoppedAt))
+        )
+    }
+
     /// 見張り中の進行状況を作ります。
     ///
     /// 責務: 指定の無応答の数で、基準時刻から8時間後に終わる見張りを返します。

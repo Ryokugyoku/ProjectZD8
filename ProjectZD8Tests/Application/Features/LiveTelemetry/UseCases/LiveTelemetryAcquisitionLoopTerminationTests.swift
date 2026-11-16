@@ -88,22 +88,23 @@ final class LiveTelemetryAcquisitionLoopTerminationTests: XCTestCase {
         XCTAssertEqual(laterRecords, [2, 2, 2])
     }
 
-    /// 停止の理由を付けて止めると、取得記録はその理由で終わり、理由を付けなければユーザー切断で終わります。
+    /// 停止に渡した理由が、そのまま取得記録の終了原因になります。
     ///
-    /// 責務: 理由ごとに記録の終了原因が指示した理由になることを確認します(U2 受け入れ条件 13)。
+    /// 責務: ユーザー切断・サインアウト・置き換え・接続断のそれぞれで、停止の結果が `.stopped`、記録の終了原因が渡した理由になることを確認します
+    /// (U2 受け入れ条件 13)。
     func testStopReasonBecomesRecordingEndReason() async {
-        let reasons: [ConnectionSessionEndReason?] = [.accountSignedOut, .superseded, .connectionLost, nil]
+        let reasons: [ConnectionSessionEndReason] = [.userDisconnected, .accountSignedOut, .superseded, .connectionLost]
         for reason in reasons {
             let (fixture, _) = await startTwoPIDLoop()
             await fixture.waitForSentRequests(1)
             let loop = fixture.loop
-            let termination = await LiveTelemetryBoundedWaiter.value("取得ループの停止") {
-                await loop.stop(reason: reason ?? .userDisconnected)
+            let termination = await LiveTelemetryBoundedWaiter.value("取得ループの停止 \(reason)") {
+                await loop.stop(reason: reason)
             } ?? nil
 
-            XCTAssertEqual(termination, .stopped, "\(String(describing: reason))")
+            XCTAssertEqual(termination, .stopped, "\(reason)")
             let finishes = await fixture.recorder?.finishCalls ?? []
-            XCTAssertEqual(finishes, [.finish(generation: 1, reason: reason ?? .userDisconnected)], "\(String(describing: reason))")
+            XCTAssertEqual(finishes, [.finish(generation: 1, reason: reason)], "\(reason)")
             await fixture.tearDown()
         }
     }
