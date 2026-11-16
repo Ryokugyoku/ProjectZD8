@@ -17,15 +17,15 @@ final class DeleteAccountUseCaseTransferFake: ConnectionSessionTransferRepositor
     ///
     /// 責務: 削除テストに不要な境界を満たします。
     /// - Parameters:
-    ///   - package: 使用しない転送Payload。
-    ///   - accountIdentifier: 使用しないアカウント識別子。
+    ///   - _: 使用しない転送Payload。
+    ///   - _: 使用しないアカウント識別子。
     /// - Returns: 固定Digest。
     func upload(_: ConnectionSessionTransferPackage, for _: String) async throws -> String { "digest" }
 
     /// 使用しない転送取得へ空配列を返します。
     ///
     /// 責務: 削除テストに不要な境界を満たします。
-    /// - Parameter accountIdentifier: 使用しないアカウント識別子。
+    /// - Parameter _: 使用しないアカウント識別子。
     /// - Returns: 空配列。
     func downloadTransfers(for _: String) async throws -> [VerifiedConnectionSessionTransfer] { [] }
 
@@ -33,9 +33,9 @@ final class DeleteAccountUseCaseTransferFake: ConnectionSessionTransferRepositor
     ///
     /// 責務: 削除テストに不要な境界を満たします。
     /// - Parameters:
-    ///   - receipt: 使用しない受領証。
-    ///   - sessionID: 使用しないセッションID。
-    ///   - accountIdentifier: 使用しないアカウント識別子。
+    ///   - _: 使用しない受領証。
+    ///   - _: 使用しないセッションID。
+    ///   - _: 使用しないアカウント識別子。
     func publishMacReceipt(
         _: ConnectionSessionMacImportReceipt,
         sessionID _: ConnectionSessionID,
@@ -47,7 +47,7 @@ final class DeleteAccountUseCaseTransferFake: ConnectionSessionTransferRepositor
     /// 使用しない受領証取得へ空配列を返します。
     ///
     /// 責務: 削除テストに不要な境界を満たします。
-    /// - Parameter accountIdentifier: 使用しないアカウント識別子。
+    /// - Parameter _: 使用しないアカウント識別子。
     /// - Returns: 空配列。
     func downloadMacReceipts(
         for _: String
@@ -56,7 +56,7 @@ final class DeleteAccountUseCaseTransferFake: ConnectionSessionTransferRepositor
     /// 使用しない削除マーカー取得へ空集合を返します。
     ///
     /// 責務: 削除テストに不要な境界を満たします。
-    /// - Parameter accountIdentifier: 使用しないアカウント識別子。
+    /// - Parameter _: 使用しないアカウント識別子。
     /// - Returns: 空集合。
     func deletedSessionIDs(for _: String) async throws -> Set<ConnectionSessionID> { [] }
 
@@ -64,8 +64,8 @@ final class DeleteAccountUseCaseTransferFake: ConnectionSessionTransferRepositor
     ///
     /// 責務: 削除テストに不要な境界を満たします。
     /// - Parameters:
-    ///   - sessionID: 使用しないセッションID。
-    ///   - accountIdentifier: 使用しないアカウント識別子。
+    ///   - _: 使用しないセッションID。
+    ///   - _: 使用しないアカウント識別子。
     func deleteSession(_: ConnectionSessionID, for _: String) async throws {
         // このテストでは呼び出しを観測しないため、何もしない。
     }

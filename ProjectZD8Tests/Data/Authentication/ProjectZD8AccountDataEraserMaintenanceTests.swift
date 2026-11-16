@@ -97,7 +97,7 @@ private final class MaintenanceEraserSessionRepositoryFake: AccountConnectionSes
     /// 削除要求を受け流します。
     ///
     /// 責務: このテストで対象外の削除境界を満たします。
-    /// - Parameter accountIdentifier: 使用しないアカウント識別子。
+    /// - Parameter _: 使用しないアカウント識別子。
     func deleteSessions(for _: String) throws {
         // このテストでは呼び出しを観測しないため、何もしない。
     }
@@ -109,7 +109,7 @@ private final class MaintenanceEraserVehiclePortFake: AccountVehicleDataErasureP
     /// 使用しないCloudKit削除を受け流します。
     ///
     /// 責務: このテストで対象外の境界を満たします。
-    /// - Parameter accountIdentifier: 使用しないアカウント識別子。
+    /// - Parameter _: 使用しないアカウント識別子。
     func deleteAllVehicleData(for _: String) async throws {
         // このテストでは呼び出しを観測しないため、何もしない。
     }
@@ -117,14 +117,14 @@ private final class MaintenanceEraserVehiclePortFake: AccountVehicleDataErasureP
     /// 空の車両ID群を返します。
     ///
     /// 責務: このテストで対象外の照会を満たします。
-    /// - Parameter accountIdentifier: 使用しないアカウント識別子。
+    /// - Parameter _: 使用しないアカウント識別子。
     /// - Returns: 空配列。
     func localVehicleIDs(for _: String) -> [VehicleID] { [] }
 
     /// キャッシュ削除を受け流します。
     ///
     /// 責務: このテストで対象外の境界を満たします。
-    /// - Parameter accountIdentifier: 使用しないアカウント識別子。
+    /// - Parameter _: 使用しないアカウント識別子。
     func removeLocalVehicleCache(for _: String) {
         // このテストでは呼び出しを観測しないため、何もしない。
     }
@@ -135,7 +135,7 @@ private final class MaintenanceEraserCapabilityRepositoryFake: AccountVehiclePID
     /// 削除要求を受け流します。
     ///
     /// 責務: このテストで対象外の削除境界を満たします。
-    /// - Parameter vehicleIDs: 使用しない車両ID群。
+    /// - Parameter _: 使用しない車両ID群。
     func deleteCapabilities(for _: [VehicleID]) throws {
         // このテストでは呼び出しを観測しないため、何もしない。
     }

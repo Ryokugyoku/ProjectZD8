@@ -106,7 +106,7 @@ final class DeletionGateVehicleEraser: AccountVehicleDataErasurePort {
     /// 解放されるまで保留します。
     ///
     /// 責務: 削除の途中状態をテストが観測できるよう1回だけ待ちます。
-    /// - Parameter accountIdentifier: 使用しないアカウント識別子。
+    /// - Parameter _: 使用しないアカウント識別子。
     func deleteAllVehicleData(for _: String) async throws {
         guard !isReleased else { return }
         await withCheckedContinuation { continuation = $0 }
@@ -115,14 +115,14 @@ final class DeletionGateVehicleEraser: AccountVehicleDataErasurePort {
     /// 空の車両ID群を返します。
     ///
     /// 責務: このテストで対象外の照会を満たします。
-    /// - Parameter accountIdentifier: 使用しないアカウント識別子。
+    /// - Parameter _: 使用しないアカウント識別子。
     /// - Returns: 空配列。
     func localVehicleIDs(for _: String) -> [VehicleID] { [] }
 
     /// キャッシュ削除を受け流します。
     ///
     /// 責務: このテストで対象外の境界を満たします。
-    /// - Parameter accountIdentifier: 使用しないアカウント識別子。
+    /// - Parameter _: 使用しないアカウント識別子。
     func removeLocalVehicleCache(for _: String) {
         // このテストでは呼び出しを観測しないため、何もしない。
     }

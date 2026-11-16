@@ -46,7 +46,7 @@ final class DeleteAccountUseCaseRevocationFake: AccountSessionRevocationPort {
     /// 使用しない基準登録を無視します。
     ///
     /// 責務: 削除テストに不要な境界を副作用なしで満たします。
-    /// - Parameter userIdentifier: 使用しないユーザー識別子。
+    /// - Parameter _: 使用しないユーザー識別子。
     func registerCurrentSession(for _: String) {
         // このテストでは呼び出しを観測しないため、何もしない。
     }
@@ -63,8 +63,8 @@ final class DeleteAccountUseCaseRevocationFake: AccountSessionRevocationPort {
     ///
     /// 責務: 削除テストに不要な監視境界を副作用なしで満たします。
     /// - Parameters:
-    ///   - userIdentifier: 使用しないユーザー識別子。
-    ///   - receive: 使用しない失効受信処理。
+    ///   - _: 使用しないユーザー識別子。
+    ///   - _: 使用しない失効受信処理。
     func startObserving(for _: String, receive _: @escaping () -> Void) {
         // このテストでは呼び出しを観測しないため、何もしない。
     }
@@ -121,7 +121,7 @@ final class DeleteAccountUseCaseVehicleEraserFake: AccountVehicleDataErasurePort
     /// 使用しない端末内車両ID照会へ空配列を返します。
     ///
     /// 責務: 削除テストに不要な照会境界を満たします。
-    /// - Parameter accountIdentifier: 使用しないアカウント識別子。
+    /// - Parameter _: 使用しないアカウント識別子。
     /// - Returns: 空配列。
     func localVehicleIDs(for _: String) -> [VehicleID] { [] }
 
@@ -155,7 +155,7 @@ final class DeleteAccountUseCaseSessionStoreFake: AuthenticationSessionStorePort
     /// 使用しない保存を無視します。
     ///
     /// 責務: 削除テストに不要な保存境界を満たします。
-    /// - Parameter userIdentifier: 使用しないユーザー識別子。
+    /// - Parameter _: 使用しないユーザー識別子。
     func saveUserIdentifier(_: String) throws {
         // このテストでは呼び出しを観測しないため、何もしない。
     }

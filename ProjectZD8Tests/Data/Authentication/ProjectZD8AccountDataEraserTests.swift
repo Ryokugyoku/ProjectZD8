@@ -89,7 +89,7 @@ private actor AccountMaintenanceRecordRepositoryFake: MaintenanceRecordRepositor
     /// 使用しない読込へ空配列を返します。
     ///
     /// 責務: このテストで対象外の読込境界を満たします。
-    /// - Parameter accountIdentifier: 使用しないアカウント識別子。
+    /// - Parameter _: 使用しないアカウント識別子。
     /// - Returns: 空配列。
     func records(for _: String) async throws -> [MaintenanceRecord] { [] }
 
@@ -97,8 +97,8 @@ private actor AccountMaintenanceRecordRepositoryFake: MaintenanceRecordRepositor
     ///
     /// 責務: このテストで対象外の保存境界を満たします。
     /// - Parameters:
-    ///   - record: 使用しない記録。
-    ///   - accountIdentifier: 使用しないアカウント識別子。
+    ///   - _: 使用しない記録。
+    ///   - _: 使用しないアカウント識別子。
     func save(_: MaintenanceRecord, for _: String) async throws {
         // このテストでは呼び出しを観測しないため、何もしない。
     }

@@ -114,7 +114,7 @@ nonisolated final class MaintenanceMarkerLocalFake: MaintenanceRecordRepository,
     /// 保持する記録を返します。
     ///
     /// 責務: 現在の端末内集合を返します。
-    /// - Parameter accountIdentifier: 使用しないアカウント識別子。
+    /// - Parameter _: 使用しないアカウント識別子。
     /// - Returns: 現在の記録集合。
     func records(for _: String) async throws -> [MaintenanceRecord] { storedRecords }
 
@@ -123,7 +123,7 @@ nonisolated final class MaintenanceMarkerLocalFake: MaintenanceRecordRepository,
     /// 責務: 保存要求を集合へ反映します。
     /// - Parameters:
     ///   - record: 保存する記録。
-    ///   - accountIdentifier: 使用しないアカウント識別子。
+    ///   - _: 使用しないアカウント識別子。
     func save(_ record: MaintenanceRecord, for _: String) async throws {
         storedRecords.removeAll { $0.id == record.id }
         storedRecords.append(record)
@@ -134,7 +134,7 @@ nonisolated final class MaintenanceMarkerLocalFake: MaintenanceRecordRepository,
     /// 責務: 同期結果を端末内集合へそのまま保存します。
     /// - Parameters:
     ///   - records: 置き換える記録集合。
-    ///   - accountIdentifier: 使用しないアカウント識別子。
+    ///   - _: 使用しないアカウント識別子。
     func replaceAll(_ records: [MaintenanceRecord], for _: String) async throws {
         storedRecords = records
     }
@@ -155,7 +155,7 @@ final class MaintenanceMarkerRemoteFake: MaintenanceRemoteStore {
     /// 保持する記録を返します。
     ///
     /// 責務: 現在の遠隔集合を返します。
-    /// - Parameter accountIdentifier: 使用しないアカウント識別子。
+    /// - Parameter _: 使用しないアカウント識別子。
     /// - Returns: 現在の記録集合。
     func fetchRecords(for _: String) async throws -> [MaintenanceRecord] { storedRecords }
 
@@ -164,7 +164,7 @@ final class MaintenanceMarkerRemoteFake: MaintenanceRemoteStore {
     /// 責務: 同期結果を遠隔集合へそのまま保存します。
     /// - Parameters:
     ///   - records: 置き換える記録集合。
-    ///   - accountIdentifier: 使用しないアカウント識別子。
+    ///   - _: 使用しないアカウント識別子。
     func saveRecords(_ records: [MaintenanceRecord], for _: String) async throws {
         storedRecords = records
     }

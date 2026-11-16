@@ -106,7 +106,7 @@ private final class SignInAuthorizationFake: AppleAccountAuthorizationPort {
     /// 使用しない資格状態照会です。
     ///
     /// 責務: 境界を満たすために固定値を返します。
-    /// - Parameter userIdentifier: 使用しない識別子。
+    /// - Parameter _: 使用しない識別子。
     /// - Returns: 常に `.notFound`。
     func credentialState(for _: String) async throws -> AppleAccountCredentialState { .notFound }
 }

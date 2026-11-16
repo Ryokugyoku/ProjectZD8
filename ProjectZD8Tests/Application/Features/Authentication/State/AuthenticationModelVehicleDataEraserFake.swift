@@ -17,14 +17,14 @@ final class AuthenticationModelVehicleDataEraserFake: AccountVehicleDataErasureP
     /// このテストでは端末キャッシュに車両を保持しません。
     ///
     /// 責務: テスト対象外のローカル車両ID照会へ空配列を返します。
-    /// - Parameter accountIdentifier: 使用しないアカウント識別子。
+    /// - Parameter _: 使用しないアカウント識別子。
     /// - Returns: 空配列。
     func localVehicleIDs(for _: String) -> [VehicleID] { [] }
 
     /// このテストでは端末キャッシュ単独削除を使用しません。
     ///
     /// 責務: テスト対象外の車両キャッシュ削除要求を副作用なしで満たします。
-    /// - Parameter accountIdentifier: 使用しないアカウント識別子。
+    /// - Parameter _: 使用しないアカウント識別子。
     func removeLocalVehicleCache(for _: String) {
         // このテストでは呼び出しを観測しないため、何もしない。
     }
