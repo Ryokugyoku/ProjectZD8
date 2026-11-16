@@ -25,5 +25,23 @@ enum IOSAutomaticRecordingChoiceMetrics {
     static let optionIconSize: CGFloat = 44
     /// 選択肢ボタンの最小の高さです。
     static let optionMinHeight: CGFloat = 76
+    /// 見出しのアイコン・タイトル・説明の間隔です。
+    static let headingSpacing: CGFloat = 14
+    /// 見出しアイコンの大きさです。
+    static let heroIconFontSize: CGFloat = 30
+    /// 見出しアイコン枠の背景の不透明度です。
+    static let heroIconFillOpacity: Double = 0.13
+    /// 選択肢ボタン内のアイコンと文言の間隔です。
+    static let optionContentSpacing: CGFloat = 14
+    /// 選択肢ボタンのアイコンの大きさです。
+    static let optionIconFontSize: CGFloat = 19
+    /// 選択肢ボタンのアイコン枠の背景の不透明度です。
+    static let optionIconFillOpacity: Double = 0.12
+    /// 選択肢ボタンの名称と説明の間隔です。
+    static let optionTextSpacing: CGFloat = 4
+    /// 選択肢ボタンの矢印の前に空ける最小の幅です。
+    static let optionSpacerMinLength: CGFloat = 4
+    /// 選択肢ボタンの枠線の不透明度です。
+    static let optionStrokeOpacity: Double = 0.18
 }
 #endif

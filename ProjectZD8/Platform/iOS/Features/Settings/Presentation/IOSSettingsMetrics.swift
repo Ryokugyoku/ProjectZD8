@@ -25,6 +25,24 @@ enum IOSSettingsMetrics {
     static let noticeCornerRadius: CGFloat = 14
     /// 案内文の内側の余白です。
     static let noticePadding: CGFloat = 12
+    /// 案内文の背景の不透明度です。
+    static let noticeFillOpacity: Double = 0.035
+    /// 記録開始方法の選択行と案内文の間隔です。
+    static let choiceRowListSpacing: CGFloat = 10
+    /// 選択行のアイコンの大きさです。
+    static let choiceRowIconFontSize: CGFloat = 16
+    /// 選択中の選択行のアイコン背景の不透明度です。
+    static let choiceRowSelectedIconFillOpacity: Double = 0.12
+    /// 未選択の選択行のアイコン背景の不透明度です。
+    static let choiceRowUnselectedIconFillOpacity: Double = 0.055
+    /// 選択行の名称と説明の間隔です。
+    static let choiceRowTextSpacing: CGFloat = 3
+    /// 選択行の選択印の前に空ける最小の幅です。
+    static let choiceRowSpacerMinLength: CGFloat = 4
+    /// 選択中の選択行の背景の不透明度です。
+    static let choiceRowSelectedFillOpacity: Double = 0.08
+    /// 未選択の選択行の背景の不透明度です。
+    static let choiceRowUnselectedFillOpacity: Double = 0.035
 
     /// 画面のカード同士の間隔です。
     static let screenSpacing: CGFloat = 16

@@ -18,7 +18,7 @@ struct IOSSettingsAutomaticRecordingCard: View {
             description: LocalizedStringKey(AutomaticRecordingSettingsSection.descriptionKey),
             systemImage: "dot.radiowaves.left.and.right"
         ) {
-            VStack(spacing: 10) {
+            VStack(spacing: IOSSettingsMetrics.choiceRowListSpacing) {
                 ForEach(section.choices) { choice in
                     IOSSettingsAutomaticRecordingChoiceRow(
                         choice: choice,
@@ -45,7 +45,7 @@ struct IOSSettingsAutomaticRecordingCard: View {
         .padding(IOSSettingsMetrics.noticePadding)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            Color.primary.opacity(0.035),
+            Color.primary.opacity(IOSSettingsMetrics.noticeFillOpacity),
             in: RoundedRectangle(cornerRadius: IOSSettingsMetrics.noticeCornerRadius, style: .continuous)
         )
         .accessibilityIdentifier("ios-settings-automatic-recording-termination-notice")
