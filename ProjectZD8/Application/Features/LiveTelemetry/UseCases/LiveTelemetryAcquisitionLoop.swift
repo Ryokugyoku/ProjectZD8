@@ -223,13 +223,14 @@ actor LiveTelemetryAcquisitionLoop {
             termination = Task.isCancelled || error is CancellationError ? .stopped : .recordingFailed
         }
         termination = await finishRecording(generation: input.generation, termination: termination)
-        stopReasons.discard(through: input.generation)
         await telemetry.endSession()
         if flushFailedGeneration == input.generation { flushFailedGeneration = nil }
         if runningGeneration == input.generation {
             runningTask = nil
             runningGeneration = nil
         }
+        // 終了処理の待ちの間に届いた停止の結び付けも消し、以後この世代以前へは結び付けさせません。
+        stopReasons.discard(through: input.generation)
         continuation.yield(.ended(termination))
         continuation.finish()
         return termination

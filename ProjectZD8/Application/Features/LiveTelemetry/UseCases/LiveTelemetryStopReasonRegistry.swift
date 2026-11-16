@@ -6,9 +6,10 @@ import Synchronization
 /// `stop(reason:)`・新しい世代の `start`)に関係なく、記録を終える時点で理由を引けます。最初に結び付けた理由を優先します。
 /// 取得が始まらなかった世代(準備中に取り消された・取得していない時の停止)の理由は取り出されないため、取得を終えた世代までの
 /// 理由を `discard(through:)` でまとめて消し、登録が溜まり続けないようにします(世代は単調に増えます)。
+/// 消した世代以前への後からの結び付け(取得を終えた後に届いた停止など)は受け付けないので、実行順に関係なく登録は残りません。
 nonisolated final class LiveTelemetryStopReasonRegistry: Sendable {
-    /// 世代ごとの停止理由です。
-    private let reasons = Mutex<[UInt: ConnectionSessionEndReason]>([:])
+    /// 世代ごとの停止理由と、消し終えた最も新しい世代です。
+    private let storage = Mutex<(reasons: [UInt: ConnectionSessionEndReason], discardedThrough: UInt?)>(([:], nil))
 
     /// 空の入れ物を生成します。
     ///
@@ -17,13 +18,14 @@ nonisolated final class LiveTelemetryStopReasonRegistry: Sendable {
 
     /// 世代へ停止の理由を結び付けます。
     ///
-    /// 責務: 既に理由がある世代では先の理由を残し、無い世代にだけ理由を記録します。
+    /// 責務: 既に理由がある世代では先の理由を残し、無い世代にだけ理由を記録します。消し終えた世代以前へは記録しません。
     /// - Parameters:
     ///   - reason: 停止の理由。
     ///   - generation: 止める世代。
     func register(_ reason: ConnectionSessionEndReason, for generation: UInt) {
-        reasons.withLock { current in
-            if current[generation] == nil { current[generation] = reason }
+        storage.withLock { current in
+            if let discardedThrough = current.discardedThrough, generation <= discardedThrough { return }
+            if current.reasons[generation] == nil { current.reasons[generation] = reason }
         }
     }
 
@@ -33,21 +35,25 @@ nonisolated final class LiveTelemetryStopReasonRegistry: Sendable {
     /// - Parameter generation: 終える世代。
     /// - Returns: 結び付けた理由。無ければ `nil`。
     func take(for generation: UInt) -> ConnectionSessionEndReason? {
-        reasons.withLock { current in current.removeValue(forKey: generation) }
+        storage.withLock { current in current.reasons.removeValue(forKey: generation) }
     }
 
     /// 指定した世代以前の理由をすべて消します。
     ///
     /// 責務: 取得を終えた世代と、それより前で取り出されなかった世代の理由を消し、より新しい世代の理由は残します。
+    /// 以後、その世代以前への結び付けは受け付けません。
     /// - Parameter generation: 取得を終えた世代。
     func discard(through generation: UInt) {
-        reasons.withLock { current in current = current.filter { $0.key > generation } }
+        storage.withLock { current in
+            current.reasons = current.reasons.filter { $0.key > generation }
+            current.discardedThrough = max(current.discardedThrough ?? generation, generation)
+        }
     }
 
     /// 結び付けたまま取り出されていない理由の件数です。
     ///
     /// 責務: 登録が溜まり続けていないかを確かめられるよう、現在の件数を返します。
     var registeredCount: Int {
-        reasons.withLock { $0.count }
+        storage.withLock { $0.reasons.count }
     }
 }

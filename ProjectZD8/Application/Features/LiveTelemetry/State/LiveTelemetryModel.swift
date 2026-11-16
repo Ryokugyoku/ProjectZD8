@@ -31,6 +31,8 @@ final class LiveTelemetryModel {
     ///
     /// 同じ世代のうちに届いた2つ目の停止は受け付けず、先の停止の理由で取得記録と終了通知を1回だけ終えます。
     @ObservationIgnored private var pendingStopGeneration: UInt?
+    /// 取得ループを始めずに終えた(準備の失敗・準備中の取り消し)最も新しい世代です。この世代へは停止の理由を結び付けません。
+    @ObservationIgnored private var preparationEndedGeneration: UInt?
     /// 表示更新の間引き状態です。
     @ObservationIgnored private var refreshThrottle = LiveTelemetryDisplayRefreshThrottle()
     /// 初回周回で確定した取得対象です。表示順の基準に使います。
@@ -149,13 +151,16 @@ final class LiveTelemetryModel {
     /// 責務: 停止理由を取得中の世代へ先に結び付けてから購読を無効化して取得ループを止め、終了を待ってスリープ抑止解除済みの待機状態へ戻します。
     /// 理由を取り消しより先に結び付けるので、購読の終了で取得Taskが先に取り消されても記録の終了原因は同じ理由になります。
     /// 先に受け付けた停止の終わりを待っている間(その後に新しい取得が始まっていない間)に届いた停止は受け付けません
-    /// (取得記録と終了通知の理由を先の停止の理由で揃え、終了通知を1回にするため)。取得が動いていなければ理由を結び付けません。
+    /// (取得記録と終了通知の理由を先の停止の理由で揃え、終了通知を1回にするため)。取得が動いていない時と、取得ループを始めずに終えた
+    /// 世代(準備の失敗の後など)では理由を結び付けません。
     /// - Parameter reason: 停止の理由。取得記録と終了通知の両方へ同じ値を渡します。
     private func stop(reason: ConnectionSessionEndReason) {
         guard pendingStopGeneration != generation else { return }
         let shouldNotifySessionEnd = acquisitionTask != nil || state.isConnectionActive
         let previousTask = acquisitionTask
-        if previousTask != nil { acquisitionLoop.registerStopReason(reason, forGeneration: generation) }
+        if previousTask != nil, preparationEndedGeneration != generation {
+            acquisitionLoop.registerStopReason(reason, forGeneration: generation)
+        }
         previousTask?.cancel()
         acquisitionTask = nil
         generation &+= 1
@@ -220,14 +225,14 @@ final class LiveTelemetryModel {
         do {
             prepared = try await prepareAcquisition.execute(vehicle: vehicle, endpoint: endpoint)
         } catch {
-            acquisitionLoop.discardStopReason(forGeneration: generation)
+            endWithoutAcquisitionLoop(generation: generation)
             await prepareAcquisition.endSession()
             guard self.generation == generation, !(error is CancellationError) else { return }
             handlePreparationFailure(error)
             return
         }
         guard self.generation == generation, !Task.isCancelled else {
-            acquisitionLoop.discardStopReason(forGeneration: generation)
+            endWithoutAcquisitionLoop(generation: generation)
             return
         }
         let events = await acquisitionLoop.start(
@@ -244,6 +249,16 @@ final class LiveTelemetryModel {
             guard self.generation == generation else { return }
             apply(event)
         }
+    }
+
+    /// 取得ループを始めずに終えた世代の停止の理由を消し、以後その世代へ理由を結び付けないようにします。
+    ///
+    /// 責務: 準備の失敗・準備中の取り消しで終えた世代を覚え、既に結び付けた理由を取り出されないまま残さないよう消します。
+    /// 待ちを挟まずに行うので、この後に届いた停止はこの世代へ理由を結び付けません。
+    /// - Parameter generation: 取得ループを始めなかった世代。
+    private func endWithoutAcquisitionLoop(generation: UInt) {
+        preparationEndedGeneration = generation
+        acquisitionLoop.discardStopReason(forGeneration: generation)
     }
 
     /// 取得ループの出来事を表示状態へ反映します。
