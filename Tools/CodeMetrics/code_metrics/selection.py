@@ -6,12 +6,17 @@ import subprocess
 from typing import Iterable, List, Optional
 
 from .limits import BASELINE_SCAN_DIRS, SWIFT_SUFFIX
+from .safe_paths import resolve_inside
 
 _GIT_TIMEOUT_SECONDS = 30
 
 
 class GitError(Exception):
     """git コマンドの失敗を表す。"""
+
+
+class SelectionError(Exception):
+    """引数が不正で計測対象を決められないことを表す。"""
 
 
 def run_git(args: List[str], cwd: str) -> str:
@@ -41,12 +46,13 @@ def find_root(cwd: str) -> str:
     return os.path.realpath(top) if top else os.path.realpath(cwd)
 
 
-def _relative(path: str, root: str, base: str) -> str:
-    """責務: base 基準のパスをルートからの `/` 区切りの相対パスにする。"""
+def _relative(path: str, root: str, base: str) -> Optional[str]:
+    """責務: ルート配下のパスを `/` 区切りの相対パスにする(外なら None)。"""
     absolute = path if os.path.isabs(path) else os.path.join(base, path)
-    absolute = os.path.realpath(absolute)
-    rel = os.path.relpath(absolute, root)
-    return rel.replace(os.sep, "/")
+    inside = resolve_inside(root, absolute)
+    if inside is None:
+        return None
+    return os.path.relpath(inside, os.path.realpath(root)).replace(os.sep, "/")
 
 
 def filter_swift(paths: Iterable[str], root: str, base: str) -> List[str]:
@@ -56,17 +62,27 @@ def filter_swift(paths: Iterable[str], root: str, base: str) -> List[str]:
         if not path.endswith(SWIFT_SUFFIX):
             continue
         rel = _relative(path, root, base)
-        if os.path.isfile(os.path.join(root, rel)):
+        if rel is not None and os.path.isfile(os.path.join(root, rel)):
             result.add(rel)
     return sorted(result)
 
 
+def resolve_commit(root: str, ref: str) -> str:
+    """責務: REF を検証してコミットの SHA にする(`-` 始まりは拒否)。"""
+    if ref.startswith("-"):
+        raise SelectionError("--changed-since の REF が `-` で始まっている: " + ref)
+    args = ["rev-parse", "--verify", "--end-of-options", ref + "^{commit}"]
+    return run_git(args, root).strip()
+
+
 def changed_paths(root: str, ref: str) -> List[str]:
     """責務: REF...HEAD の差分と未コミット変更のパスを集める。"""
+    sha = resolve_commit(root, ref)
     committed = run_git(
-        ["diff", "--name-only", "--diff-filter=ACMR", ref + "...HEAD"], root
+        ["diff", "--name-only", "--diff-filter=ACMR", sha + "...HEAD", "--"],
+        root,
     )
-    working = run_git(["diff", "--name-only", "HEAD"], root)
+    working = run_git(["diff", "--name-only", "HEAD", "--"], root)
     return (committed + "\n" + working).splitlines()
 
 

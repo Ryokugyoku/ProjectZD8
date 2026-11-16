@@ -9,12 +9,12 @@ from .baseline import (
     BaselineError, build_baseline, judge, load_baseline, save_baseline,
 )
 from .findings import collect_findings
-from .limits import BASELINE_RELATIVE_PATH
 from .measure import LizardMissingError, measure_source
 from .model import Finding, Judgement
 from .report import format_report
+from .safe_paths import resolve_inside
 from .selection import (
-    GitError, changed_paths, filter_swift, find_root, hook_path, scan_all,
+    GitError, SelectionError, changed_paths, filter_swift, find_root, hook_path, scan_all,
 )
 
 EXIT_OK = 0
@@ -34,11 +34,24 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def join_changed_since(argv: List[str]) -> List[str]:
+    """責務: `--changed-since -x` を `=` 形式へ直し、REF 検証側で拒否できるようにする。"""
+    result: List[str] = []
+    for token in argv:
+        if result and result[-1] == "--changed-since":
+            result[-1] = "--changed-since=" + token
+        else:
+            result.append(token)
+    return result
+
+
 def measure_findings(root: str, rel_paths: List[str]) -> List[Finding]:
     """責務: 指定ファイルを計測し、上限超過をすべて集める。"""
     found: List[Finding] = []
     for rel in rel_paths:
-        full = os.path.join(root, rel)
+        full = resolve_inside(root, os.path.join(root, rel))
+        if full is None:
+            continue
         with open(full, encoding="utf-8", errors="replace") as handle:
             text = handle.read()
         found.extend(collect_findings(measure_source(rel, text)))
@@ -47,7 +60,7 @@ def measure_findings(root: str, rel_paths: List[str]) -> List[Finding]:
 
 def _check(root: str, rel_paths: List[str]) -> List[Judgement]:
     """責務: ファイル群を計測してベースラインと照合した判定を返す。"""
-    baseline = load_baseline(os.path.join(root, BASELINE_RELATIVE_PATH))
+    baseline = load_baseline(root)
     return judge(measure_findings(root, rel_paths), baseline)
 
 
@@ -55,7 +68,7 @@ def _update_baseline(root: str) -> int:
     """責務: 全対象を計測して超過だけをベースラインへ書き出す。"""
     paths = filter_swift(scan_all(root), root, root)
     baseline = build_baseline(measure_findings(root, paths))
-    save_baseline(os.path.join(root, BASELINE_RELATIVE_PATH), baseline)
+    save_baseline(root, baseline)
     return EXIT_OK
 
 
@@ -69,9 +82,18 @@ def _select_paths(args, root: str, stdin: TextIO) -> List[str]:
     return filter_swift(args.files, root, os.getcwd())
 
 
+def _resolve_root(option: Optional[str]) -> str:
+    """責務: --root を検証して実パスにする。省略時は git のルートを使う。"""
+    if option is None:
+        return find_root(os.getcwd())
+    if not os.path.isdir(option):
+        raise SelectionError("--root が実在するディレクトリではない: " + option)
+    return os.path.realpath(option)
+
+
 def _run(args, stdin: TextIO, stdout: TextIO, stderr: TextIO) -> int:
     """責務: 引数に従って実行し、終了コードを返す。"""
-    root = os.path.realpath(args.root) if args.root else find_root(os.getcwd())
+    root = _resolve_root(args.root)
     if args.update_baseline:
         return _update_baseline(root)
     judgements = _check(root, _select_paths(args, root, stdin))
@@ -93,7 +115,9 @@ def main(
     stderr: Optional[TextIO] = None,
 ) -> int:
     """責務: 例外を終了コードへ変換しながら実行する。"""
-    args = build_parser().parse_args(argv)
+    args = build_parser().parse_args(
+        join_changed_since(sys.argv[1:] if argv is None else list(argv))
+    )
     stdin = stdin or sys.stdin
     stdout = stdout or sys.stdout
     stderr = stderr or sys.stderr
@@ -102,6 +126,6 @@ def main(
     except LizardMissingError as error:
         stderr.write("lizard が見つかりません: {}\n".format(error))
         return EXIT_LIZARD_MISSING
-    except (GitError, BaselineError) as error:
+    except (GitError, SelectionError, BaselineError) as error:
         stderr.write("{}\n".format(error))
         return EXIT_ERRORS

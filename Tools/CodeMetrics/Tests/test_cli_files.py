@@ -2,8 +2,8 @@
 
 import os
 
-from metrics_support import (MetricsTestCase, TOOL, nested_ifs, run_tool,
-                             swift_func, write)
+from metrics_support import (MetricsTestCase, TOOL, make_root, nested_ifs,
+                             run_tool, swift_func, write)
 import subprocess
 import sys
 
@@ -46,8 +46,12 @@ class ExitCodeTests(MetricsTestCase):
     """lizard が使えない場合の終了コード。"""
 
     def test_lizard未導入は理由を標準エラーに出して3(self):
-        """ユーザーサイトを無効化して lizard を隠すと exit 3 と stderr 出力。"""
-        env = dict(os.environ, PYTHONNOUSERSITE="1")
+        """lizard を ImportError にする偽モジュールを PYTHONPATH 先頭に置くと exit 3 と stderr 出力。"""
+        fake = make_root(self)
+        write(fake, "lizard.py", 'raise ImportError("hidden for test")\n')
+        env = dict(os.environ)
+        old = env.get("PYTHONPATH")
+        env["PYTHONPATH"] = str(fake) + (os.pathsep + old if old else "")
         probe = subprocess.run([sys.executable, "-c", "import lizard"],
                                env=env, timeout=60, capture_output=True)
         self.assertNotEqual(probe.returncode, 0, "lizard を隠せない環境")
