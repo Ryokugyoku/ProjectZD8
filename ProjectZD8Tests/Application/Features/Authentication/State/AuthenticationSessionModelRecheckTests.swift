@@ -52,6 +52,7 @@ final class AuthenticationSessionModelRecheckTests: XCTestCase {
                 sessionRevocation: revocation,
                 sessionTransfers: transfers,
                 vehicleDataEraser: AuthenticationModelVehicleDataEraserFake(),
+                maintenanceDataEraser: AuthenticationModelMaintenanceDataEraserFake(),
                 dataEraser: dataEraser,
                 sessionStore: store
             ),

@@ -109,6 +109,7 @@ final class AuthenticationUseCaseTests: XCTestCase {
             sessionRevocation: AuthenticationDeletionRevocationPortFake(recorder: recorder),
             sessionTransfers: AuthenticationDeletionTransferRepositoryFake(recorder: recorder),
             vehicleDataEraser: AuthenticationDeletionVehicleDataEraserFake(recorder: recorder),
+            maintenanceDataEraser: AuthenticationDeletionMaintenanceDataEraserFake(recorder: recorder),
             dataEraser: AuthenticationDeletionDataEraserFake(recorder: recorder),
             sessionStore: AuthenticationDeletionSessionStoreFake(recorder: recorder)
         )
@@ -116,9 +117,10 @@ final class AuthenticationUseCaseTests: XCTestCase {
         try await useCase.execute(userIdentifier: "delete-user")
 
         XCTAssertEqual(recorder.events, [
-            "publish:delete-user",
             "delete-cloud-driving-data:delete-user",
             "delete-vehicle-data:delete-user",
+            "delete-maintenance-data:delete-user",
+            "publish:delete-user",
             "erase:delete-user",
             "remove-session"
         ])
@@ -136,6 +138,7 @@ final class AuthenticationUseCaseTests: XCTestCase {
                 deleteAllError: AuthenticationSessionStoreError.unavailable
             ),
             vehicleDataEraser: AuthenticationDeletionVehicleDataEraserFake(recorder: recorder),
+            maintenanceDataEraser: AuthenticationDeletionMaintenanceDataEraserFake(recorder: recorder),
             dataEraser: AuthenticationDeletionDataEraserFake(recorder: recorder),
             sessionStore: AuthenticationDeletionSessionStoreFake(recorder: recorder)
         )
@@ -145,7 +148,6 @@ final class AuthenticationUseCaseTests: XCTestCase {
             XCTFail("CloudKit削除失敗後もアカウント削除が成功しました。")
         } catch {
             XCTAssertEqual(recorder.events, [
-                "publish:delete-user",
                 "delete-cloud-driving-data:delete-user"
             ])
         }
@@ -423,6 +425,27 @@ private final class AuthenticationDeletionVehicleDataEraserFake: AccountVehicleD
     /// 責務: テスト対象外の車両キャッシュ削除要求を副作用なしで満たします。
     /// - Parameter accountIdentifier: 使用しないアカウント識別子。
     func removeLocalVehicleCache(for accountIdentifier: String) {}
+}
+
+/// アカウント削除テストで整備カタログ削除を記録します。
+@MainActor
+private final class AuthenticationDeletionMaintenanceDataEraserFake: AccountMaintenanceDataErasurePort {
+    /// 副作用順序の共有記録先です。
+    private let recorder: AuthenticationDeletionOrderRecorder
+
+    /// 共有記録先を注入します。
+    ///
+    /// 責務: 整備カタログ削除Fakeを1件の副作用順序記録先へ結び付けます。
+    /// - Parameter recorder: 副作用名を発生順に保持する記録先。
+    init(recorder: AuthenticationDeletionOrderRecorder) { self.recorder = recorder }
+
+    /// 整備カタログ削除を共有履歴へ追加します。
+    ///
+    /// 責務: 1件の整備データ全削除を順序検証可能なイベントへ変換します。
+    /// - Parameter accountIdentifier: 削除対象アカウント識別子。
+    func deleteAllMaintenanceData(for accountIdentifier: String) async throws {
+        recorder.events.append("delete-maintenance-data:\(accountIdentifier)")
+    }
 }
 
 /// アカウント削除テストで資格情報削除を記録します。

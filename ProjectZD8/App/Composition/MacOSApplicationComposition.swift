@@ -231,7 +231,8 @@ enum MacOSApplicationComposition: ApplicationPlatformComposing {
             defaultAdapterStore: defaultAdapterStore,
             connectionSessionStorage: connectionSessionStorage,
             vehicleDataEraser: vehicleDataEraser,
-            vehiclePIDCapabilityEraser: vehiclePIDCapabilityEraser
+            vehiclePIDCapabilityEraser: vehiclePIDCapabilityEraser,
+            maintenanceRecordRepository: ProductDatabaseRepositoryFactory().makeMaintenanceRecordRepository(database: database)
         )
         return AuthenticationSessionModel(
             state: initialAuthenticationState,
@@ -247,6 +248,7 @@ enum MacOSApplicationComposition: ApplicationPlatformComposing {
                 sessionRevocation: sessionRevocation,
                 sessionTransfers: CloudKitConnectionSessionTransferRepository(),
                 vehicleDataEraser: vehicleDataEraser,
+                maintenanceDataEraser: CloudKitMaintenanceRemoteStore(),
                 dataEraser: dataEraser,
                 sessionStore: sessionStore
             ),

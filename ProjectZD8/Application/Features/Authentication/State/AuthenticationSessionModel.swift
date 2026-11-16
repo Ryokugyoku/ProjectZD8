@@ -27,6 +27,10 @@ final class AuthenticationSessionModel {
     @ObservationIgnored
     private let sessionRevocation: any AccountSessionRevocationPort
 
+    /// 削除の開始時に、進行中の取得を終わらせて保存完了まで待つ境界です。App の配線で設定します。未設定なら待ちません。
+    @ObservationIgnored
+    var acquisitionDrain: (any AccountDeletionAcquisitionDrainPort)?
+
     /// 重複した起動時確認を防ぐ復元タスクです。
     @ObservationIgnored
     private var restorationTask: Task<Void, Never>?
@@ -38,6 +42,10 @@ final class AuthenticationSessionModel {
     /// 重複したアカウント削除要求を防ぐ削除タスクです。
     @ObservationIgnored
     private var accountDeletionTask: Task<Void, Never>?
+
+    /// 重複した他端末失効の反映を防ぐタスクです。
+    @ObservationIgnored
+    private var remoteLogoutTask: Task<Void, Never>?
 
     /// サインイン確認の再確認をすべき状態かの判定です。
     @ObservationIgnored
@@ -148,7 +156,7 @@ final class AuthenticationSessionModel {
 
     /// 最終確認済みの認証済みアカウントを1回だけ削除します。
     ///
-    /// 責務: 最終削除操作をアカウント削除ユースケースとログイン画面への状態遷移へ結び付けます。
+    /// 責務: 削除の開始と同時に認証段階を `.deletingAccount` へ移して各機能(同期・保存・記録・自動アップロード)を止め、削除タスクを開始します。
     private func beginAccountDeletionIfPossible() {
         guard
             state.phase == .signedIn,
@@ -159,20 +167,31 @@ final class AuthenticationSessionModel {
 
         state.accountDeletionFailure = nil
         state.accountDeletionPhase = .deleting
+        state.phase = .deletingAccount
         accountDeletionTask = Task { [weak self] in
             guard let self else { return }
             defer { accountDeletionTask = nil }
-            do {
-                try await deleteAccount.execute(userIdentifier: userIdentifier)
-                sessionRevocation.stopObserving()
-                state.accountDeletionPhase = .idle
-                state.accountDeletionFailure = nil
-                state.session = nil
-                state.phase = .signedOut
-            } catch {
-                state.accountDeletionFailure = .deletionFailed
-                state.accountDeletionPhase = .failed
-            }
+            await runAccountDeletion(userIdentifier: userIdentifier)
+        }
+    }
+
+    /// 進行中の取得を終わらせてからアカウントを削除し、結果を状態へ反映します。
+    ///
+    /// 責務: 成功ならログイン画面へ、失敗なら認証済みへ戻して同じ画面から再試行できる状態にします。
+    /// - Parameter userIdentifier: 削除対象のAppleユーザー識別子。
+    private func runAccountDeletion(userIdentifier: String) async {
+        do {
+            try await acquisitionDrain?.endAcquisitionAndWaitUntilSaved()
+            try await deleteAccount.execute(userIdentifier: userIdentifier)
+            sessionRevocation.stopObserving()
+            state.accountDeletionPhase = .idle
+            state.accountDeletionFailure = nil
+            state.session = nil
+            state.phase = .signedOut
+        } catch {
+            state.accountDeletionFailure = .deletionFailed
+            state.accountDeletionPhase = .failed
+            state.phase = .signedIn
         }
     }
 
@@ -318,23 +337,28 @@ final class AuthenticationSessionModel {
 
     /// 他端末から失効された現在アカウントを端末内からログアウトします。
     ///
-    /// 責務: 1件の遠隔失効を端末内消去結果とログイン画面への状態遷移へ変換します。
+    /// 責務: 1件の遠隔失効を端末内消去結果とログイン画面への状態遷移へ変換します。消去の完了を待ってから遷移します。
     /// - Parameter userIdentifier: 失効通知の対象となったAppleユーザー識別子。
     private func applyRemoteSessionRevocation(for userIdentifier: String) {
         guard
             state.phase == .signedIn,
-            state.session?.userIdentifier == userIdentifier
+            state.session?.userIdentifier == userIdentifier,
+            remoteLogoutTask == nil
         else { return }
 
-        do {
-            try remoteAccountLogout.execute(userIdentifier: userIdentifier)
-        } catch {
-            state.failure = .remoteLogoutPersistenceFailed
+        remoteLogoutTask = Task { [weak self] in
+            guard let self else { return }
+            defer { remoteLogoutTask = nil }
+            do {
+                try await remoteAccountLogout.execute(userIdentifier: userIdentifier)
+            } catch {
+                state.failure = .remoteLogoutPersistenceFailed
+            }
+            sessionRevocation.stopObserving()
+            state.accountDeletionPhase = .idle
+            state.accountDeletionFailure = nil
+            state.session = nil
+            state.phase = .signedOut
         }
-        sessionRevocation.stopObserving()
-        state.accountDeletionPhase = .idle
-        state.accountDeletionFailure = nil
-        state.session = nil
-        state.phase = .signedOut
     }
 }

@@ -54,7 +54,7 @@ nonisolated struct AuthenticationSessionRecheckPolicy: Equatable, Sendable {
     func shouldRecheck(phase: AuthenticationPhase, isSessionCheckUnresolved: Bool) -> Bool {
         switch phase {
         case .signedOut: isSessionCheckUnresolved
-        case .checkingSession, .signingIn, .signedIn: false
+        case .checkingSession, .signingIn, .signedIn, .deletingAccount: false
         }
     }
 }

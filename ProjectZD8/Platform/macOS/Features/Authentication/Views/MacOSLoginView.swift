@@ -306,7 +306,7 @@ struct MacOSLoginView: View {
                     progressIndicator("auth.signing_in")
                 case .signedOut:
                     signInButton
-                case .signedIn:
+                case .signedIn, .deletingAccount:
                     EmptyView()
                 }
             }

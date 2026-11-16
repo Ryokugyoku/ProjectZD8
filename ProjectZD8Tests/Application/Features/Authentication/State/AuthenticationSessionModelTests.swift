@@ -165,7 +165,7 @@ final class AuthenticationSessionModelTests: XCTestCase {
     /// 他端末の失効通知が現在端末のデータとセッションを削除してログアウトすることを検証します。
     ///
     /// 責務: 遠隔失効コールバックをローカル消去とログイン画面状態へ変換することを確認します。
-    func testRemoteRevocationErasesLocalDataAndSignsOut() {
+    func testRemoteRevocationErasesLocalDataAndSignsOut() async {
         let session = AppleAccountSession(userIdentifier: "remote-user")
         let dependencies = makeDependencies(
             state: AuthenticationState(phase: .signedIn, session: session)
@@ -173,6 +173,7 @@ final class AuthenticationSessionModelTests: XCTestCase {
         dependencies.store.identifier = session.userIdentifier
 
         dependencies.revocation.deliverRevocation()
+        await waitForTasks()
 
         XCTAssertEqual(dependencies.dataEraser.erasedIdentifiers, ["remote-user"])
         XCTAssertEqual(dependencies.revocation.publishedIdentifiers, [])
@@ -185,7 +186,7 @@ final class AuthenticationSessionModelTests: XCTestCase {
     /// 他端末ログアウトのKeychain削除失敗を案内しつつ現在表示をログイン画面へ戻すことを検証します。
     ///
     /// 責務: 遠隔失効の端末内永続化失敗を成功扱いせず区別可能なログイン画面状態へ保持します。
-    func testRemoteRevocationPersistenceFailureSignsOutWithFailureNotice() {
+    func testRemoteRevocationPersistenceFailureSignsOutWithFailureNotice() async {
         let session = AppleAccountSession(userIdentifier: "remote-retry-user")
         let dependencies = makeDependencies(
             state: AuthenticationState(phase: .signedIn, session: session)
@@ -194,6 +195,7 @@ final class AuthenticationSessionModelTests: XCTestCase {
         dependencies.store.removeError = AuthenticationSessionStoreError.unavailable
 
         dependencies.revocation.deliverRevocation()
+        await waitForTasks()
 
         XCTAssertEqual(dependencies.dataEraser.erasedIdentifiers, ["remote-retry-user"])
         XCTAssertEqual(dependencies.store.identifier, "remote-retry-user")
@@ -283,6 +285,7 @@ final class AuthenticationSessionModelTests: XCTestCase {
                 sessionRevocation: revocation,
                 sessionTransfers: transfers,
                 vehicleDataEraser: vehicleDataEraser,
+                maintenanceDataEraser: AuthenticationModelMaintenanceDataEraserFake(),
                 dataEraser: dataEraser,
                 sessionStore: store
             ),
@@ -526,34 +529,6 @@ final class AuthenticationModelTransferRepositoryFake: ConnectionSessionTransfer
     func deleteAll(for accountIdentifier: String) async throws {
         deletedAccountIdentifiers.append(accountIdentifier)
     }
-}
-
-/// 認証モデルテストで車両データ削除境界を再現します。
-@MainActor
-final class AuthenticationModelVehicleDataEraserFake: AccountVehicleDataErasurePort {
-    /// 全削除されたアカウント識別子です。
-    private(set) var deletedAccountIdentifiers: [String] = []
-
-    /// 車両カタログ全削除を記録します。
-    ///
-    /// 責務: 1件のアカウント識別子を車両データ削除履歴へ追加します。
-    /// - Parameter accountIdentifier: 削除対象アカウント識別子。
-    func deleteAllVehicleData(for accountIdentifier: String) async throws {
-        deletedAccountIdentifiers.append(accountIdentifier)
-    }
-
-    /// このテストでは端末キャッシュに車両を保持しません。
-    ///
-    /// 責務: テスト対象外のローカル車両ID照会へ空配列を返します。
-    /// - Parameter accountIdentifier: 使用しないアカウント識別子。
-    /// - Returns: 空配列。
-    func localVehicleIDs(for accountIdentifier: String) -> [VehicleID] { [] }
-
-    /// このテストでは端末キャッシュ単独削除を使用しません。
-    ///
-    /// 責務: テスト対象外の車両キャッシュ削除要求を副作用なしで満たします。
-    /// - Parameter accountIdentifier: 使用しないアカウント識別子。
-    func removeLocalVehicleCache(for accountIdentifier: String) {}
 }
 
 /// 認証モデルテストで端末間セッション失効操作を記録します。

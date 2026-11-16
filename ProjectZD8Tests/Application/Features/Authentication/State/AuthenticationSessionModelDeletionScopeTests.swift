@@ -70,6 +70,7 @@ final class AuthenticationSessionModelDeletionScopeTests: XCTestCase {
                 sessionRevocation: revocation,
                 sessionTransfers: AuthenticationModelTransferRepositoryFake(),
                 vehicleDataEraser: gate,
+                maintenanceDataEraser: AuthenticationModelMaintenanceDataEraserFake(),
                 dataEraser: dataEraser,
                 sessionStore: store
             ),

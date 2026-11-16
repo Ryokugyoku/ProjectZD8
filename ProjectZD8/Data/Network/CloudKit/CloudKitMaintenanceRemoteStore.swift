@@ -4,7 +4,7 @@ import Foundation
 
 /// CloudKit private databaseへ写真を含む整備カタログをAsset保存します。
 @MainActor
-final class CloudKitMaintenanceRemoteStore: MaintenanceRemoteStore {
+final class CloudKitMaintenanceRemoteStore: MaintenanceRemoteStore, AccountMaintenanceDataErasurePort {
     /// 整備カタログのCloudKitレコード種別です。
     private static let recordType = "MaintenanceCatalog"
     /// JSON Assetを保持するフィールド名です。
@@ -66,6 +66,19 @@ final class CloudKitMaintenanceRemoteStore: MaintenanceRemoteStore {
         record[Self.catalogAssetKey] = CKAsset(fileURL: temporaryURL)
         record["updatedAt"] = Date() as CKRecordValue
         _ = try await privateDatabase.save(record)
+    }
+
+    /// 指定アカウントのCloudKit整備カタログを削除します。
+    ///
+    /// 責務: 1件のアカウントに属する整備記録と整備写真のレコードをCloudKitから削除します。既に無ければ成功として扱います。
+    /// - Parameter accountIdentifier: 削除対象のAppleアカウント識別子。
+    /// - Throws: CloudKitレコード削除に失敗した場合のエラー。
+    func deleteAllMaintenanceData(for accountIdentifier: String) async throws {
+        do {
+            _ = try await privateDatabase.deleteRecord(withID: recordID(for: accountIdentifier))
+        } catch let error as CKError where error.code == .unknownItem {
+            // 既に削除済みなら目的状態を満たします。
+        }
     }
 
     /// 利用時点で解決するCloudKit private databaseです。

@@ -1,5 +1,5 @@
 /// 端末内の車両別整備記録を読み書きする能力です。
-protocol MaintenanceRecordRepository: Sendable {
+nonisolated protocol MaintenanceRecordRepository: Sendable {
     /// 指定アカウントに属する削除墓石を含む全整備記録を取得します。
     ///
     /// 責務: 1件のアカウントスコープから現在の整備記録集合を返します。
