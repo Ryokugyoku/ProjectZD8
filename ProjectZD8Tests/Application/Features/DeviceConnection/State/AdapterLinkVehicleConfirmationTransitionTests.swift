@@ -55,7 +55,7 @@ final class AdapterLinkVehicleConfirmationTransitionTests: XCTestCase {
     /// 責務: 判定結果を引き継いだVINなしの検知と `readVIN` の作用を確認します。
     func testRespondingWhileProbingDetectsVehicle() {
         let state = AdapterLinkSupervisionState.confirmingVehicle(F.confirmation(attemptCount: 7))
-        let result = transition.vehicleConfirmationCompleted(.responding, from: state, now: F.date(200))
+        let result = transition.vehicleConfirmationCompleted(.responding, from: state, conditions: F.conditions(now: F.date(200)))
         let vehicle = AdapterLinkDetectedVehicle(adapterProbeEvidence: F.evidence, vin: nil)
         A.assertResult(result, state: .vehicleDetected(vehicle, phase: .readingVIN), effects: [.readVIN])
     }
@@ -66,7 +66,7 @@ final class AdapterLinkVehicleConfirmationTransitionTests: XCTestCase {
     func testNoResponseInsideWindowSchedulesRecheckAfterInterval() {
         let state = AdapterLinkSupervisionState.confirmingVehicle(F.confirmation(attemptCount: 1))
         for now in [F.date(0), F.date(F.windowSeconds - 0.001)] {
-            let result = transition.vehicleConfirmationCompleted(.noResponse, from: state, now: now)
+            let result = transition.vehicleConfirmationCompleted(.noResponse, from: state, conditions: F.conditions(now: now))
             A.assertResult(result, state: state, effects: [.scheduleVehicleConfirmation(after: .seconds(30))], "\(now)")
         }
     }
@@ -77,7 +77,7 @@ final class AdapterLinkVehicleConfirmationTransitionTests: XCTestCase {
     func testNoResponseAtOrAfterWindowEndPauses() {
         let confirmation = F.confirmation(attemptCount: 3)
         for now in [F.date(F.windowSeconds), F.date(F.windowSeconds + 0.001)] {
-            let result = transition.vehicleConfirmationCompleted(.noResponse, from: .confirmingVehicle(confirmation), now: now)
+            let result = transition.vehicleConfirmationCompleted(.noResponse, from: .confirmingVehicle(confirmation), conditions: F.conditions(now: now))
             A.assertResult(result, state: .confirmingVehicle(F.confirmation(attemptCount: 3, phase: .paused)), effects: [], "\(now)")
         }
     }
@@ -87,11 +87,11 @@ final class AdapterLinkVehicleConfirmationTransitionTests: XCTestCase {
     /// 責務: 19回目の無応答は予約、20回目の無応答は休止という回数の境界を確認します。
     func testNoResponseHonorsAttemptLimitWithFrozenClock() {
         let nineteenth = AdapterLinkSupervisionState.confirmingVehicle(F.confirmation(attemptCount: F.maximumAttempts - 1))
-        let scheduled = transition.vehicleConfirmationCompleted(.noResponse, from: nineteenth, now: F.referenceDate)
+        let scheduled = transition.vehicleConfirmationCompleted(.noResponse, from: nineteenth, conditions: F.conditions(now: F.referenceDate))
         A.assertResult(scheduled, state: nineteenth, effects: [.scheduleVehicleConfirmation(after: .seconds(30))])
 
         let twentieth = F.confirmation(attemptCount: F.maximumAttempts)
-        let paused = transition.vehicleConfirmationCompleted(.noResponse, from: .confirmingVehicle(twentieth), now: F.referenceDate)
+        let paused = transition.vehicleConfirmationCompleted(.noResponse, from: .confirmingVehicle(twentieth), conditions: F.conditions(now: F.referenceDate))
         let expected = F.confirmation(attemptCount: F.maximumAttempts, phase: .paused)
         A.assertResult(paused, state: .confirmingVehicle(expected), effects: [])
     }
@@ -102,7 +102,7 @@ final class AdapterLinkVehicleConfirmationTransitionTests: XCTestCase {
     func testConfirmationCompletedOutsideProbingIsIgnored() {
         for state in F.allStates where state != .confirmingVehicle(F.confirmation(phase: .probing)) {
             for outcome in [VehicleResponseOutcome.responding, .noResponse] {
-                let result = transition.vehicleConfirmationCompleted(outcome, from: state, now: F.referenceDate)
+                let result = transition.vehicleConfirmationCompleted(outcome, from: state, conditions: F.conditions(now: F.referenceDate))
                 A.assertIgnored(result, from: state, "\(state) \(outcome)")
             }
         }
@@ -113,12 +113,12 @@ final class AdapterLinkVehicleConfirmationTransitionTests: XCTestCase {
     /// 責務: 窓の直前(1ミリ秒前)と19回目→20回目の境界で `.adapterMaximum` の確認になることを確認します。
     func testIntervalElapsedInsideLimitsRechecksWithAdapterMaximum() {
         let early = F.confirmation(attemptCount: 1)
-        let resultEarly = transition.vehicleConfirmationIntervalElapsed(from: .confirmingVehicle(early), now: F.date(30))
+        let resultEarly = transition.vehicleConfirmationIntervalElapsed(from: .confirmingVehicle(early), conditions: F.conditions(now: F.date(30)))
         A.assertResult(resultEarly, state: .confirmingVehicle(F.confirmation(attemptCount: 2)), effects: [.confirmVehicle(.adapterMaximum)])
 
         let last = F.confirmation(attemptCount: F.maximumAttempts - 1)
         let resultLast = transition.vehicleConfirmationIntervalElapsed(
-            from: .confirmingVehicle(last), now: F.date(F.windowSeconds - 0.001)
+            from: .confirmingVehicle(last), conditions: F.conditions(now: F.date(F.windowSeconds - 0.001))
         )
         let expected = F.confirmation(attemptCount: F.maximumAttempts)
         A.assertResult(resultLast, state: .confirmingVehicle(expected), effects: [.confirmVehicle(.adapterMaximum)])
@@ -129,7 +129,9 @@ final class AdapterLinkVehicleConfirmationTransitionTests: XCTestCase {
     /// 責務: 10分ちょうど・それ以降で確認を要求せず `paused` へ移ることを確認します。
     func testIntervalElapsedAtOrAfterWindowEndPauses() {
         for now in [F.date(F.windowSeconds), F.date(F.windowSeconds + 30)] {
-            let result = transition.vehicleConfirmationIntervalElapsed(from: .confirmingVehicle(F.confirmation(attemptCount: 4)), now: now)
+            let result = transition.vehicleConfirmationIntervalElapsed(
+                from: .confirmingVehicle(F.confirmation(attemptCount: 4)), conditions: F.conditions(now: now)
+            )
             A.assertResult(result, state: .confirmingVehicle(F.confirmation(attemptCount: 4, phase: .paused)), effects: [], "\(now)")
         }
     }
@@ -139,7 +141,7 @@ final class AdapterLinkVehicleConfirmationTransitionTests: XCTestCase {
     /// 責務: 回数上限の境界(20回目の後)を確認します。
     func testIntervalElapsedAfterTwentiethAttemptPauses() {
         let state = AdapterLinkSupervisionState.confirmingVehicle(F.confirmation(attemptCount: F.maximumAttempts))
-        let result = transition.vehicleConfirmationIntervalElapsed(from: state, now: F.referenceDate)
+        let result = transition.vehicleConfirmationIntervalElapsed(from: state, conditions: F.conditions(now: F.referenceDate))
         A.assertResult(result, state: .confirmingVehicle(F.confirmation(attemptCount: F.maximumAttempts, phase: .paused)), effects: [])
     }
 
@@ -148,7 +150,7 @@ final class AdapterLinkVehicleConfirmationTransitionTests: XCTestCase {
     /// 責務: 休止中・待機・初期化中・検知済み・記録中・終了中で確認を要求しないことを確認します。
     func testIntervalElapsedOutsideProbingIsIgnored() {
         for state in F.allStates where state != .confirmingVehicle(F.confirmation(phase: .probing)) {
-            A.assertIgnored(transition.vehicleConfirmationIntervalElapsed(from: state, now: F.date(1)), from: state, "\(state)")
+            A.assertIgnored(transition.vehicleConfirmationIntervalElapsed(from: state, conditions: F.conditions(now: F.date(1))), from: state, "\(state)")
         }
     }
 

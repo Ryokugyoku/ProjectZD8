@@ -78,7 +78,7 @@ nonisolated struct AdapterLinkRecordingTransition: Sendable {
     ) -> AdapterLinkSupervisionTransitionResult {
         switch state {
         case .recording where endReason == .userDisconnected && conditions.isLinkReady:
-            AdapterLinkSupervisionTransitionResult(state: .heldAfterUserStop, effects: [.dismissNotification])
+            AdapterLinkSupervisionTransitionResult(state: .heldAfterUserStop(.awaitingStart), effects: [.dismissNotification])
         case .recording:
             AdapterLinkSupervisionTransitionResult(state: .finishing, effects: [.dismissNotification, .completeFinishing])
         case .finishing:
@@ -86,6 +86,25 @@ nonisolated struct AdapterLinkRecordingTransition: Sendable {
         case .standby, .initializing, .confirmingVehicle, .vehicleDetected, .heldAfterUserStop:
             AdapterLinkSupervisionTransitionResult(state: state)
         }
+    }
+
+    /// 記録の終了通知を受けて終了処理が落ち着いた後の、待機からの検知のやり直しを返します。
+    ///
+    /// 責務: 記録がユーザー切断以外の理由で終わって待機へ戻った時に、リンクが `ready` で手動接続が使っていなければ、
+    /// その時刻を窓の起点として初期化からやり直します。リンクが `ready` でなければ待機のまま次の再接続を待ちます。
+    /// 記録中・終了処理中にはアダプターへ何も送らないため、このイベントは記録の終了通知の後にだけ届きます。
+    /// - Parameters:
+    ///   - state: 現在の監視状態。
+    ///   - conditions: リンク状態と現在時刻を含む条件。
+    /// - Returns: 次の状態と作用。待機以外(抑止中は見張りの遷移が扱う)と、始められない条件では何もしません。
+    func recordingEndSettled(
+        from state: AdapterLinkSupervisionState,
+        conditions: AdapterLinkSupervisionConditions
+    ) -> AdapterLinkSupervisionTransitionResult {
+        guard state == .standby, conditions.isLinkReady, !conditions.isExternalAdapterUseActive else {
+            return AdapterLinkSupervisionTransitionResult(state: state)
+        }
+        return AdapterLinkSupervisionTransitionResult(state: .initializing(linkReadyAt: conditions.now), effects: [.initializeAdapter])
     }
 
     /// 終了処理の完了に対する遷移を返します。

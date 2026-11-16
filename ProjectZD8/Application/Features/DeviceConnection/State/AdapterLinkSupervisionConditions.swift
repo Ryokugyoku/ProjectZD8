@@ -23,6 +23,14 @@ nonisolated struct AdapterLinkSupervisionConditions: Equatable, Sendable {
     /// 常駐リンク以外の経路(手動接続)がアダプターを使っている最中かどうかです。`true` の間は初期化・車両確認を始めません。
     let isExternalAdapterUseActive: Bool
 
+    /// アプリが前面にいるかどうかです。前面にいる間は、窓切れを理由に車両確認を休止しません。
+    let isForeground: Bool
+
+    /// 最後に車両確認(見張りの確認を含む)を送った時刻です(単調時計基準)。続けて送っていなければ `nil` です。
+    ///
+    /// 確認の結果がこの時刻から最短間隔より早く返った場合に、残り時間だけ待つために使います。
+    let lastVehicleConfirmationSentAt: Date?
+
     /// 遷移の参照条件を固定して生成します。
     ///
     /// 責務: 1件のイベント処理で参照する条件を不変値へまとめます。
@@ -34,6 +42,8 @@ nonisolated struct AdapterLinkSupervisionConditions: Equatable, Sendable {
     ///   - linkState: 処理直前に把握していたリンク状態。
     ///   - now: 現在時刻。
     ///   - isExternalAdapterUseActive: 手動接続がアダプターを使っている最中か。既定は `false`。
+    ///   - isForeground: アプリが前面にいるか。既定は `false`。
+    ///   - lastVehicleConfirmationSentAt: 最後に車両確認を送った時刻。既定は `nil`。
     init(
         isSupervisionStarted: Bool,
         isSignedIn: Bool,
@@ -41,7 +51,9 @@ nonisolated struct AdapterLinkSupervisionConditions: Equatable, Sendable {
         linkPreference: DefaultAdapterPreference?,
         linkState: AdapterLinkState,
         now: Date,
-        isExternalAdapterUseActive: Bool = false
+        isExternalAdapterUseActive: Bool = false,
+        isForeground: Bool = false,
+        lastVehicleConfirmationSentAt: Date? = nil
     ) {
         self.isSupervisionStarted = isSupervisionStarted
         self.isSignedIn = isSignedIn
@@ -50,6 +62,8 @@ nonisolated struct AdapterLinkSupervisionConditions: Equatable, Sendable {
         self.linkState = linkState
         self.now = now
         self.isExternalAdapterUseActive = isExternalAdapterUseActive
+        self.isForeground = isForeground
+        self.lastVehicleConfirmationSentAt = lastVehicleConfirmationSentAt
     }
 
     /// 稼働条件を満たす場合にリンクの接続対象とすべき既定アダプター設定です。

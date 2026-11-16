@@ -23,7 +23,7 @@ final class AdapterLinkSupervisionTransitionUserStopTests: XCTestCase {
             on: .recordingDidFinish(endReason: .userDisconnected),
             conditions: F.conditions()
         )
-        XCTAssertEqual(result.state, .heldAfterUserStop)
+        XCTAssertTrue(result.state.isHeldAfterUserStop)
         XCTAssertEqual(result.effects, [.dismissNotification])
         XCTAssertFalse(result.effects.contains(.completeFinishing))
     }
@@ -84,7 +84,7 @@ final class AdapterLinkSupervisionTransitionUserStopTests: XCTestCase {
                 on: .recordingDidFinish(endReason: .userDisconnected),
                 conditions: F.conditions(linkState: linkState)
             )
-            XCTAssertNotEqual(result.state, .heldAfterUserStop, "\(linkState)")
+            XCTAssertFalse(result.state.isHeldAfterUserStop, "\(linkState)")
             XCTAssertFalse(AdapterLinkSupervisionResultAssertions.containsRecordingStopRequest(result.effects), "\(linkState)")
             if result.state == .finishing {
                 XCTAssertTrue(result.effects.contains(.completeFinishing), "終了中なら待機へ戻る: \(linkState)")

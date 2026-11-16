@@ -170,13 +170,18 @@ struct ProjectZD8App: App {
     }
 
     /// バックグラウンド移行時に保存待ちの取得記録を保存させ、操作可能へ戻ったとき取得の一時停止へ復帰の機会を伝え、
-    /// iOSでは常駐リンク監視と記録中のLive Activityへ前面復帰を伝え、認証済みセッション概要と整備記録を再同期します。
+    /// iOSでは常駐リンク監視へ前面復帰・背面移行を、記録中のLive Activityへ前面復帰を伝え、認証済みセッション概要と整備記録を再同期します。
     ///
     /// 責務: 1件のScene段階変更を取得記録のflush要求・取得ループの起床通知・前面復帰の通知、
     /// または認証済み接続履歴と整備記録の更新要求へ変換します。
     /// - Parameter phase: 現在のScene段階。
     private func handleScenePhaseChange(_ phase: ScenePhase) {
-        if phase == .background { liveTelemetryModel.send(.backgroundTransitionOccurred) }
+        if phase == .background {
+            liveTelemetryModel.send(.backgroundTransitionOccurred)
+            #if os(iOS)
+            adapterLinkSupervision.appDidEnterBackground()
+            #endif
+        }
         guard phase == .active else { return }
         liveTelemetryModel.send(.foregroundTransitionOccurred)
         #if os(iOS)

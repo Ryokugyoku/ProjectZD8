@@ -13,7 +13,7 @@ nonisolated struct AdapterLinkExternalAdapterUseTransition: Sendable {
     /// - Returns: 待機と抑止中は不変・作用なし。初期化・車両確認・検知済みは待機へ(取り消し・通知取り下げ)。
     ///   記録中は終了中へ(取り消し・通知取り下げ・記録停止要求)。終了中は終了中のまま(取り消し・通知取り下げ)。
     func began(from state: AdapterLinkSupervisionState) -> AdapterLinkSupervisionTransitionResult {
-        guard state != .standby, state != .heldAfterUserStop else {
+        guard state != .standby, !state.isHeldAfterUserStop else {
             return AdapterLinkSupervisionTransitionResult(state: state)
         }
         return recordingStop.stopped(from: state, reason: .superseded)

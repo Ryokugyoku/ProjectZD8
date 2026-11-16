@@ -42,7 +42,7 @@ final class AdapterLinkRecordingStopTransitionTests: XCTestCase {
         let others = F.allStates.filter { state in
             if case .recording = state { return false }
             return state != .finishing
-        } + [.heldAfterUserStop]
+        } + [.heldAfterUserStop(.awaitingStart)]
         XCTAssertEqual(others.count, 7)
         for state in others {
             for reason in reasons {

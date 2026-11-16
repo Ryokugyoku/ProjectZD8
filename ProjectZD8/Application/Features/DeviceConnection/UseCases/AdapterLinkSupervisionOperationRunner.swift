@@ -1,4 +1,4 @@
-/// 常駐リンク監視の非同期の作用(初期化・車両確認・待機・VIN読取)を世代管理付きで実行します。
+/// 常駐リンク監視の非同期の作用(初期化・車両確認・見張りの確認・最短間隔の待機・VIN読取)を世代管理付きで実行します。
 ///
 /// `cancel()` の後に古い処理の結果が届いても `eventDidOccur` へは渡しません。
 @MainActor
@@ -86,9 +86,9 @@ final class AdapterLinkSupervisionOperationRunner {
         }
     }
 
-    /// 指定した時間だけ待ってから再確認を促します。
+    /// 最短間隔に達するまでの残り時間だけ待ってから次の確認を促します。
     ///
-    /// 責務: 注入された待機の完了を再確認間隔の経過イベントへ変換し、キャンセル時は何も入力しません。
+    /// 責務: 注入された待機(単調時計基準)の完了を待ち明けのイベントへ変換し、キャンセル時は何も入力しません。
     /// - Parameter duration: 待機する時間。
     func scheduleVehicleConfirmation(after duration: Duration) {
         launch { [clock] in
@@ -117,12 +117,14 @@ final class AdapterLinkSupervisionOperationRunner {
 
     /// 1件の非同期処理を現在の世代で開始します。
     ///
-    /// 責務: 処理の結果イベントを、世代が変わっておらずキャンセルされていない場合だけ受け口へ渡します。
+    /// 責務: 始まる前に取り消された処理は実行せず、処理の結果イベントを、世代が変わっておらずキャンセルされていない場合だけ受け口へ渡します。
     /// - Parameter operation: 結果イベントを返す処理。何も入力しない場合は `nil` を返します。
     private func launch(_ operation: @escaping @MainActor () async -> AdapterLinkSupervisionEvent?) {
         let launchedGeneration = generation
         task?.cancel()
         task = Task { [weak self] in
+            // 始まる前に取り消された処理は、アダプターへ何も送らずに終えます(取り消しの後の送信を避けるため)。
+            guard !Task.isCancelled else { return }
             let event = await operation()
             guard let self, !Task.isCancelled, launchedGeneration == generation, let event else {
                 return

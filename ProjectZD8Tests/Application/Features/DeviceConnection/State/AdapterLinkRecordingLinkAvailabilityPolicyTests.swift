@@ -55,7 +55,7 @@ final class AdapterLinkRecordingLinkAvailabilityPolicyTests: XCTestCase {
     ///
     /// 責務: 記録中以外の全状態(抑止中を含む)で `nil` を返すことを確認します。
     func testOutsideRecordingIsIgnored() {
-        let states = F.allStates.filter { if case .recording = $0 { false } else { true } } + [.heldAfterUserStop]
+        let states = F.allStates.filter { if case .recording = $0 { false } else { true } } + [.heldAfterUserStop(.awaitingStart)]
         for state in states {
             XCTAssertNil(change(to: .connecting, from: state, previous: .ready), "\(state)")
             XCTAssertNil(change(to: .ready, from: state, previous: .connecting), "\(state)")

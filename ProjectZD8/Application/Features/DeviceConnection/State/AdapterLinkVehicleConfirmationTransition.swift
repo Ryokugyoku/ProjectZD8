@@ -1,16 +1,29 @@
 import Foundation
 
 /// アダプター初期化から車両検知までと、前面復帰による再開を決める純粋な遷移です。
+///
+/// 確認は応答駆動です。確認の結果を受け取ったことを次の確認の起点にし、固定の待機を挟みません。無応答の間の頻度は
+/// アダプター側の最大タイムアウト(`ATSTFF`)で決まります。結果が最短間隔より早く返った時だけ残り時間を待ちます
+/// (`AdapterLinkVehicleConfirmationPacing`)。窓と回数の上限は結果を受け取るたびに判定し(`AdapterLinkVehicleConfirmationWindowPolicy`)、
+/// アプリが前面にいる間は窓切れで休止せず窓を取り直します。
 nonisolated struct AdapterLinkVehicleConfirmationTransition: Sendable {
-    /// 確認窓と再確認間隔の定数です。
+    /// 確認窓と最短間隔の定数です。
     let timing: AdapterLinkSupervisionTiming
 
-    /// 確認窓と再確認間隔を固定して生成します。
+    /// 窓と回数の上限の判定です。
+    private let windowPolicy: AdapterLinkVehicleConfirmationWindowPolicy
+
+    /// 最短間隔の判定です。
+    private let pacing: AdapterLinkVehicleConfirmationPacing
+
+    /// 確認窓と最短間隔を固定して生成します。
     ///
-    /// 責務: 車両確認の時間定数を遷移へ結び付けます。
-    /// - Parameter timing: 確認窓と再確認間隔。
+    /// 責務: 車両確認の時間定数を遷移と判定へ結び付けます。
+    /// - Parameter timing: 確認窓と最短間隔。
     init(timing: AdapterLinkSupervisionTiming) {
         self.timing = timing
+        windowPolicy = AdapterLinkVehicleConfirmationWindowPolicy(timing: timing)
+        pacing = AdapterLinkVehicleConfirmationPacing(minimumInterval: timing.vehicleConfirmationInterval)
     }
 
     /// アダプター初期化の成功に対する遷移を返します。
@@ -53,16 +66,17 @@ nonisolated struct AdapterLinkVehicleConfirmationTransition: Sendable {
 
     /// 車両確認の完了に対する遷移を返します。
     ///
-    /// 責務: 低頻度確認中であれば、応答ありを検知へ、無応答を再確認の予約か休止へ変換します。
+    /// 責務: 低頻度確認中であれば、応答ありを検知へ、無応答を次の確認(応答駆動。最短間隔より早ければ残り時間の待機)か
+    /// 窓の取り直しか休止へ変換します。
     /// - Parameters:
     ///   - outcome: ECU応答の有無。
     ///   - state: 現在の監視状態。
-    ///   - now: 現在時刻。
+    ///   - conditions: 結果を受け取った時刻・前面かどうか・最後に確認を送った時刻を含む条件。
     /// - Returns: 次の状態と作用。低頻度確認中以外では何もしません。
     func vehicleConfirmationCompleted(
         _ outcome: VehicleResponseOutcome,
         from state: AdapterLinkSupervisionState,
-        now: Date
+        conditions: AdapterLinkSupervisionConditions
     ) -> AdapterLinkSupervisionTransitionResult {
         guard case let .confirmingVehicle(confirmation) = state, confirmation.phase == .probing else {
             return AdapterLinkSupervisionTransitionResult(state: state)
@@ -75,42 +89,44 @@ nonisolated struct AdapterLinkVehicleConfirmationTransition: Sendable {
                 effects: [.readVIN]
             )
         case .noResponse:
-            return afterNoResponse(confirmation, now: now)
+            guard windowPolicy.decision(for: confirmation, now: conditions.now, isForeground: conditions.isForeground) != .pause else {
+                return AdapterLinkSupervisionTransitionResult(state: .confirmingVehicle(paused(confirmation)))
+            }
+            guard let wait = pacing.remainingWait(sentAt: conditions.lastVehicleConfirmationSentAt, now: conditions.now) else {
+                return confirmAgain(confirmation, conditions: conditions)
+            }
+            return AdapterLinkSupervisionTransitionResult(
+                state: .confirmingVehicle(confirmation),
+                effects: [.scheduleVehicleConfirmation(after: wait)]
+            )
         }
     }
 
-    /// 再確認までの待機が終わったときの遷移を返します。
+    /// 最短間隔の残り時間の待機が終わったときの遷移を返します。
     ///
-    /// 責務: 確認窓と回数の上限内であれば最大タイムアウトで再確認し、上限に達していれば休止します。
+    /// 責務: 低頻度確認中であれば、窓と回数の上限を判定し直して、最大タイムアウトで次の確認を送るか、窓を取り直すか、休止します。
+    /// 待ち明けの後に最短間隔を測り直して待ち直すことはしません。
     /// - Parameters:
     ///   - state: 現在の監視状態。
-    ///   - now: 現在時刻。
+    ///   - conditions: 待ち明けの時刻と前面かどうかを含む条件。
     /// - Returns: 次の状態と作用。低頻度確認中以外では何もしません。
     func vehicleConfirmationIntervalElapsed(
         from state: AdapterLinkSupervisionState,
-        now: Date
+        conditions: AdapterLinkSupervisionConditions
     ) -> AdapterLinkSupervisionTransitionResult {
         guard case let .confirmingVehicle(confirmation) = state, confirmation.phase == .probing else {
             return AdapterLinkSupervisionTransitionResult(state: state)
         }
-        guard canConfirmAgain(confirmation, now: now) else {
+        guard windowPolicy.decision(for: confirmation, now: conditions.now, isForeground: conditions.isForeground) != .pause else {
             return AdapterLinkSupervisionTransitionResult(state: .confirmingVehicle(paused(confirmation)))
         }
-        let next = AdapterLinkVehicleConfirmation(
-            adapterProbeEvidence: confirmation.adapterProbeEvidence,
-            windowEndsAt: confirmation.windowEndsAt,
-            attemptCount: confirmation.attemptCount + 1,
-            phase: .probing
-        )
-        return AdapterLinkSupervisionTransitionResult(
-            state: .confirmingVehicle(next),
-            effects: [.confirmVehicle(.adapterMaximum)]
-        )
+        return confirmAgain(confirmation, conditions: conditions)
     }
 
     /// アプリの前面復帰に対する遷移を返します。
     ///
-    /// 責務: リンクが `ready` の待機からは初期化をやり直し、休止中の車両確認は確認窓を取り直して再開します。
+    /// 責務: リンクが `ready` の待機からは初期化をやり直し、休止中の車両確認は確認窓を取り直して再開し、
+    /// 確認中で窓が既に切れていれば確認を重複させずに窓だけ取り直します。窓の内の確認中は何もしません。
     /// - Parameters:
     ///   - state: 現在の監視状態。
     ///   - conditions: リンク状態と現在時刻を含む条件。
@@ -129,50 +145,44 @@ nonisolated struct AdapterLinkVehicleConfirmationTransition: Sendable {
                 effects: [.initializeAdapter]
             )
         case let .confirmingVehicle(confirmation) where confirmation.phase == .paused:
-            let resumed = AdapterLinkVehicleConfirmation(
-                adapterProbeEvidence: confirmation.adapterProbeEvidence,
-                windowEndsAt: conditions.now.addingTimeInterval(timing.vehicleConfirmationWindow),
-                attemptCount: 1,
-                phase: .probing
-            )
             return AdapterLinkSupervisionTransitionResult(
-                state: .confirmingVehicle(resumed),
+                state: .confirmingVehicle(windowPolicy.renewed(confirmation, at: conditions.now)),
                 effects: [.confirmVehicle(.adapterMaximum)]
+            )
+        case let .confirmingVehicle(confirmation) where !windowPolicy.isInsideWindow(confirmation, now: conditions.now):
+            // 確認中に窓が切れていた(サスペンド中など)。確認の結果か待ち明けが届くので、確認は重複させず窓だけ取り直します。
+            return AdapterLinkSupervisionTransitionResult(
+                state: .confirmingVehicle(windowPolicy.renewed(confirmation, at: conditions.now))
             )
         default:
             return AdapterLinkSupervisionTransitionResult(state: state)
         }
     }
 
-    /// 無応答の後に再確認を予約するか休止するかを返します。
+    /// 同じ窓で(または取り直した窓で)最大タイムアウトの確認を1回送る遷移を返します。
     ///
-    /// 責務: 確認窓と回数の上限内なら再確認間隔の待機を予約し、超えていれば休止へ移します。
+    /// 責務: 窓の内なら回数を1増やし、窓切れで前面なら窓を取り直してから、`.adapterMaximum` の確認を要求します。
+    /// 休止の判定は呼び出し側が済ませている前提です。
     /// - Parameters:
     ///   - confirmation: 現在の確認進行状況。
-    ///   - now: 現在時刻。
-    /// - Returns: 再確認の予約か休止への遷移。
-    private func afterNoResponse(
+    ///   - conditions: 現在時刻と前面かどうかを含む条件。
+    /// - Returns: 確認中への遷移と確認の作用。
+    private func confirmAgain(
         _ confirmation: AdapterLinkVehicleConfirmation,
-        now: Date
+        conditions: AdapterLinkSupervisionConditions
     ) -> AdapterLinkSupervisionTransitionResult {
-        guard canConfirmAgain(confirmation, now: now) else {
-            return AdapterLinkSupervisionTransitionResult(state: .confirmingVehicle(paused(confirmation)))
+        let next: AdapterLinkVehicleConfirmation
+        if windowPolicy.isInsideWindow(confirmation, now: conditions.now) {
+            next = AdapterLinkVehicleConfirmation(
+                adapterProbeEvidence: confirmation.adapterProbeEvidence,
+                windowEndsAt: confirmation.windowEndsAt,
+                attemptCount: confirmation.attemptCount + 1,
+                phase: .probing
+            )
+        } else {
+            next = windowPolicy.renewed(confirmation, at: conditions.now)
         }
-        return AdapterLinkSupervisionTransitionResult(
-            state: .confirmingVehicle(confirmation),
-            effects: [.scheduleVehicleConfirmation(after: timing.vehicleConfirmationIntervalDuration)]
-        )
-    }
-
-    /// 確認窓と回数の上限内で次の確認を要求できるかどうかを返します。
-    ///
-    /// 責務: 確認窓の終了時刻より前で、かつ確認回数が上限未満であることを判定します。
-    /// - Parameters:
-    ///   - confirmation: 現在の確認進行状況。
-    ///   - now: 現在時刻。
-    /// - Returns: 次の確認を要求できる場合は `true`。
-    private func canConfirmAgain(_ confirmation: AdapterLinkVehicleConfirmation, now: Date) -> Bool {
-        now < confirmation.windowEndsAt && confirmation.attemptCount < timing.maximumVehicleConfirmationAttempts
+        return AdapterLinkSupervisionTransitionResult(state: .confirmingVehicle(next), effects: [.confirmVehicle(.adapterMaximum)])
     }
 
     /// 確認進行状況を休止へ移した値を返します。

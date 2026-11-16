@@ -1,7 +1,7 @@
 #if os(iOS)
 import Observation
 
-/// アプリ側の事実(起動・認証状態・既定アダプター設定・前面復帰)を常駐リンク監視の入力へ伝えます。
+/// アプリ側の事実(起動・認証状態・既定アダプター設定・前面復帰・背面移行)を常駐リンク監視の入力へ伝えます。
 ///
 /// 稼働条件の判断は `AdapterLinkSupervisionUseCase` に任せ、この型は事実を対応する入力へ写すだけです。
 /// 認証状態は画面の表示を待たずに観測するため、バックグラウンド起動・状態復元でも伝わります。
@@ -54,6 +54,13 @@ final class IOSAdapterLinkSupervisionDriver {
     /// 責務: 前面復帰を監視の入力へ写します。
     func appDidBecomeActive() {
         supervision.appDidBecomeActive()
+    }
+
+    /// アプリが背面へ移ったこと(scenePhase が background)を伝えます。
+    ///
+    /// 責務: 背面移行を監視の入力へ写します(前面かどうかを監視の稼働条件にするため)。
+    func appDidEnterBackground() {
+        supervision.appDidEnterBackground()
     }
 
     /// 既定アダプター設定が保存・削除・変更されたことを伝えます。

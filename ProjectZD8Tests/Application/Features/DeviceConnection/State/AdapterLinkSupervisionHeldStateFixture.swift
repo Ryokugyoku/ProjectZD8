@@ -22,7 +22,7 @@ enum AdapterLinkSupervisionHeldStateFixture {
             on: .recordingDidFinish(endReason: .userDisconnected),
             conditions: F.conditions()
         )
-        XCTAssertEqual(result.state, .heldAfterUserStop, "抑止状態は待機・終了中とは別", file: file, line: line)
+        XCTAssertTrue(result.state.isHeldAfterUserStop, "抑止状態は待機・終了中とは別", file: file, line: line)
         XCTAssertEqual(result.effects, [.dismissNotification], "作用は通知の取り下げだけ", file: file, line: line)
         return result.state
     }

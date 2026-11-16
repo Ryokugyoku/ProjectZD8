@@ -3,9 +3,12 @@ import Foundation
 /// 常駐リンク上の初期化済みアダプター越しに、標準PID `0100` でECUの応答を確認します。
 ///
 /// 送るコマンド列: `.standard` は `ATST32` → `0100`(待機上限10秒)、
-/// `.adapterMaximum` は `ATSTFF` → `0100`(待機上限30秒)。待機上限は `AdapterLinkELMCommandTimeouts` に定義します。
-/// アダプター側のタイムアウトは問い合わせのたびに設定し直し、問い合わせ後は戻しません
-/// (記録開始時のテレメトリ初期化が `ATZ` で既定値へ戻すため)。
+/// `.adapterMaximum` は `ATSTFF` → `0100`(待機上限30秒)、
+/// `.heldWatch`(抑止中の見張り)は `ATAT0` → `ATSTFF` → `0100`(待機上限30秒)。待機上限は `AdapterLinkELMCommandTimeouts` に定義します。
+/// `ATAT0` は適応タイミングを切り、ECU が応答してもタイムアウト満了(約1秒)まで待たせるためのもので、実アダプターでは未検証です。
+/// 受け付けないアダプターが `?` を返しても失敗にせず、そのまま `ATSTFF` と `0100` を送ります(空回りは監視の最短間隔の待ちで防ぎます)。
+/// アダプター側のタイムアウトと適応タイミングは問い合わせのたびに設定し直し、問い合わせ後は戻しません。
+/// 戻すのは次の利用者の初期化です: 監視の初期化(`AdapterLinkELMInitializer`)と記録開始時のテレメトリ初期化は、どちらも `ATZ` から始めます。
 @MainActor
 final class AdapterLinkVehicleResponseConfirmer: VehicleResponseConfirmationPort {
     /// 問い合わせる標準PID `0100` です(サービス01なので常に生成できます)。
@@ -28,7 +31,7 @@ final class AdapterLinkVehicleResponseConfirmer: VehicleResponseConfirmationPort
 
     /// 指定したタイムアウトでECUの応答を確認します。
     ///
-    /// 責務: アダプター側タイムアウトを設定してから `0100` を1回問い合わせ、正応答の有無を返します。
+    /// 責務: (見張りでは適応タイミングを切ってから)アダプター側タイムアウトを設定し、`0100` を1回問い合わせ、正応答の有無を返します。
     /// - Parameter timeout: 通常のタイムアウトかアダプター側の最大タイムアウトか。
     /// - Returns: 正応答があれば `.responding`、無応答系の応答なら `.noResponse`。
     /// - Throws: 占有・送受信の `AdapterLinkByteStreamError`(ホスト側の期限切れを含む)、`ATST` の拒否、キャンセル。
@@ -38,6 +41,9 @@ final class AdapterLinkVehicleResponseConfirmer: VehicleResponseConfirmationPort
             throw AdapterLinkELMCommandError.commandRejected(requestID: Self.supportedPIDsRequestID)
         }
         return try await AdapterLinkELMCommandSession.perform(on: stream) { session in
+            if timeout == .heldWatch {
+                _ = try await session.execute(ELM327AdaptiveTimingCommand.off, timeout: AdapterLinkELMCommandTimeouts.configuration)
+            }
             _ = try await session.executeAccepted(adapterTimeout, timeout: AdapterLinkELMCommandTimeouts.configuration)
             let response = try await session.execute(request, timeout: hostTimeout)
             return classifier.classify(response)
@@ -53,7 +59,7 @@ final class AdapterLinkVehicleResponseConfirmer: VehicleResponseConfirmationPort
         switch timeout {
         case .standard:
             (.standard, AdapterLinkELMCommandTimeouts.standardVehicleResponse)
-        case .adapterMaximum:
+        case .adapterMaximum, .heldWatch:
             (.maximum, AdapterLinkELMCommandTimeouts.adapterMaximumVehicleResponse)
         }
     }

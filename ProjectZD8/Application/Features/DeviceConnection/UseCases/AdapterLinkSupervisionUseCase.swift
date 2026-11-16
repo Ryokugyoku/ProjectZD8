@@ -1,3 +1,5 @@
+import Foundation
+
 /// 常駐BLEリンクの状態と車両の応答から、車両検知・通知または自動記録開始・記録終了までを監視します。
 ///
 /// 分岐は `AdapterLinkSupervisionTransition` が決め、このユースケースは入力をイベントへ変換して遷移結果の作用を実行するだけです。
@@ -57,6 +59,12 @@ final class AdapterLinkSupervisionUseCase {
 
     /// 常駐リンク以外の経路(手動接続)がアダプターを使っている最中かどうかです。
     private var isExternalAdapterUseActive = false
+
+    /// アプリが前面にいるかどうかです。最後の前面復帰の後に背面へ移っていなければ `true` です。
+    private var isForeground = false
+
+    /// 最後に車両確認(見張りの確認を含む)を送った時刻です(時計は単調時計基準)。続けて送っていなければ `nil` です。
+    private var lastVehicleConfirmationSentAt: Date?
 
     /// 通知の準備を一度でも始めたかどうかです。
     private var hasStartedNotificationPreparation = false
@@ -147,9 +155,17 @@ final class AdapterLinkSupervisionUseCase {
 
     /// アプリの前面復帰を反映します。
     ///
-    /// 責務: リンクが `ready` の待機か休止中の車両確認であれば、確認を再開します。
+    /// 責務: 前面にいることを稼働条件へ反映し、リンクが `ready` の待機・休止中または窓切れの車両確認・抑止中の見張りを再開します。
     func appDidBecomeActive() {
+        isForeground = true
         send(.appDidBecomeActive)
+    }
+
+    /// アプリが背面へ移ったことを反映します。
+    ///
+    /// 責務: 前面ではないことを稼働条件へ反映します。背面では窓切れで車両確認を休止します。状態は変えません。
+    func appDidEnterBackground() {
+        isForeground = false
     }
 
     /// ユーザーが通知の[記録開始]を選んだことを反映します。
@@ -162,9 +178,16 @@ final class AdapterLinkSupervisionUseCase {
     /// 記録側から記録の終了を受け取ります。
     ///
     /// 責務: 記録中・終了中であれば終了を経て待機へ戻します。終了理由は監視の遷移へ渡します。
+    /// 記録中から終わった記録(終了理由あり)なら、終了の処理の後に `recordingEndSettled` を続けて入力し、
+    /// リンクが `ready` の待機なら検知をやり直し、ユーザー切断後の抑止なら見張りを始めさせます。
+    /// 監視が停止を要求した記録(終了中から終わる)と、記録が始まらなかった・辞退した場合はやり直しません。
     /// - Parameter endReason: 記録中から終わった時のテレメトリ終了理由。記録が始まらなかった・辞退した・手動記録に置き換えた場合は `nil`。
     func recordingDidFinish(endReason: ConnectionSessionEndReason?) {
+        let finishedWhileRecording: Bool = if case .recording = state { true } else { false }
         send(.recordingDidFinish(endReason: endReason))
+        if finishedWhileRecording, endReason != nil {
+            send(.recordingEndSettled)
+        }
     }
 
     /// 常駐リンク以外の経路(手動接続)がアダプターを使い始めたことを反映します。
@@ -228,7 +251,7 @@ final class AdapterLinkSupervisionUseCase {
 
     /// 遷移へ渡す現在の条件を返します。
     ///
-    /// 責務: 稼働条件・リンクの接続対象・直前のリンク状態・現在時刻を1件の条件値へまとめます。
+    /// 責務: 稼働条件・リンクの接続対象・直前のリンク状態・現在時刻・前面かどうか・最後に確認を送った時刻を1件の条件値へまとめます。
     /// - Returns: 現在の条件。
     private func currentConditions() -> AdapterLinkSupervisionConditions {
         AdapterLinkSupervisionConditions(
@@ -238,7 +261,9 @@ final class AdapterLinkSupervisionUseCase {
             linkPreference: linkPreference,
             linkState: linkState,
             now: clock.now,
-            isExternalAdapterUseActive: isExternalAdapterUseActive
+            isExternalAdapterUseActive: isExternalAdapterUseActive,
+            isForeground: isForeground,
+            lastVehicleConfirmationSentAt: lastVehicleConfirmationSentAt
         )
     }
 
@@ -257,14 +282,18 @@ final class AdapterLinkSupervisionUseCase {
         case .prepareNotifications:
             prepareNotificationsIfNeeded()
         case .cancelOperations:
+            lastVehicleConfirmationSentAt = nil
             operations.cancel()
         case .initializeAdapter:
+            lastVehicleConfirmationSentAt = nil
             operations.initializeAdapter()
         case let .confirmVehicle(timeout):
+            lastVehicleConfirmationSentAt = clock.now
             operations.confirmVehicle(timeout: timeout)
         case let .scheduleVehicleConfirmation(duration):
             operations.scheduleVehicleConfirmation(after: duration)
         case .readVIN:
+            lastVehicleConfirmationSentAt = nil
             operations.readVIN()
         case let .presentVehicleDetected(vin):
             notifications.presentVehicleDetected(vin: vin)

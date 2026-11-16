@@ -34,7 +34,7 @@ final class AdapterLinkSupervisionUseCaseUserStopTests: XCTestCase {
         try await BLEBoundedWaiter.settle()
         XCTAssertEqual(harness.initialization.responses.callCount, 1, "初期化が増えた", file: file, line: line)
         XCTAssertEqual(harness.recordingControl.startRequests.count, 1, "記録開始要求が増えた", file: file, line: line)
-        XCTAssertEqual(harness.useCase.state, .heldAfterUserStop, file: file, line: line)
+        XCTAssertTrue(harness.useCase.state.isHeldAfterUserStop, file: file, line: line)
     }
 
     /// ユーザー切断で記録が終わった後に前面へ戻っても、初期化も記録開始もしません。

@@ -15,10 +15,10 @@ nonisolated enum AdapterLinkSupervisionEffect: Equatable, Sendable {
     /// アダプターのチップ種別とATMA対応可否を判定します。
     case initializeAdapter
 
-    /// 指定したタイムアウトでECUの応答を確認します。
+    /// 指定したタイムアウトでECUの応答を確認します(抑止中の見張りの確認を含む)。
     case confirmVehicle(VehicleResponseTimeout)
 
-    /// 指定した時間だけ待ってから次の再確認を促します(`vehicleConfirmationIntervalElapsed` を入力します)。
+    /// 最短間隔に達するまでの残り時間だけ待ってから次の確認を促します(`vehicleConfirmationIntervalElapsed` を入力します)。
     case scheduleVehicleConfirmation(after: Duration)
 
     /// 自動記録設定を読み込んだ上でVINを読み取ります。

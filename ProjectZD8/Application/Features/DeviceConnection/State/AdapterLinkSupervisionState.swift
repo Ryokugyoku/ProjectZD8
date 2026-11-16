@@ -22,7 +22,17 @@ nonisolated enum AdapterLinkSupervisionState: Equatable, Sendable {
     /// 記録の停止を要求したか終了通知を受け、待機へ戻る直前です。
     case finishing
 
-    /// ユーザーが記録を切断した。同じリンク接続のあいだ初期化・検知・記録開始をしない。
-    /// リンクが切れるか稼働条件でリンクを張り直すと待機へ戻る。
-    case heldAfterUserStop
+    /// ユーザーが記録を切断した。同じ走行が続いている間は初期化・検知・記録開始をしない。
+    ///
+    /// 保持中は ECU が応答しているかを見張り(`AdapterLinkHeldWatch`)、無応答が連続2回で走行の終わりとみなして初期化からやり直す。
+    /// リンクが切れるか稼働条件でリンクを張り直しても待機へ戻る。
+    case heldAfterUserStop(AdapterLinkHeldWatch)
+
+    /// ユーザー切断後の抑止中かどうかです。
+    ///
+    /// 責務: 見張りの進行状況に関係なく、抑止状態であることを判定します。
+    var isHeldAfterUserStop: Bool {
+        if case .heldAfterUserStop = self { return true }
+        return false
+    }
 }
