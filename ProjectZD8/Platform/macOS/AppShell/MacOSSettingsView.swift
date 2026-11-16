@@ -474,7 +474,7 @@ struct MacOSSettingsView: View {
     /// - Parameter slot: 表示対象のアダプタースロット。
     /// - Returns: 選択済み名称または未選択を示す文言。
     private func adapterDescription(for slot: AdapterConnectionRole) -> Text {
-        switch AdapterSlotSettingsDescription(slot: slot, selectedAdapters: state.selectedAdapters) {
+        switch AdapterSlotSettingsDescription(slot: slot, selectedAdapters: state.selectedAdapters, defaultAdapterPreference: state.defaultAdapterPreference) {
         case let .adapterName(name): Text(verbatim: name)
         case let .localizationKey(key): Text(LocalizedStringKey(key))
         }

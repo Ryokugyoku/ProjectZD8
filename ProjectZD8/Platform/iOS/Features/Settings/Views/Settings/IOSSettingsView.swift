@@ -109,6 +109,7 @@ struct IOSSettingsView: View {
             }
             IOSSettingsAdapterCard(
                 selectedAdapters: state.selectedAdapters,
+                defaultAdapterPreference: state.defaultAdapterPreference,
                 attentionProgress: accessibilityReduceMotion ? 0 : adapterAttentionProgress
             ) {
                 send(.adapterSelectionRequested($0))
