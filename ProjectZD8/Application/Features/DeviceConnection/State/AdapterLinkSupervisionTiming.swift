@@ -11,7 +11,9 @@ nonisolated struct AdapterLinkSupervisionTiming: Equatable, Sendable {
         vehicleConfirmationWindow: 10 * 60,
         vehicleConfirmationInterval: 1,
         heldWatchLimit: 8 * 60 * 60,
-        heldLinkWaitLimit: 3 * 60
+        heldLinkWaitLimit: 3 * 60,
+        extendedConfirmationInterval: 60,
+        initializationRetryInterval: 60
     )
 
     /// リンクが `ready` になった時刻(または窓の取り直しの時刻)から確認を続ける秒数です。
@@ -26,24 +28,36 @@ nonisolated struct AdapterLinkSupervisionTiming: Equatable, Sendable {
     /// リンクが `ready` でない間にユーザーが切断してから、リンクの復帰を同じ走行とみなす秒数の上限です(ちょうどは同じ走行)。
     let heldLinkWaitLimit: TimeInterval
 
-    /// 確認窓・最短間隔・見張りの上限・リンク待ちの保持の上限を固定して生成します。
+    /// 確認窓を過ぎた後(または背面で回数の上限に達した後)、リンクが `ready` の間は無期限に続ける再確認の間隔の秒数です。
+    let extendedConfirmationInterval: TimeInterval
+
+    /// 初期化の失敗で待機へ戻ったとき、リンクが `ready` のままなら再初期化を試みるまでの待ち秒数です。
+    let initializationRetryInterval: TimeInterval
+
+    /// 確認窓・最短間隔・見張りの上限・リンク待ちの保持の上限・窓後の再確認間隔・初期化の再試行間隔を固定して生成します。
     ///
-    /// 責務: 車両確認の時間定数を1件の不変値へまとめます。
+    /// 責務: 車両確認と初期化再試行の時間定数を1件の不変値へまとめます。
     /// - Parameters:
     ///   - vehicleConfirmationWindow: 確認窓の秒数。
     ///   - vehicleConfirmationInterval: 確認と確認の最短間隔の秒数(0より大きい値)。
     ///   - heldWatchLimit: 抑止中の見張りの上限の秒数。既定は8時間。
     ///   - heldLinkWaitLimit: リンク待ちの保持で、ユーザー切断からリンクの復帰を同じ走行とみなす秒数。既定は3分。
+    ///   - extendedConfirmationInterval: 窓を過ぎた後の再確認の間隔の秒数。既定は60秒。
+    ///   - initializationRetryInterval: 初期化失敗後の再初期化までの待ち秒数。既定は60秒。
     init(
         vehicleConfirmationWindow: TimeInterval,
         vehicleConfirmationInterval: TimeInterval,
         heldWatchLimit: TimeInterval = 8 * 60 * 60,
-        heldLinkWaitLimit: TimeInterval = 3 * 60
+        heldLinkWaitLimit: TimeInterval = 3 * 60,
+        extendedConfirmationInterval: TimeInterval = 60,
+        initializationRetryInterval: TimeInterval = 60
     ) {
         self.vehicleConfirmationWindow = vehicleConfirmationWindow
         self.vehicleConfirmationInterval = vehicleConfirmationInterval
         self.heldWatchLimit = heldWatchLimit
         self.heldLinkWaitLimit = heldLinkWaitLimit
+        self.extendedConfirmationInterval = extendedConfirmationInterval
+        self.initializationRetryInterval = initializationRetryInterval
     }
 
     /// 1つの確認窓で要求できる車両確認の最大回数です(最初の確認を含む)。

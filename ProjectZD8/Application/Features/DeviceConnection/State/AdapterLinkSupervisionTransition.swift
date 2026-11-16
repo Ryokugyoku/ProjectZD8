@@ -61,7 +61,7 @@ nonisolated struct AdapterLinkSupervisionTransition: Sendable {
             } else {
                 confirmationResult(from: state, on: event, conditions: conditions)
             }
-        case .adapterInitializationSucceeded, .adapterInitializationFailed:
+        case .adapterInitializationSucceeded, .adapterInitializationFailed, .adapterInitializationRetryElapsed:
             confirmationResult(from: state, on: event, conditions: conditions)
         case .vinReadCompleted, .vinReadFailed, .recordingStartSelected, .recordingDidFinish, .finishingDidComplete,
              .recordingStartConfirmed:
@@ -76,7 +76,7 @@ nonisolated struct AdapterLinkSupervisionTransition: Sendable {
             if case let .heldAfterUserStop(watch) = state {
                 heldWatch.externalAdapterUseEnded(watch, conditions: conditions)
             } else {
-                externalAdapterUse.ended(from: state)
+                externalAdapterUse.ended(from: state, conditions: conditions)
             }
         }
     }
@@ -98,7 +98,9 @@ nonisolated struct AdapterLinkSupervisionTransition: Sendable {
         case let .adapterInitializationSucceeded(evidence):
             confirmation.adapterInitializationSucceeded(evidence, from: state)
         case .adapterInitializationFailed:
-            confirmation.adapterInitializationFailed(from: state)
+            confirmation.adapterInitializationFailed(from: state, conditions: conditions)
+        case .adapterInitializationRetryElapsed:
+            confirmation.adapterInitializationRetryElapsed(from: state, conditions: conditions)
         case let .vehicleConfirmationCompleted(outcome):
             confirmation.vehicleConfirmationCompleted(outcome, from: state, conditions: conditions)
         case .vehicleConfirmationFailed:

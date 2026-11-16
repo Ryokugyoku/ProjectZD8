@@ -23,10 +23,22 @@ nonisolated struct AdapterLinkExternalAdapterUseTransition: Sendable {
 
     /// 手動接続がアダプターを使い終えたときの遷移を返します。
     ///
-    /// 責務: 状態を変えず作用も出しません。抑止の解除は条件側で行い、再確認は次の再接続か前面復帰から始めます。
-    /// - Parameter state: 現在の監視状態。
-    /// - Returns: 状態不変・作用なし。
-    func ended(from state: AdapterLinkSupervisionState) -> AdapterLinkSupervisionTransitionResult {
-        AdapterLinkSupervisionTransitionResult(state: state)
+    /// 責務: 待機でリンクが `ready` なら、再接続や前面復帰を待たずにすぐ初期化からやり直します
+    /// (アダプターは常時給電でリンクが `ready` のままのため、きっかけが他に無い)。それ以外の状態は変えません。
+    /// - Parameters:
+    ///   - state: 現在の監視状態。
+    ///   - conditions: リンク状態・手動接続の使用状況・現在時刻を含む条件。
+    /// - Returns: 待機・リンク `ready`・手動接続なしなら `initializing(linkReadyAt: now)` と初期化の作用。それ以外は状態不変・作用なし。
+    func ended(
+        from state: AdapterLinkSupervisionState,
+        conditions: AdapterLinkSupervisionConditions
+    ) -> AdapterLinkSupervisionTransitionResult {
+        guard state == .standby, conditions.canStartAdapterWork else {
+            return AdapterLinkSupervisionTransitionResult(state: state)
+        }
+        return AdapterLinkSupervisionTransitionResult(
+            state: .initializing(linkReadyAt: conditions.now),
+            effects: [.initializeAdapter]
+        )
     }
 }

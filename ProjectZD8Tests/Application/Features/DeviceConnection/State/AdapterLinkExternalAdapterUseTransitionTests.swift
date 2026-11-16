@@ -31,7 +31,7 @@ final class AdapterLinkExternalAdapterUseTransitionTests: XCTestCase {
     ) {
         for effect in effects {
             switch effect {
-            case .stopLink, .startLink, .initializeAdapter, .confirmVehicle, .scheduleVehicleConfirmation, .readVIN,
+            case .stopLink, .startLink, .initializeAdapter, .confirmVehicle, .scheduleVehicleConfirmation, .scheduleAdapterInitializationRetry, .readVIN,
                  .presentVehicleDetected, .presentRecordingStarted, .requestRecordingStart:
                 XCTFail("出してはいけない作用 \(effect): \(message)", file: file, line: line)
             case .prepareNotifications, .cancelOperations, .dismissNotification, .requestRecordingStop, .completeFinishing:
@@ -91,12 +91,39 @@ final class AdapterLinkExternalAdapterUseTransitionTests: XCTestCase {
         AdapterLinkSupervisionResultAssertions.assertIgnored(transition.began(from: .standby), from: .standby)
     }
 
-    /// 手動使用が終わっても、どの状態でもすぐには何もしません(再確認は次の再接続か前面復帰まで待つ)。
+    /// 手動使用が終わっても、待機以外の状態は変えず作用も出しません。
     ///
-    /// 責務: 全状態で状態不変・作用なしであることを確認します。
-    func testEndedIsIgnoredInEveryState() {
-        for state in F.allStates {
-            AdapterLinkSupervisionResultAssertions.assertIgnored(transition.ended(from: state), from: state, "\(state)")
+    /// 責務: 待機以外の全状態で、リンクが `ready` でも状態不変・作用なしであることを確認します。
+    func testEndedOutsideStandbyIsIgnored() {
+        for state in F.allStates where state != .standby {
+            AdapterLinkSupervisionResultAssertions.assertIgnored(
+                transition.ended(from: state, conditions: F.conditions()), from: state, "\(state)"
+            )
+        }
+    }
+
+    /// 手動使用が終わったとき、待機でリンクが `ready` なら、すぐ初期化からやり直します。
+    ///
+    /// 責務: `initializing(linkReadyAt: now)` と初期化の作用になることを確認します(仕様1)。
+    func testEndedInReadyStandbyReinitializes() {
+        let now = F.date(321)
+        let result = transition.ended(from: .standby, conditions: F.conditions(now: now))
+        AdapterLinkSupervisionResultAssertions.assertResult(result, state: .initializing(linkReadyAt: now), effects: [.initializeAdapter])
+    }
+
+    /// 待機でも、リンクが `ready` でない・リンク未開始・手動接続が使用中なら何もしません。
+    ///
+    /// 責務: 初期化を始められない各条件で、待機のまま作用なしであることを確認します(仕様4)。
+    func testEndedInStandbyIsIgnoredWhenBlocked() {
+        let blocked = [
+            F.conditions(linkState: .connecting),
+            F.conditions(linkPreference: nil),
+            F.conditions(isExternalAdapterUseActive: true),
+        ]
+        for conditions in blocked {
+            AdapterLinkSupervisionResultAssertions.assertIgnored(
+                transition.ended(from: .standby, conditions: conditions), from: .standby, "\(conditions)"
+            )
         }
     }
 }

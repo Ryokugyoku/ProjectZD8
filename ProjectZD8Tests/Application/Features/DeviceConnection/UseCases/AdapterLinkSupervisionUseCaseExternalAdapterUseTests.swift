@@ -146,24 +146,24 @@ final class AdapterLinkSupervisionUseCaseExternalAdapterUseTests: XCTestCase {
         XCTAssertTrue(harness.notifications.presentedRecordingStartedVINs.isEmpty)
     }
 
-    /// 手動使用が終わってもすぐには再確認せず、アプリの前面復帰で初期化からやり直します。
+    /// 手動使用が終わったら、待機でリンクが `ready` なので、前面復帰を待たずにすぐ初期化からやり直します。
     ///
-    /// 責務: 解除直後は初期化が呼ばれず、前面復帰で1回呼ばれることを確認します。
-    func testEndThenForegroundRestartsFromInitialization() async throws {
+    /// 責務: 解除直後に初期化が1回呼ばれて初期化中になり、続く前面復帰で重ねて呼ばれないことを確認します(仕様1)。
+    func testEndRestartsFromInitializationImmediately() async throws {
         let harness = makeHarness()
         harness.startSignedIn()
         harness.useCase.externalAdapterUseDidBegin()
         harness.link.emit(.connecting)
         harness.link.emit(.ready)
+        XCTAssertEqual(harness.initialization.responses.callCount, 0)
 
         harness.useCase.externalAdapterUseDidEnd()
-        try await BLEBoundedWaiter.settle()
-        XCTAssertEqual(harness.initialization.responses.callCount, 0)
-        XCTAssertEqual(harness.useCase.state, .standby)
+        try await harness.wait("解除直後の初期化") { harness.initialization.responses.callCount == 1 }
+        XCTAssertEqual(harness.useCase.state, .initializing(linkReadyAt: harness.clock.now))
 
         harness.useCase.appDidBecomeActive()
-        try await harness.wait("前面復帰での初期化") { harness.initialization.responses.callCount == 1 }
-        XCTAssertEqual(harness.useCase.state, .initializing(linkReadyAt: harness.clock.now))
+        try await BLEBoundedWaiter.settle()
+        XCTAssertEqual(harness.initialization.responses.callCount, 1)
     }
 
     /// 手動使用が終わった後の再接続(再び `ready`)で初期化からやり直します。

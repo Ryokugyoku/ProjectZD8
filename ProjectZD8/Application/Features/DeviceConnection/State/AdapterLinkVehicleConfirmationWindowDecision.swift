@@ -4,6 +4,7 @@ nonisolated enum AdapterLinkVehicleConfirmationWindowDecision: Equatable, Sendab
     case continueInWindow
     /// 窓は切れたがアプリが前面にいるので、受け取った時刻から窓を取り直して確認を続けます。
     case renewWindow
-    /// 窓切れ(背面)か回数の上限に達したので休止します。
-    case pause
+    /// 窓切れ(背面)か回数の上限に達したので、休止せず窓後の間隔(`AdapterLinkSupervisionTiming.extendedConfirmationInterval`)で
+    /// リンクが `ready` の間は確認を続けます。
+    case extendedConfirmation
 }
