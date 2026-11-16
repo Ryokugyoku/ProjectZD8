@@ -93,4 +93,11 @@ nonisolated struct AdapterLinkSupervisionConditions: Equatable, Sendable {
     var isLinkReady: Bool {
         linkPreference != nil && linkState == .ready
     }
+
+    /// 監視が初期化・車両確認・その予約を始めてよいかどうかです。
+    ///
+    /// 責務: リンクが `ready` で、手動接続がアダプターを使っていないことを判定します。
+    var canStartAdapterWork: Bool {
+        isLinkReady && !isExternalAdapterUseActive
+    }
 }

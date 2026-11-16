@@ -22,5 +22,10 @@ extension RecordingSessionActivityAttributes {
         var startedAt: Date
         /// 共有コンテナの `vehiclePhotoDirectoryName` 内にある車両写真のファイル名です。無ければ `nil` です。
         var vehiclePhotoFileName: String?
+        /// 記録終了後の表示に載せる走行時間と最大値です。記録中は `nil` で、値があれば終了表示です。
+        var endedSummary: EndedSummary?
+
+        /// 記録が終わった表示かどうかです。終了表示では[切断]とタイマーを出しません。
+        var isEnded: Bool { endedSummary != nil }
     }
 }

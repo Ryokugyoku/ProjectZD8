@@ -14,6 +14,9 @@ nonisolated enum AdapterLinkSupervisionEvent: Equatable, Sendable {
     /// アダプター初期化が失敗しました。
     case adapterInitializationFailed
 
+    /// 初期化失敗の後に予約した再初期化の待機が終わりました。待機・リンク `ready`・手動接続なしのときだけ初期化をやり直します。
+    case adapterInitializationRetryElapsed
+
     /// 車両確認が完了し、ECU応答の有無が得られました。
     case vehicleConfirmationCompleted(VehicleResponseOutcome)
 
@@ -59,6 +62,6 @@ nonisolated enum AdapterLinkSupervisionEvent: Equatable, Sendable {
     /// 常駐リンク以外の経路(手動接続)がアダプターを使い始めました。使い終えるまで初期化・車両確認を始めません。
     case externalAdapterUseBegan
 
-    /// 常駐リンク以外の経路(手動接続)がアダプターを使い終えました。
+    /// 常駐リンク以外の経路(手動接続)がアダプターを使い終えました。待機でリンクが `ready` なら、すぐ初期化からやり直します。
     case externalAdapterUseEnded
 }

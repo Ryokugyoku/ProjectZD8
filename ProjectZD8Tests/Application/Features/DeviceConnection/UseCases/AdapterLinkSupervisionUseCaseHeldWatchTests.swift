@@ -136,10 +136,10 @@ final class AdapterLinkSupervisionUseCaseHeldWatchTests: XCTestCase {
         XCTAssertEqual(harness.vehicleResponse.timeouts.last, .heldWatch)
     }
 
-    /// 背面へ移った後は窓切れで休止し、前面へ戻ったら窓を取り直して確認を再開します。
+    /// 背面へ移った後に窓が切れても休止せず、窓後の間隔で確認を続けます。
     ///
-    /// 責務: 前面復帰 → 背面移行 → 窓切れの無応答で `.paused`、続く前面復帰で確認が増えて `.probing` になることを確認します(仕様 5・6)。
-    func testBackgroundPausesOnWindowEndAndForegroundResumes() async throws {
+    /// 責務: 窓切れの無応答(前回の確認から60秒以上)で確認が増えて確認中のままであること、続く前面復帰で確認が重複しないことを確認します(仕様3)。
+    func testBackgroundContinuesConfirmingAfterWindowEnd() async throws {
         let harness = AdapterLinkSupervisionHarness()
         harnesses.append(harness)
         try await harness.driveToConfirming()
@@ -147,10 +147,12 @@ final class AdapterLinkSupervisionUseCaseHeldWatchTests: XCTestCase {
         harness.useCase.appDidEnterBackground()
         harness.clock.now = F.date(F.windowSeconds)
         harness.vehicleResponse.responses.resumeOldest(with: .success(.noResponse))
-        try await harness.wait("休止") { harness.isConfirming(.paused) }
+        try await harness.wait("窓後の確認") { harness.vehicleResponse.timeouts.count == 2 }
+        XCTAssertTrue(harness.isConfirming(.probing))
 
         harness.useCase.appDidBecomeActive()
-        try await harness.wait("再開の確認") { harness.vehicleResponse.timeouts.count == 2 }
+        try await BLEBoundedWaiter.settle()
+        XCTAssertEqual(harness.vehicleResponse.timeouts.count, 2)
         XCTAssertTrue(harness.isConfirming(.probing))
     }
 

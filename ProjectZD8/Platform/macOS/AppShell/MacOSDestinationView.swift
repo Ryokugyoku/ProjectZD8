@@ -60,6 +60,12 @@ struct MacOSDestinationView: View {
     /// Authenticationが保持する直近のアカウント削除失敗です。
     let accountDeletionFailure: AccountDeletionFailure?
 
+    /// 設定画面の「エンジン停止とみなす時間」区画に表示する内容です。
+    let vehicleOffSection: VehicleOffDetectionSettingsSection
+
+    /// 「エンジン停止とみなす時間」の操作を設定モデルへ通知するクロージャです。
+    let sendVehicleOffAction: (VehicleOffDetectionDelayAction) -> Void
+
     /// アカウント削除の型付き操作をAuthenticationへ通知します。
     let sendAuthenticationAction: (AuthenticationAction) -> Void
 
@@ -109,6 +115,8 @@ struct MacOSDestinationView: View {
                 accountSettings: accountSettings,
                 send: sendSettingsAction,
                 sendAccountSettingsAction: sendAccountSettingsAction,
+                vehicleOffSection: vehicleOffSection,
+                sendVehicleOffAction: sendVehicleOffAction,
                 accountDeletionPhase: accountDeletionPhase,
                 accountDeletionFailure: accountDeletionFailure,
                 sendAuthenticationAction: sendAuthenticationAction,

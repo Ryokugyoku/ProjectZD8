@@ -89,7 +89,7 @@ final class AdapterLinkSupervisionTransitionTests: XCTestCase {
 
     /// 車両確認の失敗は無応答と同じく扱い、検知にせず、結果の受信を起点に次の確認へ進みます。
     ///
-    /// 責務: 窓の中で最短間隔以上かかった失敗は次の確認、最短間隔より早い失敗は残り時間の待ち、背面での窓の終了時刻ちょうどは休止になることを確認します(U3 受け入れ条件 1・3・4)。
+    /// 責務: 窓の中で最短間隔以上かかった失敗は次の確認、最短間隔より早い失敗は残り時間の待ち、背面での窓の終了時刻ちょうどは休止せず確認の送信になることを確認します(U3 受け入れ条件 1・3。窓後の継続へ改定)。
     func testVehicleConfirmationFailedBehavesAsNoResponse() {
         let probing = AdapterLinkSupervisionState.confirmingVehicle(F.confirmation())
         let now = F.date(10)
@@ -102,7 +102,7 @@ final class AdapterLinkSupervisionTransitionTests: XCTestCase {
         A.assertResult(quick, state: probing, effects: [.scheduleVehicleConfirmation(after: .seconds(1))])
 
         let atEnd = transition.result(from: probing, on: .vehicleConfirmationFailed, conditions: F.conditions(now: F.date(600)))
-        A.assertResult(atEnd, state: .confirmingVehicle(F.confirmation(phase: .paused)), effects: [])
+        A.assertResult(atEnd, state: probing, effects: [.confirmVehicle(.adapterMaximum)])
     }
 
     /// VIN読取の失敗でも検知は成立し、VINなしで通知または自動記録へ進みます。

@@ -28,8 +28,13 @@ final class LiveTelemetryAcquisitionLoopFixture {
     /// 記録ポートの有無と失敗指定を固定して生成します。
     ///
     /// 責務: フェイク・スパイ・時計を取得ループへ注入します。
-    /// - Parameter recorder: 記録ポートのスパイ。`nil` なら記録しない経路にします。
-    init(recorder: LiveTelemetryRecordingPortSpy? = LiveTelemetryRecordingPortSpy()) {
+    /// - Parameters:
+    ///   - recorder: 記録ポートのスパイ。`nil` なら記録しない経路にします。
+    ///   - vehicleOffDelay: ループへ注入するエンジン停止とみなす時間。
+    init(
+        recorder: LiveTelemetryRecordingPortSpy? = LiveTelemetryRecordingPortSpy(),
+        vehicleOffDelay: VehicleOffDetectionDelay = .default
+    ) {
         self.recorder = recorder
         let dates = dates
         loop = LiveTelemetryAcquisitionLoop(
@@ -38,7 +43,8 @@ final class LiveTelemetryAcquisitionLoopFixture {
             now: { dates.now() },
             clock: clock,
             linkRecovery: linkRecovery,
-            deadlineWaiter: deadlineWaiter
+            deadlineWaiter: deadlineWaiter,
+            vehicleOffDelay: { vehicleOffDelay }
         )
     }
 

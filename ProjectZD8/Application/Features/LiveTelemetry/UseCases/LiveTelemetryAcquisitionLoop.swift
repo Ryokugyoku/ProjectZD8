@@ -10,6 +10,8 @@ import Foundation
 /// 復帰して取得中へ戻る、または猶予切れで終了。停止の指示(取消)はどの状態からでも即座に終了します。
 /// 猶予(3分)は最後に正応答を受信した時点から数え、回復中・一時停止中のどちらで超えても猶予切れとして、
 /// 最後に受信した実時刻を終了時刻にします。
+/// ただし応答途絶の回復でアダプターは応答するのに車両が無応答の場合は、猶予を取得開始時点の「エンジン停止とみなす時間」
+/// (`VehicleOffDetectionDelay`。既定30秒)へ縮めます(`LiveTelemetryReceiveGrace.suspectVehicleOff()`)。
 /// 途切れの判定は要求1件の結果を受けるたびに `LiveTelemetryReceiveTracker`(単調時計と `AcquisitionStallPolicy`)で行い、
 /// 回復と一時停止は `LiveTelemetryAcquisitionRecovery` が行います。一時停止中だけは、猶予切れの検知と
 /// 10秒ごとの定期的な復帰の試行のために `LiveTelemetryDeadlineWaitPort` の待ちを使います(要求の間に待機を挟まない方針の例外)。
@@ -56,6 +58,8 @@ actor LiveTelemetryAcquisitionLoop {
     private let recovery: LiveTelemetryAcquisitionRecovery
     /// 一時停止中の取得Taskへ起床理由を渡す通り道です。
     private let pauseChannel = LiveTelemetryPauseWakeChannel()
+    /// 取得開始時点の「エンジン停止とみなす時間」を返す処理です。
+    private let vehicleOffDelay: @Sendable () -> VehicleOffDetectionDelay
     /// 取得記録を行うかどうかです。
     nonisolated let recordsAcquisition: Bool
     /// 現在の世代の取得Taskです。
@@ -81,6 +85,7 @@ actor LiveTelemetryAcquisitionLoop {
     ///   - clock: 要求ごとの経過と途切れを測る単調時計。
     ///   - linkRecovery: 途切れた後の回復操作の境界。
     ///   - deadlineWaiter: 一時停止中に猶予切れの期限まで待つ境界。
+    ///   - vehicleOffDelay: 取得開始時点の「エンジン停止とみなす時間」を返す処理。取得中に設定が変わっても次回の取得から反映します。
     init(
         telemetry: any OBDPIDTelemetryPort,
         decoder: OBDPIDPayloadDecoder = .init(),
@@ -89,7 +94,8 @@ actor LiveTelemetryAcquisitionLoop {
         now: @escaping @Sendable () -> Date = Date.init,
         clock: any MonotonicClockPort,
         linkRecovery: any LiveTelemetryLinkRecoveryPort,
-        deadlineWaiter: any LiveTelemetryDeadlineWaitPort
+        deadlineWaiter: any LiveTelemetryDeadlineWaitPort,
+        vehicleOffDelay: @escaping @Sendable () -> VehicleOffDetectionDelay = { .default }
     ) {
         reader = OBDPIDSingleRequestReader(telemetry: telemetry)
         self.telemetry = telemetry
@@ -104,6 +110,7 @@ actor LiveTelemetryAcquisitionLoop {
             clock: clock,
             deadlineWaiter: deadlineWaiter
         )
+        self.vehicleOffDelay = vehicleOffDelay
         recordsAcquisition = recorder != nil
     }
 
@@ -273,6 +280,7 @@ actor LiveTelemetryAcquisitionLoop {
     ) async throws -> LiveTelemetryAcquisitionTermination {
         var cursor = LiveTelemetryPollingCursor(definitions: input.definitions)
         var tracker = LiveTelemetryReceiveTracker(startedNanoseconds: clock.nowNanoseconds(), startedAt: now())
+        let vehicleOffDelay = vehicleOffDelay()
         while true {
             let cause = try await pollUntilInterrupted(&cursor, tracker: &tracker, input: input, continuation: continuation)
             try await recorder?.endSegment(
@@ -282,7 +290,10 @@ actor LiveTelemetryAcquisitionLoop {
             )
             let outcome = try await recovery.recover(
                 from: cause,
-                grace: LiveTelemetryReceiveGrace(lastReceivedNanoseconds: tracker.lastReceivedNanoseconds),
+                grace: LiveTelemetryReceiveGrace(
+                    lastReceivedNanoseconds: tracker.lastReceivedNanoseconds,
+                    vehicleOffDelay: vehicleOffDelay
+                ),
                 probe: pollingPolicy.definitionsToPoll(from: cursor.targets, tick: 0).first,
                 endpoint: input.endpoint,
                 channel: pauseChannel,

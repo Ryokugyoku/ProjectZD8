@@ -50,7 +50,10 @@ final class AdapterLinkSupervisionTransitionExternalAdapterUseTests: XCTestCase 
             for isActive in [false, true] {
                 let current = conditions(F.conditions(), suppressed: isActive)
                 XCTAssertEqual(transition.result(from: state, on: .externalAdapterUseBegan, conditions: current), external.began(from: state))
-                XCTAssertEqual(transition.result(from: state, on: .externalAdapterUseEnded, conditions: current), external.ended(from: state))
+                XCTAssertEqual(
+                    transition.result(from: state, on: .externalAdapterUseEnded, conditions: current),
+                    external.ended(from: state, conditions: current)
+                )
             }
         }
     }

@@ -164,7 +164,7 @@ final class AdapterLinkSupervisionUseCase {
 
     /// アプリの前面復帰を反映します。
     ///
-    /// 責務: 前面にいることを稼働条件へ反映し、リンクが `ready` の待機・休止中または窓切れの車両確認・抑止中の見張りを再開します。
+    /// 責務: 前面にいることを稼働条件へ反映し、リンクが `ready` の待機・窓切れの車両確認・抑止中の見張りを再開します。
     func appDidBecomeActive() {
         isForeground = true
         send(.appDidBecomeActive)
@@ -172,7 +172,7 @@ final class AdapterLinkSupervisionUseCase {
 
     /// アプリが背面へ移ったことを反映します。
     ///
-    /// 責務: 前面ではないことを稼働条件へ反映します。背面では窓切れで車両確認を休止します。状態は変えません。
+    /// 責務: 前面ではないことを稼働条件へ反映します。状態は変えません。背面でも車両確認は窓後の間隔(60秒)で続きます。
     func appDidEnterBackground() {
         isForeground = false
     }
@@ -219,15 +219,17 @@ final class AdapterLinkSupervisionUseCase {
 
     /// 常駐リンク以外の経路(手動接続)がアダプターを使い始めたことを反映します。
     ///
-    /// 責務: 使い終えるまで初期化・車両確認を抑止し、進行中の確認・検知を取り消します。記録中なら置き換えとして停止を要求します。リンクは止めません。
+    /// 責務: 使い終えるまで初期化・車両確認を抑止し、進行中の確認・検知と予約中の初期化再試行を取り消します。
+    /// 記録中なら置き換えとして停止を要求します。リンクは止めません。
     func externalAdapterUseDidBegin() {
         isExternalAdapterUseActive = true
+        operations.cancelInitializationRetry()
         send(.externalAdapterUseBegan)
     }
 
     /// 常駐リンク以外の経路(手動接続)がアダプターを使い終えたことを反映します。
     ///
-    /// 責務: 抑止を解きます。すぐには再確認せず、次の再接続か前面復帰で初期化からやり直します。
+    /// 責務: 抑止を解きます。待機でリンクが `ready` なら、すぐ初期化からやり直します。
     func externalAdapterUseDidEnd() {
         isExternalAdapterUseActive = false
         send(.externalAdapterUseEnded)
@@ -327,7 +329,7 @@ final class AdapterLinkSupervisionUseCase {
 
     /// 1件の作用を実行します。
     ///
-    /// 責務: 作用を対応する能力の呼び出しへ変換します。判断は行いません。
+    /// 責務: 作用をリンク操作として直接実行するか、非同期処理系・通知と記録系の実行へ振り分けます。判断は行いません。
     /// - Parameter effect: 実行する作用。
     private func execute(_ effect: AdapterLinkSupervisionEffect) {
         switch effect {
@@ -336,9 +338,25 @@ final class AdapterLinkSupervisionUseCase {
             link.start(preference: preference)
         case .stopLink:
             linkPreference = nil
+            operations.cancelInitializationRetry()
             link.stop()
         case .prepareNotifications:
             prepareNotificationsIfNeeded()
+        case .cancelOperations, .initializeAdapter, .confirmVehicle, .scheduleVehicleConfirmation,
+             .scheduleAdapterInitializationRetry, .readVIN:
+            executeOperationEffect(effect)
+        case .presentVehicleDetected, .presentRecordingStarted, .dismissNotification, .requestRecordingStart,
+             .requestRecordingStop, .completeFinishing:
+            executeNotificationOrRecordingEffect(effect)
+        }
+    }
+
+    /// 非同期処理系(初期化・車両確認・予約・VIN読取・取り消し)の作用を実行します。
+    ///
+    /// 責務: 作用を `AdapterLinkSupervisionOperationRunner` の呼び出しへ変換し、最後に確認を送った時刻を更新します。
+    /// - Parameter effect: 実行する作用。他の系統の作用は無視します。
+    private func executeOperationEffect(_ effect: AdapterLinkSupervisionEffect) {
+        switch effect {
         case .cancelOperations:
             lastVehicleConfirmationSentAt = nil
             operations.cancel()
@@ -350,9 +368,22 @@ final class AdapterLinkSupervisionUseCase {
             operations.confirmVehicle(timeout: timeout)
         case let .scheduleVehicleConfirmation(duration):
             operations.scheduleVehicleConfirmation(after: duration)
+        case let .scheduleAdapterInitializationRetry(duration):
+            operations.scheduleInitializationRetry(after: duration)
         case .readVIN:
             lastVehicleConfirmationSentAt = nil
             operations.readVIN()
+        default:
+            break
+        }
+    }
+
+    /// 通知と記録の作用を実行します。
+    ///
+    /// 責務: 作用を通知・記録制御の呼び出しか、終了処理の完了イベントの入力へ変換します。
+    /// - Parameter effect: 実行する作用。他の系統の作用は無視します。
+    private func executeNotificationOrRecordingEffect(_ effect: AdapterLinkSupervisionEffect) {
+        switch effect {
         case let .presentVehicleDetected(vin):
             notifications.presentVehicleDetected(vin: vin)
         case let .presentRecordingStarted(vin):
@@ -365,6 +396,8 @@ final class AdapterLinkSupervisionUseCase {
             recordingControl.requestRecordingStop(reason: reason)
         case .completeFinishing:
             send(.finishingDidComplete)
+        default:
+            break
         }
     }
 

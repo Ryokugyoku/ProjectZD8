@@ -77,7 +77,7 @@ final class RecordingSessionActivityOperationSequencerTests: XCTestCase {
     ///
     /// 責務: `didEnd` の回数を数える終了を受け付けます。
     private func enqueueEnd(_ content: RecordingSessionActivityContent) {
-        sequencer.enqueueEnd(content) { [weak self] in self?.didEndCount += 1 }
+        sequencer.enqueueEnd(content, dismissAt: Date(timeIntervalSince1970: 300)) { [weak self] in self?.didEndCount += 1 }
     }
 
     /// 世代はセッションごとに1つずつ進み、続いている世代だけが live です。終わらせると続いている世代は無くなります。

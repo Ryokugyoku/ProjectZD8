@@ -37,6 +37,12 @@ struct IOSSettingsView: View {
     /// 記録開始方法の操作を自動記録設定モデルへ通知するクロージャです。
     let sendAutomaticRecordingAction: (AutomaticRecordingPreferenceAction) -> Void
 
+    /// 「エンジン停止とみなす時間」の区画に表示する内容です。
+    let vehicleOffSection: VehicleOffDetectionSettingsSection
+
+    /// 「エンジン停止とみなす時間」の操作を設定モデルへ通知するクロージャです。
+    let sendVehicleOffAction: (VehicleOffDetectionDelayAction) -> Void
+
     /// Authenticationが管理するアカウント削除の現在段階です。
     let accountDeletionPhase: AccountDeletionPhase
 
@@ -109,12 +115,16 @@ struct IOSSettingsView: View {
             }
             IOSSettingsAdapterCard(
                 selectedAdapters: state.selectedAdapters,
+                defaultAdapterPreference: state.defaultAdapterPreference,
                 attentionProgress: accessibilityReduceMotion ? 0 : adapterAttentionProgress
             ) {
                 send(.adapterSelectionRequested($0))
             }
             IOSSettingsAutomaticRecordingCard(section: automaticRecordingSection) {
                 sendAutomaticRecordingAction(.settingsChoiceSelected($0))
+            }
+            IOSSettingsVehicleOffCard(section: vehicleOffSection) {
+                sendVehicleOffAction(.delaySelected($0))
             }
             IOSSettingsUploadCard(isEnabled: accountSettings.automaticSessionUploadEnabled) {
                 sendAccountSettingsAction(.automaticSessionUploadChanged($0))
