@@ -73,24 +73,24 @@ final class AdapterLinkSupervisionTransitionUserStopTests: XCTestCase {
 
     /// リンクが `ready` でない(リンク断で一時停止中など)記録中にユーザー切断で終わった時は、抑止せず待機へ戻ります。
     ///
-    /// 責務: 保持すべき「同じ接続」が無い場合に `heldAfterUserStop` へ移らず、待機(または待機へ戻る終了処理)になることを確認します(U2 受け入れ条件 8)。
+    /// 責務: 保持すべき「同じ接続」が無い場合に `heldAfterUserStop` へ移らず、ユーザー切断以外の終了と同じく
+    /// `.finishing` と `[.dismissNotification, .completeFinishing]` になり、終了処理の完了で `.standby`・作用なし
+    /// (リンクが `ready` でないので初期化しない)へ戻ることを確認します(U2 受け入れ条件 8)。
     func testUserDisconnectWhileRecordingWithoutReadyLinkReturnsToStandby() {
         let nonReady: [AdapterLinkState] = [
             .connecting, .discovering, .awaitingPeripheral, .disconnected(.peripheralDisconnected(errorDescription: nil)),
         ]
         for linkState in nonReady {
-            let result = transition.result(
+            let conditions = F.conditions(linkState: linkState)
+            let finishing = transition.result(
                 from: .recording(F.detectedVehicle),
                 on: .recordingDidFinish(endReason: .userDisconnected),
-                conditions: F.conditions(linkState: linkState)
+                conditions: conditions
             )
-            XCTAssertFalse(result.state.isHeldAfterUserStop, "\(linkState)")
-            XCTAssertFalse(AdapterLinkSupervisionResultAssertions.containsRecordingStopRequest(result.effects), "\(linkState)")
-            if result.state == .finishing {
-                XCTAssertTrue(result.effects.contains(.completeFinishing), "終了中なら待機へ戻る: \(linkState)")
-            } else {
-                XCTAssertEqual(result.state, .standby, "\(linkState)")
-            }
+            A.assertResult(finishing, state: .finishing, effects: [.dismissNotification, .completeFinishing], "\(linkState)")
+
+            let completed = transition.result(from: finishing.state, on: .finishingDidComplete, conditions: conditions)
+            A.assertResult(completed, state: .standby, effects: [], "完了後 \(linkState)")
         }
     }
 

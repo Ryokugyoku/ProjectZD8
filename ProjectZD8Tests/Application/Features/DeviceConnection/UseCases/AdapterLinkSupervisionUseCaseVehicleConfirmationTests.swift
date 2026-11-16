@@ -34,6 +34,8 @@ final class AdapterLinkSupervisionUseCaseVehicleConfirmationTests: XCTestCase {
     /// 責務: 時計を指定秒数進めてから保留中の確認へ無応答を返し、次の確認か休止を待ちます。途中で待機(最短間隔の待ち)が
     /// 要求された場合は時計を進めずに終わらせます。上限付きで繰り返し、上限内に休止しなければ失敗させます。
     /// 確認と確認の間に固定の待機を挟まない(応答駆動)実装でも、挟む実装でも同じ手順で回せます。
+    /// 保留が無い・待ちが上限内に成り立たないなど、1周でも手順が進まなければその時点で失敗させて打ち切ります
+    /// (`harness.wait` は上限超過で throw します)。
     /// - Parameters:
     ///   - harness: 車両確認が1件保留されている手段。
     ///   - seconds: 1回の確認にかかる秒数(アダプターが無応答を返すまでの時間)。
@@ -44,14 +46,18 @@ final class AdapterLinkSupervisionUseCaseVehicleConfirmationTests: XCTestCase {
             let sleeps = harness.clock.requestedDurations.count
             let confirmations = harness.vehicleResponse.timeouts.count
             harness.clock.now = harness.clock.now.addingTimeInterval(seconds)
-            harness.vehicleResponse.responses.resumeOldest(with: .success(.noResponse), file: file, line: line)
+            guard harness.vehicleResponse.responses.resumeOldest(with: .success(.noResponse), file: file, line: line) else {
+                return XCTFail("保留中の確認が無いため打ち切り", file: file, line: line)
+            }
             try await harness.wait("次の確認か待機か休止", file: file, line: line) {
                 harness.vehicleResponse.timeouts.count > confirmations || harness.clock.requestedDurations.count > sleeps
                     || harness.isConfirming(.paused)
             }
             if harness.isConfirming(.paused) { return }
             guard harness.vehicleResponse.timeouts.count == confirmations else { continue }
-            harness.clock.finishOldestSleep(advancingBy: 0, file: file, line: line)
+            guard harness.clock.finishOldestSleep(advancingBy: 0, file: file, line: line) else {
+                return XCTFail("保留中の待機が無いため打ち切り", file: file, line: line)
+            }
             try await harness.wait("再確認か休止", file: file, line: line) {
                 harness.vehicleResponse.timeouts.count > confirmations || harness.isConfirming(.paused)
             }

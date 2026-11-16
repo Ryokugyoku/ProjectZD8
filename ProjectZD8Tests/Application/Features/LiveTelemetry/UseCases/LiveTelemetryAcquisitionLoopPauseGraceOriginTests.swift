@@ -39,7 +39,10 @@ final class LiveTelemetryAcquisitionLoopPauseGraceOriginTests: XCTestCase {
         fixture.advanceClock(to: lastReceived + grace + 1)
         await fixture.telemetry.release(.responded([5]))
 
-        await fixture.assertExpired(collector, cause: .responseStall, lastReceivedAt: lastReceivedAt)
+        await fixture.assertExpired(
+            collector, cause: .responseStall, lastReceivedAt: lastReceivedAt, segmentEndReason: .responseStall,
+            sessionEndReason: .vehicleNoResponse
+        )
     }
 
     /// 最後の受信から猶予を1ナノ秒超えた起床では、一時停止の開始から猶予未満でも復帰を試さずに猶予切れです。
@@ -53,7 +56,10 @@ final class LiveTelemetryAcquisitionLoopPauseGraceOriginTests: XCTestCase {
 
         await fixture.loop.notify(.foregroundEntered)
 
-        await fixture.assertExpired(collector, cause: .responseStall, lastReceivedAt: lastReceivedAt)
+        await fixture.assertExpired(
+            collector, cause: .responseStall, lastReceivedAt: lastReceivedAt, segmentEndReason: .responseStall,
+            sessionEndReason: .vehicleNoResponse
+        )
         XCTAssertEqual(fixture.linkRecovery.calls.count, callsBefore, "猶予切れの起床では試さない")
     }
 
@@ -103,7 +109,10 @@ final class LiveTelemetryAcquisitionLoopPauseGraceOriginTests: XCTestCase {
         await fixture.loop.notify(.foregroundEntered)
         await fixture.telemetry.release(.responded([5]), file: file, line: line)
 
-        await fixture.assertContinued(collector, cause: .responseStall, lastReceivedAt: lastReceivedAt, sentRequests: 4, file: file, line: line)
+        await fixture.assertContinued(
+            collector, lastReceivedAt: lastReceivedAt, sentRequests: 4, segmentEndReason: .responseStall, gapCause: .responseStall,
+            file: file, line: line
+        )
         XCTAssertEqual(fixture.linkRecovery.calls.count, callsBefore + 1, file: file, line: line)
         XCTAssertEqual(fixture.linkRecovery.calls.last, .reinitializeFromReset, file: file, line: line)
     }

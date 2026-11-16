@@ -46,6 +46,11 @@ final class BLEAdapterLinkLimitsTests: XCTestCase {
     ///
     /// 責務: -1秒・0・250ミリ秒の境界を確認します(U5 受け入れ条件 1)。
     func testWriteCompletionTimeoutClamping() {
+        /// 書き込み完了待ちの上限だけを変えた上限値を作ります。
+        ///
+        /// 責務: 他の上限を固定し、指定の書き込み完了待ちで上限値を生成します。
+        /// - Parameter timeout: 書き込み完了待ちの上限。
+        /// - Returns: 生成した上限値。
         func limits(_ timeout: Duration) -> BLEAdapterLinkLimits {
             BLEAdapterLinkLimits(maximumConsecutiveReconnects: 1, discoveryStepTimeout: .seconds(1), writeCompletionTimeout: timeout)
         }

@@ -104,7 +104,9 @@ final class AdapterLinkTransportSelectionPolicyTests: XCTestCase {
     func testSelectionFallsBackWhenResidentLinkNotRequired() {
         let target = endpoint(Self.target.uuidString)
         for state in Self.nonReadyStates {
-            XCTAssertEqual(policy.selection(for: target, linkTargetIdentifier: Self.target, linkState: state, requiresResidentLink: false), .fallback, "\(state)")
+            XCTAssertEqual(
+                policy.selection(for: target, linkTargetIdentifier: Self.target, linkState: state, requiresResidentLink: false), .fallback, "\(state)"
+            )
         }
         XCTAssertEqual(policy.selection(for: target, linkTargetIdentifier: nil, linkState: .ready, requiresResidentLink: false), .fallback)
     }

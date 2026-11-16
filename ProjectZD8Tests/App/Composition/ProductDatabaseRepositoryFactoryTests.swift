@@ -92,12 +92,8 @@ final class ProductDatabaseRepositoryFactoryTests: XCTestCase {
 
         XCTAssertTrue(repository is UnavailableMaintenanceRecordRepository)
         assertSingleOpenFailure(in: spy, storage: .maintenanceRecords)
-        do {
-            _ = try await repository.records(for: "account")
-            XCTFail("利用不能な整備記録の読込が成功しました")
-        } catch {
-            XCTAssertEqual(error as? MaintenanceRepositoryError, .unavailable)
-        }
+        let outcome = await AdapterLinkBoundedAwait.run("利用不能な整備記録の読込") { try await repository.records(for: "account") }
+        AdapterLinkBoundedAwait.assertFailure(outcome, MaintenanceRepositoryError.unavailable)
     }
 
     // MARK: - Migration できない製品DB

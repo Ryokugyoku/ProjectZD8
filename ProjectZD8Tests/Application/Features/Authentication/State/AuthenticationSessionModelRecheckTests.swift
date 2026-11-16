@@ -78,12 +78,13 @@ final class AuthenticationSessionModelRecheckTests: XCTestCase {
 
     /// 照会の回数が指定に達するまで上限付きで待ちます。
     ///
-    /// 責務: 資格状態の照会回数の到達を待ちます。
+    /// 責務: 資格状態の照会回数の到達を待ち、上限内に届かなければ失敗させて throw し、以降の手順(繰り返しを含む)を打ち切ります。
     /// - Parameter count: 待つ照会回数。
+    /// - Throws: 上限内に届かなかった場合は `AdapterLinkBoundedAwaitTimeout`。
     private func waitForChecks(_ count: Int, file: StaticString = #filePath, line: UInt = #line) async throws {
-        try await BLEBoundedWaiter.waitUntil("照会 \(count) 回", file: file, line: line) {
+        guard try await BLEBoundedWaiter.waitUntil("照会 \(count) 回", file: file, line: line, condition: {
             dependencies.authorization.credentialStateRequestCount >= count
-        }
+        }) else { throw AdapterLinkBoundedAwaitTimeout(description: "照会 \(count) 回") }
     }
 
     /// 確認できないままの状態(ログイン画面・エラー表示・セッションなし)であることを確かめます。
@@ -157,8 +158,8 @@ final class AuthenticationSessionModelRecheckTests: XCTestCase {
     func testTimedRechecksStopAtLimitAndForegroundRestarts() async throws {
         try await launchWithFailedCheck()
         for attempt in 1...10 {
-            try await BLEBoundedWaiter.waitUntil("\(attempt)件目の待ち") { sleeper.pendingCount == 1 }
-            sleeper.finishOldest()
+            guard try await BLEBoundedWaiter.waitUntil("\(attempt)件目の待ち", condition: { sleeper.pendingCount == 1 }) else { return }
+            guard sleeper.finishOldest() else { return XCTFail("\(attempt)件目: 保留中の待機が無いため打ち切り") }
             try await waitForChecks(1 + attempt)
         }
         try await BLEBoundedWaiter.settle()

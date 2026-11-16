@@ -37,7 +37,7 @@ final class LiveTelemetryModelReceivedResponseCountTests: XCTestCase {
         for expected in 3...5 {
             fixture.clock.advance(byNanoseconds: LiveTelemetryDisplayRefreshThrottle.minimumIntervalNanoseconds)
             await fixture.telemetry.release(.responded([1]))
-            await fixture.waitUntil("件数 \(expected)") { fixture.model.state.receivedResponseCount == expected }
+            guard await fixture.waitUntil("件数 \(expected)", condition: { fixture.model.state.receivedResponseCount == expected }) else { return }
             XCTAssertEqual(fixture.model.state.receivedResponseCount, expected)
         }
     }
@@ -70,7 +70,7 @@ final class LiveTelemetryModelReceivedResponseCountTests: XCTestCase {
             await fixture.telemetry.waitForSentRequests(4)
             fixture.clock.advance(byNanoseconds: AcquisitionStallPolicy.stallThresholdNanoseconds)
             await fixture.telemetry.release(outcome)
-            await fixture.waitUntil("一時停止") { fixture.model.state.phase == .paused }
+            guard await fixture.waitUntil("一時停止", condition: { fixture.model.state.phase == .paused }) else { return }
 
             XCTAssertEqual(fixture.model.state.receivedResponseCount, 3, "\(outcome)")
             await fixture.tearDown()

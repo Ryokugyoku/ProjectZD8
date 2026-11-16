@@ -121,6 +121,22 @@ final class AdapterLinkSupervisionTransitionHeldAfterUserStopTests: XCTestCase {
         XCTAssertFalse(result.effects.contains(.confirmVehicle(.heldWatch)))
     }
 
+    /// 見張りの開始前(記録の終了通知の前)に手動接続が始まっても終わっても、抑止はそのままで、作用を出しません。
+    ///
+    /// 責務: `.heldAfterUserStop(.awaitingStart)` で `externalAdapterUseBegan`・`externalAdapterUseEnded` を受けた時に、
+    /// 状態不変・作用なし(見張りの確認はまだ送っていないので、取り消すものも再開するものも無い)であることを確認します。
+    func testExternalAdapterUseBeforeWatchStartKeepsHeldWithoutEffects() {
+        let held = AdapterLinkSupervisionState.heldAfterUserStop(.awaitingStart)
+        let cases: [(AdapterLinkSupervisionEvent, AdapterLinkSupervisionConditions)] = [
+            (.externalAdapterUseBegan, F.conditions(isExternalAdapterUseActive: true)),
+            (.externalAdapterUseEnded, F.conditions()),
+        ]
+        for (event, conditions) in cases {
+            let result = transition.result(from: held, on: event, conditions: conditions)
+            A.assertIgnored(result, from: held, "\(event)")
+        }
+    }
+
     /// 抑止中は、記録開始選択・初期化・VIN読取・終了完了のイベントを無視します。
     ///
     /// 責務: それぞれのイベントで状態不変・作用なしを確認します。

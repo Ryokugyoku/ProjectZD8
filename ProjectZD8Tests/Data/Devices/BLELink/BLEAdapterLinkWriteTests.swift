@@ -27,7 +27,7 @@ final class BLEAdapterLinkWriteTests: XCTestCase {
             let before = harness.peripheral.writtenChunks.count
             let data = Self.bytes(count: length, seed: UInt8(length % 251))
             let attempt = harness.beginWrite(data)
-            try await BLEBoundedWaiter.waitUntil("write length=\(length)") { attempt.isFinished }
+            guard try await BLEBoundedWaiter.waitUntil("write length=\(length)", condition: { attempt.isFinished }) else { return }
 
             XCTAssertEqual(attempt.outcome, .succeeded, "length=\(length)")
             let chunks = Array(harness.peripheral.writtenChunks.dropFirst(before))
@@ -159,7 +159,7 @@ final class BLEAdapterLinkWriteTests: XCTestCase {
         for (label, step) in steps {
             step()
             let attempt = harness.beginWrite(Data([0x41, 0x54, 0x5A, 0x0D]))
-            try await BLEBoundedWaiter.waitUntil("write in \(label)") { attempt.isFinished }
+            guard try await BLEBoundedWaiter.waitUntil("write in \(label)", condition: { attempt.isFinished }) else { return }
             XCTAssertEqual(attempt.outcome, .failed(.notReady), label)
         }
         XCTAssertEqual(harness.peripheral.writtenChunks, [])

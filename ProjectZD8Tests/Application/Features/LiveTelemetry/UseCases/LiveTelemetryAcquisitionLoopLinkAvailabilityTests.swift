@@ -74,7 +74,8 @@ final class LiveTelemetryAcquisitionLoopLinkAvailabilityTests: XCTestCase {
         await fixture.telemetry.release(.responded([5]))
 
         await fixture.assertContinued(
-            collector, cause: .linkLost, lastReceivedAt: LiveTelemetryAcquisitionLoopFixture.fixedNow, sentRequests: 4
+            collector, lastReceivedAt: LiveTelemetryAcquisitionLoopFixture.fixedNow, sentRequests: 4,
+            segmentEndReason: .linkLost, gapCause: .linkLost
         )
         XCTAssertEqual(fixture.linkRecovery.calls.last, .reconnectLink)
     }

@@ -32,7 +32,9 @@ final class LiveTelemetryAcquisitionLoopRecoveryGraceTests: XCTestCase {
     func testLinkLossRecoverySuccessAfterGraceExpires() async {
         let (fixture, collector) = await succeedFirstAttempt(cause: .linkLost, elapsedSinceLastReceive: grace + 1)
 
-        await fixture.assertExpired(collector, cause: .linkLost, lastReceivedAt: lastReceivedAt)
+        await fixture.assertExpired(
+            collector, cause: .linkLost, lastReceivedAt: lastReceivedAt, segmentEndReason: .linkLost, sessionEndReason: .connectionLost
+        )
     }
 
     /// 応答途絶の回復段階で、最後の受信から猶予を1ナノ秒超えて回復に成功しても、猶予切れで終わります。
@@ -41,17 +43,25 @@ final class LiveTelemetryAcquisitionLoopRecoveryGraceTests: XCTestCase {
     func testStallRecoverySuccessAfterGraceExpires() async {
         let (fixture, collector) = await succeedFirstAttempt(cause: .responseStall, elapsedSinceLastReceive: grace + 1)
 
-        await fixture.assertExpired(collector, cause: .responseStall, lastReceivedAt: lastReceivedAt)
+        await fixture.assertExpired(
+            collector, cause: .responseStall, lastReceivedAt: lastReceivedAt, segmentEndReason: .responseStall,
+            sessionEndReason: .vehicleNoResponse
+        )
     }
 
     /// 回復段階で、最後の受信からちょうど猶予の時点で回復に成功すれば続行します。
     ///
     /// 責務: 境界ちょうどは続行で、欠損を挟んで同じセッションの区間を再開することを原因ごとに確認します(仕様 2・6)。
     func testRecoverySuccessAtExactlyGraceContinues() async {
-        for cause in [LiveTelemetryInterruptionCause.linkLost, .responseStall] {
+        let expectations: [(LiveTelemetryInterruptionCause, ConnectionSessionSegmentEndReason, ConnectionSessionGapCause)] = [
+            (.linkLost, .linkLost, .linkLost), (.responseStall, .responseStall, .responseStall)
+        ]
+        for (cause, segmentEndReason, gapCause) in expectations {
             let (fixture, collector) = await succeedFirstAttempt(cause: cause, elapsedSinceLastReceive: grace)
 
-            await fixture.assertContinued(collector, cause: cause, lastReceivedAt: lastReceivedAt, sentRequests: 4)
+            await fixture.assertContinued(
+                collector, lastReceivedAt: lastReceivedAt, sentRequests: 4, segmentEndReason: segmentEndReason, gapCause: gapCause
+            )
             await fixture.tearDown()
         }
     }
@@ -60,10 +70,15 @@ final class LiveTelemetryAcquisitionLoopRecoveryGraceTests: XCTestCase {
     ///
     /// 責務: 境界の直前は続行で、欠損を挟んで同じセッションの区間を再開することを原因ごとに確認します(仕様 2・6)。
     func testRecoverySuccessJustBeforeGraceContinues() async {
-        for cause in [LiveTelemetryInterruptionCause.linkLost, .responseStall] {
+        let expectations: [(LiveTelemetryInterruptionCause, ConnectionSessionSegmentEndReason, ConnectionSessionGapCause)] = [
+            (.linkLost, .linkLost, .linkLost), (.responseStall, .responseStall, .responseStall)
+        ]
+        for (cause, segmentEndReason, gapCause) in expectations {
             let (fixture, collector) = await succeedFirstAttempt(cause: cause, elapsedSinceLastReceive: grace - 1)
 
-            await fixture.assertContinued(collector, cause: cause, lastReceivedAt: lastReceivedAt, sentRequests: 4)
+            await fixture.assertContinued(
+                collector, lastReceivedAt: lastReceivedAt, sentRequests: 4, segmentEndReason: segmentEndReason, gapCause: gapCause
+            )
             await fixture.tearDown()
         }
     }
@@ -82,7 +97,9 @@ final class LiveTelemetryAcquisitionLoopRecoveryGraceTests: XCTestCase {
 
         await fixture.telemetry.release(.timedOut)
 
-        await fixture.assertExpired(collector, cause: .linkLost, lastReceivedAt: lastReceivedAt)
+        await fixture.assertExpired(
+            collector, cause: .linkLost, lastReceivedAt: lastReceivedAt, segmentEndReason: .linkLost, sessionEndReason: .connectionLost
+        )
         XCTAssertEqual(fixture.linkRecovery.calls, [.promptResync], "期限後に次の試行を始めない")
     }
 
@@ -118,7 +135,9 @@ final class LiveTelemetryAcquisitionLoopRecoveryGraceTests: XCTestCase {
 
         await fixture.telemetry.release(.timedOut)
 
-        await fixture.assertExpired(collector, cause: .linkLost, lastReceivedAt: lastReceivedAt)
+        await fixture.assertExpired(
+            collector, cause: .linkLost, lastReceivedAt: lastReceivedAt, segmentEndReason: .linkLost, sessionEndReason: .connectionLost
+        )
         XCTAssertEqual(fixture.linkRecovery.calls.count, 8, "期限後に試行しない")
         XCTAssertEqual(fixture.deadlineWaiter.requestedDeadlines, [], "期限後に待機しない")
     }

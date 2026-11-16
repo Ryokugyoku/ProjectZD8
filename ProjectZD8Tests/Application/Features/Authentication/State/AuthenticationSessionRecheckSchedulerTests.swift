@@ -53,10 +53,13 @@ final class AuthenticationSessionRecheckSchedulerTests: XCTestCase {
 
     /// 指定件数の待機が要求されるまで上限付きで待ちます。
     ///
-    /// 責務: 要求件数の到達を待ちます。
+    /// 責務: 要求件数の到達を待ち、上限内に届かなければ失敗させて throw し、以降の手順(繰り返しを含む)を打ち切ります。
     /// - Parameter count: 待つ要求件数。
+    /// - Throws: 上限内に届かなかった場合は `AdapterLinkBoundedAwaitTimeout`。
     private func waitForSleeps(_ count: Int, file: StaticString = #filePath, line: UInt = #line) async throws {
-        try await BLEBoundedWaiter.waitUntil("待機 \(count) 件", file: file, line: line) { sleeper.requestedDurations.count >= count }
+        guard try await BLEBoundedWaiter.waitUntil("待機 \(count) 件", file: file, line: line, condition: {
+            sleeper.requestedDurations.count >= count
+        }) else { throw AdapterLinkBoundedAwaitTimeout(description: "待機 \(count) 件") }
     }
 
     /// 列が止まるまで上限付きで待ちます。
@@ -75,8 +78,8 @@ final class AuthenticationSessionRecheckSchedulerTests: XCTestCase {
         for attempt in 1...10 {
             try await waitForSleeps(attempt)
             XCTAssertEqual(recheckCount, attempt - 1, "待ちの前に再確認しない")
-            sleeper.finishOldest()
-            try await BLEBoundedWaiter.waitUntil("\(attempt)回目の再確認") { recheckCount == attempt }
+            guard sleeper.finishOldest() else { return XCTFail("\(attempt)回目: 保留中の待機が無いため打ち切り") }
+            guard try await BLEBoundedWaiter.waitUntil("\(attempt)回目の再確認", condition: { recheckCount == attempt }) else { return }
         }
         try await waitUntilStopped()
 
@@ -149,8 +152,8 @@ final class AuthenticationSessionRecheckSchedulerTests: XCTestCase {
         start(immediately: false)
         for attempt in 1...3 {
             try await waitForSleeps(attempt)
-            sleeper.finishOldest()
-            try await BLEBoundedWaiter.waitUntil("\(attempt)回目") { recheckCount == attempt }
+            guard sleeper.finishOldest() else { return XCTFail("\(attempt)回目: 保留中の待機が無いため打ち切り") }
+            guard try await BLEBoundedWaiter.waitUntil("\(attempt)回目", condition: { recheckCount == attempt }) else { return }
         }
         try await waitForSleeps(4)
         XCTAssertEqual(sleeper.requestedDurations.last, .seconds(60))

@@ -59,27 +59,26 @@ final class BLEAdapterLinkWriteTimeoutTests: XCTestCase {
 
     /// 応答あり書き込みの完了通知が来なければ、期限で書き込みはタイムアウトの失敗で戻り、リンクは切断から再接続へ進みます。
     ///
-    /// 責務: 1チャンク目の完了通知を流さずに期限を発火させ、結果がタイムアウトの失敗・状態が切断・再接続の要求が増えることを確認します
-    /// (受け入れ条件 1・2・4。現行は期限が無く、書き込みは戻らない)。
+    /// 責務: 1チャンク目の完了通知を流さずに期限を発火させ、結果がタイムアウトの失敗・状態が `.disconnected(.writeTimedOut)`・
+    /// 接続のキャンセル要求の後、切断通知を受けると同じアダプターへの接続要求が1回増えることを確認します(受け入れ条件 1・2・4)。
     func testWithResponseWriteWithoutCompletionTimesOutAsLinkFailure() async throws {
         let harness = makeReadyHarness(write: Fixtures.writeWithResponseFFF2)
         defer { harness.tearDown() }
         let requestsBefore = harness.sleepController.requestCount
-        let connectsBefore = harness.central.connectCallCount
         let attempt = harness.beginWrite(Data([0x41, 0x54, 0x5A, 0x0D]))
         try await BLEBoundedWaiter.waitUntil("1チャンク目") { harness.peripheral.writtenChunks.count == 1 }
 
         guard let deadline = try await waitForWriteDeadline(harness, after: requestsBefore) else { return }
         harness.sleepController.fire(deadline)
-        try await BLEBoundedWaiter.waitUntil("書き込みの決着") { attempt.isFinished }
+        guard try await BLEBoundedWaiter.waitUntil("書き込みの決着", condition: { attempt.isFinished }) else { return }
 
-        XCTAssertTrue(isTimedOut(attempt.outcome), "タイムアウトの失敗で戻る: \(String(describing: attempt.outcome))")
-        guard case .disconnected = harness.link.state else {
-            return XCTFail("タイムアウトはリンク障害として切断へ進む: \(harness.link.state)")
-        }
-        let reconnecting = harness.central.connectCallCount > connectsBefore
-            || harness.central.calls.contains(.cancelConnection(Harness.targetIdentifier))
-        XCTAssertTrue(reconnecting, "切断→再接続の流れへ入る: \(harness.central.calls)")
+        XCTAssertEqual(attempt.outcome, .failed(.timedOut), "タイムアウトの失敗で戻る")
+        XCTAssertEqual(harness.link.state, .disconnected(.writeTimedOut), "タイムアウトはリンク障害として切断へ進む")
+        XCTAssertEqual(harness.central.calls.last, .cancelConnection(Harness.targetIdentifier), "切断は接続のキャンセルで行う")
+        let connects = harness.central.connectCallCount
+        harness.peripheral.connectionState = .disconnected
+        harness.central.emit(.didDisconnect(harness.peripheral, errorDescription: nil))
+        try await BLEBoundedWaiter.waitUntil("再接続の要求") { harness.central.connectCallCount == connects + 1 }
     }
 
     /// 応答なし書き込みが送信可能にならなければ、期限で書き込みはタイムアウトの失敗で戻ります。
@@ -104,7 +103,8 @@ final class BLEAdapterLinkWriteTimeoutTests: XCTestCase {
 
     /// 期限で、待っている書き込みだけでなく後ろに並んだ書き込みも失敗で戻ります(遅れた完了通知が次の書き込みに当たらないため)。
     ///
-    /// 責務: 1回目の応答待ちの間に2回目を並べて期限を発火させ、両方が決着し、どちらも成功しないことを確認します(受け入れ条件 2)。
+    /// 責務: 1回目の応答待ちの間に2回目を並べて期限を発火させ、両方がタイムアウトの失敗で決着することを確認します
+    /// (受け入れ条件 2。期限切れはキューの全ジョブをタイムアウトで失敗させる)。
     func testTimeoutFailsQueuedWritesToo() async throws {
         let harness = makeReadyHarness(write: Fixtures.writeWithResponseFFF2)
         defer { harness.tearDown() }
@@ -118,7 +118,7 @@ final class BLEAdapterLinkWriteTimeoutTests: XCTestCase {
         try await BLEBoundedWaiter.waitUntil("両方の書き込みの決着") { first.isFinished && second.isFinished }
 
         XCTAssertTrue(isTimedOut(first.outcome), "待っていた書き込みはタイムアウト: \(String(describing: first.outcome))")
-        XCTAssertNotEqual(second.outcome, .succeeded)
+        XCTAssertEqual(second.outcome, .failed(.timedOut), "後ろに並んだ書き込みもタイムアウト")
         XCTAssertEqual(harness.peripheral.writtenChunks.count, 1, "期限の後に2回目のチャンクを送らない")
     }
 

@@ -181,18 +181,22 @@ final class LiveTelemetryAcquisitionLoopFixture {
 
     /// 猶予切れで終わり、同じセッションを続けなかったことを検証します。
     ///
-    /// 責務: 終了理由(原因と最後の受信の実時刻)、区間を再開していないこと、記録の終了原因が途切れの原因に対応し
-    /// ユーザー切断ではないことを確認します。
+    /// 責務: 終了理由(原因と最後の受信の実時刻)、区間を再開していないこと、区間の終了理由と記録の終了原因が
+    /// 呼び出し側の期待値(仕様のリテラル)と一致することを確認します。
     /// - Parameters:
     ///   - collector: 待つ購読。
     ///   - cause: 期待する途切れの原因。
     ///   - lastReceivedAt: 期待する最後の受信の実時刻(セッションの終了時刻)。
+    ///   - segmentEndReason: 期待する区間の終了理由。
+    ///   - sessionEndReason: 期待する記録の終了原因(リンク断 → `connectionLost`、応答途絶 → `vehicleNoResponse`)。
     ///   - file: 失敗を報告するファイル。
     ///   - line: 失敗を報告する行。
     func assertExpired(
         _ collector: LiveTelemetryAcquisitionEventCollector,
         cause: LiveTelemetryInterruptionCause,
         lastReceivedAt: Date,
+        segmentEndReason: ConnectionSessionSegmentEndReason,
+        sessionEndReason: ConnectionSessionEndReason,
         file: StaticString = #filePath,
         line: UInt = #line
     ) async {
@@ -201,11 +205,10 @@ final class LiveTelemetryAcquisitionLoopFixture {
         XCTAssertEqual(termination?.sessionEndedAt, lastReceivedAt, file: file, line: line)
         let segments = await recorder?.segmentCalls ?? []
         XCTAssertEqual(segments, [
-            .endSegment(generation: 1, reason: cause.segmentEndReason, lastReceivedAt: lastReceivedAt)
+            .endSegment(generation: 1, reason: segmentEndReason, lastReceivedAt: lastReceivedAt)
         ], "区間は再開されない", file: file, line: line)
         let finishes = await recorder?.finishCalls ?? []
-        XCTAssertEqual(finishes, [.finish(generation: 1, reason: cause.sessionEndReason)], file: file, line: line)
-        XCTAssertNotEqual(cause.sessionEndReason, .userDisconnected, file: file, line: line)
+        XCTAssertEqual(finishes, [.finish(generation: 1, reason: sessionEndReason)], file: file, line: line)
     }
 
     /// 猶予内に復帰し、同じセッションの新しい区間で続行したことを検証します。
@@ -216,13 +219,16 @@ final class LiveTelemetryAcquisitionLoopFixture {
     ///   - cause: 途切れの原因。
     ///   - lastReceivedAt: 最後の受信の実時刻(欠損の開始)。
     ///   - sentRequests: 次の周回の要求までを含む送信済み要求の件数。
+    ///   - segmentEndReason: 期待する区間の終了理由。
+    ///   - gapCause: 期待する欠損の原因。
     ///   - file: 失敗を報告するファイル。
     ///   - line: 失敗を報告する行。
     func assertContinued(
         _ collector: LiveTelemetryAcquisitionEventCollector,
-        cause: LiveTelemetryInterruptionCause,
         lastReceivedAt: Date,
         sentRequests: Int,
+        segmentEndReason: ConnectionSessionSegmentEndReason,
+        gapCause: ConnectionSessionGapCause,
         file: StaticString = #filePath,
         line: UInt = #line
     ) async {
@@ -231,8 +237,8 @@ final class LiveTelemetryAcquisitionLoopFixture {
         XCTAssertNil(collector.termination, file: file, line: line)
         let segments = await recorder?.segmentCalls ?? []
         XCTAssertEqual(segments, [
-            .endSegment(generation: 1, reason: cause.segmentEndReason, lastReceivedAt: lastReceivedAt),
-            .beginSegment(.init(generation: 1, startReason: .reconnected, gapCause: cause.gapCause, gapStartedAt: lastReceivedAt))
+            .endSegment(generation: 1, reason: segmentEndReason, lastReceivedAt: lastReceivedAt),
+            .beginSegment(.init(generation: 1, startReason: .reconnected, gapCause: gapCause, gapStartedAt: lastReceivedAt))
         ], file: file, line: line)
     }
 

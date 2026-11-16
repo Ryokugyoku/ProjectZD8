@@ -27,7 +27,7 @@ final class LiveTelemetryModelEndRequestTests: XCTestCase {
             let fixture = await makeLoaded()
 
             fixture.model.send(.endRequested(reason))
-            await fixture.waitUntil("待機状態") { fixture.model.state.phase == .idle }
+            guard await fixture.waitUntil("待機状態", condition: { fixture.model.state.phase == .idle }) else { return }
 
             XCTAssertEqual(fixture.notifications.endReasons, [reason], "\(reason)")
             XCTAssertEqual(fixture.notifications.endedAts, [nil], "\(reason)")

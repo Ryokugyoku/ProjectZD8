@@ -65,6 +65,13 @@ final class LiveTelemetryPauseWakeEvaluatorTests: XCTestCase {
         let pausedAt: UInt64 = 40 * 1_000_000_000
         let split = LiveTelemetryPauseWindow(pausedAtNanoseconds: pausedAt, grace: .init(lastReceivedNanoseconds: 0))
         let evaluator = LiveTelemetryPauseWakeEvaluator()
+        /// 起点を分けた窓で、起床の理由と現在時刻から判定を返します。
+        ///
+        /// 責務: 窓と原因を固定して `action(for:window:nowNanoseconds:cause:)` を呼びます。
+        /// - Parameters:
+        ///   - reason: 起床の理由。
+        ///   - now: 現在の単調時刻(ナノ秒)。
+        /// - Returns: 起床時の判定。
         func act(_ reason: LiveTelemetryPauseWakeReason, _ now: UInt64) -> LiveTelemetryPauseWakeAction {
             evaluator.action(for: reason, window: split, nowNanoseconds: now, cause: .linkLost)
         }
