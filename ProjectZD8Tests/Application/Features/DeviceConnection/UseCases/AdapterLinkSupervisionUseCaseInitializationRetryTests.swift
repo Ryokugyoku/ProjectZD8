@@ -117,4 +117,51 @@ final class AdapterLinkSupervisionUseCaseInitializationRetryTests: XCTestCase {
         try await harness.wait("前面復帰での初期化") { harness.initialization.responses.callCount == 2 }
         try await assertRetryDoesNotFire(harness, callsBefore: 2)
     }
+
+    /// 取り消された古い予約が、のちの新しい予約より先に発火して再初期化を早めないことを検証します。
+    ///
+    /// 責務: 契機のあとで再び初期化に入って失敗させ、新しい予約(2件目の待機)が入った状態で、古い待機(1件目)が明けても
+    /// 初期化が呼ばれず、新しい待機が明けたときだけ1回呼ばれることを確認します。
+    private func assertStaleRetryDoesNotFireBeforeNewOne(
+        after trigger: (AdapterLinkSupervisionHarness) async throws -> Void, file: StaticString = #filePath, line: UInt = #line
+    ) async throws {
+        let harness = makeHarness()
+        try await driveToScheduledRetry(harness, file: file, line: line)
+        try await trigger(harness)
+        try await harness.wait("契機後の初期化", file: file, line: line) { harness.initialization.responses.callCount == 2 }
+        harness.initialization.responses.resumeOldest(with: .failure(AdapterLinkWriteError.linkLost), file: file, line: line)
+        try await harness.wait("新しい予約", file: file, line: line) { harness.clock.requestedDurations.count == 2 }
+
+        harness.clock.finishOldestSleep(advancingBy: 60, file: file, line: line)
+        try await BLEBoundedWaiter.settle()
+        XCTAssertEqual(harness.initialization.responses.callCount, 2, "古い予約が発火した", file: file, line: line)
+
+        harness.clock.finishOldestSleep(advancingBy: 60, file: file, line: line)
+        try await harness.wait("新しい予約での初期化", file: file, line: line) { harness.initialization.responses.callCount == 3 }
+    }
+
+    /// リンク断・再接続のあと、古い予約は新しい予約より先に発火しません(仕様2)。
+    func testStaleRetryAfterLinkLossDoesNotFireEarly() async throws {
+        try await assertStaleRetryDoesNotFireBeforeNewOne { harness in
+            harness.link.emit(.disconnected(.peripheralDisconnected(errorDescription: nil)))
+            try await harness.makeLinkReady()
+        }
+    }
+
+    /// 手動接続の開始・終了のあと、古い予約は新しい予約より先に発火しません(仕様2・4)。
+    func testStaleRetryAfterExternalAdapterUseDoesNotFireEarly() async throws {
+        try await assertStaleRetryDoesNotFireBeforeNewOne { harness in
+            harness.useCase.externalAdapterUseDidBegin()
+            harness.useCase.externalAdapterUseDidEnd()
+        }
+    }
+
+    /// 停止・再開始のあと、古い予約は新しい予約より先に発火しません(仕様2)。
+    func testStaleRetryAfterStopAndStartDoesNotFireEarly() async throws {
+        try await assertStaleRetryDoesNotFireBeforeNewOne { harness in
+            harness.useCase.stop()
+            harness.useCase.start()
+            try await harness.makeLinkReady()
+        }
+    }
 }
