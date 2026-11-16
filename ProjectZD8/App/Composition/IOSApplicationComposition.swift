@@ -345,6 +345,26 @@ enum IOSApplicationComposition: ApplicationPlatformComposing {
         )
     }
 
+    /// 接続履歴の保存先を注入した、車両を特定できなかったログの警告と紐付けのモデルを生成します。
+    ///
+    /// 責務: 車両不明ログの照会と紐付けを保存先へ結び付け、紐付け後の履歴の再読込を既存の観測VINの紐付けと同じ通知へ結び付けます。
+    /// - Parameters:
+    ///   - repository: 車両不明ログの照会と紐付けを行う保存先。
+    ///   - historyDidChange: 1件以上紐付けた後に履歴を読み込み直させる処理。
+    /// - Returns: 未サインインの非表示状態から始まるモデル。
+    static func makeVehicleUnknownSessionModel(
+        repository: any VehicleUnknownConnectionSessionRepository,
+        historyDidChange: @escaping @MainActor () -> Void
+    ) -> VehicleUnknownSessionModel {
+        VehicleUnknownSessionModel(
+            loadSessions: LoadVehicleUnknownConnectionSessionsUseCase(repository: repository),
+            assignVehicle: AssignVehicleToVehicleUnknownConnectionSessionsUseCase(
+                repository: repository,
+                historyDidChange: historyDidChange
+            )
+        )
+    }
+
     /// 選択済みiOS Bluetooth終端に対応するELM/STNバイトストリームを生成します。
     ///
     /// 責務: 1件のBLEまたはBluetooth Classic終端を対応するOBDコマンドTransportへ変換します。

@@ -43,6 +43,9 @@ struct ProjectZD8App: App {
     /// 未登録車両の警告を保持するモデルです。
     @State private var unassignedVINWarningModel: UnassignedObservedVINWarningModel
 
+    /// 車両を特定できなかったログの警告と紐付けを保持するモデルです。
+    @State private var vehicleUnknownSessionModel: VehicleUnknownSessionModel
+
     /// 起動・認証状態・既定アダプター設定・前面復帰を常駐リンク監視へ伝える型です。
     private let adapterLinkSupervision: IOSAdapterLinkSupervisionDriver
 
@@ -83,6 +86,7 @@ struct ProjectZD8App: App {
         #if os(iOS)
         _automaticRecordingModel = State(initialValue: root.automaticRecording)
         _unassignedVINWarningModel = State(initialValue: root.unassignedVINWarning)
+        _vehicleUnknownSessionModel = State(initialValue: root.vehicleUnknownSessions)
         adapterLinkSupervision = root.adapterLinkSupervision
         root.adapterLinkSupervision.launch()
         sessionActivity = root.sessionActivity
@@ -109,6 +113,7 @@ struct ProjectZD8App: App {
                         startVehicleConnection: startVehicleConnection,
                         automaticRecordingModel: automaticRecordingModel,
                         unassignedVINWarningModel: unassignedVINWarningModel,
+                        vehicleUnknownSessionModel: vehicleUnknownSessionModel,
                         accountDeletionPhase: authenticationModel.state.accountDeletionPhase,
                         accountDeletionFailure: authenticationModel.state.accountDeletionFailure,
                         sendAuthenticationAction: authenticationModel.send
@@ -226,6 +231,9 @@ struct ProjectZD8App: App {
         unassignedVINWarningModel.send(
             .accountIdentifierChanged(authenticationModel.state.session?.userIdentifier)
         )
+        vehicleUnknownSessionModel.send(
+            .accountIdentifierChanged(authenticationModel.state.session?.userIdentifier)
+        )
         #endif
     }
 
@@ -250,6 +258,7 @@ struct ProjectZD8App: App {
         #if os(iOS)
         automaticRecordingModel.send(.signInStateChanged(isSignedIn: false))
         unassignedVINWarningModel.send(.accountIdentifierChanged(nil))
+        vehicleUnknownSessionModel.send(.accountIdentifierChanged(nil))
         iOSSettingsModel = IOSApplicationComposition.makeSettingsPresentationModel()
         #elseif os(macOS)
         macOSSettingsModel = MacOSApplicationComposition.makeSettingsPresentationModel()

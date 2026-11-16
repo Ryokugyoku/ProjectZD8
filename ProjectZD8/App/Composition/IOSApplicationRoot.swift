@@ -13,6 +13,8 @@ struct IOSApplicationRoot {
     let automaticRecording: AutomaticRecordingPreferenceModel
     /// 未登録車両の警告を保持するモデルです。
     let unassignedVINWarning: UnassignedObservedVINWarningModel
+    /// 車両を特定できなかったログの警告と紐付けを保持するモデルです。
+    let vehicleUnknownSessions: VehicleUnknownSessionModel
     /// アプリ側の事実を常駐リンク監視へ伝える型です。
     let adapterLinkSupervision: IOSAdapterLinkSupervisionDriver
     /// PID継続取得の状態と前面復帰を記録中の常時表示(Live Activity)へ伝える型です。
@@ -64,6 +66,10 @@ struct IOSApplicationRoot {
             automaticRecording: IOSApplicationComposition.makeAutomaticRecordingPreferenceModel(),
             unassignedVINWarning: IOSApplicationComposition.makeUnassignedObservedVINWarningModel(
                 repository: foundation.storage.sessions
+            ),
+            vehicleUnknownSessions: IOSApplicationComposition.makeVehicleUnknownSessionModel(
+                repository: foundation.storage.sessions,
+                historyDidChange: { [history = foundation.history] in history.send(.localDataChanged) }
             ),
             adapterLinkSupervision: makeSupervisionDriver(
                 coordinator: coordinator,

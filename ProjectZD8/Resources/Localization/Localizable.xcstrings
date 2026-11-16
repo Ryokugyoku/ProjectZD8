@@ -1060,6 +1060,270 @@
         }
       }
     },
+    "vehicle_unknown.assignment.assign" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Link Selected Logs"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vincular registros seleccionados"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "選んだログを紐付ける"
+          }
+        }
+      }
+    },
+    "vehicle_unknown.assignment.close" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Close"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cerrar"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "閉じる"
+          }
+        }
+      }
+    },
+    "vehicle_unknown.assignment.failure" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't link the logs. Please try again."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudieron vincular los registros. Inténtalo de nuevo."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ログを紐付けできませんでした。もう一度お試しください。"
+          }
+        }
+      }
+    },
+    "vehicle_unknown.assignment.no_vehicles" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "There are no registered vehicles. Register a vehicle first."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No hay vehículos registrados. Registra un vehículo primero."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "登録済みの車両がありません。先に車両を登録してください。"
+          }
+        }
+      }
+    },
+    "vehicle_unknown.assignment.sessions.header" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Logs to Link"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Registros para vincular"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "紐付けるログ"
+          }
+        }
+      }
+    },
+    "vehicle_unknown.assignment.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Logs Without a Vehicle"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Registros sin vehículo"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "車両を特定できなかったログ"
+          }
+        }
+      }
+    },
+    "vehicle_unknown.assignment.vehicles.header" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vehicle"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vehículo"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "紐付ける車両"
+          }
+        }
+      }
+    },
+    "vehicle_unknown.warning.action.review" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Link Logs to a Vehicle"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vincular registros a un vehículo"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ログを車両へ紐付ける"
+          }
+        }
+      }
+    },
+    "vehicle_unknown.warning.failure.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't Check for Logs Without an Identified Vehicle"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudieron comprobar los registros sin vehículo identificado"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "車両を特定できなかったログを確認できませんでした"
+          }
+        }
+      }
+    },
+    "vehicle_unknown.warning.message.many" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld logs have no identified vehicle. You can link them to a registered vehicle."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hay %lld registros sin vehículo identificado. Puedes vincularlos a un vehículo registrado."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "車両を特定できなかったログが %lld 件あります。登録済みの車両へ紐付けられます。"
+          }
+        }
+      }
+    },
+    "vehicle_unknown.warning.message.one" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld log has no identified vehicle. You can link it to a registered vehicle."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hay %lld registro sin vehículo identificado. Puedes vincularlo a un vehículo registrado."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "車両を特定できなかったログが %lld 件あります。登録済みの車両へ紐付けられます。"
+          }
+        }
+      }
+    },
+    "vehicle_unknown.warning.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Logs Without an Identified Vehicle"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hay registros sin vehículo identificado"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "車両を特定できなかったログがあります"
+          }
+        }
+      }
+    },
     "—" : {
 
     },

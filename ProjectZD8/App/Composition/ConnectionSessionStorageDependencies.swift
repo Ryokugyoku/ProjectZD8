@@ -3,12 +3,13 @@ import GRDB
 
 /// 同じ製品DB Queueを共有する接続session側と取得証拠側の保存先を束ねます。
 struct ConnectionSessionStorageDependencies {
-    /// 接続session、Rawログ、消去、観測VIN付きセッションの照会と紐付けを扱う保存先の型です。
+    /// 接続session、Rawログ、消去、観測VIN付きセッションと車両不明ログの照会と紐付けを扱う保存先の型です。
     typealias SessionStorage = any ConnectionSessionRepository
         & ConnectionSessionRawLogRepository
         & ConnectionSessionErasureRepository
         & AccountConnectionSessionErasureRepository
         & ObservedVINConnectionSessionRepository
+        & VehicleUnknownConnectionSessionRepository
     /// 取得manifest、batch、取得終了を扱う保存先の型です。
     typealias AcquisitionStorage = any ConnectionSessionAcquisitionRepository
         & ConnectionSessionAcquisitionBatchRepository
