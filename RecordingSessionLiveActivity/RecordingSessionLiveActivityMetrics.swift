@@ -28,4 +28,15 @@ enum RecordingSessionLiveActivityMetrics {
     static let unitSpacing: CGFloat = 2
     /// 経過時間の表示に確保する最小幅です。
     static let timerMinWidth: CGFloat = 64
+
+    /// 終了表示(ロック画面)の左右の余白です。項目を横いっぱいに広げるため、記録中より狭くします。
+    static let endedHorizontalPadding: CGFloat = 8
+    /// 終了表示(ロック画面)の上下の余白です。
+    static let endedVerticalPadding: CGFloat = 12
+    /// 終了表示の最大値の項目同士の間隔です。
+    static let endedMetricSpacing: CGFloat = 4
+    /// 終了表示の走行時間の見出しと値の間隔です。
+    static let endedDurationSpacing: CGFloat = 0
+    /// 終了表示の数値を縮小してよい下限の倍率です。桁数が多くても1行に収めます。
+    static let endedMinimumScaleFactor: CGFloat = 0.6
 }

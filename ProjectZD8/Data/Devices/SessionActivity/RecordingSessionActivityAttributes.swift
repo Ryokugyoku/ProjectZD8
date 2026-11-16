@@ -16,6 +16,12 @@ nonisolated struct RecordingSessionActivityAttributes: Codable, Hashable, Sendab
     static let unregisteredVehicleKey = "live_activity.vehicle.unregistered"
     /// 「未取得」を表す文言のローカライズキーです。
     static let unavailableMetricKey = "live_activity.metric.unavailable"
+    /// 記録を終了した状態の文言のローカライズキーです。
+    static let endedStatusKey = "live_activity.status.ended"
+    /// 終了表示の「走行時間」見出しのローカライズキーです。
+    static let drivingTimeLabelKey = "live_activity.ended.driving_time"
+    /// 終了表示の「最大値」見出しのローカライズキーです。
+    static let maximumsLabelKey = "live_activity.ended.maximums"
     /// [切断]ボタンの文言のローカライズキーです。
     static let stopButtonKey = "live_activity.action.stop"
 

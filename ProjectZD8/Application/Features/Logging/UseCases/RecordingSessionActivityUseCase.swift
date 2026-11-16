@@ -29,6 +29,8 @@ final class RecordingSessionActivityUseCase {
     private let vehicleProfile: @MainActor (VehicleID) -> VehicleProfile?
     /// 表示更新の間引きです。セッションごとに作り直します。
     private var throttle = RecordingSessionActivityUpdateThrottle()
+    /// セッション中の項目別最大値の集計器です。表示更新の間引きとは独立に、受け取った観測をすべて集計します。
+    private var maximumTracker = RecordingSessionActivityMaximumTracker()
     /// 直近に受け取った取得状態です。
     private var telemetry = LiveTelemetryState()
     /// 記録中のセッションの表示情報です。記録中でなければ `nil` です。
@@ -78,13 +80,16 @@ final class RecordingSessionActivityUseCase {
     func telemetryStateDidChange(_ state: LiveTelemetryState) {
         telemetry = state
         guard state.isConnectionActive else {
+            maximumTracker.record(state.samples)
             finishSessionIfNeeded()
             return
         }
         if session == nil {
             beginSession()
+            maximumTracker.record(state.samples)
             return
         }
+        maximumTracker.record(state.samples)
         refreshVehicleIfNeeded()
         guard activity.isPresenting, let content = makeContent(), let generation = operations.currentGeneration else { return }
         guard throttle.admit(content, at: now()) else { return }
@@ -105,6 +110,7 @@ final class RecordingSessionActivityUseCase {
     private func beginSession() {
         session = RecordingSessionActivitySession(startedAt: now())
         operations.beginSession()
+        maximumTracker.reset()
         throttle = RecordingSessionActivityUpdateThrottle()
         refreshVehicleIfNeeded()
         guard isForeground() else { return }
@@ -127,14 +133,15 @@ final class RecordingSessionActivityUseCase {
 
     /// 記録中のセッションがあれば、最終内容を出して表示を閉じ、表示用写真を消します。
     ///
-    /// 責務: セッションの終わりを1回だけ世代の終わり・表示の終了・写真の削除へ変換します。終了は先に受け付けた開始の完了後に実行し、
+    /// 責務: セッションの終わりを1回だけ世代の終わり・表示の終了(終了表示を5分後に消す)・写真の削除へ変換します。終了は先に受け付けた開始の完了後に実行し、
     /// その時点で表示が出ていなければ送りません。終了できたことを診断へ残します。
     private func finishSessionIfNeeded() {
-        guard session != nil, let finalContent = makeContent() else { return }
+        let endedAt = now()
+        guard session != nil, let finalContent = makeEndedContent(endedAt: endedAt) else { return }
         session = nil
         operations.endSession()
         let lifecycleDiagnostics = lifecycleDiagnostics
-        operations.enqueueEnd(finalContent) {
+        operations.enqueueEnd(finalContent, dismissAt: RecordingSessionActivityDismissalPolicy.dismissAt(endedAt: endedAt)) {
             lifecycleDiagnostics?.activityEnded()
         }
         removePhotos()
@@ -192,6 +199,23 @@ final class RecordingSessionActivityUseCase {
             telemetry: telemetry,
             vehicleName: session.vehicleID.flatMap { vehicleProfile($0)?.name },
             startedAt: session.startedAt,
+            vehiclePhotoFileName: session.photoFileName
+        )
+    }
+
+    /// 現在の取得状態・最大値・セッション情報から終了表示の内容を作ります。
+    ///
+    /// 責務: 車両名を引き、走行時間(開始〜`endedAt`の固定値)と最大値を持つ終了表示へ変換します。
+    /// - Parameter endedAt: 記録が終わった時刻。
+    /// - Returns: 終了表示の内容。セッションが無ければ `nil`。
+    private func makeEndedContent(endedAt: Date) -> RecordingSessionActivityContent? {
+        guard let session else { return nil }
+        return RecordingSessionActivityContent(
+            endedTelemetry: telemetry,
+            vehicleName: session.vehicleID.flatMap { vehicleProfile($0)?.name },
+            startedAt: session.startedAt,
+            endedAt: endedAt,
+            maximums: maximumTracker.maximums,
             vehiclePhotoFileName: session.photoFileName
         )
     }

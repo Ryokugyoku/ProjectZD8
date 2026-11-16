@@ -37,4 +37,17 @@ nonisolated enum RecordingSessionLiveActivityMetricKind: CaseIterable, Hashable 
         case .throttlePosition: state.throttlePosition
         }
     }
+
+    /// 終了表示からこの項目の最大値を取り出します。
+    ///
+    /// 責務: 項目の種類を `EndedSummary` の対応する最大値へ結び付けます。
+    /// - Parameter summary: 終了表示の走行時間と最大値。
+    /// - Returns: この項目の最大値。
+    func maximum(in summary: RecordingSessionActivityAttributes.EndedSummary) -> RecordingSessionActivityAttributes.Metric {
+        switch self {
+        case .vehicleSpeed: summary.maximumVehicleSpeed
+        case .engineSpeed: summary.maximumEngineSpeed
+        case .throttlePosition: summary.maximumThrottlePosition
+        }
+    }
 }

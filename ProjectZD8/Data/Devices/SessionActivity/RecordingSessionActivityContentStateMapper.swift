@@ -22,7 +22,24 @@ nonisolated struct RecordingSessionActivityContentStateMapper: Sendable {
             throttlePosition: metric(from: content.throttlePosition),
             receivedResponseCount: content.receivedResponseCount,
             startedAt: content.startedAt,
-            vehiclePhotoFileName: content.vehiclePhotoFileName
+            vehiclePhotoFileName: content.vehiclePhotoFileName,
+            endedSummary: content.endedSummary.map(endedSummary(from:))
+        )
+    }
+
+    /// 終了表示の走行時間と最大値を写します。
+    ///
+    /// 責務: 走行時間(秒)と項目ごとの最大値を同じ意味の値へ変換します。
+    /// - Parameter summary: Applicationの終了表示の内容。
+    /// - Returns: Live Activityの終了表示の内容。
+    private func endedSummary(
+        from summary: RecordingSessionActivityEndedSummary
+    ) -> RecordingSessionActivityAttributes.EndedSummary {
+        RecordingSessionActivityAttributes.EndedSummary(
+            drivingSeconds: summary.drivingDuration,
+            maximumVehicleSpeed: metric(from: summary.maximums.vehicleSpeed),
+            maximumEngineSpeed: metric(from: summary.maximums.engineSpeed),
+            maximumThrottlePosition: metric(from: summary.maximums.throttlePosition)
         )
     }
 

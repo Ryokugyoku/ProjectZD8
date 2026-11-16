@@ -1,3 +1,5 @@
+import Foundation
+
 /// 記録中のセッションをシステムの常時表示(iOSのLive Activity)として出す境界です。
 ///
 /// 失敗は throw で返します。成功扱いにして黙って捨てないこと。表示がシステムやユーザーに閉じられたかどうかは
@@ -25,8 +27,10 @@ protocol SessionActivityPort: AnyObject {
 
     /// 最終内容を出して表示を終了します。
     ///
-    /// 責務: 1件の最終表示内容を渡して表示を閉じます。
-    /// - Parameter finalContent: 終了時に出す最終内容。
+    /// 責務: 1件の最終表示内容を渡して表示を閉じ、`dismissAt` に自動で消えるようにします。
+    /// - Parameters:
+    ///   - finalContent: 終了時に出す最終内容。
+    ///   - dismissAt: 終了表示を自動で消す時刻。
     /// - Throws: 表示が出ていない場合(`SessionActivityPortError.notPresenting`)など。
-    func end(_ finalContent: RecordingSessionActivityContent) async throws
+    func end(_ finalContent: RecordingSessionActivityContent, dismissAt: Date) async throws
 }
