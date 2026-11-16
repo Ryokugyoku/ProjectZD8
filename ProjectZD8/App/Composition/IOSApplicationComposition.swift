@@ -263,40 +263,14 @@ enum IOSApplicationComposition: ApplicationPlatformComposing {
             vehiclePIDCapabilityEraser: vehiclePIDCapabilityEraser,
             maintenanceRecordRepository: ProductDatabaseRepositoryFactory().makeMaintenanceRecordRepository(database: database)
         )
-        let model = AuthenticationSessionModel(
+        return AccountDeletionComposition.makeAuthenticationSessionModel(
             state: initialAuthenticationState,
-            restoreSession: RestoreAuthenticationSessionUseCase(
-                authorizationPort: authorization,
-                sessionStore: sessionStore
-            ),
-            signInWithApple: SignInWithAppleUseCase(
-                authorizationPort: authorization,
-                sessionStore: sessionStore,
-                deletionMarker: AccountDeletionMarkerComposition.marker
-            ),
-            deleteAccount: DeleteAccountUseCase(
-                sessionRevocation: sessionRevocation,
-                cloudErasers: AccountCloudDataErasers(
-                    sessionTransfers: CloudKitConnectionSessionTransferRepository(),
-                    vehicleDataEraser: vehicleDataEraser,
-                    maintenanceDataEraser: CloudKitMaintenanceRemoteStore()
-                ),
-                dataEraser: dataEraser,
-                sessionStore: sessionStore,
-                deletionMarker: AccountDeletionMarkerComposition.marker,
-                vehicleIDStore: UserDefaultsAccountDeletionVehicleIDStore()
-            ),
-            remoteAccountLogout: RemoteAccountLogoutUseCase(
-                dataEraser: dataEraser,
-                sessionStore: sessionStore
-            ),
+            authorization: authorization,
+            sessionStore: sessionStore,
             sessionRevocation: sessionRevocation,
-            deletionFailureClassifier: CloudKitAccountDeletionFailureClassifier()
+            vehicleDataEraser: vehicleDataEraser,
+            dataEraser: dataEraser
         )
-        AccountDeletionMarkerComposition.gate.onAccountDeleted = { [weak model] accountIdentifier in
-            model?.applyRemoteSessionRevocation(for: accountIdentifier)
-        }
-        return model
     }
 
     /// iOS Bluetooth探索とConnection設定保存を注入した設定プレゼンテーションモデルを生成します。
