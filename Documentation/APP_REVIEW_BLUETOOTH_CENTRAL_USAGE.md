@@ -27,7 +27,8 @@ RevTorque Insight は、車両の OBD-II ポートに挿した Bluetooth Low Ene
    記録を自動で始めます。どちらにするかは、ユーザーが初回に選び、設定でいつでも変更できます。
 3. 記録中、アダプターへ OBD-II の要求(車速、エンジン回転数、スロットル開度など)を送り、
    応答を端末内に保存する。
-   通信が途切れた場合は接続をやり直し、3分以内に戻らなければ記録を終了します。
+   通信が途切れた場合(車両が応答しなくなった場合と、アダプターとの接続が切れた場合の両方)は
+   接続をやり直し、最後に応答を受信してから3分以内に戻らなければ記録を終了します。
 
 システムがバックグラウンドのアプリを終了した場合に備えて、Core Bluetooth の状態の保存と復元を使っています。
 登録したアダプターが再び接続されたときにアプリが起動し直され、上の1から3を続けます。
@@ -37,7 +38,9 @@ RevTorque Insight は、車両の OBD-II ポートに挿した Bluetooth Low Ene
 - 記録中は Live Activity(ロック画面と Dynamic Island)に、車両名、状態、車速、回転数、経過時間を表示します。
   Live Activity の［切断］で、アプリを開かずに記録を終了できます。
 - 車両を検知したとき、または記録を自動で始めたときは、通知で知らせます。
-- ユーザーが［切断］を押すと記録は終了し、同じ接続のあいだは自動で再開しません。
+- ユーザーが［切断］を押すと記録は終了し、その走行が続いているあいだは自動で再開しません。
+  アダプターとの接続が保たれている場合、アプリは車両がまだ応答しているかを約1秒に1回確認し、
+  車両が応答しなくなったら(走行が終わったら)確認をやめて、次に車両が応答したときに検知し直します。
 - ユーザーがアプリスイッチャーでアプリを終了すると、車両の検知も記録も止まります。
   車両の自動検知が止まることは、設定画面に表示しています。
 
@@ -45,13 +48,24 @@ RevTorque Insight は、車両の OBD-II ポートに挿した Bluetooth Low Ene
 
 - 登録していない機器への接続、周囲の Bluetooth 機器の収集は行いません。
 - Bluetooth を位置の推定や追跡に使いません。アプリは位置情報を取得しません。
-- 記録中でも、車両の検知を待っている間でもないときに、バックグラウンドで Bluetooth 通信を行いません。
+- 記録中でも、車両の検知を待っている間でも、［切断］後に走行の終わりを確認している間でもないときに、
+  バックグラウンドで Bluetooth 通信を行いません。
 - アプリは Bluetooth のペリフェラルとして動作しません(bluetooth-peripheral は使いません)。
 
 ### データの扱い
 
-読み取った車両のデータは端末内に保存します。ユーザーが有効にした場合は、ユーザー自身の iCloud
-(CloudKit のプライベートデータベース)にも保存します。開発者のサーバーへは送信しません。
+記録したログ(アダプターから読み取った応答と、その概要)は端末内に保存します。ユーザーが自動アップロードを
+有効にした場合、または履歴の画面でアップロードを選んだ場合は、ユーザー自身の iCloud
+(CloudKit のプライベートデータベース)にも保存します。自動アップロードの既定はオフです。
+
+次のデータは、端末間で同期するため、設定にかかわらずユーザー自身の iCloud に保存します。
+
+- ユーザーが登録した車両の情報(車両の識別番号(VIN)を含むプロフィール): CloudKit のプライベートデータベース
+- 整備記録: CloudKit のプライベートデータベース
+- アカウントの設定(表示言語、外観、自動アップロードのオン・オフ)と、サインアウトを他の端末へ伝える印:
+  iCloud のキー値ストア
+
+いずれも開発者のサーバーへは送信しません。
 
 ### 審査での確認方法
 
@@ -86,8 +100,9 @@ In the background, the app uses Bluetooth for these three things only:
    use and can change it in Settings at any time.
 3. While recording, sending OBD-II requests (vehicle speed, engine speed, throttle position, and similar) to the
    adapter and saving the responses on the device.
-   If communication is interrupted, the app retries the connection, and ends the recording if it does not come
-   back within three minutes.
+   If communication is interrupted (either the vehicle stops responding or the connection to the adapter drops),
+   the app retries the connection, and ends the recording if it does not come back within three minutes of the
+   last response it received.
 
 The app uses Core Bluetooth state preservation and restoration in case the system terminates it in the
 background. When the registered adapter connects again, the app is relaunched and continues with items 1 to 3
@@ -99,8 +114,10 @@ above.
   engine speed, and elapsed time. The "Disconnect" button on the Live Activity ends the recording without opening
   the app.
 - The app posts a notification when it detects the vehicle or when it starts recording automatically.
-- When the user taps "Disconnect", the recording ends and does not restart automatically during the same
-  connection.
+- When the user taps "Disconnect", the recording ends and does not restart automatically while that drive
+  continues. If the connection to the adapter stays up, the app checks about once per second whether the vehicle
+  is still responding; when the vehicle stops responding (the drive has ended), it stops checking and detects
+  the vehicle again the next time it responds.
 - When the user quits the app from the App Switcher, vehicle detection and recording stop. The Settings screen
   states that automatic vehicle detection stops.
 
@@ -109,14 +126,26 @@ above.
 - It does not connect to devices the user has not registered, and it does not collect information about nearby
   Bluetooth devices.
 - It does not use Bluetooth to estimate or track location. The app does not access location data.
-- It does not communicate over Bluetooth in the background unless it is recording or waiting to detect the
-  vehicle.
+- It does not communicate over Bluetooth in the background unless it is recording, waiting to detect the
+  vehicle, or checking for the end of the drive after the user tapped "Disconnect".
 - It does not act as a Bluetooth peripheral (bluetooth-peripheral is not used).
 
 ### Data handling
 
-Vehicle data read by the app is stored on the device. If the user turns it on, the data is also stored in the
-user's own iCloud (CloudKit private database). Nothing is sent to the developer's servers.
+Recorded logs (the responses read from the adapter and their summaries) are stored on the device. If the user
+turns on automatic upload, or chooses to upload from the history screen, they are also stored in the user's own
+iCloud (CloudKit private database). Automatic upload is off by default.
+
+The following data is stored in the user's own iCloud regardless of that setting, so that it syncs between the
+user's devices:
+
+- Information about the vehicles the user has registered (the profile, including the vehicle identification
+  number (VIN)): CloudKit private database
+- Maintenance records: CloudKit private database
+- Account settings (display language, appearance, and whether automatic upload is on) and a marker that tells
+  the user's other devices about a sign-out: iCloud key-value store
+
+Nothing is sent to the developer's servers.
 
 ### How to verify during review
 
@@ -135,6 +164,10 @@ Verifying this feature requires an OBD-II Bluetooth Low Energy adapter and a veh
   - 通知とボタンの英語の文言(`Localizable.xcstrings` の `vehicle-detection-detected-title`、
     `vehicle-detection-start-recording-action`、Live Activity の［切断］)が、本文の引用と一致している。
   - 「開発者のサーバーへは送信しません」が、提出するビルドの通信先と一致している。
+  - 「データの扱い」の一覧(記録ログは有効にした場合だけ、車両の情報・整備記録・設定は常に iCloud)が、
+    提出するビルドの同期の対象と一致している。App Store Connect のプライバシーの申告とも一致している。
+  - ［切断］後の確認(約1秒に1回、車両が応答しなくなったらやめる)が、実機での確認結果と一致している。
+    この動作は実アダプターで未検証です(`BACKGROUND_RECORDING_DEVICE_TEST_PROCEDURE.md` の項目13)。
   - 「位置情報を取得しません」が、提出するビルドの権限と一致している。
 - `UIBackgroundModes` には bluetooth-central のほかに external-accessory と processing があります。
   この文書は bluetooth-central だけを説明しています。ほかの2つを尋ねられた場合の説明は別に用意します。
