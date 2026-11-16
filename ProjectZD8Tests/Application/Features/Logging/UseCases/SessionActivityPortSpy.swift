@@ -1,3 +1,4 @@
+import Foundation
 @testable import ProjectZD8
 
 /// 常時表示の境界の偽物です。呼び出しを記録し、指定した失敗を返します。
@@ -24,6 +25,8 @@ final class SessionActivityPortSpy: SessionActivityPort {
     private(set) var updatedContents: [RecordingSessionActivityContent] = []
     /// 終了が受け取った最終内容です。
     private(set) var endedContents: [RecordingSessionActivityContent] = []
+    /// 終了が受け取った消去時刻です(終了の順)。
+    private(set) var endedDismissDates: [Date] = []
     /// 開始・更新・終了が届いた順の記録です。
     private(set) var calls: [Call] = []
     /// 設定すると開始がこのエラーを投げます。
@@ -64,9 +67,10 @@ final class SessionActivityPortSpy: SessionActivityPort {
 
     /// 終了を記録します。
     ///
-    /// 責務: 最終内容を記録し、エラー指定が無ければ表示を閉じます。
-    func end(_ finalContent: RecordingSessionActivityContent) async throws {
+    /// 責務: 最終内容と消去時刻を記録し、エラー指定が無ければ表示を閉じます。
+    func end(_ finalContent: RecordingSessionActivityContent, dismissAt: Date) async throws {
         endedContents.append(finalContent)
+        endedDismissDates.append(dismissAt)
         calls.append(.end(finalContent))
         if let endError { throw endError }
         isPresenting = false
