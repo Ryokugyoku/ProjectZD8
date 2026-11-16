@@ -73,6 +73,8 @@ nonisolated struct AdapterLinkHeldWatchTransition: Sendable {
     ///
     /// 責務: 応答で連続無応答の回数を0へ戻し、無応答で数えて連続2回なら抑止を解いて初期化からやり直します。
     /// それ以外は、見張り中なら次の確認(早すぎれば残り時間の待機)を送り、上限を過ぎていれば見張りをやめます。
+    /// リンク待ち・停止中(見張りの確認を送っていない段階)に遅れて届いた結果は数えず、状態を変えません
+    /// (数えるとリンク復帰後・再開後の見張りが無応答1回で解けてしまうため)。開始待ちでは従来どおり数えます(U3 受け入れ条件 10)。
     /// - Parameters:
     ///   - outcome: ECU応答の有無。
     ///   - watch: 現在の見張りの進行状況。
@@ -83,6 +85,9 @@ nonisolated struct AdapterLinkHeldWatchTransition: Sendable {
         watch: AdapterLinkHeldWatch,
         conditions: AdapterLinkSupervisionConditions
     ) -> AdapterLinkSupervisionTransitionResult {
+        guard countsConfirmationResults(watch) else {
+            return AdapterLinkSupervisionTransitionResult(state: .heldAfterUserStop(watch))
+        }
         let count = outcome == .noResponse ? watch.consecutiveNoResponses + 1 : 0
         if count >= Self.consecutiveNoResponsesToRelease, !conditions.isExternalAdapterUseActive {
             return AdapterLinkSupervisionTransitionResult(state: .initializing(linkReadyAt: conditions.now), effects: [.initializeAdapter])
@@ -93,6 +98,7 @@ nonisolated struct AdapterLinkHeldWatchTransition: Sendable {
     /// 見張りの確認が失敗した(応答の有無を判定できなかった)ときの遷移を返します。
     ///
     /// 責務: 無応答とは数えず連続無応答の回数を保ったまま、見張り中なら次の確認を送ります(走行の終わりを誤って判定しないため)。
+    /// リンク待ち・停止中に遅れて届いた失敗では状態を変えません。
     /// - Parameters:
     ///   - watch: 現在の見張りの進行状況。
     ///   - conditions: 結果を受け取った時刻と最後に確認を送った時刻を含む条件。
@@ -101,7 +107,10 @@ nonisolated struct AdapterLinkHeldWatchTransition: Sendable {
         _ watch: AdapterLinkHeldWatch,
         conditions: AdapterLinkSupervisionConditions
     ) -> AdapterLinkSupervisionTransitionResult {
-        continued(watch, conditions: conditions)
+        guard countsConfirmationResults(watch) else {
+            return AdapterLinkSupervisionTransitionResult(state: .heldAfterUserStop(watch))
+        }
+        return continued(watch, conditions: conditions)
     }
 
     /// 最短間隔の残り時間の待機が終わったときの遷移を返します。
@@ -249,6 +258,18 @@ nonisolated struct AdapterLinkHeldWatchTransition: Sendable {
     private func stoppedIfExpired(_ watch: AdapterLinkHeldWatch, now: Date) -> AdapterLinkHeldWatch {
         guard case .watching = watch.phase else { return watch }
         return AdapterLinkHeldWatch(consecutiveNoResponses: watch.consecutiveNoResponses, phase: .stopped)
+    }
+
+    /// 確認の結果を見張りへ反映する段階かどうかを返します。
+    ///
+    /// 責務: 見張り中(上限の内外は問わない)と開始待ちを `true`、リンク待ち・停止中を `false` にします。
+    /// - Parameter watch: 見張りの進行状況。
+    /// - Returns: 結果を数える段階なら `true`。
+    private func countsConfirmationResults(_ watch: AdapterLinkHeldWatch) -> Bool {
+        switch watch.phase {
+        case .watching, .awaitingStart: true
+        case .awaitingLink, .stopped: false
+        }
     }
 
     /// リンク待ちの保持かどうかを返します。
