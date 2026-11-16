@@ -23,6 +23,6 @@ nonisolated struct AcquisitionRelaunchPolicy: Sendable {
         let limitSeconds = Double(AcquisitionGracePeriodPolicy.gracePeriodNanoseconds) / 1_000_000_000
         guard elapsed <= limitSeconds else { return .terminate }
         let nanoseconds = UInt64((elapsed * 1_000_000_000).rounded(.down))
-        return AcquisitionGracePeriodPolicy().decision(elapsedSincePauseNanoseconds: nanoseconds)
+        return AcquisitionGracePeriodPolicy().decision(elapsedSinceLastReceiveNanoseconds: nanoseconds)
     }
 }

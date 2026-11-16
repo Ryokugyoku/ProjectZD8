@@ -2,7 +2,7 @@ import Foundation
 
 /// 応答駆動の取得ループが終わった理由です。
 nonisolated enum LiveTelemetryAcquisitionTermination: Equatable, Sendable {
-    /// 停止の指示、または新しい取得への切替で終わりました。
+    /// 停止の指示、または新しい取得への切替で終わりました。終了原因は停止の理由で決まります(`sessionEndReason(stoppedFor:)`)。
     case stopped
     /// 取得が途切れ、回復段階を使い切った後の猶予内に復帰しませんでした。
     /// - Parameters:
@@ -12,12 +12,22 @@ nonisolated enum LiveTelemetryAcquisitionTermination: Equatable, Sendable {
     /// 取得記録の開始・保存に失敗し、取得を続けられません。
     case recordingFailed
 
-    /// 取得記録へ渡す終了原因を返します。
+    /// ユーザーの[切断]で止めた場合に取得記録へ渡す終了原因を返します。
     ///
-    /// 責務: ループの終了理由を接続セッションの終了原因へ変換します。
+    /// 責務: 停止理由をユーザー切断として `sessionEndReason(stoppedFor:)` へ委ねます。
     var sessionEndReason: ConnectionSessionEndReason {
+        sessionEndReason(stoppedFor: .userDisconnected)
+    }
+
+    /// 停止の指示に添えた理由を踏まえて、取得記録と終了通知へ渡す終了原因を返します。
+    ///
+    /// 責務: 停止は指示した理由へ、猶予切れは途切れの原因へ、記録失敗は取得失敗へ変換します。
+    /// 取得記録(`recorder.finish`)と終了通知(`sessionDidEnd`)の両方がこの規則を使い、理由を一致させます。
+    /// - Parameter stopReason: 停止を指示した理由。新しい取得への切替で止まった場合はユーザー切断。
+    /// - Returns: 接続セッションの終了原因。
+    func sessionEndReason(stoppedFor stopReason: ConnectionSessionEndReason) -> ConnectionSessionEndReason {
         switch self {
-        case .stopped: .userDisconnected
+        case .stopped: stopReason
         case let .gracePeriodExpired(cause, _): cause.sessionEndReason
         case .recordingFailed: .acquisitionFailed
         }

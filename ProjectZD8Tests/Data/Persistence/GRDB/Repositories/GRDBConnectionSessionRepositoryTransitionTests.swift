@@ -63,34 +63,6 @@ final class GRDBConnectionSessionRepositoryTransitionTests: XCTestCase {
         XCTAssertEqual(try fixtures.storedRecord(session.id).localRawState, "corrupted")
     }
 
-    // MARK: - append
-
-    /// 存在しないセッションへの追記は `invalidState` です。
-    ///
-    /// 責務: 不明セッションへRaw行を作らないことを確認します。
-    func testAppendToUnknownSessionThrowsInvalidState() throws {
-        let fixtures = try GRDBConnectionSessionRepositoryFixtures()
-        let unknown = ConnectionSessionID()
-
-        assertThrowsError(ConnectionSessionRepositoryError.invalidState) {
-            try fixtures.repository.append(GRDBConnectionSessionRepositoryFixtures.observation(), to: unknown)
-        }
-        XCTAssertEqual(try fixtures.repository.entryCount(for: unknown), 0)
-    }
-
-    /// 終了済みセッションへの追記は `invalidState` で件数が増えません。
-    ///
-    /// 責務: 終了後のRaw追記を拒否することを確認します。
-    func testAppendToEndedSessionThrowsInvalidState() throws {
-        let fixtures = try GRDBConnectionSessionRepositoryFixtures()
-        let session = try fixtures.seedEndedSession(rawCount: 1)
-
-        assertThrowsError(ConnectionSessionRepositoryError.invalidState) {
-            try fixtures.repository.append(GRDBConnectionSessionRepositoryFixtures.observation(), to: session.id)
-        }
-        XCTAssertEqual(try fixtures.repository.entryCount(for: session.id), 1)
-    }
-
     // MARK: - deleteSession / deleteSessions
 
     /// 他アカウントによる単体削除は `invalidState` で、データを残します。
@@ -382,7 +354,7 @@ final class GRDBConnectionSessionRepositoryTransitionTests: XCTestCase {
         let fixtures = try GRDBConnectionSessionRepositoryFixtures()
         let session = ConnectionSession(accountIdentifier: "account")
         try fixtures.repository.save(session)
-        try fixtures.repository.append(GRDBConnectionSessionRepositoryFixtures.observation(), to: session.id)
+        try fixtures.rawAppender.append(GRDBConnectionSessionRepositoryFixtures.observation(), to: session.id)
 
         assertThrowsError(ConnectionSessionRepositoryError.invalidState) {
             try fixtures.repository.removeLocalEntries(for: session.id)

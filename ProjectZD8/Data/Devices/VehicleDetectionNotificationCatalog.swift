@@ -12,6 +12,8 @@ nonisolated struct VehicleDetectionNotificationCatalog: Sendable {
     static let vehicleDetectedIdentifier = "VEHICLE_DETECTION_DETECTED"
     /// 「記録を開始しました」通知の固定識別子です。
     static let recordingStartedIdentifier = "VEHICLE_DETECTION_RECORDING_STARTED"
+    /// 「記録を開始できませんでした」通知の固定識別子です。取り下げ(`allIdentifiers`)には含めず、次の同じ通知で置き換えます。
+    static let recordingStartFailedIdentifier = "VEHICLE_DETECTION_RECORDING_START_FAILED"
     /// 監視通知の全識別子です。取り下げと置き換えで使います。
     static let allIdentifiers = [vehicleDetectedIdentifier, recordingStartedIdentifier]
 
@@ -47,13 +49,31 @@ nonisolated struct VehicleDetectionNotificationCatalog: Sendable {
         )
     }
 
+    /// 「記録を開始できませんでした」通知の内容を作ります。
+    ///
+    /// 責務: 操作の無い・固定識別子・割り込みレベル `.active` の内容へ変換し、理由で本文を選びます。
+    /// - Parameter reason: 記録を始められなかった理由。
+    /// - Returns: 通知内容。
+    func recordingStartFailed(reason: AdapterLinkRecordingStartFailureReason) -> VehicleDetectionNotificationContent {
+        VehicleDetectionNotificationContent(
+            identifier: Self.recordingStartFailedIdentifier,
+            categoryIdentifier: nil,
+            titleKey: "vehicle-detection-recording-start-failed-title",
+            bodyKey: reason.bodyKey,
+            bodyArguments: [],
+            interruptionLevel: .active
+        )
+    }
+
     /// 提示前に取り除く他の監視通知の識別子を返します。
     ///
-    /// 責務: 監視通知を常に1件だけにするため、提示する通知以外の監視通知の識別子を返します。
+    /// 責務: 監視通知(検知・開始)を常に1件だけにするため、監視通知を出す時は他の監視通知の識別子を返します。
+    /// 「記録を開始できませんでした」は監視通知を取り除きません(同時に有効な検知通知を残すため。前の失敗の通知は同じ識別子で置き換わります)。
     /// - Parameter content: これから提示する通知内容。
     /// - Returns: 取り除く識別子。
     func identifiersReplaced(by content: VehicleDetectionNotificationContent) -> [String] {
-        Self.allIdentifiers.filter { $0 != content.identifier }
+        guard Self.allIdentifiers.contains(content.identifier) else { return [] }
+        return Self.allIdentifiers.filter { $0 != content.identifier }
     }
 
     /// 通知への応答が[記録開始]の選択かどうかを判定します。

@@ -36,6 +36,9 @@ struct IOSAppShellView: View {
     /// 未登録車両の警告を提供するモデルです。
     let unassignedVINWarningModel: UnassignedObservedVINWarningModel
 
+    /// 車両を特定できなかったログの警告と紐付けを提供するモデルです。
+    let vehicleUnknownSessionModel: VehicleUnknownSessionModel
+
     /// Authenticationが管理するアカウント削除の現在段階です。
     let accountDeletionPhase: AccountDeletionPhase
 
@@ -59,6 +62,7 @@ struct IOSAppShellView: View {
     ///   - startVehicleConnection: HOME接続要求を車両識別とPID取得へ展開するユースケース。
     ///   - automaticRecordingModel: 自動記録設定と記録開始方法の選択画面の状態を提供するモデル。
     ///   - unassignedVINWarningModel: 未登録車両の警告を提供するモデル。
+    ///   - vehicleUnknownSessionModel: 車両を特定できなかったログの警告と紐付けを提供するモデル。
     ///   - accountDeletionPhase: アカウント削除の現在段階。
     ///   - accountDeletionFailure: 直近のアカウント削除失敗。
     ///   - sendAuthenticationAction: アカウント削除操作の通知先。
@@ -73,6 +77,7 @@ struct IOSAppShellView: View {
         startVehicleConnection: StartVehicleConnectionUseCase,
         automaticRecordingModel: AutomaticRecordingPreferenceModel,
         unassignedVINWarningModel: UnassignedObservedVINWarningModel,
+        vehicleUnknownSessionModel: VehicleUnknownSessionModel,
         accountDeletionPhase: AccountDeletionPhase,
         accountDeletionFailure: AccountDeletionFailure?,
         sendAuthenticationAction: @escaping (AuthenticationAction) -> Void
@@ -87,6 +92,7 @@ struct IOSAppShellView: View {
         self.startVehicleConnection = startVehicleConnection
         self.automaticRecordingModel = automaticRecordingModel
         self.unassignedVINWarningModel = unassignedVINWarningModel
+        self.vehicleUnknownSessionModel = vehicleUnknownSessionModel
         self.accountDeletionPhase = accountDeletionPhase
         self.accountDeletionFailure = accountDeletionFailure
         self.sendAuthenticationAction = sendAuthenticationAction
@@ -127,27 +133,29 @@ struct IOSAppShellView: View {
         .onChange(of: selectedDestination) { _, destination in
             handleDestinationSelection(destination)
         }
-        .onAppear { unassignedVINWarningModel.send(.refreshRequested) }
+        .onAppear(perform: refreshWarnings)
         .onChange(of: connectionHistoryModel.state.sessions) { _, _ in
-            unassignedVINWarningModel.send(.refreshRequested)
+            refreshWarnings()
         }
         .onChange(of: vehicleManagementModel.state.vehicles) { _, _ in
             unassignedVINWarningModel.send(.refreshRequested)
         }
-        .sheet(isPresented: automaticRecordingChoicePromptBinding) {
-            IOSAutomaticRecordingChoiceView { automaticRecordingModel.send(.promptChoiceSelected($0)) }
-                .environment(\.locale, Locale(identifier: accountSettingsModel.settings.language.localeIdentifier))
-        }
+        .modifier(
+            IOSAppShellSheetPresentation(
+                vehicleUnknownSessionModel: vehicleUnknownSessionModel,
+                vehicleManagementModel: vehicleManagementModel,
+                automaticRecordingModel: automaticRecordingModel,
+                localeIdentifier: accountSettingsModel.settings.language.localeIdentifier
+            )
+        )
     }
 
-    /// 記録開始方法の選択画面の表示状態です。
+    /// 未登録車両の警告と車両不明ログの警告を読み込み直させます。
     ///
-    /// 選択せずに閉じる経路は持たないため、書き込みは無視し、表示済みになった時だけ閉じます。
-    private var automaticRecordingChoicePromptBinding: Binding<Bool> {
-        Binding(
-            get: { automaticRecordingModel.state.isChoicePromptPresented },
-            set: { _ in }
-        )
+    /// 責務: 2つの警告のモデルへ再読込を要求します。
+    private func refreshWarnings() {
+        unassignedVINWarningModel.send(.refreshRequested)
+        vehicleUnknownSessionModel.send(.refreshRequested)
     }
 
     /// 指定されたタブに対応するiOS専用画面を生成します。
@@ -177,6 +185,8 @@ struct IOSAppShellView: View {
             sendAutomaticRecordingAction: automaticRecordingModel.send,
             unassignedVINWarning: unassignedVINWarningModel.warning,
             sendUnassignedVINWarningAction: handleUnassignedVINWarningAction,
+            vehicleUnknownSessionWarning: vehicleUnknownSessionModel.warning,
+            sendVehicleUnknownSessionWarningAction: { vehicleUnknownSessionModel.send(.warningActionSelected($0)) },
             accountDeletionPhase: accountDeletionPhase,
             accountDeletionFailure: accountDeletionFailure,
             sendAuthenticationAction: sendAuthenticationAction
@@ -193,9 +203,9 @@ struct IOSAppShellView: View {
             connectionHistoryModel.send(.refreshRequested)
         case .garage:
             vehicleManagementModel.send(.refreshRequested)
-            unassignedVINWarningModel.send(.refreshRequested)
+            refreshWarnings()
         case .home:
-            unassignedVINWarningModel.send(.refreshRequested)
+            refreshWarnings()
         case .liveLog, .maintenance, .settings:
             break
         }

@@ -9,6 +9,8 @@ struct GRDBConnectionSessionRepositoryFixtures {
     let queue: DatabaseQueue
     /// 検証対象のRepositoryです。
     let repository: GRDBConnectionSessionRepository
+    /// テストの前準備でRaw応答を1件ずつ追記する部品です(検証対象と同じQueueへ書きます)。
+    var rawAppender: GRDBConnectionSessionRawLogTestAppender { GRDBConnectionSessionRawLogTestAppender(queue: queue) }
 
     /// 空のインメモリDBへRepositoryを生成します。
     ///
@@ -56,7 +58,7 @@ struct GRDBConnectionSessionRepositoryFixtures {
 
     /// 指定件数のRaw応答を持つ終了済みセッションを保存します。
     ///
-    /// 責務: 未終了で保存、追記、終了保存の順を実Repository経由で再現します。
+    /// 責務: 未終了で保存、追記、終了保存の順を再現します(保存は実Repository、追記はテスト用の追記部品)。
     /// - Parameters:
     ///   - count: 追記するRaw応答数。Payloadは各 `[sequence]`。
     ///   - id: セッションID。
@@ -74,7 +76,7 @@ struct GRDBConnectionSessionRepositoryFixtures {
         let ended = Self.endedSession(id: id, account: account, startedAt: startedAt)
         try repository.save(ConnectionSession(id: id, accountIdentifier: account, startedAt: startedAt))
         for index in 0..<count {
-            try repository.append(Self.observation(payload: [UInt8(index)]), to: id)
+            try rawAppender.append(Self.observation(payload: [UInt8(index)]), to: id)
         }
         try repository.save(ended)
         return ended

@@ -2,287 +2,187 @@ import Foundation
 import XCTest
 @testable import ProjectZD8
 
-/// 検証済み主要PIDの一括読取と数値化を検証します。
+/// PID定義DBから読取対象の定義を選ぶ処理(全件・車両別)と、PID通信セッションの終了通知を検証します。
+///
+/// 未登録車両用の標準定義の選別は `ReadMajorOBDPIDsUseCaseStandardDefinitionsTests` が検証します。
 @MainActor
 final class ReadMajorOBDPIDsUseCaseTests: XCTestCase {
-    /// 実車観測バイトを冷却水温と回転数へ変換します。
+    // MARK: - loadDefinitions()
+
+    /// DBの定義のうち数値化できるものだけを、DBの順で返します(車種専用の定義も含みます)。
     ///
-    /// 責務: 2件の検証済み定義が1回の読取応答から名称と単位付き数値になることを確認します。
-    func testExecuteDecodesObservedCoolantAndEngineSpeedBytes() async throws {
-        let telemetry = MajorPIDTelemetryFake(values: [
-            .init(service: 0x01, pid: 0x05): [0x85],
-            .init(service: 0x01, pid: 0x0C): [0x00, 0x00]
-        ])
-        let useCase = ReadMajorOBDPIDsUseCase(
-            definitionRepository: MajorPIDDefinitionRepositoryFake(
-                definitions: StandardOBDPIDSeed.definitions
-            ),
-            telemetry: telemetry,
-            now: { Date(timeIntervalSince1970: 100) }
-        )
+    /// 責務: 数値化の可否だけで除外し、DBから読んだ定義を返すことを確認します。
+    func testLoadDefinitionsReturnsDecodableDefinitionsFromRepository() throws {
+        let catalog = LiveTelemetryTestDefinitions.standard([0x05, 0x0C])
+            + [undecodable(pid: 0x0D, formula: nil), undecodable(pid: 0x0F, requiredByteCount: nil), undecodable(pid: 0x10, formula: "")]
+            + [vehicleSpecific(pid: 0x20)]
 
-        let samples = try await useCase.execute(using: endpoint)
-        let receivedRequests = await telemetry.receivedRequests
+        let definitions = try makeUseCase(catalog: catalog).loadDefinitions()
 
-        XCTAssertEqual(samples.map(\.value), [93, 0])
-        XCTAssertEqual(samples.map(\.unit), ["°C", "rpm"])
-        XCTAssertEqual(samples.map(\.observedAt), [Date(timeIntervalSince1970: 100), Date(timeIntervalSince1970: 100)])
-        XCTAssertEqual(receivedRequests, StandardOBDPIDSeed.definitions.filter(\.isDecodable).map { .init(service: $0.service, pid: $0.pid) })
+        XCTAssertEqual(definitions, LiveTelemetryTestDefinitions.standard([0x05, 0x0C]) + [vehicleSpecific(pid: 0x20)])
     }
 
-    /// 応答しないPIDを対応済み一覧へ含めません。
+    /// DBが空、または数値化できる定義が1件も無ければ、カタログ利用不能として失敗します。
     ///
-    /// 責務: 定義済みPIDの一部が返らない場合に応答済み観測だけを返すことを確認します。
-    func testExecuteKeepsOnlyRespondingPIDs() async throws {
-        let telemetry = MajorPIDTelemetryFake(values: [.init(service: 0x01, pid: 0x05): [0x85]])
-        let useCase = ReadMajorOBDPIDsUseCase(
-            definitionRepository: MajorPIDDefinitionRepositoryFake(
-                definitions: StandardOBDPIDSeed.definitions
-            ),
-            telemetry: telemetry
-        )
+    /// 責務: 空の結果を成功にしないことを確認します。
+    func testLoadDefinitionsThrowsWhenNoDecodableDefinitionExists() {
+        let catalogs = [[], [undecodable(pid: 0x0D, formula: nil)]]
 
-        let samples = try await useCase.execute(using: endpoint)
-
-        XCTAssertEqual(samples.map(\.request), [.init(service: 0x01, pid: 0x05)])
-        XCTAssertEqual(samples.map(\.value), [93])
-    }
-
-    /// Repositoryが返した数式と単位を固定seedより優先します。
-    ///
-    /// 責務: PID要求と数値化が実行時に取得したRepository定義だけを使用することを確認します。
-    func testExecuteUsesDefinitionsLoadedFromRepository() async throws {
-        let databaseDefinition = OBDPIDDefinition(
-            service: 0x01,
-            pid: 0x05,
-            nameKey: "database.name",
-            requiredByteCount: 1,
-            formula: "A + 10",
-            unit: "db-unit",
-            minimumValue: nil,
-            maximumValue: nil,
-            sourceURI: "test://database",
-            revision: 2
-        )
-        let telemetry = MajorPIDTelemetryFake(values: [
-            .init(service: 0x01, pid: 0x05): [5]
-        ])
-        let useCase = ReadMajorOBDPIDsUseCase(
-            definitionRepository: MajorPIDDefinitionRepositoryFake(
-                definitions: [databaseDefinition]
-            ),
-            telemetry: telemetry
-        )
-
-        let samples = try await useCase.execute(using: endpoint)
-        let receivedRequests = await telemetry.receivedRequests
-
-        XCTAssertEqual(samples.map(\.nameKey), ["database.name"])
-        XCTAssertEqual(samples.map(\.value), [15])
-        XCTAssertEqual(samples.map(\.unit), ["db-unit"])
-        XCTAssertEqual(receivedRequests, [.init(service: 0x01, pid: 0x05)])
-    }
-
-    /// 数値化前の応答バイトとバッチ経過時間をRawログ境界へ渡します。
-    ///
-    /// 責務: デコーダー入力が変換される前に安定順序とミリ秒精度相当の単調時間で通知されることを確認します。
-    func testExecuteRecordsRawResponsesBeforeDecoding() async throws {
-        let telemetry = MajorPIDTelemetryFake(values: [
-            .init(service: 0x01, pid: 0x0C): [0x1A, 0xF8],
-            .init(service: 0x01, pid: 0x05): [0x85]
-        ])
-        let recorder = RawObservationRecorder()
-        let clock = MonotonicClockFake(values: [1_000_000, 7_500_000])
-        let useCase = ReadMajorOBDPIDsUseCase(
-            definitionRepository: MajorPIDDefinitionRepositoryFake(
-                definitions: StandardOBDPIDSeed.definitions
-            ),
-            telemetry: telemetry,
-            now: { Date(timeIntervalSince1970: 100) },
-            monotonicNanoseconds: { clock.next() },
-            rawResponseDidReceive: { observation in
-                await recorder.record(observation)
+        for catalog in catalogs {
+            XCTAssertThrowsError(try makeUseCase(catalog: catalog).loadDefinitions(), "件数: \(catalog.count)") {
+                XCTAssertEqual($0 as? OBDPIDTelemetryError, .definitionCatalogUnavailable)
             }
-        )
-
-        _ = try await useCase.execute(using: endpoint)
-        let observations = await recorder.observations
-
-        XCTAssertEqual(observations.map(\.request), [
-            OBDPIDRequest(service: 0x01, pid: 0x05),
-            OBDPIDRequest(service: 0x01, pid: 0x0C)
-        ])
-        XCTAssertEqual(observations.map(\.payload), [[0x85], [0x1A, 0xF8]])
-        XCTAssertEqual(observations.map(\.batchElapsedNanoseconds), [6_500_000, 6_500_000])
-        XCTAssertEqual(observations.map(\.observedAt), [
-            Date(timeIntervalSince1970: 100),
-            Date(timeIntervalSince1970: 100)
-        ])
-    }
-
-    /// PID定義DBが空の場合は実車要求を開始しません。
-    ///
-    /// 責務: 空のRepository一覧を固定seedへ戻さず専用エラーとして拒否することを確認します。
-    func testExecuteRejectsEmptyDefinitionCatalogBeforeTelemetryRead() async {
-        let telemetry = MajorPIDTelemetryFake(values: [:])
-        let useCase = ReadMajorOBDPIDsUseCase(
-            definitionRepository: MajorPIDDefinitionRepositoryFake(definitions: []),
-            telemetry: telemetry
-        )
-
-        do {
-            _ = try await useCase.execute(using: endpoint)
-            XCTFail("空のPID定義一覧は成功してはいけません")
-        } catch {
-            let receivedRequests = await telemetry.receivedRequests
-            XCTAssertEqual(error as? OBDPIDTelemetryError, .definitionCatalogUnavailable)
-            XCTAssertEqual(receivedRequests, [])
         }
     }
 
-    /// PID定義DBの読込失敗を通信失敗と区別します。
+    /// DBの読込に失敗したら、カタログ利用不能として失敗します。
     ///
-    /// 責務: Repositoryエラーを専用カタログ利用不能エラーへ変換することを確認します。
-    func testExecuteMapsRepositoryFailureBeforeTelemetryRead() async {
-        let telemetry = MajorPIDTelemetryFake(values: [:])
-        let useCase = ReadMajorOBDPIDsUseCase(
-            definitionRepository: MajorPIDDefinitionRepositoryFake(error: RepositoryReadError()),
-            telemetry: telemetry
-        )
+    /// 責務: 読込失敗を成功や空データにせず、取得境界のエラーへ変換することを確認します。
+    func testLoadDefinitionsMapsRepositoryFailureToCatalogUnavailable() {
+        let useCase = makeUseCase(catalog: LiveTelemetryTestDefinitions.standard([0x05]), failsRead: true)
 
-        do {
-            _ = try await useCase.execute(using: endpoint)
-            XCTFail("PID定義読込失敗は成功してはいけません")
-        } catch {
-            let receivedRequests = await telemetry.receivedRequests
-            XCTAssertEqual(error as? OBDPIDTelemetryError, .definitionCatalogUnavailable)
-            XCTAssertEqual(receivedRequests, [])
+        XCTAssertThrowsError(try useCase.loadDefinitions()) {
+            XCTAssertEqual($0 as? OBDPIDTelemetryError, .definitionCatalogUnavailable)
         }
     }
 
-    /// テスト用OBD接続終端です。
-    private var endpoint: OBDConnectionEndpoint {
-        .init(transport: .serial, systemIdentifier: "/dev/cu.test", displayName: "OBDLink EX")
-    }
-}
+    // MARK: - loadDefinitions(for:)
 
-/// テスト用のPID定義一覧または読込失敗を返します。
-private struct MajorPIDDefinitionRepositoryFake: OBDPIDDefinitionRepository {
-    /// 返却するPID定義一覧です。
-    private let storedDefinitions: [OBDPIDDefinition]
-    /// 一覧読込時に送出するエラーです。
-    private let storedError: (any Error)?
-
-    /// 固定PID定義一覧を保持します。
+    /// 車両の対応PIDのうち収集有効なものに一致する、数値化できる定義だけを返します。
     ///
-    /// 責務: テストで返すPID定義一覧を初期化します。
-    /// - Parameter definitions: 一覧読込時に返す定義。
-    init(definitions: [OBDPIDDefinition]) {
-        storedDefinitions = definitions
-        storedError = nil
+    /// 責務: 収集無効・定義の無い対応PID・数値化できない定義を除くことを確認します。
+    func testLoadDefinitionsForCapabilitiesSelectsEnabledDecodableDefinitions() throws {
+        let catalog = LiveTelemetryTestDefinitions.standard([0x05, 0x0C, 0x11]) + [undecodable(pid: 0x0D, formula: nil)]
+        let capabilities = [
+            capability(0x05, enabled: true),
+            capability(0x0C, enabled: false),
+            capability(0x0D, enabled: true),
+            capability(0x2F, enabled: true),
+            capability(0x11, enabled: true)
+        ]
+
+        let definitions = try makeUseCase(catalog: catalog).loadDefinitions(for: capabilities)
+
+        XCTAssertEqual(definitions.map(LiveTelemetryTestDefinitions.request), [0x05, 0x11].map(LiveTelemetryTestDefinitions.request))
     }
 
-    /// 固定読込エラーを保持します。
+    /// 対応PIDが無い・すべて収集無効・一致する定義が無い場合は、カタログ利用不能として失敗します。
     ///
-    /// 責務: テストで送出するRepositoryエラーを初期化します。
-    /// - Parameter error: 一覧読込時に送出するエラー。
-    init(error: any Error) {
-        storedDefinitions = []
-        storedError = error
+    /// 責務: 選べる定義が空の時に成功しないことを確認します。
+    func testLoadDefinitionsForCapabilitiesThrowsWhenNothingSelectable() {
+        let useCase = makeUseCase(catalog: LiveTelemetryTestDefinitions.standard([0x05, 0x0C]))
+        let cases: [[VehiclePIDCapability]] = [
+            [],
+            [capability(0x05, enabled: false), capability(0x0C, enabled: false)],
+            [capability(0x2F, enabled: true)]
+        ]
+
+        for capabilities in cases {
+            XCTAssertThrowsError(try useCase.loadDefinitions(for: capabilities), "対応PID: \(capabilities.count)件") {
+                XCTAssertEqual($0 as? OBDPIDTelemetryError, .definitionCatalogUnavailable)
+            }
+        }
     }
 
-    /// 固定PID定義一覧を返すか固定エラーを送出します。
+    /// DBの読込に失敗したら、収集有効な対応PIDがあってもカタログ利用不能として失敗します。
     ///
-    /// 責務: 注入済みのRepository読込結果を再現します。
-    /// - Returns: 初期化時に保持したPID定義一覧。
-    /// - Throws: 初期化時に保持した読込エラー。
-    func definitions() throws -> [OBDPIDDefinition] {
-        if let storedError { throw storedError }
-        return storedDefinitions
+    /// 責務: 車両別の選択でも読込失敗を成功にしないことを確認します。
+    func testLoadDefinitionsForCapabilitiesThrowsWhenRepositoryFails() {
+        let useCase = makeUseCase(catalog: LiveTelemetryTestDefinitions.standard([0x05]), failsRead: true)
+
+        XCTAssertThrowsError(try useCase.loadDefinitions(for: [capability(0x05, enabled: true)])) {
+            XCTAssertEqual($0 as? OBDPIDTelemetryError, .definitionCatalogUnavailable)
+        }
     }
 
-    /// このテストでは使用しないPID定義保存です。
-    ///
-    /// 責務: テスト対象外の保存要求を変更なしで受け付けます。
-    /// - Parameter definition: 使用しないPID定義。
-    func upsert(_ definition: OBDPIDDefinition) throws {}
+    // MARK: - loadStandardDefinitions(supported:)
 
-    /// このテストでは使用しない単一PID定義読込です。
+    /// ECUが対応を1件も返さなければ、カタログ利用不能として失敗します。
     ///
-    /// 責務: テスト対象外の単一読込へ未登録を返します。
+    /// 責務: 対応一覧が空の境界で成功しないことを確認します。
+    func testLoadStandardDefinitionsThrowsWhenSupportedIsEmpty() {
+        let useCase = makeUseCase(catalog: LiveTelemetryTestDefinitions.standard([0x05, 0x0C]))
+
+        XCTAssertThrowsError(try useCase.loadStandardDefinitions(supported: [])) {
+            XCTAssertEqual($0 as? OBDPIDTelemetryError, .definitionCatalogUnavailable)
+        }
+    }
+
+    // MARK: - endSession()
+
+    /// 終了を1回呼ぶと、取得境界へ終了が1回だけ伝わり、読取は行いません。
+    ///
+    /// 責務: 終了通知を取得境界へそのまま委ねることを確認します。
+    func testEndSessionNotifiesTelemetryOnce() async {
+        let telemetry = ScriptedOBDPIDTelemetryFake()
+        let useCase = ReadMajorOBDPIDsUseCase(
+            definitionRepository: StubOBDPIDDefinitionRepository(definitions: LiveTelemetryTestDefinitions.standard([0x05])),
+            telemetry: telemetry
+        )
+
+        await useCase.endSession()
+
+        XCTAssertEqual(telemetry.endSessionCount, 1)
+        XCTAssertTrue(telemetry.observationRequests.isEmpty)
+        XCTAssertTrue(telemetry.vehicleSpecificDefinitions.isEmpty)
+    }
+
+    // MARK: - Helpers
+
+    /// カタログを指定して定義読込のユースケースを作ります。
+    ///
+    /// 責務: 通信しない取得境界で定義読込のユースケースを返します。
     /// - Parameters:
-    ///   - service: 使用しないOBD Service番号。
-    ///   - pid: 使用しないService内PID番号。
-    /// - Returns: 常に `nil`。
-    func definition(service: UInt8, pid: UInt8) throws -> OBDPIDDefinition? { nil }
-}
-
-/// PID定義Repositoryの読込失敗を再現します。
-private struct RepositoryReadError: Error {}
-
-/// Raw応答通知を並行安全に保持します。
-private actor RawObservationRecorder {
-    /// 通知されたRaw応答順です。
-    private(set) var observations: [OBDRawResponseObservation] = []
-
-    /// 1件のRaw応答を通知順へ追記します。
-    ///
-    /// 責務: 非同期Raw応答通知をテストで検査できる配列へ保存します。
-    /// - Parameter observation: 記録する未デコード応答。
-    func record(_ observation: OBDRawResponseObservation) {
-        observations.append(observation)
-    }
-}
-
-/// 注入順に単調時間を返すテスト用クロックです。
-private final class MonotonicClockFake: @unchecked Sendable {
-    /// 次回返す単調時間一覧です。
-    private var values: [UInt64]
-    /// 値取得を直列化するLockです。
-    private let lock = NSLock()
-
-    /// 固定単調時間列を保持します。
-    ///
-    /// 責務: テスト対象へ返す単調時間の順序を初期化します。
-    /// - Parameter values: 呼出順に返すナノ秒値。
-    init(values: [UInt64]) {
-        self.values = values
+    ///   - catalog: PIDカタログの定義。
+    ///   - failsRead: カタログ読込を失敗させる場合は `true`。
+    /// - Returns: 定義読込のユースケース。
+    private func makeUseCase(catalog: [OBDPIDDefinition], failsRead: Bool = false) -> ReadMajorOBDPIDsUseCase {
+        ReadMajorOBDPIDsUseCase(
+            definitionRepository: StubOBDPIDDefinitionRepository(definitions: catalog, failsRead: failsRead),
+            telemetry: ScriptedOBDPIDTelemetryFake()
+        )
     }
 
-    /// 次の単調時間を返します。
+    /// 数値化できない Service 01 の定義を作ります。
     ///
-    /// 責務: 注入済み時間列から1件を並行安全に取り出します。
-    /// - Returns: 次に予定されたナノ秒値。
-    func next() -> UInt64 {
-        lock.lock()
-        defer { lock.unlock() }
-        return values.removeFirst()
-    }
-}
-
-/// 主要PIDユースケースへ固定バイト辞書を返す境界です。
-@MainActor
-private final class MajorPIDTelemetryFake: OBDPIDTelemetryPort {
-    /// 要求別に返す固定バイトです。
-    private let values: [OBDPIDRequest: [UInt8]]
-    /// 直近に受け取った要求順です。
-    private(set) var receivedRequests: [OBDPIDRequest] = []
-
-    /// 固定応答辞書を保持します。
-    ///
-    /// 責務: テストで返すService/PID別バイトを初期化します。
-    /// - Parameter values: 要求別の固定応答。
-    init(values: [OBDPIDRequest: [UInt8]]) { self.values = values }
-
-    /// 受信要求を記録して固定応答を返します。
-    ///
-    /// 責務: 1回の読取要求群を観測して注入済み応答辞書を返します。
+    /// 責務: 必要バイト数または式を欠いた定義を返します。
     /// - Parameters:
-    ///   - requests: 観測するService/PID要求。
-    ///   - endpoint: テストでは使用しない接続終端。
-    /// - Returns: 初期化時に保持した応答辞書。
-    func read(_ requests: [OBDPIDRequest], using endpoint: OBDConnectionEndpoint) async throws -> [OBDPIDRequest: [UInt8]] {
-        receivedRequests = requests
-        return values
+    ///   - pid: Service 01 内のPID番号。
+    ///   - requiredByteCount: 必要バイト数。
+    ///   - formula: 変換式。
+    /// - Returns: 数値化できない定義。
+    private func undecodable(pid: UInt8, requiredByteCount: Int? = 1, formula: String? = "A") -> OBDPIDDefinition {
+        OBDPIDDefinition(
+            service: 0x01, pid: pid, nameKey: "test.undecodable.\(pid)", requiredByteCount: requiredByteCount, formula: formula,
+            unit: "unit", minimumValue: nil, maximumValue: nil, sourceURI: "test://pid", revision: 1
+        )
+    }
+
+    /// 数値化できる車種専用の定義を作ります。
+    ///
+    /// 責務: ヘッダーと車種コードを持つ定義を返します。
+    /// - Parameter pid: PID番号。
+    /// - Returns: 車種専用の定義。
+    private func vehicleSpecific(pid: UInt8) -> OBDPIDDefinition {
+        OBDPIDDefinition(
+            service: 0x22, pid: pid, header: 0x7E0, vehicleModelCode: "ZD8", nameKey: "test.vehicle.\(pid)", requiredByteCount: 1,
+            formula: "A", unit: "unit", minimumValue: 0, maximumValue: 255, sourceURI: "test://pid", revision: 1
+        )
+    }
+
+    /// テスト用車両の Service 01 対応PIDを作ります。
+    ///
+    /// 責務: PID番号と収集の有効・無効だけを変えた対応PIDを返します。
+    /// - Parameters:
+    ///   - pid: Service 01 内のPID番号。
+    ///   - enabled: 収集有効かどうか。
+    /// - Returns: 車両別の対応PID。
+    private func capability(_ pid: UInt8, enabled: Bool) -> VehiclePIDCapability {
+        VehiclePIDCapability(
+            vehicleID: LiveTelemetryTestDefinitions.vehicleID,
+            request: LiveTelemetryTestDefinitions.request(pid),
+            isCollectionEnabled: enabled,
+            discoveredAt: Date(timeIntervalSince1970: 1)
+        )
     }
 }

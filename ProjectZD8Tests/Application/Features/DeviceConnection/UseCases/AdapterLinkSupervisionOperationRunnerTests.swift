@@ -128,4 +128,22 @@ final class AdapterLinkSupervisionOperationRunnerTests: XCTestCase {
 
         XCTAssertEqual(events, [])
     }
+
+    /// 始まる前に取り消された確認・初期化は、アダプターへ何も送りません。
+    ///
+    /// 責務: 依頼した直後(同じ MainActor の処理の中)に取り消した確認・見張りの確認・初期化で、確認・初期化のポートが呼ばれず、イベントも出ないことを確認します(U3 受け入れ条件 14 に関係する取り消し)。
+    func testOperationsCancelledBeforeStartSendNothing() async throws {
+        let runner = makeRunner()
+        for timeout in [VehicleResponseTimeout.adapterMaximum, .heldWatch] {
+            runner.confirmVehicle(timeout: timeout)
+            runner.cancel()
+        }
+        runner.initializeAdapter()
+        runner.cancel()
+        try await BLEBoundedWaiter.settle()
+
+        XCTAssertEqual(vehicleResponse.timeouts, [])
+        XCTAssertEqual(initialization.responses.callCount, 0)
+        XCTAssertEqual(events, [])
+    }
 }

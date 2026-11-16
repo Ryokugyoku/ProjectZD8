@@ -68,15 +68,20 @@ final class AdapterLinkSupervisionHarness {
 
     /// 条件が成り立つまで回数上限付きで待ちます。
     ///
-    /// 責務: `BLEBoundedWaiter` へ委ね、上限超過時は呼び出し元の行で失敗させます。
+    /// 責務: `BLEBoundedWaiter` へ委ね、上限超過時は呼び出し元の行で失敗させたうえで throw し、以降の手順(繰り返しを含む)を打ち切ります。
     /// - Parameters:
     ///   - description: 待機内容。
     ///   - condition: 待つ条件。
+    /// - Returns: 常に `true`(成り立たなければ戻らずに throw します)。
+    /// - Throws: 上限内に成り立たなかった場合は `AdapterLinkBoundedAwaitTimeout`。
     @discardableResult
     func wait(
         _ description: String, file: StaticString = #filePath, line: UInt = #line, until condition: () -> Bool
     ) async throws -> Bool {
-        try await BLEBoundedWaiter.waitUntil(description, file: file, line: line, condition: condition)
+        guard try await BLEBoundedWaiter.waitUntil(description, file: file, line: line, condition: condition) else {
+            throw AdapterLinkBoundedAwaitTimeout(description: description)
+        }
+        return true
     }
 
     /// サインイン済みで監視を開始し、リンクの開始まで進めます。

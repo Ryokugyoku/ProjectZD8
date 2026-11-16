@@ -16,15 +16,6 @@ final class GRDBVehiclePIDCapabilityRepository: VehiclePIDCapabilityRepository, 
         try ProjectZD8DatabaseMigrator.migrator.migrate(databaseQueue)
     }
 
-    /// Application Support内の製品DBを開きます。
-    ///
-    /// 責務: 製品DBの車両別対応PID Repositoryを生成します。
-    /// - Returns: Migration済みRepository。
-    /// - Throws: 保存先作成、DB接続、Migrationに失敗した場合のエラー。
-    static func openApplicationRepository() throws -> GRDBVehiclePIDCapabilityRepository {
-        try GRDBVehiclePIDCapabilityRepository(databaseQueue: ProjectZD8DatabaseLocation.openApplicationDatabaseQueue())
-    }
-
     /// 指定車両で確認済みの対応PIDを取得します。
     ///
     /// 責務: 1件の車両IDに属する対応PIDをService/PID順で復元します。

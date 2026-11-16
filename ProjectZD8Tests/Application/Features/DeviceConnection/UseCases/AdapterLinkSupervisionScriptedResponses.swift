@@ -45,12 +45,15 @@ final class AdapterLinkSupervisionScriptedResponses<Value: Sendable> {
     ///
     /// 責務: 保留が1件もなければテストを失敗させ、あれば古い順に1件だけ再開します。
     /// - Parameter result: 渡す値かエラー。
-    func resumeOldest(with result: Result<Value, any Error>, file: StaticString = #filePath, line: UInt = #line) {
+    /// - Returns: 再開できた場合は `true`。保留が無かった場合は `false`(XCTFail 済み)。繰り返しの中では戻り値で打ち切ります。
+    @discardableResult
+    func resumeOldest(with result: Result<Value, any Error>, file: StaticString = #filePath, line: UInt = #line) -> Bool {
         guard !pending.isEmpty else {
             XCTFail("保留中の呼び出しがありません", file: file, line: line)
-            return
+            return false
         }
         pending.removeFirst().resume(with: result)
+        return true
     }
 
     /// 全ての保留中の呼び出しを `CancellationError` で終わらせます。

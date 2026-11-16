@@ -78,6 +78,8 @@ final class ELM327MonitorFilterCommandBuilderTests: XCTestCase {
     /// 責務: 空集合・範囲外・幅の混在が各チップで対応するエラーになることを確認します。
     func testValidationErrors() {
         XCTAssertEqual(failure([], .stn), .emptyIdentifiers)
+        XCTAssertEqual(failure([], .elm327Genuine), .emptyIdentifiers)
+        XCTAssertEqual(failure([], .elm327Clone), .emptyIdentifiers)
         XCTAssertEqual(failure([0x2000_0000], .stn), .identifierOutOfRange)
         XCTAssertEqual(failure([0x7E8, 0x2000_0000], .elm327Clone), .identifierOutOfRange)
         XCTAssertEqual(failure([0x7E8, 0x18DA_F110], .stn), .mixedIdentifierWidths)

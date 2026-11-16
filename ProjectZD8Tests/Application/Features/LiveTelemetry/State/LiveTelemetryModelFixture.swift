@@ -117,7 +117,7 @@ final class LiveTelemetryModelFixture {
     /// 責務: テスト終了時に応答待ちの要求と期限待ちを解放し、取得Taskを残さないようにします。
     func tearDown() async {
         let loop = loop
-        _ = await LiveTelemetryBoundedWaiter.value("取得ループの停止") { await loop.stop() }
+        _ = await LiveTelemetryBoundedWaiter.value("取得ループの停止") { await loop.stop(reason: .userDisconnected) }
         deadlineWaiter.releaseAll()
     }
 }

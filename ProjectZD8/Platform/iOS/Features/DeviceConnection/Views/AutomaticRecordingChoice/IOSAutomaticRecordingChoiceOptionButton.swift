@@ -13,18 +13,18 @@ struct IOSAutomaticRecordingChoiceOptionButton: View {
     /// 責務: 1件の選択肢をアイコン、名称、説明を並べた押しやすい操作として描画します。
     var body: some View {
         Button(action: select) {
-            HStack(alignment: .center, spacing: 14) {
+            HStack(alignment: .center, spacing: IOSAutomaticRecordingChoiceMetrics.optionContentSpacing) {
                 Image(systemName: choice.systemImageName)
-                    .font(.system(size: 19, weight: .semibold))
+                    .font(.system(size: IOSAutomaticRecordingChoiceMetrics.optionIconFontSize, weight: .semibold))
                     .foregroundStyle(.tint)
                     .frame(
                         width: IOSAutomaticRecordingChoiceMetrics.optionIconSize,
                         height: IOSAutomaticRecordingChoiceMetrics.optionIconSize
                     )
-                    .background(Color.accentColor.opacity(0.12), in: Circle())
+                    .background(Color.accentColor.opacity(IOSAutomaticRecordingChoiceMetrics.optionIconFillOpacity), in: Circle())
                     .accessibilityHidden(true)
 
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: IOSAutomaticRecordingChoiceMetrics.optionTextSpacing) {
                     Text(LocalizedStringKey(choice.titleKey))
                         .font(.system(.headline, design: .rounded, weight: .bold))
                     Text(LocalizedStringKey(choice.descriptionKey))
@@ -33,7 +33,7 @@ struct IOSAutomaticRecordingChoiceOptionButton: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
 
-                Spacer(minLength: 4)
+                Spacer(minLength: IOSAutomaticRecordingChoiceMetrics.optionSpacerMinLength)
 
                 Image(systemName: "chevron.right")
                     .font(.caption.bold())
@@ -48,7 +48,7 @@ struct IOSAutomaticRecordingChoiceOptionButton: View {
             )
             .overlay {
                 RoundedRectangle(cornerRadius: IOSAutomaticRecordingChoiceMetrics.optionCornerRadius, style: .continuous)
-                    .stroke(Color.accentColor.opacity(0.18), lineWidth: 1)
+                    .stroke(Color.accentColor.opacity(IOSAutomaticRecordingChoiceMetrics.optionStrokeOpacity), lineWidth: 1)
             }
             .contentShape(Rectangle())
         }

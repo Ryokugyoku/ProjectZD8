@@ -45,7 +45,7 @@ final class VehicleRecordingCoordinatorFinishTests: XCTestCase {
     func testStopRequestStopsTelemetryAndFinishesOnceAfterTelemetryEnds() async throws {
         let harness = try await recordingHarness()
 
-        harness.coordinator.requestRecordingStop()
+        harness.coordinator.requestRecordingStop(reason: .connectionTargetLost)
 
         XCTAssertEqual(harness.stopTelemetryCount, 1)
         XCTAssertEqual(harness.finishCount, 0)
@@ -67,9 +67,25 @@ final class VehicleRecordingCoordinatorFinishTests: XCTestCase {
             let harness = try await recordingHarness()
             harness.telemetryDidEnd(reason: reason)
             harness.telemetryDidEnd(reason: reason)
-            harness.coordinator.requestRecordingStop()
+            harness.coordinator.requestRecordingStop(reason: .connectionTargetLost)
             XCTAssertEqual(harness.finishCount, 1, "\(reason)")
             XCTAssertEqual(harness.coordinator.phase, .idle, "\(reason)")
+        }
+    }
+
+    /// 停止要求なしにテレメトリが終わった(猶予切れなど)時は、その終了理由がそのまま監視へ届き、保存される理由とも一致します。
+    ///
+    /// 責務: リンク断の猶予切れ(接続断)を含む各理由で、監視へ渡る理由・保存された理由が同じで、テレメトリの停止を呼ばないことを確認します(U2 受け入れ条件 3・13)。
+    func testEndReasonWithoutStopRequestIsForwardedUnchanged() async throws {
+        let reasons: [ConnectionSessionEndReason] = [.connectionLost, .vehicleNoResponse, .acquisitionFailed]
+        for reason in reasons {
+            let harness = try await recordingHarness()
+
+            harness.telemetryDidEnd(reason: reason)
+
+            XCTAssertEqual(harness.finishReasons, [reason], "\(reason)")
+            XCTAssertEqual(harness.sessionRepository.saved.last?.endReason, reason, "\(reason)")
+            XCTAssertEqual(harness.stopTelemetryCount, 0, "\(reason)")
         }
     }
 
@@ -79,9 +95,9 @@ final class VehicleRecordingCoordinatorFinishTests: XCTestCase {
     func testStopRequestFollowedByTelemetryEndFinishesOnce() async throws {
         let harness = try await recordingHarness()
 
-        harness.coordinator.requestRecordingStop()
+        harness.coordinator.requestRecordingStop(reason: .connectionTargetLost)
         harness.telemetryDidEnd(reason: .userDisconnected)
-        harness.coordinator.requestRecordingStop()
+        harness.coordinator.requestRecordingStop(reason: .connectionTargetLost)
 
         XCTAssertEqual(harness.finishCount, 1)
         XCTAssertEqual(harness.stopTelemetryCount, 1)
@@ -97,7 +113,7 @@ final class VehicleRecordingCoordinatorFinishTests: XCTestCase {
         let gate = try await harness.requestResidentStartHoldingLookup(vin: registered.vin)
         gates.append(gate)
 
-        harness.coordinator.requestRecordingStop()
+        harness.coordinator.requestRecordingStop(reason: .connectionTargetLost)
         XCTAssertEqual(harness.finishCount, 1)
         gate.resumeOldest(with: .success(true))
         try await BLEBoundedWaiter.settle()
@@ -116,7 +132,7 @@ final class VehicleRecordingCoordinatorFinishTests: XCTestCase {
 
         try await harness.requestResidentStart(vin: registered.vin)
         harness.coordinator.telemetryDidEnd(reason: .userDisconnected)
-        harness.coordinator.requestRecordingStop()
+        harness.coordinator.requestRecordingStop(reason: .connectionTargetLost)
 
         XCTAssertEqual(harness.finishCount, 1)
     }

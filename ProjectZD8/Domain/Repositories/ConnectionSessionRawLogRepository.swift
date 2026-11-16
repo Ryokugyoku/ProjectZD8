@@ -1,16 +1,9 @@
 import Foundation
 
-/// 未デコードOBD応答を接続セッション単位で永続化します。
+/// 未デコードOBD応答を接続セッション単位で永続化します(読み出し・転送状態・転送からの復元・端末内の削除)。
+///
+/// 記録中のRawの追記は取得チャンク(`ConnectionSessionAcquisitionChunkRepository`)が担います。
 protocol ConnectionSessionRawLogRepository {
-    /// Raw応答を現在セッションの次の順序へ追記します。
-    ///
-    /// 責務: 1件の未デコードOBD応答を指定セッションへ追加します。
-    /// - Parameters:
-    ///   - observation: 取得境界が返した未デコード応答。
-    ///   - sessionID: 追記対象の接続セッションID。
-    /// - Throws: セッション不在、制約違反、または永続化失敗。
-    func append(_ observation: OBDRawResponseObservation, to sessionID: ConnectionSessionID) throws
-
     /// セッション内のRaw応答を記録順で返します。
     ///
     /// 責務: 1件のセッションIDに属する未デコード応答を順序付きで復元します。

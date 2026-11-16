@@ -101,6 +101,72 @@ final class ConnectionSessionStorageDependenciesTests: XCTestCase {
         XCTAssertTrue(dependencies.acquisition is UnavailableConnectionSessionRepository)
     }
 
+    /// Queueを開けない場合は、開けなかった元のエラーが `.connectionSessions` として診断へ1件残り、すべて利用不能境界になります。
+    ///
+    /// 責務: 注入した共通の差し替え処理を経由して元のエラーを捨てず、利用不能境界の操作が失敗することを確認します。
+    @MainActor
+    func testMakeProductionRecordsOpenFailureOnceThroughInjectedPreparation() {
+        let spy = ProductDatabasePreparationDiagnosticsSpy()
+
+        let dependencies = ConnectionSessionStorageDependencies.makeProduction(
+            openDatabaseQueue: { throw OpenFailure() },
+            preparation: ProductDatabaseRepositoryFactory(diagnostics: spy)
+        )
+
+        XCTAssertEqual(spy.entries.map(\.storage), [.connectionSessions])
+        XCTAssertTrue(spy.entries.first?.error is OpenFailure)
+        XCTAssertTrue(dependencies.sessions is UnavailableConnectionSessionRepository)
+        XCTAssertTrue(dependencies.acquisition is UnavailableConnectionSessionRepository)
+        XCTAssertTrue(dependencies.chunks is UnavailableConnectionSessionAcquisitionChunkRepository)
+        XCTAssertTrue(dependencies.segments is UnavailableConnectionSessionSegmentationRepository)
+        XCTAssertTrue(dependencies.gaps is UnavailableConnectionSessionSegmentationRepository)
+        XCTAssertThrowsError(try dependencies.sessions.save(ConnectionSession(accountIdentifier: "unavailable")))
+    }
+
+    /// Migrationに失敗した場合も、その失敗が `.connectionSessions` として診断へ1件残ります。
+    ///
+    /// 責務: Queueを開いた後の準備失敗も診断へ残すことを確認します。
+    @MainActor
+    func testMakeProductionRecordsMigrationFailureOnceThroughInjectedPreparation() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appending(path: "ConnectionSessionStorageDependenciesTests-\(UUID().uuidString)", directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
+        let path = directory.appending(path: "empty.sqlite").path
+        XCTAssertTrue(FileManager.default.createFile(atPath: path, contents: nil))
+        var configuration = Configuration()
+        configuration.readonly = true
+        let readonlyQueue = try DatabaseQueue(path: path, configuration: configuration)
+        let spy = ProductDatabasePreparationDiagnosticsSpy()
+
+        let dependencies = ConnectionSessionStorageDependencies.makeProduction(
+            openDatabaseQueue: { readonlyQueue },
+            preparation: ProductDatabaseRepositoryFactory(diagnostics: spy)
+        )
+
+        XCTAssertEqual(spy.entries.map(\.storage), [.connectionSessions])
+        XCTAssertFalse(spy.entries.first?.error is OpenFailure)
+        XCTAssertTrue(dependencies.sessions is UnavailableConnectionSessionRepository)
+    }
+
+    /// Queueを開ける場合は診断を残さず、GRDB実装を返します。
+    ///
+    /// 責務: 成功時に診断が記録されないことを確認します。
+    @MainActor
+    func testMakeProductionRecordsNoDiagnosticsWhenQueueOpens() throws {
+        let queue = try DatabaseQueue()
+        let spy = ProductDatabasePreparationDiagnosticsSpy()
+
+        let dependencies = ConnectionSessionStorageDependencies.makeProduction(
+            openDatabaseQueue: { queue },
+            preparation: ProductDatabaseRepositoryFactory(diagnostics: spy)
+        )
+
+        XCTAssertTrue(spy.entries.isEmpty)
+        XCTAssertTrue(dependencies.sessions is GRDBConnectionSessionRepository)
+        XCTAssertTrue(dependencies.acquisition is GRDBConnectionSessionAcquisitionRepository)
+    }
+
     /// 最小のcanonical取得manifestを作ります。
     ///
     /// 責務: 保存・往復に使う単一PIDのmanifestを生成します。

@@ -8,6 +8,7 @@ import OSLog
 final class GRDBConnectionSessionRepository:
     ConnectionSessionRepository,
     ObservedVINConnectionSessionRepository,
+    VehicleUnknownConnectionSessionRepository,
     ConnectionSessionRawLogRepository,
     ConnectionSessionErasureRepository,
     AccountConnectionSessionErasureRepository {
@@ -123,6 +124,70 @@ final class GRDBConnectionSessionRepository:
         }
     }
 
+    /// 指定アカウントの車両不明ログ(終了済み・車両未設定・観測VINなし)を新しい順で復元します。
+    ///
+    /// 責務: 1件のアカウントに属する終了済みで車両も観測VINも持たないGRDBレコードをDomainセッションへ復元します。
+    /// - Parameter accountIdentifier: 取得対象のAppleアカウント識別子。
+    /// - Returns: 開始日時が新しい順の車両不明ログ。
+    /// - Throws: SQLite読込失敗、または保存値が不正な場合の `ConnectionSessionRepositoryError.integrityConflict`。
+    func vehicleUnknownSessions(for accountIdentifier: String) throws -> [ConnectionSession] {
+        try databaseQueue.read { database in
+            let records = try Self.vehicleUnknownRecords(accountIdentifier: accountIdentifier)
+                .order(Column("startedAt").desc, Column("id"))
+                .fetchAll(database)
+            return try records.map { record in
+                guard let session = record.makeDomainSession(),
+                      session.vehicle == nil,
+                      session.observedVIN == nil,
+                      session.endedAt != nil else {
+                    throw ConnectionSessionRepositoryError.integrityConflict
+                }
+                return try sessionWithActualLocalRawSummary(session, database: database)
+            }
+        }
+    }
+
+    /// 指定した車両不明ログへ登録車両を設定します。
+    ///
+    /// 責務: 指定IDのうち、アカウント・終了済み・車両未設定・観測VINなしの条件をSQL側でも満たす行だけを1回のUPDATEで更新します。
+    /// - Parameters:
+    ///   - vehicle: セッションへ設定する登録車両の表示情報。
+    ///   - sessionIDs: 紐付けるセッションのID。空なら何も更新しません。
+    ///   - accountIdentifier: 更新対象のAppleアカウント識別子。
+    /// - Returns: 車両を設定したセッション件数。
+    /// - Throws: SQLite更新失敗時はGRDBエラー。
+    func assignVehicle(
+        _ vehicle: ConnectionSessionVehicle,
+        toVehicleUnknownSessions sessionIDs: [ConnectionSessionID],
+        for accountIdentifier: String
+    ) throws -> Int {
+        let identifiers = sessionIDs.map { $0.rawValue.uuidString.lowercased() }
+        guard !identifiers.isEmpty else { return 0 }
+        return try databaseQueue.write { database in
+            try Self.vehicleUnknownRecords(accountIdentifier: accountIdentifier)
+                .filter(identifiers.contains(Column("id")))
+                .updateAll(
+                    database,
+                    Column("vehicleID").set(to: vehicle.id.rawValue.uuidString.lowercased()),
+                    Column("vehicleName").set(to: vehicle.name),
+                    Column("vehicleDisplayIdentifier").set(to: vehicle.displayIdentifier)
+                )
+        }
+    }
+
+    /// 車両不明ログの条件で絞り込んだ照会を返します。
+    ///
+    /// 責務: アカウント一致・終了済み・車両未設定・観測VINなしの4条件を照会と更新で共有します。
+    /// - Parameter accountIdentifier: 対象のAppleアカウント識別子。
+    /// - Returns: 絞り込み済みの照会。
+    private static func vehicleUnknownRecords(accountIdentifier: String) -> QueryInterfaceRequest<ConnectionSessionRecord> {
+        ConnectionSessionRecord
+            .filter(Column("accountIdentifier") == accountIdentifier)
+            .filter(Column("endedAt") != nil)
+            .filter(Column("vehicleID") == nil)
+            .filter(Column("observedVIN") == nil)
+    }
+
     /// 指定アカウントが所有するセッションと子Rawログを物理削除します。
     ///
     /// 責務: 1件の所有者確認済みセッションを外部キーCascade付きで原子的に物理削除します。
@@ -155,23 +220,6 @@ final class GRDBConnectionSessionRepository:
             try ConnectionSessionRecord
                 .filter(Column("accountIdentifier") == accountIdentifier)
                 .deleteAll(database)
-        }
-    }
-
-    /// 未デコードOBD応答をセッションの次の順序へ追記します。
-    ///
-    /// 責務: 1件のRaw応答を未終了セッションへ原子的に追加して集計値を更新します。
-    /// - Parameters:
-    ///   - observation: 取得境界から受け取った未デコード応答。
-    ///   - sessionID: 追記対象の接続セッションID。
-    /// - Throws: セッション不在、終了済み、またはSQLite書込み失敗。
-    func append(_ observation: OBDRawResponseObservation, to sessionID: ConnectionSessionID) throws {
-        try databaseQueue.write { database in
-            _ = try GRDBConnectionSessionRawLogAppender().append(
-                observation,
-                to: sessionID,
-                in: database
-            )
         }
     }
 

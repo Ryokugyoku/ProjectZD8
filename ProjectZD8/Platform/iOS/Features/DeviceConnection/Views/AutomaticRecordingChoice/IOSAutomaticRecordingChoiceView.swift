@@ -33,16 +33,16 @@ struct IOSAutomaticRecordingChoiceView: View {
 
     /// 画面の目的と後から変更できることを示す見出しです。
     private var heading: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: IOSAutomaticRecordingChoiceMetrics.headingSpacing) {
             Image(systemName: "dot.radiowaves.left.and.right")
-                .font(.system(size: 30, weight: .semibold))
+                .font(.system(size: IOSAutomaticRecordingChoiceMetrics.heroIconFontSize, weight: .semibold))
                 .foregroundStyle(.tint)
                 .frame(
                     width: IOSAutomaticRecordingChoiceMetrics.heroIconSize,
                     height: IOSAutomaticRecordingChoiceMetrics.heroIconSize
                 )
                 .background(
-                    Color.accentColor.opacity(0.13),
+                    Color.accentColor.opacity(IOSAutomaticRecordingChoiceMetrics.heroIconFillOpacity),
                     in: RoundedRectangle(cornerRadius: IOSAutomaticRecordingChoiceMetrics.heroIconCornerRadius, style: .continuous)
                 )
                 .accessibilityHidden(true)

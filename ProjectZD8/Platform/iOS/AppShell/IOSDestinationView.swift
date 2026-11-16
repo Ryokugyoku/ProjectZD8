@@ -63,6 +63,12 @@ struct IOSDestinationView: View {
     /// 未登録車両の警告の主要操作をAppShellへ通知するクロージャです。
     let sendUnassignedVINWarningAction: (UnassignedObservedVINWarningPrimaryAction) -> Void
 
+    /// ホームと車両画面に表示する、車両を特定できなかったログの警告です。
+    let vehicleUnknownSessionWarning: VehicleUnknownSessionWarning
+
+    /// 車両不明ログの警告の主要操作をAppShellへ通知するクロージャです。
+    let sendVehicleUnknownSessionWarningAction: (VehicleUnknownSessionWarningPrimaryAction) -> Void
+
     /// Authenticationが管理するアカウント削除の現在段階です。
     let accountDeletionPhase: AccountDeletionPhase
 
@@ -127,16 +133,27 @@ struct IOSDestinationView: View {
         }
     }
 
-    /// ホームと車両画面の上端に重ねる未登録車両の警告です。識別・登録・編集の最中は表示しません。
+    /// ホームと車両画面の上端に重ねる未登録車両の警告と、車両を特定できなかったログの警告(別枠)です。
+    /// 識別・登録・編集の最中は表示しません。
     @ViewBuilder
     private var unassignedVINWarningInset: some View {
-        if IOSUnassignedObservedVINWarningVisibility.isVisible(
-            warning: unassignedVINWarning,
-            vehiclePhase: vehicleManagementState.phase
-        ) {
-            IOSUnassignedObservedVINWarningCard(warning: unassignedVINWarning, send: sendUnassignedVINWarningAction)
-                .padding(.horizontal, IOSUnassignedObservedVINWarningMetrics.horizontalInset)
-                .padding(.top, IOSUnassignedObservedVINWarningMetrics.topInset)
+        VStack(spacing: 0) {
+            if IOSUnassignedObservedVINWarningVisibility.isVisible(
+                warning: unassignedVINWarning,
+                vehiclePhase: vehicleManagementState.phase
+            ) {
+                IOSUnassignedObservedVINWarningCard(warning: unassignedVINWarning, send: sendUnassignedVINWarningAction)
+                    .padding(.horizontal, IOSUnassignedObservedVINWarningMetrics.horizontalInset)
+                    .padding(.top, IOSUnassignedObservedVINWarningMetrics.topInset)
+            }
+            if IOSVehicleUnknownSessionWarningVisibility.isVisible(
+                warning: vehicleUnknownSessionWarning,
+                vehiclePhase: vehicleManagementState.phase
+            ) {
+                IOSVehicleUnknownSessionWarningCard(warning: vehicleUnknownSessionWarning, send: sendVehicleUnknownSessionWarningAction)
+                    .padding(.horizontal, IOSVehicleUnknownSessionMetrics.horizontalInset)
+                    .padding(.top, IOSVehicleUnknownSessionMetrics.topInset)
+            }
         }
     }
 

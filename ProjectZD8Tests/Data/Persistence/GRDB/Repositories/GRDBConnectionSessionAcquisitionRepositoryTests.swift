@@ -411,30 +411,33 @@ final class GRDBConnectionSessionAcquisitionRepositoryTests: XCTestCase {
         let fixture = try makeFixture()
         let manifest = try makeManifest()
         let startedAt = Date(timeIntervalSince1970: 100)
-        let outcomes = await withTaskGroup(
-            of: ConnectionSessionAcquisitionRepositoryError?.self,
-            returning: [ConnectionSessionAcquisitionRepositoryError?].self
-        ) { group in
-            for _ in 0..<2 {
-                group.addTask {
-                    do {
-                        try fixture.repository.saveStartOnce(
-                            manifest: manifest,
-                            startedAt: startedAt,
-                            for: fixture.session.id
-                        )
-                        return nil
-                    } catch let error as ConnectionSessionAcquisitionRepositoryError {
-                        return error
-                    } catch {
-                        return .unavailable
+        let settled = await LiveTelemetryBoundedWaiter.value("同時書込の決着") {
+            await withTaskGroup(
+                of: ConnectionSessionAcquisitionRepositoryError?.self,
+                returning: [ConnectionSessionAcquisitionRepositoryError?].self
+            ) { group in
+                for _ in 0..<2 {
+                    group.addTask {
+                        do {
+                            try fixture.repository.saveStartOnce(
+                                manifest: manifest,
+                                startedAt: startedAt,
+                                for: fixture.session.id
+                            )
+                            return nil
+                        } catch let error as ConnectionSessionAcquisitionRepositoryError {
+                            return error
+                        } catch {
+                            return .unavailable
+                        }
                     }
                 }
+                var values: [ConnectionSessionAcquisitionRepositoryError?] = []
+                for await value in group { values.append(value) }
+                return values
             }
-            var values: [ConnectionSessionAcquisitionRepositoryError?] = []
-            for await value in group { values.append(value) }
-            return values
         }
+        let outcomes = try XCTUnwrap(settled, "同時書込が上限内に終わらない")
 
         XCTAssertEqual(outcomes.compactMap { $0 }, [.duplicate])
         XCTAssertEqual(try fixture.repository.boundaryEvidence(for: fixture.session.id).count, 1)

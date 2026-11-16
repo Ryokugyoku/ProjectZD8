@@ -1,5 +1,5 @@
-/// Live Activityに並べる計測項目の種類です。SwiftUIに依存しない純粋型です。
-enum RecordingSessionLiveActivityMetricKind: CaseIterable, Hashable {
+/// Live Activityに並べる計測項目の種類です。SwiftUIに依存しない純粋型で、アプリとWidget Extensionの両方に属します。
+nonisolated enum RecordingSessionLiveActivityMetricKind: CaseIterable, Hashable {
     /// 車速(km/h)です。
     case vehicleSpeed
     /// エンジン回転数(rpm)です。

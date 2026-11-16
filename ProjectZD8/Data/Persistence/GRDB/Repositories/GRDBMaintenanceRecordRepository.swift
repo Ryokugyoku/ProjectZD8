@@ -16,15 +16,6 @@ final class GRDBMaintenanceRecordRepository: MaintenanceRecordRepository, @unche
         try ProjectZD8DatabaseMigrator.migrator.migrate(databaseQueue)
     }
 
-    /// Application Support内の製品DBを開いて生成します。
-    ///
-    /// 責務: 整備記録の製品保存先を作成してRepositoryを返します。
-    /// - Returns: Migration済みの整備記録Repository。
-    /// - Throws: 保存先作成、DB接続、Migrationに失敗した場合のエラー。
-    static func openApplicationRepository() throws -> GRDBMaintenanceRecordRepository {
-        try GRDBMaintenanceRecordRepository(databaseQueue: ProjectZD8DatabaseLocation.openApplicationDatabaseQueue())
-    }
-
     /// 指定アカウントの全整備記録を更新日時順で取得します。
     ///
     /// 責務: 1件のアカウントに属するSQLite行をDomain整備記録へ復元します。

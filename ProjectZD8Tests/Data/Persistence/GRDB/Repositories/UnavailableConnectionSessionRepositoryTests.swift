@@ -42,4 +42,25 @@ final class UnavailableConnectionSessionRepositoryTests: XCTestCase {
             )
         }
     }
+
+    /// 車両不明ログの照会は空配列ではなく `unavailable` で失敗します。
+    ///
+    /// 責務: DB準備不可時の照会が「該当なし」と区別できる型付きエラーになることを確認します(U4 受け入れ条件 15)。
+    func testVehicleUnknownSessionsThrowsUnavailable() {
+        assertThrowsError(ConnectionSessionRepositoryError.unavailable) {
+            _ = try UnavailableConnectionSessionRepository().vehicleUnknownSessions(for: "account")
+        }
+    }
+
+    /// 車両不明ログへの紐付けは0件ではなく `unavailable` で失敗します。
+    ///
+    /// 責務: 空でないID列・空のID列のどちらでも、紐付けが「対象なし」と区別できる型付きエラーになることを確認します(U4 受け入れ条件 15)。
+    func testAssignVehicleToVehicleUnknownSessionsThrowsUnavailable() {
+        let vehicle = ConnectionSessionVehicle(id: VehicleID(), name: "BRZ", displayIdentifier: "ZD8")
+        for ids: [ConnectionSessionID] in [[ConnectionSessionID()], []] {
+            assertThrowsError(ConnectionSessionRepositoryError.unavailable) {
+                _ = try UnavailableConnectionSessionRepository().assignVehicle(vehicle, toVehicleUnknownSessions: ids, for: "account")
+            }
+        }
+    }
 }

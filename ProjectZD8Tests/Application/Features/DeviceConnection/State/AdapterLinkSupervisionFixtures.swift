@@ -10,11 +10,14 @@ enum AdapterLinkSupervisionFixtures {
     /// 仕様の確認窓(10分)の秒数です。
     static let windowSeconds: TimeInterval = 600
 
-    /// 仕様の再確認間隔(30秒)の秒数です。
-    static let intervalSeconds: TimeInterval = 30
+    /// 仕様の確認と確認の最短間隔(1秒)の秒数です(U3 受け入れ条件 3)。
+    static let intervalSeconds: TimeInterval = 1
 
-    /// 仕様の1窓あたりの確認回数の上限です(最初の確認を含む)。
-    static let maximumAttempts = 20
+    /// 仕様の1窓あたりの確認回数の上限です(最初の確認を含む。窓 ÷ 最短間隔 = 600。U3 受け入れ条件 4)。
+    static let maximumAttempts = 600
+
+    /// 仕様の抑止中の見張りの上限(8時間)の秒数です(U3 受け入れ条件 11)。
+    static let heldWatchSeconds: TimeInterval = 8 * 60 * 60
 
     /// 稼働条件を満たす既定のBLEアダプター設定です。
     static let blePreference = DefaultAdapterPreference(
@@ -120,6 +123,10 @@ enum AdapterLinkSupervisionFixtures {
     ///   - linkPreference: リンクを開始したときの接続対象。
     ///   - linkState: 処理直前のリンク状態。
     ///   - now: 現在時刻。
+    ///   - isExternalAdapterUseActive: 手動接続がアダプターを使っているか。
+    ///   - isForeground: アプリが前面にいるか。
+    ///   - lastVehicleConfirmationSentAt: 最後に車両確認を送った時刻。
+    ///   - hasValidRecordingIntent: 有効期限内の記録開始の意思を保持しているか。
     /// - Returns: 遷移の条件。
     static func conditions(
         isSupervisionStarted: Bool = true,
@@ -127,7 +134,11 @@ enum AdapterLinkSupervisionFixtures {
         defaultAdapterPreference: DefaultAdapterPreference? = blePreference,
         linkPreference: DefaultAdapterPreference? = blePreference,
         linkState: AdapterLinkState = .ready,
-        now: Date = referenceDate
+        now: Date = referenceDate,
+        isExternalAdapterUseActive: Bool = false,
+        isForeground: Bool = false,
+        lastVehicleConfirmationSentAt: Date? = nil,
+        hasValidRecordingIntent: Bool = false
     ) -> AdapterLinkSupervisionConditions {
         AdapterLinkSupervisionConditions(
             isSupervisionStarted: isSupervisionStarted,
@@ -135,8 +146,23 @@ enum AdapterLinkSupervisionFixtures {
             defaultAdapterPreference: defaultAdapterPreference,
             linkPreference: linkPreference,
             linkState: linkState,
-            now: now
+            now: now,
+            isExternalAdapterUseActive: isExternalAdapterUseActive,
+            isForeground: isForeground,
+            lastVehicleConfirmationSentAt: lastVehicleConfirmationSentAt,
+            hasValidRecordingIntent: hasValidRecordingIntent
         )
+    }
+
+    /// 見張り中の抑止状態です。
+    ///
+    /// 責務: 連続した無応答の数と見張りの終わりの時刻を指定した抑止状態を返します。
+    /// - Parameters:
+    ///   - noResponses: 連続した無応答の数。
+    ///   - endsAt: 見張りをやめる時刻。既定は基準時刻から8時間後。
+    /// - Returns: 抑止状態。
+    static func watching(noResponses: Int = 0, endsAt: Date = date(heldWatchSeconds)) -> AdapterLinkSupervisionState {
+        .heldAfterUserStop(AdapterLinkHeldWatch(consecutiveNoResponses: noResponses, phase: .watching(endsAt: endsAt)))
     }
 
     /// 仕様から導いた、BLE接続対象と検知車両に対する記録開始要求です。

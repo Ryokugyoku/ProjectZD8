@@ -3,6 +3,7 @@ import XCTest
 
 /// `BLEResolvedUARTChannel.make(profile:writeCapability:)` の書き込み種別選択を検証します。
 final class BLEResolvedUARTChannelTests: XCTestCase {
+    /// BLE UART の Characteristic 能力の共通 fixture です。
     private typealias Fixtures = BLEUARTCapabilityFixtures
 
     /// FFF0構成です。

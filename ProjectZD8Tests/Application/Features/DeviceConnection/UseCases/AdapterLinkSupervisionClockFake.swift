@@ -34,8 +34,10 @@ final class AdapterLinkSupervisionClockFake: AdapterLinkSupervisionClock {
     ///
     /// 責務: 時刻の経過と待機の完了を1回分まとめて起こします。
     /// - Parameter seconds: 進める秒数。
-    func finishOldestSleep(advancingBy seconds: TimeInterval, file: StaticString = #filePath, line: UInt = #line) {
+    /// - Returns: 待機を終わらせられた場合は `true`。保留中の待機が無かった場合は `false`(XCTFail 済み)。
+    @discardableResult
+    func finishOldestSleep(advancingBy seconds: TimeInterval, file: StaticString = #filePath, line: UInt = #line) -> Bool {
         now = now.addingTimeInterval(seconds)
-        sleeps.resumeOldest(with: .success(()), file: file, line: line)
+        return sleeps.resumeOldest(with: .success(()), file: file, line: line)
     }
 }

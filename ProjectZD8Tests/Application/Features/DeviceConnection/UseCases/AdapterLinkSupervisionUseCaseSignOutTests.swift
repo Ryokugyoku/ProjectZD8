@@ -110,13 +110,14 @@ final class AdapterLinkSupervisionUseCaseSignOutTests: XCTestCase {
         XCTAssertEqual(harness.recordingControl.stopRequestCount, 1)
     }
 
-    /// 終了中(リンク断で停止要求済み)にサインアウトすると、停止要求を重ねずにリンクを止め、記録終了後に待機へ戻ります。
+    /// 終了中(手動接続の開始で停止要求済み)にサインアウトすると、停止要求を重ねずにリンクを止め、記録終了後に待機へ戻ります。
     ///
     /// 責務: 停止要求が1回のまま・リンク停止・終了のまま・記録終了後の待機を確認します。
+    /// 終了中へは手動接続の開始で移します(リンク断では記録中のままのため。U2 受け入れ条件 1)。
     func testSignOutWhileFinishing() async throws {
         let harness = makeHarness()
         try await harness.driveToRecording()
-        harness.link.emit(.disconnected(.peripheralDisconnected(errorDescription: nil)))
+        harness.useCase.externalAdapterUseDidBegin()
         XCTAssertEqual(harness.useCase.state, .finishing)
         XCTAssertEqual(harness.recordingControl.stopRequestCount, 1)
 
@@ -126,5 +127,20 @@ final class AdapterLinkSupervisionUseCaseSignOutTests: XCTestCase {
 
         harness.useCase.recordingDidFinish(endReason: nil)
         XCTAssertEqual(harness.useCase.state, .standby)
+    }
+
+    /// リンク断で記録中のままのところへサインアウトすると、従来どおり停止を要求してリンクを止め、終了へ移ります。
+    ///
+    /// 責務: リンク断では停止要求0回、サインアウトで停止要求1回・リンク停止・終了になることを確認します(U2 受け入れ条件 1・9)。
+    func testSignOutAfterLinkLossWhileRecordingRequestsStop() async throws {
+        let harness = makeHarness()
+        try await harness.driveToRecording()
+        harness.link.emit(.disconnected(.peripheralDisconnected(errorDescription: nil)))
+        XCTAssertEqual(harness.recordingControl.stopRequestCount, 0, "リンク断では止めない")
+
+        signOutAndAssertLinkStopped(harness)
+
+        XCTAssertEqual(harness.recordingControl.stopRequestCount, 1)
+        XCTAssertEqual(harness.useCase.state, .finishing)
     }
 }

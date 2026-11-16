@@ -18,19 +18,60 @@ final class AdapterLinkLifecycleTransitionTests: XCTestCase {
         .disconnected(.peripheralDisconnected(errorDescription: "lost")), .disconnected(.retryLimitExceeded),
     ]
 
-    /// 仕様の「条件が崩れた/リンクが切れた」時の、状態ごとの巻き戻し先と作用です(リンク停止は含まない)。
+    /// 仕様の「稼働条件が崩れた・接続対象が変わった」時の、状態ごとの巻き戻し先と作用です(リンク停止は含まない)。
     ///
     /// 責務: 記録中は停止要求を出して終了へ、終了中は終了のまま、それ以外は待機へ戻り、どの状態でも進行中の処理を取り消して通知を取り下げる期待値を返します。
-    /// - Parameter state: 巻き戻す前の状態。
+    /// リンク断の期待値は `expectedLinkLossTeardown(from:)` で、記録中の扱いが異なります(U2 受け入れ条件 1・9〜11)。
+    /// - Parameters:
+    ///   - state: 巻き戻す前の状態。
+    ///   - reason: 記録中の停止要求に添える理由(仕様 9〜11)。
     /// - Returns: 期待する次の状態と作用。
-    private func expectedTeardown(
-        from state: AdapterLinkSupervisionState
+    private func expectedConditionsLostTeardown(
+        from state: AdapterLinkSupervisionState,
+        reason: AdapterLinkRecordingStopReason
     ) -> (state: AdapterLinkSupervisionState, effects: [AdapterLinkSupervisionEffect]) {
         switch state {
-        case .recording: (.finishing, [.cancelOperations, .dismissNotification, .requestRecordingStop])
+        case .recording: (.finishing, [.cancelOperations, .dismissNotification, .requestRecordingStop(reason)])
         case .finishing: (.finishing, [.cancelOperations, .dismissNotification])
         default: (.standby, [.cancelOperations, .dismissNotification])
         }
+    }
+
+    /// 仕様の「リンクが切れた」時の、記録中以外の状態ごとの巻き戻し先と作用です(リンク停止は含まない)。
+    ///
+    /// 責務: 終了中は終了のまま、それ以外は待機へ戻り、進行中の処理を取り消して通知を取り下げる期待値を返します。
+    /// 記録中は停止を要求せず記録中のまま(U2 受け入れ条件 1)で、`assertRecordingContinuesAfterLinkLoss` で検証するため `nil` を返します。
+    /// - Parameter state: 巻き戻す前の状態。
+    /// - Returns: 期待する次の状態と作用。記録中は `nil`。
+    private func expectedLinkLossTeardown(
+        from state: AdapterLinkSupervisionState
+    ) -> (state: AdapterLinkSupervisionState, effects: [AdapterLinkSupervisionEffect])? {
+        switch state {
+        case .recording: nil
+        case .finishing: (.finishing, [.cancelOperations, .dismissNotification])
+        default: (.standby, [.cancelOperations, .dismissNotification])
+        }
+    }
+
+    /// リンク断の結果を、記録中かどうかで分けて検証します。
+    ///
+    /// 責務: 記録中は記録を続けること、それ以外は期待どおりに巻き戻すことを確認します。
+    /// - Parameters:
+    ///   - result: 検証する遷移結果。
+    ///   - state: 巻き戻す前の状態。
+    ///   - message: 失敗時に添える説明。
+    private func assertLinkLossResult(
+        _ result: AdapterLinkSupervisionTransitionResult,
+        from state: AdapterLinkSupervisionState,
+        _ message: String,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        guard let expected = expectedLinkLossTeardown(from: state) else {
+            A.assertRecordingContinuesAfterLinkLoss(result, from: state, message, file: file, line: line)
+            return
+        }
+        A.assertResult(result, state: expected.state, effects: expected.effects, message, file: file, line: line)
     }
 
     /// 稼働条件を満たさず、リンクも未開始なら何もしません。
@@ -75,17 +116,19 @@ final class AdapterLinkLifecycleTransitionTests: XCTestCase {
     /// 稼働中に条件が崩れたら、全状態でリンクを停止し通知を取り下げ、記録中なら停止を要求します。
     ///
     /// 責務: サインアウト・既定削除・Classic・シリアル・監視停止の各条件で、状態ごとの巻き戻しとリンク停止を確認します。
+    /// 記録中の停止理由は、サインアウト=`accountSignedOut`、既定削除=`connectionTargetLost`、Classic・シリアルへの変更=`superseded`
+    /// (別のアダプターへの置き換え、管理チャットの決定 i)、監視停止=`supervisionStopped` です。
     func testOperatingConditionsLostTearDownEveryStateAndStopLink() {
-        let lostConditions: [AdapterLinkSupervisionConditions] = [
-            F.conditions(isSignedIn: false),
-            F.conditions(defaultAdapterPreference: nil),
-            F.conditions(defaultAdapterPreference: F.classicPreference),
-            F.conditions(defaultAdapterPreference: F.serialPreference),
-            F.conditions(isSupervisionStarted: false),
+        let lostConditions: [(AdapterLinkSupervisionConditions, AdapterLinkRecordingStopReason)] = [
+            (F.conditions(isSignedIn: false), .accountSignedOut),
+            (F.conditions(defaultAdapterPreference: nil), .connectionTargetLost),
+            (F.conditions(defaultAdapterPreference: F.classicPreference), .superseded),
+            (F.conditions(defaultAdapterPreference: F.serialPreference), .superseded),
+            (F.conditions(isSupervisionStarted: false), .supervisionStopped),
         ]
         for state in F.allStates {
-            let expected = expectedTeardown(from: state)
-            for conditions in lostConditions {
+            for (conditions, reason) in lostConditions {
+                let expected = expectedConditionsLostTeardown(from: state, reason: reason)
                 let result = transition.operatingConditionsChanged(from: state, conditions: conditions)
                 A.assertResult(result, state: expected.state, effects: expected.effects + [.stopLink], "\(state)")
                 XCTAssertFalse(result.effects.contains { if case .startLink = $0 { true } else { false } }, "\(state)")
@@ -99,7 +142,7 @@ final class AdapterLinkLifecycleTransitionTests: XCTestCase {
     func testOperatingConditionsSwitchToOtherBLERestartsLinkInEveryState() {
         let conditions = F.conditions(defaultAdapterPreference: F.otherBLEPreference, linkPreference: F.blePreference)
         for state in F.allStates {
-            let expected = expectedTeardown(from: state)
+            let expected = expectedConditionsLostTeardown(from: state, reason: .superseded)
             let result = transition.operatingConditionsChanged(from: state, conditions: conditions)
             A.assertResult(
                 result, state: expected.state, effects: expected.effects + [.stopLink, .prepareNotifications, .startLink(F.otherBLEPreference)], "\(state)"
@@ -171,15 +214,27 @@ final class AdapterLinkLifecycleTransitionTests: XCTestCase {
         }
     }
 
-    /// `ready` からのリンク断では、全状態で通知を取り下げて巻き戻し、リンクは止めません。
+    /// `ready` からのリンク断では、記録中は停止を要求せず記録中のまま、それ以外は通知を取り下げて巻き戻し、リンクは止めません。
     ///
-    /// 責務: 記録中は停止要求して終了へ、終了中は終了のまま、その他は待機へ戻ることを全ての非 `ready` 状態で確認します。
+    /// 責務: 記録中は記録中のまま(取得ループの猶予に任せる)、終了中は終了のまま、その他は待機へ戻ることを全ての非 `ready` 状態で確認します(U2 受け入れ条件 1)。
     func testLinkLostFromReadyTearsDownEveryStateWithoutStoppingLink() {
         for state in F.allStates {
-            let expected = expectedTeardown(from: state)
             for linkState in nonReadyLinkStates {
                 let result = transition.linkStateChanged(to: linkState, from: state, conditions: F.conditions(linkState: .ready))
-                A.assertResult(result, state: expected.state, effects: expected.effects, "\(state) \(linkState)")
+                assertLinkLossResult(result, from: state, "\(state) \(linkState)")
+            }
+        }
+    }
+
+    /// 記録中にリンクが切れた後、非 `ready` どうしの変化が続いても記録中のままです。
+    ///
+    /// 責務: 再接続の手順(接続中→探索中など)の通知で停止要求が出ないことを確認します(U2 受け入れ条件 1)。
+    func testNonReadyChangesAfterLinkLossWhileRecordingKeepRecording() {
+        let recording = AdapterLinkSupervisionState.recording(F.detectedVehicle)
+        for previous in nonReadyLinkStates {
+            for linkState in nonReadyLinkStates where linkState != previous {
+                let result = transition.linkStateChanged(to: linkState, from: recording, conditions: F.conditions(linkState: previous))
+                A.assertRecordingContinuesAfterLinkLoss(result, from: recording, "\(previous) → \(linkState)")
             }
         }
     }
@@ -209,13 +264,12 @@ final class AdapterLinkLifecycleTransitionTests: XCTestCase {
         A.assertIgnored(result, from: .standby)
     }
 
-    /// `tornDown(from:)` は全状態で、通知を取り下げて仕様どおりの巻き戻し先へ移します。
+    /// `linkLost(from:)`(リンクを失ったときの巻き戻し)は全状態で、仕様どおりの巻き戻し先へ移します。
     ///
-    /// 責務: 巻き戻しの公開メソッド単体で、状態ごとの次の状態と作用(リンク停止なし)を確認します。
+    /// 責務: 巻き戻しの公開メソッド単体で、記録中は停止を要求せず記録中のまま、それ以外は状態ごとの次の状態と作用(リンク停止なし)を確認します(U2 受け入れ条件 1)。
     func testTornDownForEveryState() {
         for state in F.allStates {
-            let expected = expectedTeardown(from: state)
-            A.assertResult(transition.tornDown(from: state), state: expected.state, effects: expected.effects, "\(state)")
+            assertLinkLossResult(transition.linkLost(from: state), from: state, "\(state)")
         }
     }
 }

@@ -1,9 +1,10 @@
-#if os(iOS)
 import Foundation
 import ImageIO
 import UniformTypeIdentifiers
 
-/// 記録中表示用の車両写真を縮小し、Widget Extensionから読めるApp Group共有コンテナへ保存するiOS実装です。
+/// 記録中表示用の車両写真を縮小し、Widget Extensionから読めるApp Group共有コンテナへ保存する実装です。
+///
+/// 使うのはiOSの配線だけですが、ActivityKitに依存しないためmacOSの単体テストから保存先ディレクトリを注入して検証できます。
 @MainActor
 final class AppGroupSessionActivityVehiclePhotoStore: SessionActivityVehiclePhotoPort {
     /// 縮小後の長辺のピクセル数です(長辺160pt相当を3倍密度で表す値)。
@@ -107,4 +108,3 @@ final class AppGroupSessionActivityVehiclePhotoStore: SessionActivityVehiclePhot
         }
     }
 }
-#endif

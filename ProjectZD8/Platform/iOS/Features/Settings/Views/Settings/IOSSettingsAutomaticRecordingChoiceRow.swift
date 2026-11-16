@@ -17,13 +17,18 @@ struct IOSSettingsAutomaticRecordingChoiceRow: View {
         Button(action: select) {
             HStack(spacing: IOSSettingsMetrics.choiceRowSpacing) {
                 Image(systemName: choice.systemImageName)
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.system(size: IOSSettingsMetrics.choiceRowIconFontSize, weight: .semibold))
                     .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
                     .frame(width: IOSSettingsMetrics.cardIconSize, height: IOSSettingsMetrics.cardIconSize)
-                    .background(isSelected ? Color.accentColor.opacity(0.12) : Color.primary.opacity(0.055), in: Circle())
+                    .background(
+                        isSelected
+                            ? Color.accentColor.opacity(IOSSettingsMetrics.choiceRowSelectedIconFillOpacity)
+                            : Color.primary.opacity(IOSSettingsMetrics.choiceRowUnselectedIconFillOpacity),
+                        in: Circle()
+                    )
                     .accessibilityHidden(true)
 
-                VStack(alignment: .leading, spacing: 3) {
+                VStack(alignment: .leading, spacing: IOSSettingsMetrics.choiceRowTextSpacing) {
                     Text(LocalizedStringKey(choice.titleKey))
                         .font(.system(.subheadline, design: .rounded, weight: .semibold))
                     Text(LocalizedStringKey(choice.descriptionKey))
@@ -32,7 +37,7 @@ struct IOSSettingsAutomaticRecordingChoiceRow: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
 
-                Spacer(minLength: 4)
+                Spacer(minLength: IOSSettingsMetrics.choiceRowSpacerMinLength)
 
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
                     .font(.title3)
@@ -42,7 +47,9 @@ struct IOSSettingsAutomaticRecordingChoiceRow: View {
             .padding(IOSSettingsMetrics.choiceRowPadding)
             .frame(maxWidth: .infinity, minHeight: IOSSettingsMetrics.choiceRowMinHeight, alignment: .leading)
             .background(
-                isSelected ? Color.accentColor.opacity(0.08) : Color.primary.opacity(0.035),
+                isSelected
+                    ? Color.accentColor.opacity(IOSSettingsMetrics.choiceRowSelectedFillOpacity)
+                    : Color.primary.opacity(IOSSettingsMetrics.choiceRowUnselectedFillOpacity),
                 in: RoundedRectangle(cornerRadius: IOSSettingsMetrics.choiceRowCornerRadius, style: .continuous)
             )
             .contentShape(Rectangle())

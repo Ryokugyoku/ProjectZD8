@@ -299,17 +299,24 @@ final class CreateConnectionSessionAcquisitionManifestUseCaseTests: XCTestCase {
     /// stale generation taskの結果を検証します。
     ///
     /// 責務: 非同期taskがinactive generationだけを返すことを確認します。
+    /// 結果は `AdapterLinkBoundedAwait` の上限付きで待ち、終わらなければ失敗させます。
     /// - Parameter task: staleまたはcancel済みにしたmanifest作成task。
+    @MainActor
     private func assertInactiveGeneration(
-        _ task: Task<ConnectionSessionRawAcquisitionPermission, Error>
+        _ task: Task<ConnectionSessionRawAcquisitionPermission, Error>,
+        file: StaticString = #filePath,
+        line: UInt = #line
     ) async {
-        do {
-            _ = try await task.value
-            XCTFail("inactive generation must not return permission")
-        } catch {
+        guard let outcome = await AdapterLinkBoundedAwait.outcome(of: task, "manifest作成taskの決着", file: file, line: line) else { return }
+        switch outcome {
+        case .success:
+            XCTFail("inactive generation must not return permission", file: file, line: line)
+        case let .failure(error):
             XCTAssertEqual(
                 error as? CreateConnectionSessionAcquisitionManifestError,
-                .inactiveGeneration
+                .inactiveGeneration,
+                file: file,
+                line: line
             )
         }
     }

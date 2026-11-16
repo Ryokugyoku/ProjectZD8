@@ -70,7 +70,15 @@
 			membershipExceptions = (
 				App/Intents/RecordingSessionStopIntentHandlerRegistry.swift,
 				App/Intents/StopRecordingSessionIntent.swift,
+				"Data/Devices/SessionActivity/RecordingSessionActivityAttributes+ActivityAttributes.swift",
+				"Data/Devices/SessionActivity/RecordingSessionActivityAttributes+ContentState.swift",
+				"Data/Devices/SessionActivity/RecordingSessionActivityAttributes+Metric.swift",
+				"Data/Devices/SessionActivity/RecordingSessionActivityAttributes+StatusTone.swift",
+				"Data/Devices/SessionActivity/RecordingSessionActivityAttributes+VehicleLabel.swift",
 				Data/Devices/SessionActivity/RecordingSessionActivityAttributes.swift,
+				Data/Devices/SessionActivity/RecordingSessionLiveActivityMetricFormatter.swift,
+				Data/Devices/SessionActivity/RecordingSessionLiveActivityMetricKind.swift,
+				Data/Devices/SessionActivity/RecordingSessionLiveActivityStatusSymbol.swift,
 				Resources/Localization/Localizable.xcstrings,
 			);
 			target = B7E1A0000000000000000001 /* RecordingSessionLiveActivity */;

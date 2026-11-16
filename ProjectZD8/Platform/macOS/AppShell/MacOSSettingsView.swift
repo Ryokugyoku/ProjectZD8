@@ -17,6 +17,9 @@ struct MacOSSettingsView: View {
     /// スクロール対象として使うアダプター設定カードの識別子です。
     private static let adapterCardID = "macos-settings-adapter-card"
 
+    /// 注目要求を強調表示すべきかの判定です(iOSと共通の純粋型)。
+    private let attentionPolicy = AdapterSettingsAttentionPolicy()
+
     /// 設定画面に表示する現在のConnection選択状態です。
     let state: MacOSSettingsState
 
@@ -251,8 +254,11 @@ struct MacOSSettingsView: View {
         isPending: Bool,
         scrollProxy: ScrollViewProxy
     ) {
-        guard isPending,
-              sequence != handledAdapterAttentionSequence else { return }
+        guard attentionPolicy.shouldPresent(
+            sequence: sequence,
+            isPending: isPending,
+            handledSequence: handledAdapterAttentionSequence
+        ) else { return }
         handledAdapterAttentionSequence = sequence
         send(.adapterAttentionConsumed(sequence))
         scrollProxy.scrollTo(Self.adapterCardID, anchor: .center)
@@ -439,7 +445,7 @@ struct MacOSSettingsView: View {
                         .background(Color.primary.opacity(0.05), in: Capsule())
                 }
 
-                Text(adapterDescription(for: slot))
+                adapterDescription(for: slot)
                     .font(.system(size: 10.5 * metrics.scale))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
@@ -464,14 +470,13 @@ struct MacOSSettingsView: View {
 
     /// アダプタースロットに対応する現在の設定内容を返します。
     ///
-    /// 責務: 1件のアダプタースロットを一覧表示用の設定説明へ変換します。
+    /// 責務: iOSと共通の純粋型 `AdapterSlotSettingsDescription` で説明を決め、アダプター名はそのまま、未選択は文言キーとして描画します。
     /// - Parameter slot: 表示対象のアダプタースロット。
-    /// - Returns: 選択済み名称または未選択を示すローカライズ値。
-    private func adapterDescription(for slot: AdapterConnectionRole) -> LocalizedStringKey {
-        if let adapter = state.selectedAdapters[slot] {
-            LocalizedStringKey(adapter.displayName)
-        } else {
-            "settings.adapter.not_selected"
+    /// - Returns: 選択済み名称または未選択を示す文言。
+    private func adapterDescription(for slot: AdapterConnectionRole) -> Text {
+        switch AdapterSlotSettingsDescription(slot: slot, selectedAdapters: state.selectedAdapters) {
+        case let .adapterName(name): Text(verbatim: name)
+        case let .localizationKey(key): Text(LocalizedStringKey(key))
         }
     }
 }

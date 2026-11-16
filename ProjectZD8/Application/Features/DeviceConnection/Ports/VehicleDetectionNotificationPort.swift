@@ -21,6 +21,12 @@ protocol VehicleDetectionNotificationPort: AnyObject {
     /// - Parameter vin: 読み取ったVIN。読めなかった場合は `nil`。
     func presentRecordingStarted(vin: String?)
 
+    /// 「記録を開始できませんでした」通知を、理由つきで提示します。
+    ///
+    /// 責務: 通知の[記録開始]から記録を始められなかったことと、その理由をユーザーへ知らせます。
+    /// - Parameter reason: 始められなかった理由。
+    func presentRecordingStartFailed(reason: AdapterLinkRecordingStartFailureReason)
+
     /// 提示中の監視通知を取り下げます。
     ///
     /// 責務: 車両検知通知と記録開始通知を通知センターから取り除きます。

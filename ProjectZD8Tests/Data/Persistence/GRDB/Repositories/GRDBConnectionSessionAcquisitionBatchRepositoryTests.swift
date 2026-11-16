@@ -199,7 +199,7 @@ final class GRDBConnectionSessionAcquisitionBatchRepositoryTests: XCTestCase {
             startedAt: Date(timeIntervalSince1970: 1)
         )
         try fixture.sessions.save(otherSession)
-        try fixture.sessions.append(rawObservation(), to: otherSession.id)
+        try GRDBConnectionSessionRawLogTestAppender(queue: fixture.queue).append(rawObservation(), to: otherSession.id)
 
         XCTAssertThrowsError(
             try fixture.queue.write { database in

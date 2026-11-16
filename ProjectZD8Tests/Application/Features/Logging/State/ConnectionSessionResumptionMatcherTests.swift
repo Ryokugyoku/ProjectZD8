@@ -41,6 +41,16 @@ final class ConnectionSessionResumptionMatcherTests: XCTestCase {
         }
     }
 
+    /// 車両が一致すれば、猶予の1ミリ秒前は続け、時計がわずかに巻き戻った場合は続けません。
+    ///
+    /// 責務: 猶予の直前と、ごく小さい負の経過の境界を確認します(仕様 2・7)。
+    func testGraceBoundaryJustBeforeGraceAndSlightBackwardClock() {
+        for id in [Optional(vehicle), nil] {
+            XCTAssertTrue(canResume(id, id, after: 179.999))
+            XCTAssertFalse(canResume(id, id, after: -0.001))
+        }
+    }
+
     /// 判定を呼びます。
     ///
     /// 責務: 最後のcommitから指定秒後の時点で続行判定を返します。

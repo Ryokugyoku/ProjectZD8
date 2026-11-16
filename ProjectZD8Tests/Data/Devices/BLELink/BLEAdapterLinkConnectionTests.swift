@@ -5,6 +5,7 @@ import XCTest
 /// `BLEAdapterLink` の取得・スキャン・接続・再接続の手順と状態遷移列を検証します(受け入れ条件1・2・5・13)。
 @MainActor
 final class BLEAdapterLinkConnectionTests: XCTestCase {
+    /// 実物のリンクとフェイクを組み合わせた準備の型です。
     private typealias Harness = BLEAdapterLinkTestHarness
 
     /// 条件1: 取得で見つかればスキャンせず retrieve → connect の順に呼び `connecting` になります。

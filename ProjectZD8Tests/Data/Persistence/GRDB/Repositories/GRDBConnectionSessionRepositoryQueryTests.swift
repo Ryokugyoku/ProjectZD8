@@ -300,8 +300,8 @@ final class GRDBConnectionSessionRepositoryQueryTests: XCTestCase {
                     vehicle: vehicle
                 )
             )
-            try fixtures.repository.append(GRDBConnectionSessionRepositoryFixtures.observation(payload: [0xA0]), to: id)
-            try fixtures.repository.append(GRDBConnectionSessionRepositoryFixtures.observation(payload: [0xA1]), to: id)
+            try fixtures.rawAppender.append(GRDBConnectionSessionRepositoryFixtures.observation(payload: [0xA0]), to: id)
+            try fixtures.rawAppender.append(GRDBConnectionSessionRepositoryFixtures.observation(payload: [0xA1]), to: id)
         }
 
         let extracted = try fixtures.repository.entries(for: vehicle.id, accountIdentifier: "account")

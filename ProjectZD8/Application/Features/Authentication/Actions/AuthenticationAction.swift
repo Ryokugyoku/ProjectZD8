@@ -3,6 +3,9 @@ enum AuthenticationAction: Equatable {
     /// 認証入口が表示され、保存済みセッションの確認を要求しました。
     case appeared
 
+    /// アプリが前面へ戻りました。サインイン確認が照会の失敗のまま解決していなければ、直ちに再確認し、時間経過の再確認の回数を取り直します。
+    case foregroundEntered
+
     /// ユーザーがログイン手続きの開始を要求しました。
     case loginTapped
 

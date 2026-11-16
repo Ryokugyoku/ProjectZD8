@@ -56,7 +56,7 @@ final class AdapterLinkExternalAdapterUseTransitionTests: XCTestCase {
             XCTAssertEqual(result.state, .standby, "\(state)")
             XCTAssertTrue(result.effects.contains(.cancelOperations), "\(state)")
             XCTAssertTrue(result.effects.contains(.dismissNotification), "\(state)")
-            XCTAssertFalse(result.effects.contains(.requestRecordingStop), "\(state)")
+            XCTAssertFalse(AdapterLinkSupervisionResultAssertions.containsRecordingStopRequest(result.effects), "\(state)")
             assertNoLinkStopOrNewWork(result.effects, "\(state)")
         }
     }
@@ -68,7 +68,7 @@ final class AdapterLinkExternalAdapterUseTransitionTests: XCTestCase {
         let result = transition.began(from: .recording(F.detectedVehicle))
 
         XCTAssertEqual(result.state, .finishing)
-        XCTAssertEqual(result.effects.filter { $0 == .requestRecordingStop }.count, 1)
+        XCTAssertEqual(result.effects.filter { $0 == .requestRecordingStop(.superseded) }.count, 1)
         XCTAssertTrue(result.effects.contains(.dismissNotification))
         assertNoLinkStopOrNewWork(result.effects, "recording")
     }
@@ -80,7 +80,7 @@ final class AdapterLinkExternalAdapterUseTransitionTests: XCTestCase {
         let result = transition.began(from: .finishing)
 
         XCTAssertEqual(result.state, .finishing)
-        XCTAssertFalse(result.effects.contains(.requestRecordingStop))
+        XCTAssertFalse(AdapterLinkSupervisionResultAssertions.containsRecordingStopRequest(result.effects))
         assertNoLinkStopOrNewWork(result.effects, "finishing")
     }
 

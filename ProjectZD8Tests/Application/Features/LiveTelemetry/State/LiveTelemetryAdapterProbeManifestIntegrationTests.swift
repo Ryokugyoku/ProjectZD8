@@ -18,7 +18,7 @@ final class LiveTelemetryAdapterProbeManifestIntegrationTests: XCTestCase {
     /// 責務: テストごとに取得Taskを残さないよう上限付きで停止します。
     override func tearDown() async throws {
         if let loop {
-            _ = await LiveTelemetryBoundedWaiter.value("取得ループの停止") { await loop.stop() }
+            _ = await LiveTelemetryBoundedWaiter.value("取得ループの停止") { await loop.stop(reason: .userDisconnected) }
         }
         deadlineWaiter.releaseAll()
         loop = nil

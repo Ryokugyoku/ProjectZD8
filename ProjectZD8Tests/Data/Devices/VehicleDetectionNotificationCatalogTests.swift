@@ -42,6 +42,52 @@ final class VehicleDetectionNotificationCatalogTests: XCTestCase {
         XCTAssertNotEqual(withoutVIN.identifier, catalog.vehicleDetected(vin: nil).identifier)
     }
 
+    /// 「記録を開始できませんでした」通知は、理由によらず同じ固定識別子で、検知・開始の通知とは別の識別子です。操作は持たず `.active` です。
+    ///
+    /// 責務: 3つの理由で識別子が同じ・空でない・他の通知と異なり、カテゴリなし・割り込みレベル `.active`・本文が理由の本文キーであることを確認します(U4 受け入れ条件 7)。
+    func testRecordingStartFailedUsesSeparateFixedIdentifierPerReason() {
+        let contents = AdapterLinkRecordingStartFailureReason.allCases.map { catalog.recordingStartFailed(reason: $0) }
+        XCTAssertEqual(Set(contents.map(\.identifier)).count, 1)
+        let identifier = contents[0].identifier
+        XCTAssertFalse(identifier.isEmpty)
+        XCTAssertNotEqual(identifier, catalog.vehicleDetected(vin: nil).identifier)
+        XCTAssertNotEqual(identifier, catalog.recordingStarted(vin: nil).identifier)
+        XCTAssertEqual(Set(contents.map(\.titleKey)).count, 1)
+        for (reason, content) in zip(AdapterLinkRecordingStartFailureReason.allCases, contents) {
+            XCTAssertNil(content.categoryIdentifier, "\(reason)")
+            XCTAssertEqual(content.interruptionLevel, .active, "\(reason)")
+            XCTAssertEqual(content.bodyKey, reason.bodyKey)
+            XCTAssertEqual(content.bodyArguments, [])
+        }
+    }
+
+    /// 失敗の通知は、監視の取り下げ(全識別子)にも、検知・開始の通知の置き換えにも含まれず、監視の取り下げで消えません。
+    ///
+    /// 責務: `allIdentifiers` と、検知・開始の通知を出す時に取り除く識別子に、失敗の通知の識別子が無いことを確認します(U4 受け入れ条件 7)。
+    func testRecordingStartFailedIsNotDismissedBySupervisionNotifications() {
+        let failed = catalog.recordingStartFailed(reason: .vehicleNotDetected).identifier
+        XCTAssertFalse(VehicleDetectionNotificationCatalog.allIdentifiers.contains(failed))
+        for content in [catalog.vehicleDetected(vin: nil), catalog.recordingStarted(vin: Self.vin)] {
+            XCTAssertFalse(catalog.identifiersReplaced(by: content).contains(failed), content.identifier)
+        }
+    }
+
+    /// 失敗の通知は、検知・開始の通知を置き換えません(取り除く識別子が無い)。検知・開始の通知は互いを置き換えます。
+    ///
+    /// 責務: 失敗の通知(理由ごと)の置き換え対象が `[]`、検知の通知は開始の通知だけを、開始の通知は検知の通知だけを置き換えることを確認します
+    /// (U8 R2。失敗通知は同時に有効な検知通知を取り下げない)。
+    func testIdentifiersReplacedKeepsDetectionWhenPresentingFailure() {
+        for reason in AdapterLinkRecordingStartFailureReason.allCases {
+            XCTAssertEqual(catalog.identifiersReplaced(by: catalog.recordingStartFailed(reason: reason)), [], "\(reason)")
+        }
+        XCTAssertEqual(
+            catalog.identifiersReplaced(by: catalog.vehicleDetected(vin: Self.vin)), [VehicleDetectionNotificationCatalog.recordingStartedIdentifier]
+        )
+        XCTAssertEqual(
+            catalog.identifiersReplaced(by: catalog.recordingStarted(vin: nil)), [VehicleDetectionNotificationCatalog.vehicleDetectedIdentifier]
+        )
+    }
+
     /// [記録開始]操作の選択だけを記録開始として扱います。
     ///
     /// 責務: 監視カテゴリの[記録開始]操作は `true`、本文タップ・閉じる操作・別カテゴリは `false` であることを確認します。
@@ -67,6 +113,7 @@ final class VehicleDetectionNotificationCatalogTests: XCTestCase {
     func testLocalizationKeysExistWithNonEmptyJapaneseValues() throws {
         let japanese = try Self.japaneseValues()
         let contents = [nil, Self.vin].flatMap { [catalog.vehicleDetected(vin: $0), catalog.recordingStarted(vin: $0)] }
+            + AdapterLinkRecordingStartFailureReason.allCases.map { catalog.recordingStartFailed(reason: $0) }
         var keys = [VehicleDetectionNotificationCatalog.startRecordingActionTitleKey]
         keys += contents.flatMap { [$0.titleKey, $0.bodyKey] }
         for key in keys {

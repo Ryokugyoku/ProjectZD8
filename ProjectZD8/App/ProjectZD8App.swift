@@ -43,6 +43,9 @@ struct ProjectZD8App: App {
     /// 未登録車両の警告を保持するモデルです。
     @State private var unassignedVINWarningModel: UnassignedObservedVINWarningModel
 
+    /// 車両を特定できなかったログの警告と紐付けを保持するモデルです。
+    @State private var vehicleUnknownSessionModel: VehicleUnknownSessionModel
+
     /// 起動・認証状態・既定アダプター設定・前面復帰を常駐リンク監視へ伝える型です。
     private let adapterLinkSupervision: IOSAdapterLinkSupervisionDriver
 
@@ -83,6 +86,7 @@ struct ProjectZD8App: App {
         #if os(iOS)
         _automaticRecordingModel = State(initialValue: root.automaticRecording)
         _unassignedVINWarningModel = State(initialValue: root.unassignedVINWarning)
+        _vehicleUnknownSessionModel = State(initialValue: root.vehicleUnknownSessions)
         adapterLinkSupervision = root.adapterLinkSupervision
         root.adapterLinkSupervision.launch()
         sessionActivity = root.sessionActivity
@@ -109,6 +113,7 @@ struct ProjectZD8App: App {
                         startVehicleConnection: startVehicleConnection,
                         automaticRecordingModel: automaticRecordingModel,
                         unassignedVINWarningModel: unassignedVINWarningModel,
+                        vehicleUnknownSessionModel: vehicleUnknownSessionModel,
                         accountDeletionPhase: authenticationModel.state.accountDeletionPhase,
                         accountDeletionFailure: authenticationModel.state.accountDeletionFailure,
                         sendAuthenticationAction: authenticationModel.send
@@ -170,15 +175,22 @@ struct ProjectZD8App: App {
     }
 
     /// バックグラウンド移行時に保存待ちの取得記録を保存させ、操作可能へ戻ったとき取得の一時停止へ復帰の機会を伝え、
-    /// iOSでは常駐リンク監視と記録中のLive Activityへ前面復帰を伝え、認証済みセッション概要と整備記録を再同期します。
+    /// 認証へ前面復帰(確認できなかったサインインの再確認)を、iOSでは常駐リンク監視へ前面復帰・背面移行を、
+    /// 記録中のLive Activityへ前面復帰を伝え、認証済みセッション概要と整備記録を再同期します。
     ///
     /// 責務: 1件のScene段階変更を取得記録のflush要求・取得ループの起床通知・前面復帰の通知、
     /// または認証済み接続履歴と整備記録の更新要求へ変換します。
     /// - Parameter phase: 現在のScene段階。
     private func handleScenePhaseChange(_ phase: ScenePhase) {
-        if phase == .background { liveTelemetryModel.send(.backgroundTransitionOccurred) }
+        if phase == .background {
+            liveTelemetryModel.send(.backgroundTransitionOccurred)
+            #if os(iOS)
+            adapterLinkSupervision.appDidEnterBackground()
+            #endif
+        }
         guard phase == .active else { return }
         liveTelemetryModel.send(.foregroundTransitionOccurred)
+        authenticationModel.send(.foregroundEntered)
         #if os(iOS)
         adapterLinkSupervision.appDidBecomeActive()
         sessionActivity.appDidBecomeActive()
@@ -221,14 +233,21 @@ struct ProjectZD8App: App {
         unassignedVINWarningModel.send(
             .accountIdentifierChanged(authenticationModel.state.session?.userIdentifier)
         )
+        vehicleUnknownSessionModel.send(
+            .accountIdentifierChanged(authenticationModel.state.session?.userIdentifier)
+        )
         #endif
     }
 
     /// ログアウト状態へ変わったときに設定スコープと端末内表示状態を初期化します。
     ///
     /// 責務: 認証段階の変化をアカウント設定監視解除とプラットフォーム設定状態の再生成へ反映します。
+    /// 進行中の取得は `AuthenticationAcquisitionEndPolicy` が決めた理由(サインアウトなら `accountSignedOut`)で終えます。
     /// - Parameter phase: Authenticationが確定した新しい認証段階。
     private func handleAuthenticationPhaseChange(_ phase: AuthenticationPhase) {
+        if let reason = AuthenticationAcquisitionEndPolicy().endReason(forChangeTo: phase) {
+            liveTelemetryModel.send(.endRequested(reason))
+        }
         if phase == .signedIn {
             #if os(iOS)
             automaticRecordingModel.send(.signInStateChanged(isSignedIn: true))
@@ -236,7 +255,6 @@ struct ProjectZD8App: App {
             return
         }
         guard phase == .signedOut else { return }
-        liveTelemetryModel.send(.stopRequested)
         connectionSessionLifecycleModel.send(.accountIdentifierChanged(nil))
         connectionHistoryModel.send(.accountIdentifierChanged(nil))
         accountSettingsModel.send(.accountIdentifierChanged(nil))
@@ -245,6 +263,7 @@ struct ProjectZD8App: App {
         #if os(iOS)
         automaticRecordingModel.send(.signInStateChanged(isSignedIn: false))
         unassignedVINWarningModel.send(.accountIdentifierChanged(nil))
+        vehicleUnknownSessionModel.send(.accountIdentifierChanged(nil))
         iOSSettingsModel = IOSApplicationComposition.makeSettingsPresentationModel()
         #elseif os(macOS)
         macOSSettingsModel = MacOSApplicationComposition.makeSettingsPresentationModel()

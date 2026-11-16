@@ -59,6 +59,8 @@ localRawState == removed の解析要求
      -> 既存の時系列decodeへ進む
 ```
 
+> 追記(2026-11-16): 上の取得側の流れは本文の調査時点のもの。`ReadMajorOBDPIDsUseCase` の一括読取(`execute`)と Raw を1行ずつ追記する経路は後に削除され、現在は取得ループ(`LiveTelemetryAcquisitionLoop`)と取得記録(`ConnectionSessionAcquisitionRecorder`)がチャンク単位で保存する。
+
 CloudKit Raw Assetの現在形式は、決定的JSON（key sort、日時はmilliseconds since 1970）で、`sessionID`、`accountIdentifier`、`entries` を含むpayload format version 2である。各entryはRawテーブルと同じ6フィールドを持つ。セッションの車両、開始・終了、距離、取得端末、Raw概要は別の `ConnectionSessionMetadata` recordに符号化される。
 
 `localRawState == removed` かつDB上で `cloudSyncState == uploaded`、非空のManifestを持つことは復元候補を示すが、CloudKit上のAssetが現存しDigest検証に成功するまでは「復元可能」と断定できない。`pending` / `failed` のままlocal Rawもない状態、Manifest不在、record削除、account不一致、version不一致、Digest不一致、sequence欠損は利用不能または復元失敗となる。

@@ -2,6 +2,12 @@
 ///
 /// 一時停止中は通知(フォアグラウンド復帰・リンク復帰)に加え、`AcquisitionGracePeriodPolicy.retryIntervalNanoseconds`
 /// ごとに復帰を試します。車両の無応答やシリアル接続のように通知が来ない場合も、猶予内の復帰を検知するためです。
+/// 回復段階の最中に届いたリンク復帰は通り道が閉じていて失われるため、一時停止に入る時点のリンク可用性を参照し、
+/// 使えると分かっていれば待たずに1回試します(`LiveTelemetryPauseWakeEvaluator.entryReason(for:linkAvailability:)`)。
+///
+/// 猶予の起点は一時停止に入った時点ではなく最後に正応答を受信した時点で、判定は `LiveTelemetryReceiveGrace` に任せます。
+/// 回復段階でも一時停止中でも、試行を始める前に期限を過ぎていれば試行せずに猶予切れとし、試行が成功した場合も
+/// 成功が確定した時点の経過で判定します。一時停止に入る時点で既に期限を過ぎていれば、試行も待機もせずに猶予切れとします。
 ///
 /// 回復段階の進め方は `LiveTelemetryRecoveryProgress`(`AcquisitionStallPolicy`)、一時停止中の判定は
 /// `LiveTelemetryPauseWakeEvaluator`(`AcquisitionGracePeriodPolicy`)に任せ、この型は副作用の順序づけだけを行います。
@@ -49,40 +55,92 @@ nonisolated struct LiveTelemetryAcquisitionRecovery: Sendable {
 
     /// 回復段階を順に試し、使い切ったら一時停止して復帰を待ちます。
     ///
-    /// 責務: 段階ごとの試行と段階の変化の通知を行い、復帰または猶予切れで返ります。
+    /// 責務: 回復段階で決着しなければ、期限を過ぎていないことを確かめてから一時停止へ移ります。
     /// - Parameters:
     ///   - cause: 途切れの原因。
+    ///   - grace: 最後の受信からの猶予。
     ///   - probe: 復帰の確認に送る定義。`nil` の場合は回復操作の成功だけで復帰とします。
     ///   - endpoint: 取得に使っているOBD終端。
     ///   - channel: 一時停止中の起床理由を受け取る通り道。
+    ///   - linkAvailability: 一時停止に入る時点のリンク可用性を返す処理。
     ///   - report: 段階の変化を購読者へ流す処理。
     /// - Returns: 復帰した場合は新しい区間の開始理由、猶予切れの場合は `.expired`。
     /// - Throws: 取消された場合は `CancellationError`。
     func recover(
         from cause: LiveTelemetryInterruptionCause,
+        grace: LiveTelemetryReceiveGrace,
         probe: OBDPIDDefinition?,
         endpoint: OBDConnectionEndpoint,
         channel: LiveTelemetryPauseWakeChannel,
+        linkAvailability: @Sendable () async -> LiveTelemetryLinkAvailability,
         report: @Sendable (LiveTelemetryAcquisitionPhase) -> Void
     ) async throws -> Outcome {
+        if let outcome = try await runStages(after: cause, grace: grace, probe: probe, endpoint: endpoint, report: report) {
+            return outcome
+        }
+        let pausedAt = clock.nowNanoseconds()
+        guard !grace.isExpired(nowNanoseconds: pausedAt) else { return .expired }
+        let window = LiveTelemetryPauseWindow(pausedAtNanoseconds: pausedAt, grace: grace)
+        let entryReason = wakeEvaluator.entryReason(for: cause, linkAvailability: await linkAvailability())
+        return try await pause(
+            after: cause,
+            window: window,
+            entryReason: entryReason,
+            probe: probe,
+            endpoint: endpoint,
+            channel: channel,
+            report: report
+        )
+    }
+
+    /// 回復段階を順に試します。
+    ///
+    /// 責務: 各試行の前に期限を確かめ、過ぎていれば試行せずに猶予切れとし、成功したら確定時点の経過で復帰か猶予切れかを決めます。
+    /// - Parameters:
+    ///   - cause: 途切れの原因。
+    ///   - grace: 最後の受信からの猶予。
+    ///   - probe: 復帰の確認に送る定義。
+    ///   - endpoint: 取得に使っているOBD終端。
+    ///   - report: 段階の変化を購読者へ流す処理。
+    /// - Returns: 復帰または猶予切れで決着した結果。段階を使い切った場合は `nil`。
+    /// - Throws: 取消された場合は `CancellationError`。
+    private func runStages(
+        after cause: LiveTelemetryInterruptionCause,
+        grace: LiveTelemetryReceiveGrace,
+        probe: OBDPIDDefinition?,
+        endpoint: OBDConnectionEndpoint,
+        report: @Sendable (LiveTelemetryAcquisitionPhase) -> Void
+    ) async throws -> Outcome? {
         var progress = LiveTelemetryRecoveryProgress()
         while true {
             try Task.checkCancellation()
+            guard !grace.isExpired(nowNanoseconds: clock.nowNanoseconds()) else { return .expired }
             report(.recovering(cause: cause, stage: progress.stage, attempt: progress.attempt))
             if try await attempt(progress.stage, probe: probe, endpoint: endpoint) {
-                return .resumed(.reconnected)
+                return outcomeOfSuccess(within: grace)
             }
-            if progress.recordFailure() == .enterGracePeriod { break }
+            if progress.recordFailure() == .enterGracePeriod { return nil }
         }
-        return try await pause(after: cause, probe: probe, endpoint: endpoint, channel: channel, report: report)
+    }
+
+    /// 復帰の試行が成功した時点で、猶予内かどうかから結果を決めます。
+    ///
+    /// 責務: 成功が確定した時点の単調時計で最後の受信からの経過を判定し、猶予内なら復帰、超えていれば猶予切れを返します。
+    /// - Parameter grace: 最後の受信からの猶予。
+    /// - Returns: 猶予内(ちょうど3分を含む)なら `.resumed(.reconnected)`、超えたら `.expired`。
+    private func outcomeOfSuccess(within grace: LiveTelemetryReceiveGrace) -> Outcome {
+        grace.isExpired(nowNanoseconds: clock.nowNanoseconds()) ? .expired : .resumed(.reconnected)
     }
 
     /// 一時停止に入り、猶予内の復帰の機会を待ちます。
     ///
     /// 責務: 起床理由ごとに猶予を判定し、復帰の機会(通知・定期試行の時刻)には回復を1回試し、待ちが早く返れば待ち直します。
     /// 試行の後は契機にかかわらず次の定期試行を1間隔後に予定し、回復操作がすぐ失敗しても間隔を空けます。
+    /// 入った時点の起床理由があれば、通り道を開いた直後に最初の理由として処理させます。
     /// - Parameters:
     ///   - cause: 途切れの原因。
+    ///   - window: 一時停止の開始時点(定期試行の起点)と最後の受信からの猶予。
+    ///   - entryReason: 一時停止に入った時点で処理させる起床理由。無ければ `nil`。
     ///   - probe: 復帰の確認に送る定義。
     ///   - endpoint: 取得に使っているOBD終端。
     ///   - channel: 一時停止中の起床理由を受け取る通り道。
@@ -91,15 +149,18 @@ nonisolated struct LiveTelemetryAcquisitionRecovery: Sendable {
     /// - Throws: 取消された場合は `CancellationError`。
     private func pause(
         after cause: LiveTelemetryInterruptionCause,
+        window initialWindow: LiveTelemetryPauseWindow,
+        entryReason: LiveTelemetryPauseWakeReason?,
         probe: OBDPIDDefinition?,
         endpoint: OBDConnectionEndpoint,
         channel: LiveTelemetryPauseWakeChannel,
         report: @Sendable (LiveTelemetryAcquisitionPhase) -> Void
     ) async throws -> Outcome {
-        var window = LiveTelemetryPauseWindow(pausedAtNanoseconds: clock.nowNanoseconds())
+        var window = initialWindow
         let reasons = channel.open()
         defer { channel.close() }
         report(.paused(cause: cause))
+        if let entryReason { channel.send(entryReason) }
         var deadline = arm(.deadlineReached, until: window.deadlineNanoseconds, channel: channel)
         var retry = arm(.retryDue, until: window.nextRetryNanoseconds, channel: channel)
         defer {
@@ -120,12 +181,10 @@ nonisolated struct LiveTelemetryAcquisitionRecovery: Sendable {
                 continue
             case let .attemptResume(stage):
                 retry.cancel()
-                let resumed = try await attempt(stage, probe: probe, endpoint: endpoint)
-                let endedAt = clock.nowNanoseconds()
-                if resumed {
-                    return window.decision(nowNanoseconds: endedAt) == .continueWaiting ? .resumed(.reconnected) : .expired
+                if try await attempt(stage, probe: probe, endpoint: endpoint) {
+                    return outcomeOfSuccess(within: window.grace)
                 }
-                window.scheduleNextRetry(afterAttemptEndedAt: endedAt)
+                window.scheduleNextRetry(afterAttemptEndedAt: clock.nowNanoseconds())
                 retry = arm(.retryDue, until: window.nextRetryNanoseconds, channel: channel)
             }
         }

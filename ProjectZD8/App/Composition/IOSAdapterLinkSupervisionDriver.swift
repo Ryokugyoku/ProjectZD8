@@ -1,7 +1,7 @@
 #if os(iOS)
 import Observation
 
-/// アプリ側の事実(起動・認証状態・既定アダプター設定・前面復帰)を常駐リンク監視の入力へ伝えます。
+/// アプリ側の事実(起動・認証状態・既定アダプター設定・前面復帰・背面移行)を常駐リンク監視の入力へ伝えます。
 ///
 /// 稼働条件の判断は `AdapterLinkSupervisionUseCase` に任せ、この型は事実を対応する入力へ写すだけです。
 /// 認証状態は画面の表示を待たずに観測するため、バックグラウンド起動・状態復元でも伝わります。
@@ -16,11 +16,8 @@ final class IOSAdapterLinkSupervisionDriver {
     /// サインイン中アカウントの識別子(サインアウトでは `nil`)を記録側へ伝える処理です。
     private let accountIdentifierDidChange: @MainActor (String?) -> Void
 
-    /// 最後に伝えた認証段階です。同じ段階の再通知を省くために使います。
-    private var lastAuthenticationPhase: AuthenticationPhase?
-
-    /// 最後に伝えたアカウント識別子です。
-    private var lastAccountIdentifier: String?
+    /// 認証状態から監視と記録側へ伝える指示を決める純粋型です。同じ段階・同じ識別子の再通知を省きます。
+    private var authenticationRelay = AdapterLinkSupervisionAuthenticationRelay()
 
     /// 常駐リンク監視と認証状態の持ち主を固定して生成します。
     ///
@@ -56,6 +53,13 @@ final class IOSAdapterLinkSupervisionDriver {
         supervision.appDidBecomeActive()
     }
 
+    /// アプリが背面へ移ったこと(scenePhase が background)を伝えます。
+    ///
+    /// 責務: 背面移行を監視の入力へ写します(前面かどうかを監視の稼働条件にするため)。
+    func appDidEnterBackground() {
+        supervision.appDidEnterBackground()
+    }
+
     /// 既定アダプター設定が保存・削除・変更されたことを伝えます。
     ///
     /// 責務: 設定変更を監視の入力へ写します(監視が保存先から読み直します)。
@@ -80,23 +84,18 @@ final class IOSAdapterLinkSupervisionDriver {
 
     /// 現在の認証状態を監視と記録側へ伝えます。
     ///
-    /// 責務: 段階が変わった時だけサインイン有無を監視へ伝え、サインイン/サインアウトのアカウント識別子を記録側へ伝えます。
-    /// サインアウト(アカウント削除・他端末からのログアウトを含む)では既定アダプター設定が消えている場合があるので読み直させます。
+    /// 責務: 認証状態を `AdapterLinkSupervisionAuthenticationRelay` へ渡し、返った指示(識別子の変化・サインイン有無・
+    /// 既定アダプター設定の読み直し)だけを記録側と監視へ写します。
     private func applyAuthenticationState() {
         let state = authentication.state
-        let accountIdentifier: String? = switch state.phase {
-        case .signedIn: state.session?.userIdentifier
-        case .signedOut: nil
-        default: lastAccountIdentifier
+        let instruction = authenticationRelay.apply(phase: state.phase, userIdentifier: state.session?.userIdentifier)
+        if let change = instruction.accountIdentifierChange {
+            accountIdentifierDidChange(change.accountIdentifier)
         }
-        if accountIdentifier != lastAccountIdentifier {
-            lastAccountIdentifier = accountIdentifier
-            accountIdentifierDidChange(accountIdentifier)
+        if let isSignedIn = instruction.isSignedIn {
+            supervision.authenticationDidChange(isSignedIn: isSignedIn)
         }
-        guard state.phase != lastAuthenticationPhase else { return }
-        lastAuthenticationPhase = state.phase
-        supervision.authenticationDidChange(isSignedIn: state.phase == .signedIn)
-        if state.phase == .signedOut {
+        if instruction.reloadsDefaultAdapterPreference {
             supervision.defaultAdapterPreferenceDidChange()
         }
     }

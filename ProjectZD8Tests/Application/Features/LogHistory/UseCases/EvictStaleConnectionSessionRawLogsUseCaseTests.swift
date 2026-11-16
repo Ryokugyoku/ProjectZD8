@@ -78,14 +78,6 @@ private final class EvictionRepository: ConnectionSessionRepository, ConnectionS
     /// - Returns: 初期化時に保持したセッション一覧。
     func sessions(for accountIdentifier: String) throws -> [ConnectionSession] { storedSessions }
 
-    /// このテストではRaw追記を変更なしで受け付けます。
-    ///
-    /// 責務: テスト対象外のRaw追記要求を満たします。
-    /// - Parameters:
-    ///   - observation: 使用しないRaw応答。
-    ///   - sessionID: 使用しないセッションID。
-    func append(_ observation: OBDRawResponseObservation, to sessionID: ConnectionSessionID) throws {}
-
     /// このテストでは空のRawログを返します。
     ///
     /// 責務: テスト対象外のRaw照会要求を満たします。

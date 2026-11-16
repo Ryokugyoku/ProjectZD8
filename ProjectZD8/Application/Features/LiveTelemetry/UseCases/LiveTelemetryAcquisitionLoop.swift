@@ -8,6 +8,8 @@ import Foundation
 ///
 /// 状態遷移: 取得中 → (途切れ) 回復中(段階と試行回数) → (段階を使い切る) 一時停止(猶予待ち) →
 /// 復帰して取得中へ戻る、または猶予切れで終了。停止の指示(取消)はどの状態からでも即座に終了します。
+/// 猶予(3分)は最後に正応答を受信した時点から数え、回復中・一時停止中のどちらで超えても猶予切れとして、
+/// 最後に受信した実時刻を終了時刻にします。
 /// 途切れの判定は要求1件の結果を受けるたびに `LiveTelemetryReceiveTracker`(単調時計と `AcquisitionStallPolicy`)で行い、
 /// 回復と一時停止は `LiveTelemetryAcquisitionRecovery` が行います。一時停止中だけは、猶予切れの検知と
 /// 10秒ごとの定期的な復帰の試行のために `LiveTelemetryDeadlineWaitPort` の待ちを使います(要求の間に待機を挟まない方針の例外)。
@@ -28,6 +30,13 @@ import Foundation
 /// - `notify` は一時停止中だけ起床理由を取得Taskへ渡し、それ以外の状態では捨てます(取得中は要求の結果ごとに、
 ///   回復中は回復操作の完了ごとに判定するためです)。リンク復帰と猶予切れの期限が重なった場合は、届いた順に
 ///   処理し、どちらでも先に単調時計で猶予を判定します。猶予内(ちょうど3分を含む)なら復帰を試します。
+///   リンク復帰・リンク断の通知は状態にかかわらず `LiveTelemetryLinkAvailability` として覚え、回復段階の最中に
+///   届いたリンク復帰も、一時停止に入った時点でリンクが使えると分かっていれば待たずに復帰を試させます。
+/// - 停止の理由は `LiveTelemetryStopReasonRegistry` で世代ごとに覚えます。`registerStopReason` は取得Taskの取り消しより先に
+///   同期的に結び付けるための入口で、`stop(reason:)` も取り消しの前に結び付けます。新しい世代の `start` で取り消された前の世代は
+///   置き換え(`superseded`)です。理由の無い世代はユーザー切断として記録を終えます。1世代の取得を終えた時に、その世代以前の
+///   (取得が始まらず取り出されなかった世代を含む)理由を消します。取得記録の終了原因は
+///   `LiveTelemetryAcquisitionTermination.sessionEndReason(stoppedFor:)` でその理由から決めます。
 actor LiveTelemetryAcquisitionLoop {
     /// 1件ずつ要求を送る読取部品です。
     private let reader: OBDPIDSingleRequestReader
@@ -55,6 +64,10 @@ actor LiveTelemetryAcquisitionLoop {
     private var runningGeneration: UInt?
     /// flushに失敗した世代です。
     private var flushFailedGeneration: UInt?
+    /// 世代ごとの停止の理由です。取得Taskの取り消しより先に同期的に結び付けられます。
+    private let stopReasons = LiveTelemetryStopReasonRegistry()
+    /// 最後に受けたリンク可用性の通知から分かるリンクの状態です。
+    private var linkAvailability = LiveTelemetryLinkAvailability.unknown
 
     /// 取得境界、評価部品、方針、記録境界、clockを固定します。
     ///
@@ -97,14 +110,18 @@ actor LiveTelemetryAcquisitionLoop {
     /// 新しい世代の取得を始め、その出来事のストリームを返します。
     ///
     /// 責務: 前の世代を取り消し、その終了後に新しい世代の取得Taskを始めます。
-    /// ストリームの購読をやめると取得Taskを取り消します。
+    /// 前の取得で覚えたリンク可用性は引き継がず不明へ戻します。ストリームの購読をやめると取得Taskを取り消します。
     /// - Parameter input: 世代、取得対象定義、capability、終端。
     /// - Returns: 取得対象の確定、数値化した観測、終了理由を流すストリーム。
     func start(_ input: LiveTelemetryAcquisitionLoopInput) -> AsyncStream<LiveTelemetryAcquisitionEvent> {
         let previous = runningTask
+        if let previousGeneration = runningGeneration, previous != nil {
+            stopReasons.register(.superseded, for: previousGeneration)
+        }
         previous?.cancel()
         let (stream, continuation) = AsyncStream.makeStream(of: LiveTelemetryAcquisitionEvent.self)
         runningGeneration = input.generation
+        linkAvailability = .unknown
         let task = Task { await self.run(input, after: previous, continuation: continuation) }
         continuation.onTermination = { _ in task.cancel() }
         runningTask = task
@@ -113,10 +130,12 @@ actor LiveTelemetryAcquisitionLoop {
 
     /// 現在の世代の取得を止め、終わるまで待ちます。
     ///
-    /// 責務: 取得Taskを取り消し、記録の終了と通信資源の解放を待って終了理由を返します。
+    /// 責務: 停止の理由を世代へ結び付けてから取得Taskを取り消し、記録の終了と通信資源の解放を待って終了理由を返します。
+    /// - Parameter reason: 停止の理由。取得記録の終了原因になります。
     /// - Returns: 取得Taskの終了理由。動いていなかった場合は `nil`。
-    func stop() async -> LiveTelemetryAcquisitionTermination? {
+    func stop(reason: ConnectionSessionEndReason) async -> LiveTelemetryAcquisitionTermination? {
         guard let task = runningTask else { return nil }
+        if let runningGeneration { stopReasons.register(reason, for: runningGeneration) }
         task.cancel()
         let termination = await task.value
         if runningTask == task {
@@ -124,6 +143,32 @@ actor LiveTelemetryAcquisitionLoop {
             runningGeneration = nil
         }
         return termination
+    }
+
+    /// 指定した世代の停止の理由を、取得Taskを取り消す前に結び付けます。
+    ///
+    /// 責務: 呼び出し側が購読をやめて取得Taskが取り消されても、記録の終了原因がこの理由になるよう同期的に記録します。
+    /// 同じ世代に既に理由があれば先の理由を残します。
+    /// - Parameters:
+    ///   - reason: 停止の理由。
+    ///   - generation: 止める世代(開始入力の `generation`)。
+    nonisolated func registerStopReason(_ reason: ConnectionSessionEndReason, forGeneration generation: UInt) {
+        stopReasons.register(reason, for: generation)
+    }
+
+    /// 取得ループを始めずに終えた世代の停止の理由を消します。
+    ///
+    /// 責務: 準備の失敗・準備中の取り消しで取得Taskが作られなかった世代の理由を、取り出されないまま残さないよう消します。
+    /// - Parameter generation: 取得ループを始めなかった世代。
+    nonisolated func discardStopReason(forGeneration generation: UInt) {
+        _ = stopReasons.take(for: generation)
+    }
+
+    /// 停止の理由を結び付けたまま取り出されていない世代の件数です。
+    ///
+    /// 責務: 取得が始まらなかった世代の登録が溜まり続けていないかを確かめられるよう、件数を返します。
+    nonisolated var registeredStopReasonCount: Int {
+        stopReasons.registeredCount
     }
 
     /// 件数や経過にかかわらず保存待ちの記録を保存させます。
@@ -141,10 +186,19 @@ actor LiveTelemetryAcquisitionLoop {
 
     /// 取得ループの外から届いた、状態を判定し直す機会を伝えます。
     ///
-    /// 責務: 一時停止中の取得Taskへ起床理由を渡します。一時停止していなければ何もしません。
+    /// 責務: リンク状態の変化を覚え、一時停止中の取得Taskへ起床理由を渡します。一時停止していなければ渡しません。
     /// - Parameter signal: フォアグラウンド復帰・バックグラウンド移行・リンク状態の変化。
     func notify(_ signal: LiveTelemetryAcquisitionWakeSignal) {
+        linkAvailability = linkAvailability.updated(by: signal)
         pauseChannel.send(.signal(signal))
+    }
+
+    /// 最後に受けたリンク可用性の通知から分かるリンクの状態を返します。
+    ///
+    /// 責務: 回復の手順が一時停止に入る時点で参照する値を返します。
+    /// - Returns: 現在のリンク可用性。
+    private func currentLinkAvailability() -> LiveTelemetryLinkAvailability {
+        linkAvailability
     }
 
     /// 前の世代の終了を待ってから1世代の取得を行い、ストリームを閉じます。
@@ -175,6 +229,8 @@ actor LiveTelemetryAcquisitionLoop {
             runningTask = nil
             runningGeneration = nil
         }
+        // 終了処理の待ちの間に届いた停止の結び付けも消し、以後この世代以前へは結び付けさせません。
+        stopReasons.discard(through: input.generation)
         continuation.yield(.ended(termination))
         continuation.finish()
         return termination
@@ -226,9 +282,11 @@ actor LiveTelemetryAcquisitionLoop {
             )
             let outcome = try await recovery.recover(
                 from: cause,
+                grace: LiveTelemetryReceiveGrace(lastReceivedNanoseconds: tracker.lastReceivedNanoseconds),
                 probe: pollingPolicy.definitionsToPoll(from: cursor.targets, tick: 0).first,
                 endpoint: input.endpoint,
                 channel: pauseChannel,
+                linkAvailability: { await self.currentLinkAvailability() },
                 report: { continuation.yield(.phaseChanged($0)) }
             )
             guard case let .resumed(startReason) = outcome else {
@@ -372,6 +430,7 @@ actor LiveTelemetryAcquisitionLoop {
     /// 取得記録を終え、記録の失敗を終了理由へ反映します。
     ///
     /// 責務: 記録境界へ終了を伝え、終了処理の失敗を保存失敗として扱います。
+    /// 停止で終わった場合の終了原因は、この世代へ結び付けた停止の理由(無ければユーザー切断)です。
     /// - Parameters:
     ///   - generation: 終える世代。
     ///   - termination: 取得側で決まった終了理由。
@@ -382,7 +441,8 @@ actor LiveTelemetryAcquisitionLoop {
     ) async -> LiveTelemetryAcquisitionTermination {
         guard let recorder else { return termination }
         do {
-            try await recorder.finish(generation: generation, reason: termination.sessionEndReason)
+            let stopReason = stopReasons.take(for: generation) ?? .userDisconnected
+            try await recorder.finish(generation: generation, reason: termination.sessionEndReason(stoppedFor: stopReason))
             return termination
         } catch {
             return .recordingFailed

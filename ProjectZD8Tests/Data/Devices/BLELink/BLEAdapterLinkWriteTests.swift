@@ -5,7 +5,9 @@ import XCTest
 /// `BLEAdapterLink.write(_:)` の分割・書き込み種別・送信制御・順序・未接続時の失敗を検証します(受け入れ条件9)。
 @MainActor
 final class BLEAdapterLinkWriteTests: XCTestCase {
+    /// 実物のリンクとフェイクを組み合わせた準備の型です。
     private typealias Harness = BLEAdapterLinkTestHarness
+    /// BLE UART の Characteristic 能力の共通 fixture です。
     private typealias Fixtures = BLEUARTCapabilityFixtures
 
     /// 応答なし書き込みの最大書き込み長です。
@@ -25,7 +27,7 @@ final class BLEAdapterLinkWriteTests: XCTestCase {
             let before = harness.peripheral.writtenChunks.count
             let data = Self.bytes(count: length, seed: UInt8(length % 251))
             let attempt = harness.beginWrite(data)
-            try await BLEBoundedWaiter.waitUntil("write length=\(length)") { attempt.isFinished }
+            guard try await BLEBoundedWaiter.waitUntil("write length=\(length)", condition: { attempt.isFinished }) else { return }
 
             XCTAssertEqual(attempt.outcome, .succeeded, "length=\(length)")
             let chunks = Array(harness.peripheral.writtenChunks.dropFirst(before))
@@ -157,7 +159,7 @@ final class BLEAdapterLinkWriteTests: XCTestCase {
         for (label, step) in steps {
             step()
             let attempt = harness.beginWrite(Data([0x41, 0x54, 0x5A, 0x0D]))
-            try await BLEBoundedWaiter.waitUntil("write in \(label)") { attempt.isFinished }
+            guard try await BLEBoundedWaiter.waitUntil("write in \(label)", condition: { attempt.isFinished }) else { return }
             XCTAssertEqual(attempt.outcome, .failed(.notReady), label)
         }
         XCTAssertEqual(harness.peripheral.writtenChunks, [])

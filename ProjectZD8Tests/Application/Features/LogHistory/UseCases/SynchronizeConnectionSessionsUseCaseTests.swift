@@ -435,14 +435,6 @@ private final class SynchronizationLocalRepository: ConnectionSessionRepository,
     /// - Returns: 初期化時に保持したセッション一覧。
     func sessions(for accountIdentifier: String) throws -> [ConnectionSession] { storedSessions }
 
-    /// このテストではRaw応答追記を変更なしで受け付けます。
-    ///
-    /// 責務: テスト対象外のRaw応答追記要求を満たします。
-    /// - Parameters:
-    ///   - observation: 使用しないRaw応答。
-    ///   - sessionID: 使用しないセッションID。
-    func append(_ observation: OBDRawResponseObservation, to sessionID: ConnectionSessionID) throws {}
-
     /// このテストでは空のRawログを返します。
     ///
     /// 責務: 送信対象外テストへ空のRawログを供給します。

@@ -7,8 +7,8 @@ final class LiveTelemetryPauseWakeEvaluatorTests: XCTestCase {
     private let grace: UInt64 = 180 * 1_000_000_000
     /// 定期試行の10秒です(ナノ秒)。
     private let retry: UInt64 = 10 * 1_000_000_000
-    /// 一時停止の時点を0にした窓です。
-    private let window = LiveTelemetryPauseWindow(pausedAtNanoseconds: 0)
+    /// 最後の受信と一時停止の時点をどちらも0にした窓です。
+    private let window = LiveTelemetryPauseWindow(pausedAtNanoseconds: 0, grace: .init(lastReceivedNanoseconds: 0))
 
     /// フォアグラウンド復帰とリンク復帰は、原因に応じた段階で復帰を試します。
     ///
@@ -55,6 +55,46 @@ final class LiveTelemetryPauseWakeEvaluatorTests: XCTestCase {
         ]
         for reason in reasons {
             XCTAssertEqual(action(reason, now: grace + 1, cause: .linkLost), .terminate, "\(reason)")
+        }
+    }
+
+    /// 最後の受信と一時停止の開始が異なるとき、猶予切れは最後の受信から、定期試行は一時停止の開始から数えます。
+    ///
+    /// 責務: 2つの起点を分けた窓で、期限到達・通知・定期試行の境界を確認します。
+    func testGraceCountsFromLastReceiveAndRetryFromPause() {
+        let pausedAt: UInt64 = 40 * 1_000_000_000
+        let split = LiveTelemetryPauseWindow(pausedAtNanoseconds: pausedAt, grace: .init(lastReceivedNanoseconds: 0))
+        let evaluator = LiveTelemetryPauseWakeEvaluator()
+        /// 起点を分けた窓で、起床の理由と現在時刻から判定を返します。
+        ///
+        /// 責務: 窓と原因を固定して `action(for:window:nowNanoseconds:cause:)` を呼びます。
+        /// - Parameters:
+        ///   - reason: 起床の理由。
+        ///   - now: 現在の単調時刻(ナノ秒)。
+        /// - Returns: 起床時の判定。
+        func act(_ reason: LiveTelemetryPauseWakeReason, _ now: UInt64) -> LiveTelemetryPauseWakeAction {
+            evaluator.action(for: reason, window: split, nowNanoseconds: now, cause: .linkLost)
+        }
+
+        XCTAssertEqual(act(.deadlineReached, grace), .rearmDeadline)
+        XCTAssertEqual(act(.deadlineReached, grace + 1), .terminate, "一時停止の開始からは猶予内でも終了")
+        XCTAssertEqual(act(.signal(.foregroundEntered), grace + 1), .terminate)
+        XCTAssertEqual(act(.signal(.foregroundEntered), grace), .attemptResume(.reconnectLink))
+        XCTAssertEqual(act(.retryDue, retry), .rearmRetry, "最後の受信から10秒では試さない")
+        XCTAssertEqual(act(.retryDue, pausedAt + retry - 1), .rearmRetry)
+        XCTAssertEqual(act(.retryDue, pausedAt + retry), .attemptResume(.reconnectLink))
+    }
+
+    /// 一時停止に入った時点で待たずに処理させる起床理由は、リンク断の途切れでリンクが使えると分かっている時のリンク復帰だけです。
+    ///
+    /// 責務: 原因2通り×リンク可用性3通りの組合せで、リンク断かつ使える時だけ `.signal(.linkRestored)`、他は `nil` になることを確認します(U2 受け入れ条件 5)。
+    func testEntryReasonOnlyForLinkLossWithAvailableLink() {
+        let evaluator = LiveTelemetryPauseWakeEvaluator()
+        XCTAssertEqual(evaluator.entryReason(for: .linkLost, linkAvailability: .available), .signal(.linkRestored))
+        XCTAssertNil(evaluator.entryReason(for: .linkLost, linkAvailability: .unknown))
+        XCTAssertNil(evaluator.entryReason(for: .linkLost, linkAvailability: .unavailable))
+        for availability in [LiveTelemetryLinkAvailability.available, .unknown, .unavailable] {
+            XCTAssertNil(evaluator.entryReason(for: .responseStall, linkAvailability: availability), "\(availability)")
         }
     }
 

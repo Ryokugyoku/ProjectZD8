@@ -5,6 +5,7 @@ import XCTest
 /// `BLEAdapterLink` の状態復元の引き継ぎを検証します(受け入れ条件6)。
 @MainActor
 final class BLEAdapterLinkRestorationTests: XCTestCase {
+    /// 実物のリンクとフェイクを組み合わせた準備の型です。
     private typealias Harness = BLEAdapterLinkTestHarness
 
     /// 接続済みで一致する復元機器は、電源投入後に retrieve / scan / connect を呼ばず探索へ進みます(start → 復元 → 電源)。

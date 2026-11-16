@@ -7,10 +7,14 @@ import Foundation
 /// - 取得が待機(`idle`)か失敗(`failed`)へ移ったら最終内容を出して閉じ、表示用の車両写真を消します。
 /// - 表示・写真の失敗はすべて診断へ残し、記録処理へは波及させません。
 /// - 表示への操作は受け付けた順に1件ずつ実行します(終了が更新を追い越さないため)。写真の保存・削除は即時に行います。
+/// - 開始の最中にセッションが終わったら、開始の完了後に直ちに閉じます。終わったセッションの開始・更新は次のセッションの表示を
+///   上書きしません(直列化と世代は `RecordingSessionActivityOperationSequencer` が持ちます)。
 @MainActor
 final class RecordingSessionActivityUseCase {
     /// 常時表示の境界です。
     private let activity: any SessionActivityPort
+    /// 境界への操作の直列化と、セッションの世代による古い操作の破棄です。
+    private let operations: RecordingSessionActivityOperationSequencer
     /// 表示用の車両写真を置く境界です。
     private let photos: any SessionActivityVehiclePhotoPort
     /// 失敗を残す診断記録です。
@@ -29,8 +33,6 @@ final class RecordingSessionActivityUseCase {
     private var telemetry = LiveTelemetryState()
     /// 記録中のセッションの表示情報です。記録中でなければ `nil` です。
     private var session: RecordingSessionActivitySession?
-    /// 直前に受け付けた境界操作です。次の操作はこれの完了を待ってから始めます。
-    private var operationTail: Task<Void, Never>?
 
     /// 境界・時刻・前面状態・車両の参照先を固定して生成します。
     ///
@@ -53,6 +55,7 @@ final class RecordingSessionActivityUseCase {
         lifecycleDiagnostics: (any RecordingSessionActivityLifecycleDiagnosticsPort)? = nil
     ) {
         self.activity = activity
+        operations = RecordingSessionActivityOperationSequencer(activity: activity, diagnostics: diagnostics)
         self.photos = photos
         self.diagnostics = diagnostics
         self.now = now
@@ -65,7 +68,7 @@ final class RecordingSessionActivityUseCase {
     ///
     /// 責務: 呼び出し時点までに受け付けた開始・更新・終了の完了を待てるようにします。
     func waitForPendingOperations() async {
-        await operationTail?.value
+        await operations.waitForPendingOperations()
     }
 
     /// PID継続取得の状態変化を表示へ反映します。
@@ -83,9 +86,9 @@ final class RecordingSessionActivityUseCase {
             return
         }
         refreshVehicleIfNeeded()
-        guard activity.isPresenting, let content = makeContent() else { return }
+        guard activity.isPresenting, let content = makeContent(), let generation = operations.currentGeneration else { return }
         guard throttle.admit(content, at: now()) else { return }
-        enqueue(.update) { activity in try await activity.update(content) }
+        operations.enqueueUpdate(content, generation: generation)
     }
 
     /// アプリが前面へ戻ったことを表示へ反映します。
@@ -98,9 +101,10 @@ final class RecordingSessionActivityUseCase {
 
     /// 新しい記録セッションの表示情報を作り、前面なら表示を開始します。
     ///
-    /// 責務: 開始時刻・車両・写真を確定し、間引きを初期化して、前面の時だけ表示開始を受け付けます。
+    /// 責務: 開始時刻・車両・写真を確定し、世代と間引きを初期化して、前面の時だけ表示開始を受け付けます。
     private func beginSession() {
         session = RecordingSessionActivitySession(startedAt: now())
+        operations.beginSession()
         throttle = RecordingSessionActivityUpdateThrottle()
         refreshVehicleIfNeeded()
         guard isForeground() else { return }
@@ -109,33 +113,29 @@ final class RecordingSessionActivityUseCase {
 
     /// 現在の内容で表示開始を受け付けます。
     ///
-    /// 責務: 開始する内容を送信済みとして間引きへ記録し、実行時点で表示が出ていなければ開始して、開始できたことを診断へ残します。
+    /// 責務: 開始する内容を送信済みとして間引きへ記録し、実行時点でこのセッションが続いていて表示が出ていなければ開始して、
+    /// 開始できたことを診断へ残します。
     private func startPresentation() {
-        guard let content = makeContent() else { return }
+        guard let content = makeContent(), let generation = operations.currentGeneration else { return }
         throttle = RecordingSessionActivityUpdateThrottle()
         _ = throttle.admit(content, at: now())
         let lifecycleDiagnostics = lifecycleDiagnostics
-        enqueue(.start) { activity in
-            guard !activity.isPresenting else { return }
-            try await activity.start(content)
+        operations.enqueueStart(content, generation: generation) {
             lifecycleDiagnostics?.activityStarted()
         }
     }
 
     /// 記録中のセッションがあれば、最終内容を出して表示を閉じ、表示用写真を消します。
     ///
-    /// 責務: セッションの終わりを1回だけ表示の終了と写真の削除へ変換します。表示が出ていなければ終了は送りません。
-    /// 終了できたことを診断へ残します。
+    /// 責務: セッションの終わりを1回だけ世代の終わり・表示の終了・写真の削除へ変換します。終了は先に受け付けた開始の完了後に実行し、
+    /// その時点で表示が出ていなければ送りません。終了できたことを診断へ残します。
     private func finishSessionIfNeeded() {
-        guard session != nil else { return }
-        let finalContent = makeContent()
+        guard session != nil, let finalContent = makeContent() else { return }
         session = nil
-        if activity.isPresenting, let finalContent {
-            let lifecycleDiagnostics = lifecycleDiagnostics
-            enqueue(.end) { activity in
-                try await activity.end(finalContent)
-                lifecycleDiagnostics?.activityEnded()
-            }
+        operations.endSession()
+        let lifecycleDiagnostics = lifecycleDiagnostics
+        operations.enqueueEnd(finalContent) {
+            lifecycleDiagnostics?.activityEnded()
         }
         removePhotos()
     }
@@ -194,28 +194,5 @@ final class RecordingSessionActivityUseCase {
             startedAt: session.startedAt,
             vehiclePhotoFileName: session.photoFileName
         )
-    }
-
-    /// 境界への操作を、先に受け付けた操作の完了後に実行するよう受け付けます。
-    ///
-    /// 責務: 操作を1列に並べ、失敗を診断へ残して記録処理へ波及させません。
-    /// - Parameters:
-    ///   - operation: 診断に残す操作の種類。
-    ///   - body: 実行する操作。
-    private func enqueue(
-        _ operation: RecordingSessionActivityOperation,
-        _ body: @escaping @MainActor (any SessionActivityPort) async throws -> Void
-    ) {
-        let previous = operationTail
-        let activity = activity
-        let diagnostics = diagnostics
-        operationTail = Task { @MainActor in
-            await previous?.value
-            do {
-                try await body(activity)
-            } catch {
-                diagnostics.operationFailed(operation, error: error)
-            }
-        }
     }
 }

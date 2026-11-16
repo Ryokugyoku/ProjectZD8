@@ -53,7 +53,7 @@ final class LiveTelemetryModelTests: XCTestCase {
 
     /// リンク断の猶予切れによる終了は、未接続状態・接続断の表示キーと、最後の受信時刻付きの接続断の通知になります。
     ///
-    /// 責務: 一時停止から猶予を過ぎた起床で終了し、`sessionDidEnd` が最後に正常応答を受けた実時刻で呼ばれることを確認します。
+    /// 責務: 最後の受信(リンク断では一時停止の開始と同じ時刻)から猶予を過ぎた起床で終了し、`sessionDidEnd` が最後に正常応答を受けた実時刻で呼ばれることを確認します。
     func testGraceExpiryAfterLinkLossMapsToDisconnectedState() async {
         let fixture = make(catalog: LiveTelemetryTestDefinitions.standard([0x0C]))
         fixture.start()

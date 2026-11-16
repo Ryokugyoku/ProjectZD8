@@ -10,8 +10,12 @@ enum LiveTelemetryAction: Equatable {
     )
     /// 直近の接続終端で継続取得の再開を要求します。
     case retryRequested
-    /// 現在の継続取得を終了します。
+    /// ユーザーの[切断]で現在の継続取得を終了します。終了理由は `userDisconnected` です。
     case stopRequested
+    /// ユーザーの[切断]以外の理由(サインアウト・接続の置き換え・接続対象の喪失)で現在の継続取得を終了します。
+    ///
+    /// 取得記録と接続セッションの終了理由は、指定した理由になります。
+    case endRequested(ConnectionSessionEndReason)
     /// アプリがバックグラウンドへ移行したことを通知し、保存待ちの取得記録を保存させます。
     case backgroundTransitionOccurred
     /// アプリがフォアグラウンドへ戻ったことを通知し、一時停止中なら復帰を試させます。

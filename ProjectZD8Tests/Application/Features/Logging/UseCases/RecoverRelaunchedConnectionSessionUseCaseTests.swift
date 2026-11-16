@@ -106,6 +106,50 @@ final class RecoverRelaunchedConnectionSessionUseCaseTests: XCTestCase {
         XCTAssertEqual(try fixture.gaps.gaps(for: fixture.sessionID).map(\.startedAt), [lastCommittedAt])
     }
 
+    /// 最後のcommitから猶予の1ミリ秒前は続行可能、ちょうど猶予の1ミリ秒後はセッションを最後のcommitの時刻で終了します。
+    ///
+    /// 責務: 実時間の猶予の直前と直後の境界を、復帰処理の結果とセッションの終了時刻で確認します(仕様 2・7)。
+    func testRecoveryGraceBoundaryAroundExactlyGrace() async throws {
+        let before = try await makeInterruptedSession()
+        let beforeOutcome = try useCase(before).recover(try session(before), now: lastCommittedAt.addingTimeInterval(179.999))
+        XCTAssertEqual(beforeOutcome, .resumable(try session(before), lastCommittedAt: lastCommittedAt))
+        XCTAssertNil(try session(before).endedAt)
+
+        let after = try await makeInterruptedSession()
+        let afterOutcome = try useCase(after).recover(try session(after), now: lastCommittedAt.addingTimeInterval(180.001))
+        guard case let .ended(ended) = afterOutcome else { return XCTFail("終了になりませんでした: \(afterOutcome)") }
+        XCTAssertEqual(ended.endedAt, lastCommittedAt)
+        XCTAssertEqual(try session(after).endedAt, lastCommittedAt)
+    }
+
+    /// 現在の実時刻が最後のcommitより前(時計の巻き戻り)なら、続けずに最後のcommitの時刻で終了します。
+    ///
+    /// 責務: 負の経過を続行と扱わず、終了時刻と欠損の終了が最後のcommitの時刻より前にならないことを確認します(仕様 7)。
+    func testBackwardClockEndsSessionAtLastCommit() async throws {
+        let fixture = try await makeInterruptedSession()
+
+        let outcome = try useCase(fixture).recover(try session(fixture), now: lastCommittedAt.addingTimeInterval(-1))
+
+        guard case let .ended(ended) = outcome else { return XCTFail("終了になりませんでした: \(outcome)") }
+        XCTAssertEqual(ended.endedAt, lastCommittedAt)
+        XCTAssertEqual(try fixture.gaps.gaps(for: fixture.sessionID).map(\.endedAt), [lastCommittedAt])
+    }
+
+    /// 最後の正応答の後に正応答以外(タイムアウト)の要求がcommitされていても、猶予の起点は最後の正応答の時刻です。
+    ///
+    /// 責務: 正応答以外の要求の時刻を起点にせず、最後の正応答から猶予を過ぎていれば終了することを確認します(仕様 7)。
+    func testTimedOutRequestAfterLastResponseDoesNotExtendGrace() async throws {
+        let fixture = try await makeInterruptedSession(timedOutRoundAt: lastCommittedAt.addingTimeInterval(100))
+        XCTAssertEqual(try fixture.storedRaws().last?.observedAt, lastCommittedAt, "Rawは正応答だけ")
+        XCTAssertEqual(try fixture.acquisition.batches(for: fixture.sessionID).count, 3, "タイムアウトの周回もcommit済み")
+
+        let outcome = try useCase(fixture).recover(try session(fixture), now: lastCommittedAt.addingTimeInterval(180.001))
+
+        guard case let .ended(ended) = outcome else { return XCTFail("終了になりませんでした: \(outcome)") }
+        XCTAssertEqual(ended.endedAt, lastCommittedAt)
+        XCTAssertEqual(try fixture.gaps.gaps(for: fixture.sessionID).map(\.startedAt), [lastCommittedAt])
+    }
+
     /// 同じ復帰処理を2回実行しても欠損は二重に記録されません。
     ///
     /// 責務: 続行可能の復帰を繰り返しても欠損が1件のままであることを確認します。
@@ -169,16 +213,23 @@ final class RecoverRelaunchedConnectionSessionUseCaseTests: XCTestCase {
 
     /// 2周回を記録してcommitし、終了せずにプロセスが終わった状態を作ります。
     ///
-    /// 責務: 最後のRawの実時刻を `lastCommittedAt` にした未終了セッションを返します。
+    /// 責務: 最後のRawの実時刻を `lastCommittedAt` にした未終了セッションを返します。指定があれば、その後にタイムアウトだけの周回を足します。
+    /// - Parameter timedOutRoundAt: 最後の正応答の後に記録するタイムアウトだけの周回の実時刻。`nil` なら足しません。
     /// - Returns: GRDBの部品。
     /// - Throws: 記録の失敗。
-    private func makeInterruptedSession() async throws -> Fixture {
+    private func makeInterruptedSession(timedOutRoundAt: Date? = nil) async throws -> Fixture {
         let fixture = try Fixture(storage: .grdb)
         try await fixture.start()
         fixture.dates.set(Date(timeIntervalSince1970: 1_010))
         try await fixture.respondedRound(0, payload: 10)
         fixture.dates.set(lastCommittedAt)
         try await fixture.respondedRound(1, payload: 20)
+        if let timedOutRoundAt {
+            fixture.dates.set(timedOutRoundAt)
+            try await fixture.beginRound(2)
+            try await fixture.record(2, 0, .timedOut)
+            try await fixture.finishRound(2)
+        }
         try await fixture.recorder.flush(.backgroundTransition, generation: 1)
         return fixture
     }

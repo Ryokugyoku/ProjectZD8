@@ -8,11 +8,16 @@ import Observation
 /// その時点でも猶予内(実時間)なら同じセッションを続け、そうでなければ続行可能だったセッションを終了して新規に開始します。
 /// 未登録車両の接続(`vehicleUnregistered`)では、続行可能なセッションも車両なしの場合だけ続けます(`ConnectionSessionResumptionMatcher`)。
 /// 取得の一時停止中はLiveTelemetryから終了が通知されないため、セッションは終了扱いになりません。
+/// アカウントが変わった(サインアウトした)時点で開いていたセッションは、取得の終了通知(`endRequested`)を待って、
+/// その理由(サインアウトなら `accountSignedOut`)で終了します。終了通知が来ないまま次にアカウントが変わった場合は、
+/// アカウントが変わった時刻を終了時刻として `accountSignedOut` で終了します。
 @MainActor
 @Observable
 final class ConnectionSessionLifecycleModel {
     /// 現在接続中として管理しているセッションです。
     private(set) var activeSession: ConnectionSession?
+    /// アカウントが変わった時点で開いていて、取得の終了通知を待っているセッションと、アカウントが変わった時刻です。
+    @ObservationIgnored private var sessionAwaitingEndAfterAccountChange: (session: ConnectionSession, changedAt: Date)?
     /// セッションの永続化境界です。
     @ObservationIgnored private let repository: any ConnectionSessionRepository
     /// 未デコードOBD応答の永続化境界です。取得記録はチャンク単位の保存へ移ったため、現在は読み書きしません。
@@ -110,10 +115,11 @@ final class ConnectionSessionLifecycleModel {
 
     /// 新しいアカウントを有効化し、残存中セッションを異常終了へ閉じます。
     ///
-    /// 責務: 1件のアカウント変更をセッション保存範囲と再起動回復へ反映します。
+    /// 責務: 1件のアカウント変更をセッション保存範囲と再起動回復へ反映します。開いていたセッションは取得の終了通知を待つ側へ移します。
     /// - Parameter identifier: 新しいAppleアカウント識別子。
     private func activateAccount(_ identifier: String?) {
         guard identifier != accountIdentifier else { return }
+        holdActiveSessionForAccountChange()
         accountIdentifier = identifier
         activeSession = nil
         selectedDistanceSource = nil
@@ -178,6 +184,19 @@ final class ConnectionSessionLifecycleModel {
             }
         }
         return ended
+    }
+
+    /// アカウントが変わる時点で開いているセッションを、取得の終了通知を待つ側へ移します。
+    ///
+    /// 責務: 前のアカウント変更から終了通知を待っていたセッションがあれば、その変更の時刻で `accountSignedOut` として先に終え、
+    /// 現在のセッションを今の時刻とともに待つ側へ移します(終了通知は取得の停止の後に非同期で届くため)。
+    private func holdActiveSessionForAccountChange() {
+        if let awaiting = sessionAwaitingEndAfterAccountChange {
+            sessionAwaitingEndAfterAccountChange = nil
+            _ = finish(awaiting.session, reason: .accountSignedOut, endedAt: awaiting.changedAt)
+        }
+        guard let activeSession else { return }
+        sessionAwaitingEndAfterAccountChange = (activeSession, now())
     }
 
     /// 続行可能として保持しているセッションを手放します。
@@ -350,39 +369,52 @@ final class ConnectionSessionLifecycleModel {
         }
     }
 
-    /// 現在セッションへ終了日時と原因を保存します。
+    /// 現在セッション(無ければアカウントの変化で終了通知を待っているセッション)へ終了日時と原因を保存します。
     ///
-    /// 責務: 1件の未終了セッションを指定原因で終端状態へ遷移させます。
+    /// 責務: 1件の未終了セッションを指定原因で終端状態へ遷移させます。保存に失敗したセッションは元の保持先に残します。
     /// - Parameters:
     ///   - reason: セッションが終了した直接原因。
     ///   - requestedEndedAt: 終了時刻。猶予切れでは最後に受信した時刻。`nil` なら処理した時刻を使います。
     private func endSession(reason: ConnectionSessionEndReason, endedAt requestedEndedAt: Date? = nil) {
-        guard let currentSession = activeSession else { return }
-        let endedAt = requestedEndedAt.map { max($0, currentSession.startedAt) } ?? now()
-        do {
-            let session: ConnectionSession
-            if let acquisitionTerminationRepository {
-                session = try acquisitionTerminationRepository.finishSessionAcquisition(
-                    currentSession,
-                    endedAt: endedAt,
-                    reason: reason
-                )
-            } else {
-                var ended = currentSession
-                ended.endedAt = endedAt
-                ended.endReason = reason
-                try repository.save(ended)
-                session = ended
-            }
+        if let currentSession = activeSession {
+            guard finish(currentSession, reason: reason, endedAt: requestedEndedAt) else { return }
             activeSession = nil
             selectedDistanceSource = nil
-            historyDidChange()
-            sessionEndPersisted(session)
-            if automaticUploadEnabled {
-                endedSessionUploadRequested(session)
+        } else if let awaiting = sessionAwaitingEndAfterAccountChange {
+            guard finish(awaiting.session, reason: reason, endedAt: requestedEndedAt) else { return }
+            sessionAwaitingEndAfterAccountChange = nil
+        }
+    }
+
+    /// 1件のセッションへ終了日時と原因を保存し、保存できたことを通知します。
+    ///
+    /// 責務: 取得証拠と一緒に終了を保存し、履歴の再読込・終了の保存の通知・自動アップロードの要求を行います。
+    /// - Parameters:
+    ///   - session: 終える未終了セッション。
+    ///   - reason: セッションが終了した直接原因。
+    ///   - requestedEndedAt: 終了時刻。開始より前なら開始時刻、`nil` なら処理した時刻を使います。
+    /// - Returns: 保存できたら `true`。
+    private func finish(_ session: ConnectionSession, reason: ConnectionSessionEndReason, endedAt requestedEndedAt: Date?) -> Bool {
+        let endedAt = requestedEndedAt.map { max($0, session.startedAt) } ?? now()
+        do {
+            let ended: ConnectionSession
+            if let acquisitionTerminationRepository {
+                ended = try acquisitionTerminationRepository.finishSessionAcquisition(session, endedAt: endedAt, reason: reason)
+            } else {
+                var saved = session
+                saved.endedAt = endedAt
+                saved.endReason = reason
+                try repository.save(saved)
+                ended = saved
             }
+            historyDidChange()
+            sessionEndPersisted(ended)
+            if automaticUploadEnabled {
+                endedSessionUploadRequested(ended)
+            }
+            return true
         } catch {
-            activeSession = currentSession
+            return false
         }
     }
 }

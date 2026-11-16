@@ -5,6 +5,7 @@ import XCTest
 /// `BLEAdapterLink` のBluetooth利用不可時の扱いと不正な識別子を検証します(受け入れ条件7・8)。
 @MainActor
 final class BLEAdapterLinkPowerStateTests: XCTestCase {
+    /// 実物のリンクとフェイクを組み合わせた準備の型です。
     private typealias Harness = BLEAdapterLinkTestHarness
 
     /// 条件7: poweredOff では何も呼ばず `disconnected(.bluetoothPoweredOff)` になります。

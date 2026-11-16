@@ -57,9 +57,9 @@ final class LiveTelemetryAcquisitionLoopTerminationTests: XCTestCase {
         XCTAssertNil(secondStop)
     }
 
-    /// 新しい世代を開始すると前の世代が停止で終わり、以後の記録はすべて新しい世代になります。
+    /// 新しい世代を開始すると前の世代が停止で終わり、その取得記録は置き換え(`superseded`)で終わり、以後の記録はすべて新しい世代になります。
     ///
-    /// 責務: 前世代の終了処理が新世代の記録開始より先に行われ、前世代の購読へ終了後の出来事が流れないことを確認します。
+    /// 責務: 前世代の終了処理(終了原因は置き換え。管理チャットの決定 iii)が新世代の記録開始より先に行われ、前世代の購読へ終了後の出来事が流れないことを確認します。
     func testNewStartInvalidatesPreviousGeneration() async {
         let fixture = LiveTelemetryAcquisitionLoopFixture()
         self.fixture = fixture
@@ -77,7 +77,7 @@ final class LiveTelemetryAcquisitionLoopTerminationTests: XCTestCase {
         XCTAssertTrue(first.samples.isEmpty)
         XCTAssertEqual(second.samples.count, 3)
         let calls = await fixture.recorder?.calls ?? []
-        let firstFinish = calls.firstIndex(of: .finish(generation: 1, reason: .userDisconnected))
+        let firstFinish = calls.firstIndex(of: .finish(generation: 1, reason: .superseded))
         let secondStart = calls.firstIndex(of: .start(generation: 2))
         XCTAssertNotNil(firstFinish)
         XCTAssertNotNil(secondStart)
@@ -86,6 +86,27 @@ final class LiveTelemetryAcquisitionLoopTerminationTests: XCTestCase {
             if case let .record(result) = $0 { result.generation } else { nil }
         }
         XCTAssertEqual(laterRecords, [2, 2, 2])
+    }
+
+    /// 停止に渡した理由が、そのまま取得記録の終了原因になります。
+    ///
+    /// 責務: ユーザー切断・サインアウト・置き換え・接続断のそれぞれで、停止の結果が `.stopped`、記録の終了原因が渡した理由になることを確認します
+    /// (U2 受け入れ条件 13)。
+    func testStopReasonBecomesRecordingEndReason() async {
+        let reasons: [ConnectionSessionEndReason] = [.userDisconnected, .accountSignedOut, .superseded, .connectionLost]
+        for reason in reasons {
+            let (fixture, _) = await startTwoPIDLoop()
+            await fixture.waitForSentRequests(1)
+            let loop = fixture.loop
+            let termination = await LiveTelemetryBoundedWaiter.value("取得ループの停止 \(reason)") {
+                await loop.stop(reason: reason)
+            } ?? nil
+
+            XCTAssertEqual(termination, .stopped, "\(reason)")
+            let finishes = await fixture.recorder?.finishCalls ?? []
+            XCTAssertEqual(finishes, [.finish(generation: 1, reason: reason)], "\(reason)")
+            await fixture.tearDown()
+        }
     }
 
     /// 2PIDの取得を始めます。

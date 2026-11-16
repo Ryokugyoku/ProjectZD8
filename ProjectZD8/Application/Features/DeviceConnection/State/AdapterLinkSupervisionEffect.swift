@@ -15,10 +15,10 @@ nonisolated enum AdapterLinkSupervisionEffect: Equatable, Sendable {
     /// アダプターのチップ種別とATMA対応可否を判定します。
     case initializeAdapter
 
-    /// 指定したタイムアウトでECUの応答を確認します。
+    /// 指定したタイムアウトでECUの応答を確認します(抑止中の見張りの確認を含む)。
     case confirmVehicle(VehicleResponseTimeout)
 
-    /// 指定した時間だけ待ってから次の再確認を促します(`vehicleConfirmationIntervalElapsed` を入力します)。
+    /// 最短間隔に達するまでの残り時間だけ待ってから次の確認を促します(`vehicleConfirmationIntervalElapsed` を入力します)。
     case scheduleVehicleConfirmation(after: Duration)
 
     /// 自動記録設定を読み込んだ上でVINを読み取ります。
@@ -36,8 +36,8 @@ nonisolated enum AdapterLinkSupervisionEffect: Equatable, Sendable {
     /// 記録側へ記録開始を要求します。
     case requestRecordingStart(AdapterLinkRecordingStartRequest)
 
-    /// 記録側へ記録停止を要求します。
-    case requestRecordingStop
+    /// 記録側へ、理由を付けて記録停止を要求します。リンク断では出しません(取得側の猶予に任せます)。
+    case requestRecordingStop(AdapterLinkRecordingStopReason)
 
     /// 終了処理の完了を状態機械へ通知します(`finishingDidComplete` を入力します)。
     case completeFinishing

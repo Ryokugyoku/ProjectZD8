@@ -652,7 +652,7 @@ private struct Phase4FSyntheticMeasurementRunner {
         let plan = outcomePlan(requestCount: requestCount, mix: transportMix)
         var transactions = 0
         for requestOrdinal in 0..<requestCount where plan[requestOrdinal] == .responded {
-            try fixture.sessions.append(
+            try GRDBConnectionSessionRawLogTestAppender(queue: fixture.queue).append(
                 fixture.observation(
                     batchOrdinal: batchOrdinal,
                     requestOrdinal: requestOrdinal,

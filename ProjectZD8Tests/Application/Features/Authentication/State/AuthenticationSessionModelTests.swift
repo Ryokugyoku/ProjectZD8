@@ -201,6 +201,60 @@ final class AuthenticationSessionModelTests: XCTestCase {
         XCTAssertEqual(dependencies.model.state.failure, .remoteLogoutPersistenceFailed)
     }
 
+    /// 起動時の資格の確認が失敗した(Apple 資格状態の照会が throw)場合は、確認できなかったとしてログイン画面とエラー表示にします。
+    ///
+    /// 責務: 照会の失敗で `.signedOut`・`.sessionCheckFailed`・セッションなし・失効の監視なしになり、保存済み識別子を消さないことを確認します
+    /// (U5 受け入れ条件 14・16・18)。
+    func testCredentialCheckFailureSignsOutWithSessionCheckFailed() async {
+        let dependencies = makeDependencies()
+        dependencies.store.identifier = "stored-user"
+        dependencies.authorization.credentialStateError = URLError(.notConnectedToInternet)
+
+        dependencies.model.send(.appeared)
+        await waitForTasks()
+
+        XCTAssertEqual(dependencies.model.state.phase, .signedOut)
+        XCTAssertEqual(dependencies.model.state.failure, .sessionCheckFailed)
+        XCTAssertNil(dependencies.model.state.session)
+        XCTAssertNil(dependencies.revocation.observedIdentifier)
+        XCTAssertEqual(dependencies.store.identifier, "stored-user", "確認できなかっただけなので保存済み識別子は残す")
+    }
+
+    /// 保存済み識別子を読めなかった(Keychain がまだ読めない)場合も、確認できなかったとしてエラー表示にします。
+    ///
+    /// 責務: 読み出しの失敗で `.signedOut`・`.sessionCheckFailed`・資格の照会なしになることを確認します(U5 受け入れ条件 14・18)。
+    func testStoredIdentifierLoadFailureSignsOutWithSessionCheckFailed() async {
+        let dependencies = makeDependencies()
+        dependencies.store.loadError = AuthenticationSessionStoreError.unavailable
+
+        dependencies.model.send(.appeared)
+        await waitForTasks()
+
+        XCTAssertEqual(dependencies.model.state.phase, .signedOut)
+        XCTAssertEqual(dependencies.model.state.failure, .sessionCheckFailed)
+        XCTAssertEqual(dependencies.authorization.credentialStateRequestCount, 0)
+    }
+
+    /// 本当に未サインイン・失効(保存なし・revoked・notFound・transferred)の場合は、エラー表示なしのサインアウトです。
+    ///
+    /// 責務: 4つの場合のどれでも `.signedOut`・失敗なし・セッションなしになり、確認できなかった場合と区別されることを確認します(U5 受け入れ条件 14)。
+    func testGenuinelySignedOutStatesHaveNoFailure() async {
+        let cases: [(String?, AppleAccountCredentialState)] = [(nil, .authorized), ("u", .revoked), ("u", .notFound), ("u", .transferred)]
+        for (identifier, credential) in cases {
+            let dependencies = makeDependencies()
+            dependencies.store.identifier = identifier
+            dependencies.authorization.credentialState = credential
+
+            dependencies.model.send(.appeared)
+            await waitForTasks()
+
+            let label = "\(String(describing: identifier)) / \(credential)"
+            XCTAssertEqual(dependencies.model.state.phase, .signedOut, label)
+            XCTAssertNil(dependencies.model.state.failure, label)
+            XCTAssertNil(dependencies.model.state.session, label)
+        }
+    }
+
     /// テスト用依存関係と認証モデルをまとめて生成します。
     ///
     /// 責務: 1件の認証モデルテストへ共有Fakeを同一構成で注入します。
@@ -260,7 +314,7 @@ final class AuthenticationSessionModelTests: XCTestCase {
 
 /// 認証モデルテストで共有するモデルとFakeの組です。
 @MainActor
-private struct AuthenticationModelDependencies {
+struct AuthenticationModelDependencies {
     /// 検証対象の認証セッションモデルです。
     let model: AuthenticationSessionModel
 
@@ -282,7 +336,7 @@ private struct AuthenticationModelDependencies {
 
 /// 認証モデルテストでApple認証結果を制御します。
 @MainActor
-private final class AuthenticationModelAuthorizationPortFake: AppleAccountAuthorizationPort {
+final class AuthenticationModelAuthorizationPortFake: AppleAccountAuthorizationPort {
     /// Apple認証要求が返す結果です。
     var authorizationResult: Result<AppleAccountSession, Error> = .success(
         AppleAccountSession(userIdentifier: "model-user")
@@ -290,6 +344,36 @@ private final class AuthenticationModelAuthorizationPortFake: AppleAccountAuthor
 
     /// Apple資格状態照会が返す状態です。
     var credentialState: AppleAccountCredentialState = .notFound
+
+    /// 設定するとApple資格状態照会がこのエラーを投げます(オフラインなどで確認できない状況)。
+    var credentialStateError: Error?
+
+    /// 真の間、Apple資格状態照会はテストが `releaseHeldCredentialCheck()` で再開させるまで戻りません。
+    var holdsCredentialCheck = false
+
+    /// 再開を待っている資格状態照会の継続です(古い順)。
+    private var heldCredentialChecks: [CheckedContinuation<Void, Never>] = []
+
+    /// 再開を待っている資格状態照会の件数です。
+    var heldCredentialCheckCount: Int { heldCredentialChecks.count }
+
+    /// 最も古い保留中の資格状態照会を再開させます。
+    ///
+    /// 責務: 保留が無ければ何もしません。再開後の照会は、その時点の `credentialStateError` と `credentialState` で結果を返します。
+    func releaseHeldCredentialCheck() {
+        guard !heldCredentialChecks.isEmpty else { return }
+        heldCredentialChecks.removeFirst().resume()
+    }
+
+    /// 保留中の資格状態照会をすべて再開させ、以後は保留しません。
+    ///
+    /// 責務: テスト終了後に再開されない継続を残さないようにします。
+    func releaseAllHeldCredentialChecks() {
+        holdsCredentialCheck = false
+        let held = heldCredentialChecks
+        heldCredentialChecks.removeAll()
+        held.forEach { $0.resume() }
+    }
 
     /// Apple認証要求の実行回数です。
     private(set) var authorizationRequestCount = 0
@@ -314,24 +398,32 @@ private final class AuthenticationModelAuthorizationPortFake: AppleAccountAuthor
     /// - Returns: テストが設定したApple資格状態。
     func credentialState(for userIdentifier: String) async throws -> AppleAccountCredentialState {
         credentialStateRequestCount += 1
+        if holdsCredentialCheck {
+            await withCheckedContinuation { heldCredentialChecks.append($0) }
+        }
+        if let credentialStateError { throw credentialStateError }
         return credentialState
     }
 }
 
 /// 認証モデルテストでセッション保存結果を記録します。
-private final class AuthenticationModelSessionStorePortFake: AuthenticationSessionStorePort {
+final class AuthenticationModelSessionStorePortFake: AuthenticationSessionStorePort {
     /// 現在保存されているテスト用Appleユーザー識別子です。
     var identifier: String?
 
     /// セッション削除時に送出するテスト指定エラーです。
     var removeError: Error?
 
+    /// 識別子の読み出し時に送出するテスト指定エラーです(Keychain がまだ読めない状況)。
+    var loadError: Error?
+
     /// 現在のテスト用識別子を返します。
     ///
     /// 責務: モデルの復元ユースケースへ保存済み識別子を返します。
     /// - Returns: 現在保存されているテスト用識別子。
     func loadUserIdentifier() throws -> String? {
-        identifier
+        if let loadError { throw loadError }
+        return identifier
     }
 
     /// テスト用識別子を置き換えます。
@@ -355,7 +447,7 @@ private final class AuthenticationModelSessionStorePortFake: AuthenticationSessi
 
 /// 認証モデルテストでアカウントデータ消去要求を記録します。
 @MainActor
-private final class AuthenticationModelAccountDataEraserFake: AccountDataErasurePort {
+final class AuthenticationModelAccountDataEraserFake: AccountDataErasurePort {
     /// 消去を要求されたAppleユーザー識別子です。
     private(set) var erasedIdentifiers: [String] = []
 
@@ -370,7 +462,7 @@ private final class AuthenticationModelAccountDataEraserFake: AccountDataErasure
 
 /// 認証モデルテストでCloudKit運転データ操作を記録します。
 @MainActor
-private final class AuthenticationModelTransferRepositoryFake: ConnectionSessionTransferRepository {
+final class AuthenticationModelTransferRepositoryFake: ConnectionSessionTransferRepository {
     /// 全削除を要求されたアカウント識別子です。
     private(set) var deletedAccountIdentifiers: [String] = []
 
@@ -438,7 +530,7 @@ private final class AuthenticationModelTransferRepositoryFake: ConnectionSession
 
 /// 認証モデルテストで車両データ削除境界を再現します。
 @MainActor
-private final class AuthenticationModelVehicleDataEraserFake: AccountVehicleDataErasurePort {
+final class AuthenticationModelVehicleDataEraserFake: AccountVehicleDataErasurePort {
     /// 全削除されたアカウント識別子です。
     private(set) var deletedAccountIdentifiers: [String] = []
 
@@ -466,7 +558,7 @@ private final class AuthenticationModelVehicleDataEraserFake: AccountVehicleData
 
 /// 認証モデルテストで端末間セッション失効操作を記録します。
 @MainActor
-private final class AuthenticationModelSessionRevocationPortFake: AccountSessionRevocationPort {
+final class AuthenticationModelSessionRevocationPortFake: AccountSessionRevocationPort {
     /// 現在世代の受理を要求されたユーザー識別子です。
     private(set) var registeredIdentifiers: [String] = []
 

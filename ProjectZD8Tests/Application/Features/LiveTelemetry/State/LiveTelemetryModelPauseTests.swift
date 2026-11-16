@@ -103,6 +103,28 @@ final class LiveTelemetryModelPauseTests: XCTestCase {
         XCTAssertEqual(Array(fixture.linkRecovery.calls.suffix(2)), [.reconnectLink, .reconnectLink])
     }
 
+    /// リンク断の一時停止中にリンク復帰の操作が届き再接続に成功すれば、セッションを終えずに受信中へ戻ります。
+    ///
+    /// 責務: リンク断の操作では終了せず、リンク復帰の操作で再接続を1回試して受信中へ戻り、`sessionDidEnd` が呼ばれないことを確認します(U2 受け入れ条件 1・2)。
+    func testLinkRestoredWhilePausedResumesWithoutEndingSession() async {
+        let fixture = await makeLoaded()
+        await fixture.telemetry.release(.transportFailure)
+        await fixture.waitUntil("一時停止") { fixture.model.state.pauseStatus?.isRecovering == false }
+        fixture.model.send(.adapterLinkAvailabilityChanged(isAvailable: false))
+        await LiveTelemetryBoundedWaiter.settle()
+        XCTAssertEqual(fixture.notifications.endReasons, [])
+        let afterPause = fixture.linkRecovery.calls.count
+        fixture.linkRecovery.schedule([true])
+
+        fixture.model.send(.adapterLinkAvailabilityChanged(isAvailable: true))
+        await fixture.telemetry.release(.responded([2]))
+        await fixture.waitUntil("受信中") { fixture.model.state.phase == .loaded && fixture.model.state.pauseStatus == nil }
+
+        XCTAssertEqual(fixture.linkRecovery.calls.count, afterPause + 1)
+        XCTAssertEqual(fixture.notifications.endReasons, [])
+        XCTAssertEqual(fixture.sleepInhibitor.connectionStates, [true])
+    }
+
     /// PID 0x0C だけで開始し、初回周回の正応答で読み込み済みにします。
     ///
     /// 責務: 後片付けの対象にしたモデル部品を、読み込み済みで次の要求を待つ状態で返します。

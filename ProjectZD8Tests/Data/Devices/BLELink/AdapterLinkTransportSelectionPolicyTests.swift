@@ -67,4 +67,60 @@ final class AdapterLinkTransportSelectionPolicyTests: XCTestCase {
             XCTAssertFalse(policy.usesResidentLink(for: candidate, linkTargetIdentifier: Self.target, linkState: .ready), "\(transport)")
         }
     }
+
+    /// 常駐リンクを使える時は、常駐リンクだけを使うべきかどうかにかかわらず常駐リンクを選びます。
+    ///
+    /// 責務: `requiresResidentLink` の両方の値で `.residentLink` になることを確認します(U2 受け入れ条件 6)。
+    func testSelectionUsesResidentLinkWhenUsable() {
+        for requires in [true, false] {
+            let selection = policy.selection(
+                for: endpoint(Self.target.uuidString), linkTargetIdentifier: Self.target, linkState: .ready, requiresResidentLink: requires
+            )
+            XCTAssertEqual(selection, .residentLink, "\(requires)")
+        }
+    }
+
+    /// 常駐リンクだけを使うべき BLE 終端で、常駐リンクを使えない時は接続しません(自前の接続へ落ちません)。
+    ///
+    /// 責務: リンクが `ready` でない全状態・接続対象なし・別のアダプター・UUID でない識別子のすべてで `.residentLinkUnavailable` になることを確認します(U2 受け入れ条件 6)。
+    func testSelectionRefusesFallbackWhenResidentLinkRequiredButUnusable() {
+        let target = endpoint(Self.target.uuidString)
+        for state in Self.nonReadyStates {
+            let selection = policy.selection(for: target, linkTargetIdentifier: Self.target, linkState: state, requiresResidentLink: true)
+            XCTAssertEqual(selection, .residentLinkUnavailable, "\(state)")
+        }
+        let unusable: [(OBDConnectionEndpoint, UUID?)] = [
+            (target, nil), (endpoint("6F1D2C3B-0000-4000-8000-00000000000B"), Self.target), (endpoint("not-a-uuid"), Self.target),
+        ]
+        for (candidate, linkTarget) in unusable {
+            let selection = policy.selection(for: candidate, linkTargetIdentifier: linkTarget, linkState: .ready, requiresResidentLink: true)
+            XCTAssertEqual(selection, .residentLinkUnavailable, "\(candidate.systemIdentifier)")
+        }
+    }
+
+    /// 常駐リンクだけを使うべきでない時(手動接続など)は、常駐リンクを使えなければ従来どおり自前の接続です。
+    ///
+    /// 責務: リンクが `ready` でない・接続対象なしの時に `.fallback` になることを確認します(U2「変えないもの」)。
+    func testSelectionFallsBackWhenResidentLinkNotRequired() {
+        let target = endpoint(Self.target.uuidString)
+        for state in Self.nonReadyStates {
+            XCTAssertEqual(
+                policy.selection(for: target, linkTargetIdentifier: Self.target, linkState: state, requiresResidentLink: false), .fallback, "\(state)"
+            )
+        }
+        XCTAssertEqual(policy.selection(for: target, linkTargetIdentifier: nil, linkState: .ready, requiresResidentLink: false), .fallback)
+    }
+
+    /// BLE 以外の終端は、常駐リンクだけを使うべき時でも従来どおり自前の接続です。
+    ///
+    /// 責務: Classic・シリアルの終端で、`requiresResidentLink` の両方の値で `.fallback` になることを確認します(U2「変えないもの」)。
+    func testSelectionFallsBackForNonBLEEndpoint() {
+        for transport in [OBDConnectionEndpoint.Transport.bluetoothClassic, .serial] {
+            for requires in [true, false] {
+                let candidate = endpoint(Self.target.uuidString, transport: transport)
+                let selection = policy.selection(for: candidate, linkTargetIdentifier: Self.target, linkState: .ready, requiresResidentLink: requires)
+                XCTAssertEqual(selection, .fallback, "\(transport) \(requires)")
+            }
+        }
+    }
 }

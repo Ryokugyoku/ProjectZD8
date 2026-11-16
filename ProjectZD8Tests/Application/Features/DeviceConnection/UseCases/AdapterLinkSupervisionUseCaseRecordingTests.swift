@@ -32,9 +32,9 @@ final class AdapterLinkSupervisionUseCaseRecordingTests: XCTestCase {
         harness.vinReader.responses.resumeOldest(with: .success(vin))
     }
 
-    /// 自動記録オンなら、操作なしで記録開始を要求し「記録を開始しました」通知を出して記録中へ移ります。
+    /// 自動記録オンなら、操作なしで記録開始を要求して記録中へ移ります。「記録を開始しました」通知は、開始が確定するまで出しません。
     ///
-    /// 責務: 記録開始要求1件(接続終端・VIN・判定結果)・記録開始通知1件・検知通知なしを確認します。
+    /// 責務: 記録開始要求1件(接続終端・VIN・判定結果)・確定前の記録開始通知0件・検知通知なしを確認します(U4 受け入れ条件 1)。
     func testAutomaticRecordingOnStartsRecordingWithoutAction() async throws {
         let harness = makeHarness(isAutomaticRecordingEnabled: true)
         try await harness.driveToConfirming()
@@ -42,9 +42,25 @@ final class AdapterLinkSupervisionUseCaseRecordingTests: XCTestCase {
         try await harness.wait("記録開始要求") { harness.recordingControl.startRequests.count == 1 }
         try await BLEBoundedWaiter.settle()
         XCTAssertEqual(harness.recordingControl.startRequests, [F.expectedStartRequest(vin: F.vin)])
-        XCTAssertEqual(harness.notifications.presentedRecordingStartedVINs, [F.vin])
+        XCTAssertEqual(harness.notifications.presentedRecordingStartedVINs, [], "開始の確定前には出さない")
         XCTAssertEqual(harness.notifications.presentedVehicleDetectedVINs, [])
         XCTAssertEqual(harness.useCase.state, .recording(F.detectedVehicle))
+    }
+
+    /// 自動記録の開始要求が辞退・失敗で終わった(終了理由なしの記録終了)場合は、「記録を開始しました」通知を一度も出しません。
+    ///
+    /// 責務: 開始要求の後に記録が始まらずに終わっても、記録開始通知が0件のままであることを確認します(U4 受け入れ条件 2)。
+    func testDeclinedAutomaticRecordingNeverPresentsRecordingStarted() async throws {
+        let harness = makeHarness(isAutomaticRecordingEnabled: true)
+        try await harness.driveToConfirming()
+        try await detect(harness)
+        try await harness.wait("記録開始要求") { harness.recordingControl.startRequests.count == 1 }
+
+        harness.useCase.recordingDidFinish(endReason: nil)
+        try await BLEBoundedWaiter.settle()
+
+        XCTAssertEqual(harness.notifications.presentedRecordingStartedVINs, [])
+        XCTAssertEqual(harness.useCase.state, .standby)
     }
 
     /// 自動記録オフでは、検知しても記録は始まりません。
@@ -109,21 +125,20 @@ final class AdapterLinkSupervisionUseCaseRecordingTests: XCTestCase {
         XCTAssertEqual(harness.recordingControl.startRequests.count, 1)
     }
 
-    /// 検知済み以外(待機・初期化中・確認中・VIN読取中)で届いた[記録開始]は記録を始めません。
+    /// 記録中・終了処理中に届いた[記録開始]は無視し、記録開始を重ねて要求しません。
     ///
-    /// 責務: 各段階で選択しても記録開始要求が0件のままであることを確認します。
-    func testRecordingStartSelectedOutsideDetectedIsIgnored() async throws {
+    /// 責務: 記録中と(手動接続の開始による)終了処理中の選択で、記録開始要求が1件のままで状態も変わらないことを確認します(U4 受け入れ条件 9)。
+    func testRecordingStartSelectedWhileRecordingOrFinishingIsIgnored() async throws {
         let harness = makeHarness()
+        try await harness.driveToRecording()
+        let recording = harness.useCase.state
         harness.useCase.recordingStartSelected()
-        harness.startSignedIn()
+        XCTAssertEqual(harness.useCase.state, recording)
+
+        harness.useCase.externalAdapterUseDidBegin()
         harness.useCase.recordingStartSelected()
-        try await harness.makeLinkReady()
-        harness.useCase.recordingStartSelected()
-        try await harness.finishInitialization()
-        harness.useCase.recordingStartSelected()
-        try await harness.answerRespondingAndWaitForVINRead()
-        harness.useCase.recordingStartSelected()
-        XCTAssertEqual(harness.recordingControl.startRequests, [])
+        XCTAssertEqual(harness.useCase.state, .finishing)
+        XCTAssertEqual(harness.recordingControl.startRequests.count, 1)
     }
 
     /// 記録中に記録終了が通知されたら待機へ戻り、停止要求は出しません。
@@ -153,21 +168,123 @@ final class AdapterLinkSupervisionUseCaseRecordingTests: XCTestCase {
         XCTAssertEqual(harness.link.stopCount, 0)
     }
 
-    /// 記録中にリンクが切れたら、通知を取り下げ停止を要求して終了へ、記録終了の通知後に待機へ戻ります。
+    /// 記録中にリンクが切れても停止を要求せず記録中のままで、猶予切れの記録終了(接続断)の通知後に終了を経て待機へ戻ります。
     ///
-    /// 責務: 停止要求1回・取り下げ・終了・待機の順を確認し、リンクは止めないことを確認します。
-    func testLinkLossWhileRecordingRequestsStopThenStandby() async throws {
+    /// 責務: 停止要求0回・記録中のまま・リンクを止めないこと、接続断での記録終了で「終了 → 待機」になり抑止しないことを確認します(U2 受け入れ条件 1・3)。
+    func testLinkLossWhileRecordingKeepsRecordingUntilRecordingFinishes() async throws {
         let harness = makeHarness()
         try await harness.driveToRecording()
-        let dismissals = harness.notifications.dismissCount
+        let recording = harness.useCase.state
         harness.link.emit(.disconnected(.peripheralDisconnected(errorDescription: nil)))
-        XCTAssertEqual(harness.recordingControl.stopRequestCount, 1)
-        XCTAssertGreaterThan(harness.notifications.dismissCount, dismissals)
-        XCTAssertEqual(harness.useCase.state, .finishing)
+        XCTAssertEqual(harness.recordingControl.stopRequestCount, 0)
+        XCTAssertEqual(harness.useCase.state, recording)
         XCTAssertEqual(harness.link.stopCount, 0)
+        let statesBefore = harness.observedStates.count
 
-        harness.useCase.recordingDidFinish(endReason: nil)
-        XCTAssertEqual(harness.useCase.state, .standby)
+        harness.useCase.recordingDidFinish(endReason: .connectionLost)
+
+        XCTAssertEqual(Array(harness.observedStates.dropFirst(statesBefore)), [.finishing, .standby])
+        XCTAssertEqual(harness.recordingControl.stopRequestCount, 0)
+    }
+
+    /// 記録中にリンクが切れて `ready` へ戻っても、初期化・車両確認をやり直さず記録中のままです。
+    ///
+    /// 責務: 再接続の後も初期化・確認の呼び出しが増えず、停止要求も記録開始要求も増えないことを確認します(U2 受け入れ条件 1・7)。
+    func testLinkReturnsReadyWhileRecordingDoesNotReinitialize() async throws {
+        let harness = makeHarness()
+        try await harness.driveToRecording()
+        let recording = harness.useCase.state
+        harness.link.emit(.disconnected(.peripheralDisconnected(errorDescription: nil)))
+        harness.link.emit(.connecting)
+        harness.link.emit(.ready)
+        try await BLEBoundedWaiter.settle()
+
+        XCTAssertEqual(harness.useCase.state, recording)
+        XCTAssertEqual(harness.initialization.responses.callCount, 1)
+        XCTAssertEqual(harness.vehicleResponse.timeouts.count, 1)
+        XCTAssertEqual(harness.recordingControl.stopRequestCount, 0)
+        XCTAssertEqual(harness.recordingControl.startRequests.count, 1)
+    }
+
+    /// リンク断のあいだにユーザーが切断した場合、待機へは戻らずリンク待ちの保持に入り、リンクが戻るまでアダプターへ何も送りません。
+    ///
+    /// 責務: 停止要求0回・待機でない・接続中の間に初期化・車両確認・VIN読取が増えないことを確認します(U8 R4)。
+    func testUserStopDuringLinkLossWaitsForLinkWithoutSending() async throws {
+        let harness = try await userStoppedDuringLinkLoss()
+        harness.link.emit(.connecting)
+        try await BLEBoundedWaiter.settle()
+
+        XCTAssertNotEqual(harness.useCase.state, .standby, "リンク待ちの保持に入る")
+        XCTAssertEqual(harness.recordingControl.stopRequestCount, 0)
+        XCTAssertEqual(harness.initialization.responses.callCount, 1)
+        XCTAssertEqual(harness.vehicleResponse.timeouts.count, 1)
+        XCTAssertEqual(harness.vinReader.responses.callCount, 1)
+    }
+
+    /// リンク断中のユーザー切断から3分以内(直前・ちょうど)にリンクが `ready` へ戻ったら、再検知せず見張りを始めます。
+    ///
+    /// 責務: 179.999秒・180秒後の再接続で、初期化が増えず、`.heldWatch` の確認が送られ、検知通知が増えないことを確認します(U8 R4 の境界)。
+    func testLinkReturnWithinThreeMinutesOfUserStopStartsWatchWithoutRedetection() async throws {
+        for elapsed in [179.999, 180] {
+            let harness = try await userStoppedDuringLinkLoss()
+            let stoppedAt = harness.clock.now
+            let confirmations = harness.vehicleResponse.timeouts.count
+            harness.clock.now = stoppedAt.addingTimeInterval(elapsed)
+
+            harness.link.emit(.connecting)
+            harness.link.emit(.ready)
+            try await harness.wait("見張りの確認か初期化 \(elapsed)") {
+                harness.vehicleResponse.timeouts.count > confirmations || harness.initialization.responses.callCount > 1
+            }
+
+            XCTAssertEqual(harness.initialization.responses.callCount, 1, "同じ走行なので初期化しない: \(elapsed)")
+            XCTAssertEqual(harness.vehicleResponse.timeouts.last, .heldWatch, "見張りを始める: \(elapsed)")
+            XCTAssertTrue(harness.useCase.state.isHeldAfterUserStop, "保持を続ける: \(elapsed)")
+            XCTAssertEqual(harness.notifications.presentedVehicleDetectedVINs.count, 1, "再検知しない: \(elapsed)")
+        }
+    }
+
+    /// リンク断中のユーザー切断から3分を超えてリンクが `ready` へ戻ったら、新しい走行として初期化からやり直します。
+    ///
+    /// 責務: 180.001秒後の再接続で初期化が2回目になり、`.initializing(linkReadyAt: 再接続の時刻)` になることを確認します(U8 R4 の境界)。
+    func testLinkReturnAfterThreeMinutesOfUserStopStartsDetection() async throws {
+        let harness = try await userStoppedDuringLinkLoss()
+        let now = harness.clock.now.addingTimeInterval(180.001)
+        harness.clock.now = now
+
+        try await harness.makeLinkReady()
+
+        XCTAssertEqual(harness.initialization.responses.callCount, 2)
+        XCTAssertEqual(harness.useCase.state, .initializing(linkReadyAt: now))
+    }
+
+    /// 記録中にリンクが切れ、30秒後にユーザーが切断した段階まで進めます。
+    ///
+    /// 責務: 記録中まで進め、リンク断の30秒後に `.userDisconnected` で記録を終えた手段を返します(切断の時刻は時計の `now`)。
+    /// - Returns: ユーザー切断の直後の手段。
+    private func userStoppedDuringLinkLoss(file: StaticString = #filePath, line: UInt = #line) async throws -> AdapterLinkSupervisionHarness {
+        let harness = makeHarness()
+        try await harness.driveToRecording(file: file, line: line)
+        harness.link.emit(.disconnected(.peripheralDisconnected(errorDescription: nil)))
+        harness.clock.now = harness.clock.now.addingTimeInterval(30)
+        harness.useCase.recordingDidFinish(endReason: .userDisconnected)
+        return harness
+    }
+
+    /// リンク断の後にリンクが `ready` へ戻ってからユーザーが切断した場合は、従来どおり抑止状態へ移ります。
+    ///
+    /// 責務: 同じ接続が使える時のユーザー切断が `heldAfterUserStop` になり、停止要求が出ていないことを確認します(U2 受け入れ条件 8)。
+    func testUserStopAfterLinkReturnedHoldsSameConnection() async throws {
+        let harness = makeHarness()
+        try await harness.driveToRecording()
+        harness.link.emit(.disconnected(.peripheralDisconnected(errorDescription: nil)))
+        harness.link.emit(.connecting)
+        harness.link.emit(.ready)
+
+        harness.useCase.recordingDidFinish(endReason: .userDisconnected)
+
+        XCTAssertEqual(harness.useCase.state, F.watching(endsAt: harness.clock.now.addingTimeInterval(F.heldWatchSeconds)))
+        XCTAssertEqual(harness.recordingControl.stopRequestCount, 0)
     }
 
     /// 検知済みでリンクが切れたら、検知通知を取り下げて待機へ戻り、後の[記録開始]を無視します。
@@ -184,19 +301,37 @@ final class AdapterLinkSupervisionUseCaseRecordingTests: XCTestCase {
         XCTAssertEqual(harness.recordingControl.startRequests, [])
     }
 
-    /// 記録終了で待機へ戻った時にリンクが `ready` のままでも、すぐには初期化・確認をしません。
+    /// 記録がユーザー切断以外の理由で終わり、リンクが `ready` のままなら、前面復帰を待たずに終了時刻から初期化をやり直します。
     ///
-    /// 責務: 記録終了後に初期化・確認の呼び出しが増えず、前面復帰で初めて初期化からやり直すことを確認します。
-    func testAfterFinishingDoesNotRecheckUntilForeground() async throws {
+    /// 責務: 接続断・車両無応答の終了で、初期化の呼び出しが2回目になり `.initializing(linkReadyAt: 終了時刻)` になることを確認します(U3 受け入れ条件 13)。
+    func testAfterNonUserFinishWithReadyLinkRestartsDetection() async throws {
+        for reason in [ConnectionSessionEndReason.connectionLost, .vehicleNoResponse] {
+            let harness = makeHarness()
+            try await harness.driveToRecording()
+            let finishedAt = F.date(900)
+            harness.clock.now = finishedAt
+
+            harness.useCase.recordingDidFinish(endReason: reason)
+
+            try await harness.wait("初期化のやり直し \(reason)") { harness.initialization.responses.callCount == 2 }
+            XCTAssertEqual(harness.useCase.state, .initializing(linkReadyAt: finishedAt), "\(reason)")
+        }
+    }
+
+    /// 記録がユーザー切断以外の理由で終わった時にリンクが `ready` でなければ、待機に留まり、再接続で初期化を始めます。
+    ///
+    /// 責務: リンク断中の接続断の終了で待機・初期化なしのまま、再接続で初期化が2回目になることを確認します(U3 受け入れ条件 13)。
+    func testAfterNonUserFinishWithoutReadyLinkWaitsForReconnect() async throws {
         let harness = makeHarness()
         try await harness.driveToRecording()
-        harness.useCase.recordingDidFinish(endReason: nil)
+        harness.link.emit(.disconnected(.peripheralDisconnected(errorDescription: nil)))
+        harness.useCase.recordingDidFinish(endReason: .connectionLost)
         try await BLEBoundedWaiter.settle()
+        XCTAssertEqual(harness.useCase.state, .standby)
         XCTAssertEqual(harness.initialization.responses.callCount, 1)
-        XCTAssertEqual(harness.vehicleResponse.timeouts.count, 1)
 
-        harness.useCase.appDidBecomeActive()
-        try await harness.wait("前面復帰での初期化") { harness.initialization.responses.callCount == 2 }
+        try await harness.makeLinkReady()
+        XCTAssertEqual(harness.initialization.responses.callCount, 2)
     }
 
     /// 記録終了後、次の再接続(リンク断→`ready`)で初期化からやり直します。
@@ -213,7 +348,8 @@ final class AdapterLinkSupervisionUseCaseRecordingTests: XCTestCase {
 
     /// 検知済み・記録中・終了中のアプリ前面復帰では状態を変えません。
     ///
-    /// 責務: 各状態で前面復帰しても状態・初期化・確認・記録要求が変わらないことを確認します。
+    /// 責務: 各状態(記録中はリンク断のあいだも含む)で前面復帰しても状態・初期化・確認・記録要求が変わらないことを確認します。
+    /// 終了中へは手動接続の開始で移します(リンク断では記録中のままのため。U2 受け入れ条件 1)。
     func testForegroundDoesNotChangeDetectedRecordingOrFinishing() async throws {
         let harness = makeHarness()
         try await harness.driveToAwaitingRecordingStart()
@@ -227,6 +363,10 @@ final class AdapterLinkSupervisionUseCaseRecordingTests: XCTestCase {
         XCTAssertEqual(harness.useCase.state, recording)
 
         harness.link.emit(.disconnected(.peripheralDisconnected(errorDescription: nil)))
+        harness.useCase.appDidBecomeActive()
+        XCTAssertEqual(harness.useCase.state, recording, "リンク断の記録中")
+
+        harness.useCase.externalAdapterUseDidBegin()
         harness.useCase.appDidBecomeActive()
         XCTAssertEqual(harness.useCase.state, .finishing)
         try await BLEBoundedWaiter.settle()

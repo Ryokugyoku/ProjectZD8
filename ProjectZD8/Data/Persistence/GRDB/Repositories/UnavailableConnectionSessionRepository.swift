@@ -4,6 +4,7 @@ import Foundation
 struct UnavailableConnectionSessionRepository:
     ConnectionSessionRepository,
     ObservedVINConnectionSessionRepository,
+    VehicleUnknownConnectionSessionRepository,
     ConnectionSessionRawLogRepository,
     ConnectionSessionErasureRepository,
     AccountConnectionSessionErasureRepository,
@@ -246,17 +247,6 @@ struct UnavailableConnectionSessionRepository:
         throw ConnectionSessionRepositoryError.unavailable
     }
 
-    /// Raw応答保存要求を利用不能として失敗させます。
-    ///
-    /// 責務: 1件のRaw応答追記を明示的な保存先利用不能へ変換します。
-    /// - Parameters:
-    ///   - observation: 保存できない未デコード応答。
-    ///   - sessionID: 利用不能な保存先のセッションID。
-    /// - Throws: 常に `ConnectionSessionRepositoryError.unavailable`。
-    func append(_ observation: OBDRawResponseObservation, to sessionID: ConnectionSessionID) throws {
-        throw ConnectionSessionRepositoryError.unavailable
-    }
-
     /// Rawログ読込要求を利用不能として失敗させます。
     ///
     /// 責務: 1件のRawログ照会を明示的な保存先利用不能へ変換します。
@@ -382,6 +372,33 @@ struct UnavailableConnectionSessionRepository:
     func assignVehicle(
         _ vehicle: ConnectionSessionVehicle,
         toUnassignedSessionsWithObservedVIN observedVIN: String,
+        for accountIdentifier: String
+    ) throws -> Int {
+        throw ConnectionSessionRepositoryError.unavailable
+    }
+
+    /// 保存先利用不能を返します。
+    ///
+    /// 責務: 車両不明ログの取得要求を利用不能エラーとして失敗させます(空の一覧に潰しません)。
+    /// - Parameter accountIdentifier: 取得できないAppleアカウント識別子。
+    /// - Returns: この実装は値を返しません。
+    /// - Throws: 常に `ConnectionSessionRepositoryError.unavailable`。
+    func vehicleUnknownSessions(for accountIdentifier: String) throws -> [ConnectionSession] {
+        throw ConnectionSessionRepositoryError.unavailable
+    }
+
+    /// 保存先利用不能を返します。
+    ///
+    /// 責務: 車両不明ログへの車両紐付け要求を利用不能エラーとして失敗させます。
+    /// - Parameters:
+    ///   - vehicle: 設定できない登録車両。
+    ///   - sessionIDs: 紐付けできないセッションのID。
+    ///   - accountIdentifier: 更新できないAppleアカウント識別子。
+    /// - Returns: この実装は値を返しません。
+    /// - Throws: 常に `ConnectionSessionRepositoryError.unavailable`。
+    func assignVehicle(
+        _ vehicle: ConnectionSessionVehicle,
+        toVehicleUnknownSessions sessionIDs: [ConnectionSessionID],
         for accountIdentifier: String
     ) throws -> Int {
         throw ConnectionSessionRepositoryError.unavailable
