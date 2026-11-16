@@ -90,15 +90,35 @@ final class AdapterLinkSupervisionTransitionHeldAfterUserStopTests: XCTestCase {
         A.assertResult(ready, state: .initializing(linkReadyAt: F.referenceDate), effects: [.initializeAdapter])
     }
 
-    /// 抑止中に手動使用の開始・終了を受けても、抑止のままで作用はありません。
+    /// 見張り中に手動接続が始まったら、抑止のままで、進行中の見張りの確認を取り消します(バイトストリームを取り合わない)。
     ///
-    /// 責務: 開始と終了のどちらでも状態不変・作用なしを確認します。
-    func testExternalAdapterUseKeepsHeldState() {
-        let held = AdapterLinkSupervisionHeldStateFixture.heldAfterUserStop()
-        for event in [AdapterLinkSupervisionEvent.externalAdapterUseBegan, .externalAdapterUseEnded] {
-            let result = transition.result(from: held, on: event, conditions: F.conditions())
-            A.assertIgnored(result, from: held, "\(event)")
-        }
+    /// 責務: 抑止のまま(進行状況は変えない)で `.cancelOperations` が出て、見張りの確認を送らないことを確認します(決定 v)。
+    func testExternalAdapterUseBeganCancelsWatchConfirmation() {
+        let held = F.watching(noResponses: 1)
+        let result = transition.result(from: held, on: .externalAdapterUseBegan, conditions: F.conditions(isExternalAdapterUseActive: true))
+        XCTAssertEqual(result.state, held)
+        XCTAssertTrue(result.effects.contains(.cancelOperations), "\(result.effects)")
+        XCTAssertFalse(result.effects.contains(.confirmVehicle(.heldWatch)))
+    }
+
+    /// 手動接続が終わった時、まだ抑止中でリンクが `ready` なら、前面復帰を待たずに見張りを再開します(上限は保持に入った時点からのまま)。
+    ///
+    /// 責務: 見張りの終わりの時刻が変わらず、見張りの確認が出ることを確認します(決定 vi)。
+    func testExternalAdapterUseEndedResumesWatchWithSameLimit() {
+        let held = F.watching(noResponses: 0, endsAt: F.date(F.heldWatchSeconds))
+        let result = transition.result(from: held, on: .externalAdapterUseEnded, conditions: F.conditions(now: F.date(120)))
+        XCTAssertEqual(result.state, held)
+        XCTAssertTrue(result.effects.contains(.confirmVehicle(.heldWatch)), "\(result.effects)")
+    }
+
+    /// 手動接続が終わった時にリンクが `ready` でなければ、見張りを再開しません。
+    ///
+    /// 責務: 抑止のままで、見張りの確認が出ないことを確認します(決定 vi)。
+    func testExternalAdapterUseEndedWithoutReadyLinkDoesNotResume() {
+        let held = F.watching()
+        let result = transition.result(from: held, on: .externalAdapterUseEnded, conditions: F.conditions(linkState: .connecting))
+        XCTAssertTrue(result.state.isHeldAfterUserStop)
+        XCTAssertFalse(result.effects.contains(.confirmVehicle(.heldWatch)))
     }
 
     /// 抑止中は、記録開始選択・初期化・VIN読取・終了完了のイベントを無視します。

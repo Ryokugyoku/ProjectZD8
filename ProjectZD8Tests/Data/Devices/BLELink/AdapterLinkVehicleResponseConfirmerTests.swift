@@ -83,6 +83,46 @@ final class AdapterLinkVehicleResponseConfirmerTests: XCTestCase {
         XCTAssertLessThan(maximum, request)
     }
 
+    /// `.heldWatch`(抑止中の見張り)では、適応タイミングを切り、アダプター側タイムアウトを最大にしてから `0100` を送ります。
+    ///
+    /// 責務: `ATAT0` → `ATSTFF` → `0100` の順に送られ、正応答が「応答あり」になることを確認します(U3 受け入れ条件 9)。
+    func testHeldWatchDisablesAdaptiveTimingThenSetsMaximumBeforeRequest() async throws {
+        let (harness, outcome) = await confirm(response: AdapterLinkELMReplyFixtures.supportedPIDsPositive, timeout: .heldWatch) { link in
+            link.replies["ATAT0"] = "OK\r\r>"
+        }
+        XCTAssertEqual(AdapterLinkBoundedAwait.successValue(outcome), .responding)
+        let commands = harness.link.writtenCommands
+        let adaptive = try XCTUnwrap(commands.firstIndex(of: "ATAT0"))
+        let maximum = try XCTUnwrap(commands.firstIndex(of: "ATSTFF"))
+        let request = try XCTUnwrap(commands.firstIndex(of: "0100"))
+        XCTAssertLessThan(adaptive, maximum)
+        XCTAssertLessThan(maximum, request)
+    }
+
+    /// `ATAT0` を受け付けないアダプター(`?` を返す)でも、見張りの確認は失敗にならず `ATSTFF` と `0100` を送ります。
+    ///
+    /// 責務: `ATAT0` に `?` が返っても、続けて `ATSTFF` と `0100` が送られ、無応答・応答ありの判定が返ることを確認します(U3 受け入れ条件 9)。
+    func testHeldWatchContinuesWhenAdaptiveTimingIsRejected() async throws {
+        for (response, expected) in [(AdapterLinkELMReplyFixtures.supportedPIDsPositive, VehicleResponseOutcome.responding), ("NO DATA\r\r>", .noResponse)] {
+            let (harness, outcome) = await confirm(response: response, timeout: .heldWatch) { link in
+                link.replies["ATAT0"] = "?\r\r>"
+            }
+            XCTAssertEqual(AdapterLinkBoundedAwait.successValue(outcome), expected, response.debugDescription)
+            XCTAssertTrue(harness.link.writtenCommands.contains("ATSTFF"), response.debugDescription)
+            XCTAssertTrue(harness.link.writtenCommands.contains("0100"), response.debugDescription)
+        }
+    }
+
+    /// `.standard` と `.adapterMaximum` では、適応タイミングを変えません。
+    ///
+    /// 責務: `ATAT0` を送らないことを確認します。
+    func testNonWatchTimeoutsDoNotChangeAdaptiveTiming() async {
+        for timeout in [VehicleResponseTimeout.standard, .adapterMaximum] {
+            let (harness, _) = await confirm(response: AdapterLinkELMReplyFixtures.supportedPIDsPositive, timeout: timeout)
+            XCTAssertFalse(harness.link.writtenCommands.contains("ATAT0"), "\(timeout)")
+        }
+    }
+
     /// `.standard` ではアダプター側タイムアウトを最大にしません。
     ///
     /// 責務: `ATSTFF` を送らずに `0100` を送ることを確認します。

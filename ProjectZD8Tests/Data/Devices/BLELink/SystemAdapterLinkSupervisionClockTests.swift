@@ -5,16 +5,30 @@ import XCTest
 /// `SystemAdapterLinkSupervisionClock` の現在時刻と待機・キャンセルを検証します。
 @MainActor
 final class SystemAdapterLinkSupervisionClockTests: XCTestCase {
-    /// 現在時刻は実時刻を返します。
+    /// 現在時刻は、生成時の実時刻を起点にします。
     ///
-    /// 責務: 呼び出し前後の `Date()` の間に収まることを確認します。
-    func testNowReturnsWallClockTime() {
-        let clock = SystemAdapterLinkSupervisionClock()
+    /// 責務: 単調時計が進んでいない時の現在時刻が、生成の前後の `Date()` の間に収まることを確認します(U3 受け入れ条件 4)。
+    func testNowStartsAtWallClockTimeOfCreation() {
         let before = Date()
-        let now = clock.now
+        let clock = SystemAdapterLinkSupervisionClock(monotonic: ManualMonotonicClock(initialNanoseconds: 5_000))
         let after = Date()
-        XCTAssertGreaterThanOrEqual(now, before)
-        XCTAssertLessThanOrEqual(now, after)
+        XCTAssertGreaterThanOrEqual(clock.now, before)
+        XCTAssertLessThanOrEqual(clock.now, after)
+    }
+
+    /// 現在時刻は、注入した単調時計の経過だけで進み、単調時計が進まなければ変わりません。
+    ///
+    /// 責務: 単調時計を止めたままの2回の読み取りが同じで、5秒・さらに0.5秒進めた分だけ進むことを確認します(実時刻の変更に影響されない。U3 受け入れ条件 4)。
+    func testNowAdvancesOnlyWithMonotonicClock() {
+        let monotonic = ManualMonotonicClock(initialNanoseconds: 1_000)
+        let clock = SystemAdapterLinkSupervisionClock(monotonic: monotonic)
+        let origin = clock.now
+        XCTAssertEqual(clock.now, origin)
+
+        monotonic.advance(byNanoseconds: 5_000_000_000)
+        XCTAssertEqual(clock.now.timeIntervalSince(origin), 5, accuracy: 1e-6)
+        monotonic.advance(byNanoseconds: 500_000_000)
+        XCTAssertEqual(clock.now.timeIntervalSince(origin), 5.5, accuracy: 1e-6)
     }
 
     /// 待機は指定時間が経ってから戻ります。

@@ -27,14 +27,16 @@ final class AdapterLinkSupervisionUseCaseUserStopTests: XCTestCase {
         return harness
     }
 
-    /// 検証: 初期化・記録開始要求が増えておらず、抑止のため待機でも終了中でもないこと。
+    /// 検証: 初期化・記録開始要求が増えておらず、抑止のまま見張り中(無応答0回・終わりは現在時刻+8時間)で、見張りの確認を送っていること。
     ///
-    /// 責務: 抑止中に何も起きていないことを回数と状態で確認します。
+    /// 責務: 抑止中に検知・記録が始まっていないことを回数と状態で確認します(U3 受け入れ条件 8・9・11)。
     private func assertNothingRestarted(_ harness: AdapterLinkSupervisionHarness, file: StaticString = #filePath, line: UInt = #line) async throws {
         try await BLEBoundedWaiter.settle()
         XCTAssertEqual(harness.initialization.responses.callCount, 1, "初期化が増えた", file: file, line: line)
         XCTAssertEqual(harness.recordingControl.startRequests.count, 1, "記録開始要求が増えた", file: file, line: line)
-        XCTAssertTrue(harness.useCase.state.isHeldAfterUserStop, file: file, line: line)
+        let watching = AdapterLinkSupervisionFixtures.watching(endsAt: harness.clock.now.addingTimeInterval(AdapterLinkSupervisionFixtures.heldWatchSeconds))
+        XCTAssertEqual(harness.useCase.state, watching, file: file, line: line)
+        XCTAssertEqual(harness.vehicleResponse.timeouts.last, .heldWatch, "見張りの確認", file: file, line: line)
     }
 
     /// ユーザー切断で記録が終わった後に前面へ戻っても、初期化も記録開始もしません。

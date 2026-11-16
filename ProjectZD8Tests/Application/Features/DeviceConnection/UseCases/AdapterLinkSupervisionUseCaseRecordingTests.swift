@@ -219,7 +219,7 @@ final class AdapterLinkSupervisionUseCaseRecordingTests: XCTestCase {
 
         harness.useCase.recordingDidFinish(endReason: .userDisconnected)
 
-        XCTAssertTrue(harness.useCase.state.isHeldAfterUserStop)
+        XCTAssertEqual(harness.useCase.state, F.watching(endsAt: harness.clock.now.addingTimeInterval(F.heldWatchSeconds)))
         XCTAssertEqual(harness.recordingControl.stopRequestCount, 0)
     }
 

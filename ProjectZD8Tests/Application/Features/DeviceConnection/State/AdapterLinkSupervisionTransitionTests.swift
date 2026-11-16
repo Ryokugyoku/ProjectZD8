@@ -66,13 +66,19 @@ final class AdapterLinkSupervisionTransitionTests: XCTestCase {
         }
     }
 
-    /// 車両確認の失敗は無応答と同じく扱い、検知にせず再確認を予約します。
+    /// 車両確認の失敗は無応答と同じく扱い、検知にせず、結果の受信を起点に次の確認へ進みます。
     ///
-    /// 責務: 確認失敗が窓の中で30秒後の再確認になり、窓の終了時刻ちょうどでは休止になることを確認します。
+    /// 責務: 窓の中で最短間隔以上かかった失敗は次の確認、最短間隔より早い失敗は残り時間の待ち、背面での窓の終了時刻ちょうどは休止になることを確認します(U3 受け入れ条件 1・3・4)。
     func testVehicleConfirmationFailedBehavesAsNoResponse() {
         let probing = AdapterLinkSupervisionState.confirmingVehicle(F.confirmation())
-        let inside = transition.result(from: probing, on: .vehicleConfirmationFailed, conditions: F.conditions(now: F.date(10)))
-        A.assertResult(inside, state: probing, effects: [.scheduleVehicleConfirmation(after: .seconds(30))])
+        let now = F.date(10)
+        let slow = transition.result(
+            from: probing, on: .vehicleConfirmationFailed, conditions: F.conditions(now: now, lastVehicleConfirmationSentAt: F.date(5))
+        )
+        A.assertResult(slow, state: .confirmingVehicle(F.confirmation(attemptCount: 2)), effects: [.confirmVehicle(.adapterMaximum)])
+
+        let quick = transition.result(from: probing, on: .vehicleConfirmationFailed, conditions: F.conditions(now: now, lastVehicleConfirmationSentAt: now))
+        A.assertResult(quick, state: probing, effects: [.scheduleVehicleConfirmation(after: .seconds(1))])
 
         let atEnd = transition.result(from: probing, on: .vehicleConfirmationFailed, conditions: F.conditions(now: F.date(600)))
         A.assertResult(atEnd, state: .confirmingVehicle(F.confirmation(phase: .paused)), effects: [])
@@ -106,12 +112,12 @@ final class AdapterLinkSupervisionTransitionTests: XCTestCase {
         A.assertResult(result, state: .initializing(linkReadyAt: now), effects: [.initializeAdapter])
     }
 
-    /// 注入した時間定数が確認窓と再確認間隔に使われます。
+    /// 注入した時間定数が、確認窓・最短間隔・見張りの上限に使われます。
     ///
-    /// 責務: 窓60秒・間隔10秒の定数で、窓の終了時刻と待機時間がその値になることを確認します。
+    /// 責務: 窓60秒・最短間隔10秒・見張り100秒の定数で、窓の終了時刻、最短間隔の残り時間の待ち、見張りの終わりの時刻がその値になることを確認します(U3 受け入れ条件 3・4・11)。
     func testInjectedTimingIsUsed() {
         let custom = AdapterLinkSupervisionTransition(
-            timing: AdapterLinkSupervisionTiming(vehicleConfirmationWindow: 60, vehicleConfirmationInterval: 10)
+            timing: AdapterLinkSupervisionTiming(vehicleConfirmationWindow: 60, vehicleConfirmationInterval: 10, heldWatchLimit: 100)
         )
         let opened = custom.result(
             from: .initializing(linkReadyAt: F.referenceDate), on: .adapterInitializationSucceeded(F.evidence), conditions: F.conditions()
@@ -120,9 +126,15 @@ final class AdapterLinkSupervisionTransitionTests: XCTestCase {
         XCTAssertEqual(opened.state, .confirmingVehicle(confirmation))
 
         let scheduled = custom.result(
-            from: .confirmingVehicle(confirmation), on: .vehicleConfirmationCompleted(.noResponse), conditions: F.conditions(now: F.date(59))
+            from: .confirmingVehicle(confirmation), on: .vehicleConfirmationCompleted(.noResponse),
+            conditions: F.conditions(now: F.date(59), lastVehicleConfirmationSentAt: F.date(55))
         )
-        A.assertResult(scheduled, state: .confirmingVehicle(confirmation), effects: [.scheduleVehicleConfirmation(after: .seconds(10))])
+        A.assertResult(scheduled, state: .confirmingVehicle(confirmation), effects: [.scheduleVehicleConfirmation(after: .seconds(6))])
+
+        let watching = custom.result(
+            from: .heldAfterUserStop(.awaitingStart), on: .recordingEndSettled, conditions: F.conditions(now: F.date(7))
+        )
+        XCTAssertEqual(watching.state, F.watching(endsAt: F.date(107)))
     }
 
     /// サインアウトは記録中なら停止要求を出して終了へ、リンクを停止し通知を取り下げます。

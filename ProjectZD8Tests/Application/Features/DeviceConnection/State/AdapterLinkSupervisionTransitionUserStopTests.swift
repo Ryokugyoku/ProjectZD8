@@ -23,7 +23,7 @@ final class AdapterLinkSupervisionTransitionUserStopTests: XCTestCase {
             on: .recordingDidFinish(endReason: .userDisconnected),
             conditions: F.conditions()
         )
-        XCTAssertTrue(result.state.isHeldAfterUserStop)
+        XCTAssertEqual(result.state, .heldAfterUserStop(.awaitingStart), "見張りは記録の終了通知の後に始める(U3 受け入れ条件 14)")
         XCTAssertEqual(result.effects, [.dismissNotification])
         XCTAssertFalse(result.effects.contains(.completeFinishing))
     }
