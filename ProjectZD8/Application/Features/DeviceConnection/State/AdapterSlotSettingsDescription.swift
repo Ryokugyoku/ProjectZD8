@@ -11,15 +11,22 @@ nonisolated enum AdapterSlotSettingsDescription: Equatable, Sendable {
     /// ローカライズキーの文言です。
     case localizationKey(String)
 
-    /// スロットに選択されているアダプターから説明を決めます。
+    /// スロットに選択されているアダプターと保存済み設定から説明を決めます。
     ///
-    /// 責務: 選択済みならアダプターの表示名、未選択なら未選択の文言キーへ変換します。
+    /// 責務: 検出済みの選択があればその表示名、無ければプライマリーに限り保存済み設定の名前、どちらも無ければ未選択の文言キーへ変換します。
     /// - Parameters:
     ///   - slot: 説明するアダプタースロット。
     ///   - selectedAdapters: 接続役割ごとに選択されているアダプター。
-    init(slot: AdapterConnectionRole, selectedAdapters: [AdapterConnectionRole: DiscoveredAdapter]) {
+    ///   - defaultAdapterPreference: 保存済みのプライマリー設定。無ければnil。
+    init(
+        slot: AdapterConnectionRole,
+        selectedAdapters: [AdapterConnectionRole: DiscoveredAdapter],
+        defaultAdapterPreference: DefaultAdapterPreference? = nil
+    ) {
         if let adapter = selectedAdapters[slot] {
             self = .adapterName(adapter.displayName)
+        } else if slot == .primary, let preference = defaultAdapterPreference {
+            self = .adapterName(preference.displayName)
         } else {
             self = .localizationKey(Self.notSelectedKey)
         }

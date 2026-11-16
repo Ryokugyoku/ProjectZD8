@@ -8,6 +8,8 @@ struct IOSSettingsAdapterCard: View {
 
     /// 接続役割ごとに選択されているアダプターです。
     let selectedAdapters: [AdapterConnectionRole: DiscoveredAdapter]
+    /// 保存済みのプライマリー設定です。探索で未検出でも保存名を表示するために使います。
+    let defaultAdapterPreference: DefaultAdapterPreference?
     /// 振動アニメーションの進行値です。動きを抑える設定の時は0を渡します。
     let attentionProgress: CGFloat
     /// アダプタースロットの選択が求められたことを通知するクロージャです。
@@ -41,7 +43,11 @@ struct IOSSettingsAdapterCard: View {
     private func row(for slot: AdapterConnectionRole) -> some View {
         IOSSettingsAdapterRow(
             slot: slot,
-            description: AdapterSlotSettingsDescription(slot: slot, selectedAdapters: selectedAdapters)
+            description: AdapterSlotSettingsDescription(
+                slot: slot,
+                selectedAdapters: selectedAdapters,
+                defaultAdapterPreference: defaultAdapterPreference
+            )
         ) {
             requestSelection(slot)
         }
