@@ -24,6 +24,9 @@ nonisolated enum AdapterLinkDisconnectReason: Equatable, Sendable {
     /// 探索の各段階で応答が待機上限を超えました。
     case discoveryTimedOut
 
+    /// `ready` のまま書き込みの完了が期限内に届かず、接続をやり直します。
+    case writeTimedOut
+
     /// `ready` に到達しないまま再接続が上限回数を超えました。終端の失敗です。
     case retryLimitExceeded
 
@@ -38,7 +41,7 @@ nonisolated enum AdapterLinkDisconnectReason: Equatable, Sendable {
         case .unknownUARTProfile, .retryLimitExceeded, .invalidIdentifier:
             true
         case .bluetoothPoweredOff, .bluetoothUnauthorized, .bluetoothUnsupported,
-             .peripheralDisconnected, .connectionFailed, .discoveryFailed, .discoveryTimedOut:
+             .peripheralDisconnected, .connectionFailed, .discoveryFailed, .discoveryTimedOut, .writeTimedOut:
             false
         }
     }

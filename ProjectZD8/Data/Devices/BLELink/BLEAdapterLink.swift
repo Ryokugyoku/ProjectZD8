@@ -49,8 +49,8 @@ final class BLEAdapterLink: AdapterLinkPort {
     private let logger = Logger(subsystem: DiagnosticsLogSubsystem.identifier, category: "BLELink")
     /// 探索各段階とキャンセル完了待ちの期限です。
     private let deadline: BLEAdapterLinkDeadline
-    /// 呼び出し順の書き込みキューです。
-    private let writeQueue = BLEAdapterLinkWriteQueue()
+    /// 呼び出し順の書き込みキューです。書き込みが進まない時間の期限は探索用の期限とは別に持ちます。
+    private let writeQueue: BLEAdapterLinkWriteQueue
     /// 連続失敗の計数です。
     private var retryCounter: BLEAdapterLinkRetryCounter
     /// 探索結果の集約です。
@@ -73,8 +73,8 @@ final class BLEAdapterLink: AdapterLinkPort {
     /// 責務: 依存を固定し、`start` より前に届く状態復元イベントも受け取れるよう中央役の通知先を設定します。
     /// - Parameters:
     ///   - central: Bluetooth中央役。
-    ///   - limits: 再試行と探索待機の上限値。
-    ///   - sleep: 期限待ちに使う待機処理。テストは実時間を待たない実装を渡します。
+    ///   - limits: 再試行・探索待機・書き込み完了待ちの上限値。
+    ///   - sleep: 期限待ちに使う待機処理。探索と書き込みの期限で共有します。テストは実時間を待たない実装を渡します。
     init(
         central: any BLECentralRole,
         limits: BLEAdapterLinkLimits = .standard,
@@ -83,9 +83,13 @@ final class BLEAdapterLink: AdapterLinkPort {
         self.central = central
         self.limits = limits
         deadline = BLEAdapterLinkDeadline(sleep: sleep)
+        writeQueue = BLEAdapterLinkWriteQueue(completionTimeout: limits.writeCompletionTimeout, sleep: sleep)
         retryCounter = BLEAdapterLinkRetryCounter(maximumConsecutiveReconnects: limits.maximumConsecutiveReconnects)
         central.eventHandler = { [weak self] event in
             self?.handleCentralEvent(event)
+        }
+        writeQueue.writeDidTimeOut = { [weak self] in
+            self?.handleWriteTimedOut()
         }
     }
 
@@ -359,7 +363,7 @@ final class BLEAdapterLink: AdapterLinkPort {
     ///   - source: 探索したペリフェラル。
     private func handleServicesDiscovered(_ discovered: [String], errorDescription: String?, on source: any BLEPeripheralRole) {
         if let errorDescription {
-            failDiscovery(.discoveryFailed(errorDescription: errorDescription))
+            failConnectedLink(.discoveryFailed(errorDescription: errorDescription))
             return
         }
         let pending = aggregator.beginServices(discovered)
@@ -390,7 +394,7 @@ final class BLEAdapterLink: AdapterLinkPort {
         on source: any BLEPeripheralRole
     ) {
         if let errorDescription {
-            failDiscovery(.discoveryFailed(errorDescription: errorDescription))
+            failConnectedLink(.discoveryFailed(errorDescription: errorDescription))
             return
         }
         guard aggregator.recordCharacteristics(serviceUUID: serviceUUID, capabilities: capabilities) else { return }
@@ -425,11 +429,11 @@ final class BLEAdapterLink: AdapterLinkPort {
     ///   - errorDescription: OSのエラー説明。
     private func handleNotificationState(isNotifying: Bool, errorDescription: String?) {
         if let errorDescription {
-            failDiscovery(.discoveryFailed(errorDescription: errorDescription))
+            failConnectedLink(.discoveryFailed(errorDescription: errorDescription))
         } else if isNotifying {
             becomeReady()
         } else {
-            failDiscovery(.discoveryFailed(errorDescription: "Notify was not enabled."))
+            failConnectedLink(.discoveryFailed(errorDescription: "Notify was not enabled."))
         }
     }
 
@@ -467,7 +471,7 @@ final class BLEAdapterLink: AdapterLinkPort {
     private func handleDeadlineExpired() {
         switch phase {
         case .discoveringServices, .discoveringCharacteristics, .enablingNotify:
-            failDiscovery(.discoveryTimedOut)
+            failConnectedLink(.discoveryTimedOut)
         case .cancellingForRetry:
             logger.error("BLELink cancellation did not complete in time; reconnecting")
             reconnectAfterCancellation()
@@ -476,11 +480,20 @@ final class BLEAdapterLink: AdapterLinkPort {
         }
     }
 
-    /// 接続済みのまま探索が失敗したときに再試行へ進めます。
+    /// 書き込みが期限内に進まなかったことをリンク障害として処理します。
+    ///
+    /// 責務: `ready` の時だけ、接続をキャンセルして切断通知を待つ再試行へ進めます。書き込み待ちはキューが `timedOut` で終えています。
+    private func handleWriteTimedOut() {
+        guard phase == .ready else { return }
+        logger.error("BLELink write did not complete in time; reconnecting")
+        failConnectedLink(.writeTimedOut)
+    }
+
+    /// 接続済みのまま探索・書き込みが失敗したときに再試行へ進めます。
     ///
     /// 責務: 理由を出して失敗を数え、上限内なら接続をキャンセルして切断通知を待ち、超えたら終端にします。
-    /// - Parameter reason: 探索失敗の理由。
-    private func failDiscovery(_ reason: AdapterLinkDisconnectReason) {
+    /// - Parameter reason: 探索失敗・書き込み期限切れの理由。
+    private func failConnectedLink(_ reason: AdapterLinkDisconnectReason) {
         discardLinkResources()
         transition(to: .disconnected(reason))
         guard retryCounter.recordFailure() else {

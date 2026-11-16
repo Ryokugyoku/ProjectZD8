@@ -11,4 +11,7 @@ nonisolated enum AdapterLinkWriteError: Error, Equatable, Sendable {
 
     /// OSが書き込み失敗を通知したか、最大書き込み長が不正でした。説明を保持します。
     case writeFailed(description: String)
+
+    /// 書き込みの完了通知・送信可能通知が期限内に届きませんでした。リンク障害として扱い、待機中の全書き込みをこの値で終えます。
+    case timedOut
 }

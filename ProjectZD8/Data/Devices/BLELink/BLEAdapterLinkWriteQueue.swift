@@ -2,6 +2,10 @@
 import Foundation
 
 /// `ready` のリンクへの書き込みを呼び出し順のチャンク列として送り、完了通知・送信可能通知に合わせて進めます。
+///
+/// 送信待ちが進まない(応答ありの完了通知・応答なしの送信可能通知が届かない)まま期限を超えたら、全ての送信待ちを
+/// `AdapterLinkWriteError.timedOut` で終えて `writeDidTimeOut` を呼びます。完了通知はチャンクを識別しないため、
+/// 遅れて届いた通知が次の送信待ちに当たらないよう、該当の1件だけでなく全件を失敗させます。
 @MainActor
 final class BLEAdapterLinkWriteQueue {
     /// 書き込み先のペリフェラルとCharacteristicです。
@@ -34,6 +38,27 @@ final class BLEAdapterLinkWriteQueue {
     private var jobs: [Job] = []
     /// 応答あり書き込みの完了通知を待っているかどうかです。
     private var isAwaitingResponse = false
+    /// 送信待ちが進まないまま待つ上限時間です。
+    private let completionTimeout: Duration
+    /// 送信待ちが進まない時間の期限です。探索用の期限とは別のインスタンスです。
+    private let stallDeadline: BLEAdapterLinkDeadline
+
+    /// 送信待ちが期限内に進まず全件をタイムアウトで終えた後に呼ばれる処理です。リンク障害として扱うために使います。
+    var writeDidTimeOut: (@MainActor () -> Void)?
+
+    /// 期限と待機手段を固定して生成します。
+    ///
+    /// 責務: 送信待ちが進まない時間の上限と、その期限を待つ処理を保持します。
+    /// - Parameters:
+    ///   - completionTimeout: 送信待ちが進まないまま待つ上限。既定は `BLEAdapterLinkLimits.standardWriteCompletionTimeout`。
+    ///   - sleep: 期限待ちに使う待機処理。テストは実時間を待たない実装を渡します。
+    init(
+        completionTimeout: Duration = BLEAdapterLinkLimits.standardWriteCompletionTimeout,
+        sleep: @escaping BLEAdapterLinkDeadline.Sleep = { try await Task.sleep(for: $0) }
+    ) {
+        self.completionTimeout = completionTimeout
+        stallDeadline = BLEAdapterLinkDeadline(sleep: sleep)
+    }
 
     /// 書き込みを受け付ける状態かどうかです。
     var isActive: Bool { target != nil }
@@ -43,6 +68,7 @@ final class BLEAdapterLinkWriteQueue {
     /// 責務: `ready` になった送受信路を書き込み先として保持します。
     /// - Parameter target: 書き込み先。
     func activate(_ target: Target) {
+        stallDeadline.cancel()
         self.target = target
         isAwaitingResponse = false
     }
@@ -63,7 +89,7 @@ final class BLEAdapterLinkWriteQueue {
         guard !chunks.isEmpty else { return }
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, any Error>) in
             jobs.append(Job(chunks: chunks, continuation: continuation))
-            pump()
+            advance()
         }
     }
 
@@ -79,14 +105,14 @@ final class BLEAdapterLinkWriteQueue {
         } else if jobs[0].nextIndex >= jobs[0].chunks.count {
             jobs.removeFirst().continuation.resume()
         }
-        pump()
+        advance(progressed: true)
     }
 
     /// 応答なし書き込みの送信可能通知を反映します。
     ///
     /// 責務: 送信可否待ちで止まっていたチャンク送信を再開します。
     func handleReadyToSend() {
-        pump()
+        advance()
     }
 
     /// 受け付けを止め、全ての送信待ちを指定エラーで終えます。
@@ -94,6 +120,7 @@ final class BLEAdapterLinkWriteQueue {
     /// 責務: 書き込み先を外して待機中の全呼び出しを明示的なエラーで完了させます。
     /// - Parameter error: 呼び出し元へ返すエラー。
     func failAll(with error: AdapterLinkWriteError) {
+        stallDeadline.cancel()
         target = nil
         isAwaitingResponse = false
         let pending = jobs
@@ -101,19 +128,50 @@ final class BLEAdapterLinkWriteQueue {
         pending.forEach { $0.continuation.resume(throwing: error) }
     }
 
+    /// 送れるだけ送り、送信待ちが残る間だけ進まない時間の期限を設定します。
+    ///
+    /// 責務: 送信を進め、送信待ちが無くなれば期限を捨て、進んだ時か期限が無い時だけ期限を設定し直します。
+    /// 進まないまま並んだ送信待ちでは期限を延ばしません。
+    /// - Parameter progressed: 呼び出し前に完了通知で送信待ちが進んだかどうか。
+    private func advance(progressed: Bool = false) {
+        let sentChunk = pump()
+        guard target != nil, !jobs.isEmpty else {
+            stallDeadline.cancel()
+            return
+        }
+        guard progressed || sentChunk || !stallDeadline.isArmed else { return }
+        stallDeadline.arm(after: completionTimeout) { [weak self] in
+            self?.handleStallDeadlineExpired()
+        }
+    }
+
+    /// 送信待ちが期限内に進まなかったことを反映します。
+    ///
+    /// 責務: 全ての送信待ちを `timedOut` で終えて受け付けを止め、リンク障害として通知します。
+    private func handleStallDeadlineExpired() {
+        guard target != nil, !jobs.isEmpty else { return }
+        failAll(with: .timedOut)
+        writeDidTimeOut?()
+    }
+
     /// 送れるだけのチャンクを先頭の送信待ちから順に送ります。
     ///
     /// 責務: 応答待ち・送信不可でなければ次のチャンクを1つずつ書き込みます。総チャンク数で必ず終わります。
-    private func pump() {
+    /// - Returns: 1つ以上のチャンクを送ったか、送信待ちを1件以上完了させたなら `true`。
+    @discardableResult
+    private func pump() -> Bool {
+        var progressed = false
         while let target, !isAwaitingResponse, !jobs.isEmpty {
             let index = jobs[0].nextIndex
             guard index < jobs[0].chunks.count else {
                 jobs.removeFirst().continuation.resume()
+                progressed = true
                 continue
             }
             if target.kind == .withoutResponse, !target.peripheral.canSendWriteWithoutResponse {
-                return
+                return progressed
             }
+            progressed = true
             jobs[0].nextIndex = index + 1
             if target.kind == .withResponse {
                 isAwaitingResponse = true
@@ -125,6 +183,7 @@ final class BLEAdapterLinkWriteQueue {
                 kind: target.kind
             )
         }
+        return progressed
     }
 }
 #endif
