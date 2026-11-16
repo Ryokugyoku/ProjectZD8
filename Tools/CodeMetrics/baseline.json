@@ -1,0 +1,311 @@
+{
+  "files": {
+    "ProjectZD8/Application/Features/Logging/UseCases/ConnectionSessionAcquisitionRecorder.swift": {
+      "file_lines": 528
+    },
+    "ProjectZD8/Application/Features/VehicleManagement/State/VehicleManagementModel.swift": {
+      "file_lines": 541,
+      "function_count": 21
+    },
+    "ProjectZD8/Data/Devices/BLELink/BLEAdapterLink.swift": {
+      "file_lines": 601,
+      "function_count": 34
+    },
+    "ProjectZD8/Data/Devices/OBD/AppleCoreBluetoothOBDTransport.swift": {
+      "file_lines": 585,
+      "function_count": 28
+    },
+    "ProjectZD8/Data/Network/CloudKit/CloudKitConnectionSessionTransferRepository.swift": {
+      "file_lines": 697,
+      "function_count": 25
+    },
+    "ProjectZD8/Data/Persistence/GRDB/Database/ProjectZD8DatabaseMigrator.swift": {
+      "file_lines": 683
+    },
+    "ProjectZD8/Data/Persistence/GRDB/Repositories/GRDBConnectionSessionAcquisitionRepository.swift": {
+      "file_lines": 1736,
+      "function_count": 45
+    },
+    "ProjectZD8/Data/Persistence/GRDB/Repositories/GRDBConnectionSessionRepository.swift": {
+      "file_lines": 728,
+      "function_count": 33
+    },
+    "ProjectZD8/Data/Persistence/GRDB/Repositories/UnavailableConnectionSessionRepository.swift": {
+      "function_count": 32
+    },
+    "ProjectZD8/Platform/iOS/Features/Analysis/Views/IOSSessionLogAnalysisView.swift": {
+      "file_lines": 641
+    },
+    "ProjectZD8/Platform/iOS/Features/LogHistory/Views/IOSConnectionHistoryView.swift": {
+      "file_lines": 589
+    },
+    "ProjectZD8/Platform/macOS/Features/Analysis/Views/MacOSSessionLogAnalysisView.swift": {
+      "file_lines": 690
+    },
+    "ProjectZD8Tests/Application/Features/Authentication/State/AuthenticationSessionModelTests.swift": {
+      "file_lines": 622,
+      "function_count": 39
+    },
+    "ProjectZD8Tests/Application/Features/Authentication/UseCases/AuthenticationUseCaseTests.swift": {
+      "function_count": 36
+    },
+    "ProjectZD8Tests/Application/Features/DeviceConnection/State/AdapterLinkHeldWatchTransitionTests.swift": {
+      "function_count": 21
+    },
+    "ProjectZD8Tests/Application/Features/DeviceConnection/State/AdapterLinkVehicleConfirmationTransitionTests.swift": {
+      "function_count": 24
+    },
+    "ProjectZD8Tests/Application/Features/DeviceConnection/UseCases/AdapterLinkSupervisionUseCaseRecordingTests.swift": {
+      "function_count": 25
+    },
+    "ProjectZD8Tests/Application/Features/LogHistory/State/ConnectionHistoryModelTests.swift": {
+      "file_lines": 534,
+      "function_count": 37
+    },
+    "ProjectZD8Tests/Application/Features/LogHistory/UseCases/SynchronizeConnectionSessionsUseCaseTests.swift": {
+      "file_lines": 651,
+      "function_count": 33
+    },
+    "ProjectZD8Tests/Application/Features/Logging/UseCases/CreateConnectionSessionAcquisitionManifestUseCaseTests.swift": {
+      "file_lines": 794,
+      "function_count": 41
+    },
+    "ProjectZD8Tests/Data/Persistence/GRDB/Repositories/GRDBAcquisitionEvidenceSyntheticMeasurementTests.swift": {
+      "file_lines": 1318,
+      "function_count": 31
+    },
+    "ProjectZD8Tests/Data/Persistence/GRDB/Repositories/GRDBConnectionSessionAcquisitionBatchRepositoryTests.swift": {
+      "file_lines": 527
+    },
+    "ProjectZD8Tests/Data/Persistence/GRDB/Repositories/GRDBConnectionSessionAcquisitionRepositoryTests.swift": {
+      "file_lines": 611
+    },
+    "ProjectZD8Tests/Data/Persistence/GRDB/Repositories/GRDBConnectionSessionRepositoryQueryTests.swift": {
+      "function_count": 21
+    },
+    "ProjectZD8Tests/Data/Persistence/GRDB/Repositories/GRDBConnectionSessionRepositoryTests.swift": {
+      "file_lines": 668
+    },
+    "ProjectZD8Tests/Data/Persistence/GRDB/Repositories/GRDBConnectionSessionRepositoryTransitionTests.swift": {
+      "function_count": 24
+    },
+    "ProjectZD8Tests/Domain/Policies/AcquisitionManifestCompatibilityPolicyTests.swift": {
+      "function_count": 21
+    },
+    "ProjectZD8Tests/Platform/iOS/Features/DeviceConnection/Presentation/IOSSettingsPresentationModelTests.swift": {
+      "function_count": 29
+    },
+    "ProjectZD8Tests/Platform/macOS/Features/DeviceConnection/Presentation/MacOSSettingsPresentationModelTests.swift": {
+      "function_count": 22
+    }
+  },
+  "functions": {
+    "ProjectZD8/Application/Features/Analysis/State/SessionLogAnalysisModel.swift": {
+      "beginLoading#0": {
+        "cyclomatic": 17
+      }
+    },
+    "ProjectZD8/Application/Features/Analysis/State/SessionLogVisualization.swift": {
+      "interpretationKey#0": {
+        "cyclomatic": 18
+      }
+    },
+    "ProjectZD8/Application/Features/Authentication/State/AuthenticationSessionModel.swift": {
+      "send#0": {
+        "cyclomatic": 11
+      }
+    },
+    "ProjectZD8/Application/Features/DeviceConnection/State/AdapterLinkSupervisionTransition.swift": {
+      "result#0": {
+        "cyclomatic": 18
+      }
+    },
+    "ProjectZD8/Application/Features/DeviceConnection/UseCases/AdapterLinkSupervisionUseCase.swift": {
+      "execute#0": {
+        "cyclomatic": 15
+      }
+    },
+    "ProjectZD8/Application/Features/LiveTelemetry/State/LiveTelemetryModel.swift": {
+      "send#0": {
+        "cyclomatic": 11
+      }
+    },
+    "ProjectZD8/Application/Features/LogHistory/State/ConnectionHistoryModel.swift": {
+      "refreshSessions#0": {
+        "cyclomatic": 12
+      },
+      "send#0": {
+        "cyclomatic": 23
+      },
+      "uploadSession#0": {
+        "cyclomatic": 19
+      }
+    },
+    "ProjectZD8/Application/Features/Logging/State/ConnectionSessionLifecycleModel.swift": {
+      "send#0": {
+        "cyclomatic": 12
+      }
+    },
+    "ProjectZD8/Application/Features/Maintenance/State/MaintenanceModel.swift": {
+      "send#0": {
+        "cyclomatic": 21
+      }
+    },
+    "ProjectZD8/Application/Features/Maintenance/State/MaintenancePresentationText.swift": {
+      "localizationKey#1": {
+        "cyclomatic": 30
+      }
+    },
+    "ProjectZD8/Application/Features/VehicleManagement/State/VehicleManagementModel.swift": {
+      "identifyVehicle#0": {
+        "cyclomatic": 14
+      },
+      "send#0": {
+        "cyclomatic": 17
+      }
+    },
+    "ProjectZD8/Data/Devices/BLELink/BLEAdapterLink.swift": {
+      "handleCentralEvent#0": {
+        "cyclomatic": 12
+      },
+      "handlePeripheralEvent#0": {
+        "cyclomatic": 15
+      }
+    },
+    "ProjectZD8/Data/Devices/OBD/OBDLinkEXPIDTelemetryAdapter.swift": {
+      "readObservations#0": {
+        "cognitive": 16,
+        "cyclomatic": 11
+      }
+    },
+    "ProjectZD8/Data/Diagnostics/OSSignpostAcquisitionPerformanceAdapter.swift": {
+      "signpostName#0": {
+        "cyclomatic": 14
+      }
+    },
+    "ProjectZD8/Data/Persistence/GRDB/Database/ProjectZD8DatabaseMigrator.swift": {
+      "createConnectionSessionAcquisitionBatchEvidence#0": {
+        "function_length": 140
+      },
+      "createConnectionSessionAcquisitionEvidence#0": {
+        "function_length": 162
+      }
+    },
+    "ProjectZD8/Data/Persistence/GRDB/Records/ConnectionSessionRecord.swift": {
+      "makeDomainSession#0": {
+        "cyclomatic": 16
+      }
+    },
+    "ProjectZD8/Data/Persistence/GRDB/Repositories/GRDBConnectionSessionAcquisitionRepository.swift": {
+      "appendEnd#0": {
+        "cyclomatic": 17,
+        "nesting": 4
+      },
+      "beginBatch#0": {
+        "cyclomatic": 11,
+        "nesting": 4
+      },
+      "classifyRespondedRetry#0": {
+        "cyclomatic": 12
+      },
+      "finishBatch#0": {
+        "cognitive": 21,
+        "cyclomatic": 21,
+        "function_length": 94,
+        "nesting": 5
+      },
+      "insertStart#0": {
+        "cyclomatic": 11
+      },
+      "readCanonicalStart#0": {
+        "cyclomatic": 13
+      },
+      "saveRespondedRequest#0": {
+        "cyclomatic": 15,
+        "function_length": 86
+      }
+    },
+    "ProjectZD8/Data/Persistence/GRDB/Repositories/GRDBConnectionSessionRepository.swift": {
+      "importCloudMetadata#0": {
+        "cyclomatic": 11
+      },
+      "sessionsHaveCompatibleArchivedMetadata#0": {
+        "cyclomatic": 11
+      }
+    },
+    "ProjectZD8/Domain/Entities/AcquisitionBatchEvidence.swift": {
+      "init#0": {
+        "cyclomatic": 16
+      }
+    },
+    "ProjectZD8/Domain/Entities/PIDRequestEvidence.swift": {
+      "init#0": {
+        "cognitive": 16,
+        "cyclomatic": 16
+      }
+    },
+    "ProjectZD8/Domain/Policies/AcquisitionManifestCompatibilityPolicy.swift": {
+      "compatibility#0": {
+        "cognitive": 18,
+        "cyclomatic": 16
+      },
+      "unknownReasons#0": {
+        "cognitive": 29,
+        "cyclomatic": 24
+      }
+    },
+    "ProjectZD8/Platform/iOS/Features/Analysis/Views/IOSSessionLogAnalysisView.swift": {
+      "selectedContent#0": {
+        "cyclomatic": 12
+      }
+    },
+    "ProjectZD8/Platform/iOS/Features/Authentication/Presentation/IOSLoginMetrics.swift": {
+      "resolve#0": {
+        "cognitive": 17,
+        "cyclomatic": 16
+      }
+    },
+    "ProjectZD8/Platform/iOS/Features/DeviceConnection/Presentation/IOSSettingsPresentationModel.swift": {
+      "send#0": {
+        "cyclomatic": 15
+      }
+    },
+    "ProjectZD8/Platform/iOS/Features/VehicleManagement/Views/IOSGarageView.swift": {
+      "vehicleCard#0": {
+        "function_length": 99
+      }
+    },
+    "ProjectZD8/Platform/macOS/AppShell/MacOSSidebarView.swift": {
+      "destinationButton#0": {
+        "cognitive": 17,
+        "cyclomatic": 19
+      }
+    },
+    "ProjectZD8/Platform/macOS/Features/Analysis/Views/MacOSSessionLogAnalysisView.swift": {
+      "selectedContent#0": {
+        "cyclomatic": 12
+      }
+    },
+    "ProjectZD8/Platform/macOS/Features/DeviceConnection/Presentation/MacOSSettingsPresentationModel.swift": {
+      "send#0": {
+        "cyclomatic": 17
+      }
+    },
+    "ProjectZD8/Platform/macOS/Features/VehicleManagement/Views/MacOSGarageView.swift": {
+      "vehicleCard#0": {
+        "function_length": 90
+      }
+    },
+    "ProjectZD8Tests/Application/Features/DeviceConnection/State/AdapterLinkSupervisionTransitionTests.swift": {
+      "testEveryStateAndEventIsHandledOrIgnoredAsSpecified#0": {
+        "cyclomatic": 11
+      }
+    },
+    "ProjectZD8Tests/Data/Persistence/GRDB/Repositories/GRDBAcquisitionEvidenceSyntheticMeasurementTests.swift": {
+      "runFullMatrix#0": {
+        "cognitive": 28,
+        "nesting": 6
+      }
+    }
+  }
+}

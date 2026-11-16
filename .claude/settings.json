@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "f=\"$CLAUDE_PROJECT_DIR/Tools/CodeMetrics/check_swift_metrics.py\"; [ -f \"$f\" ] || exit 0; python3 \"$f\" --hook",
+            "timeout": 60,
+            "statusMessage": "Swift の複雑さを確認中"
+          }
+        ]
+      }
+    ]
+  }
+}

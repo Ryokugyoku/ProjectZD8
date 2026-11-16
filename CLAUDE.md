@@ -12,7 +12,11 @@ xcodebuild -project ProjectZD8.xcodeproj -scheme ProjectZD8 -destination 'platfo
 xcodebuild -project ProjectZD8.xcodeproj -scheme ProjectZD8 -destination 'generic/platform=iOS Simulator' build
 PYTHONPATH=Tools/VehicleChangeDataQuality python3 -m unittest discover -s Tools/VehicleChangeDataQuality/Tests -v
 ruby .github/testflight_build_publisher_test.rb
+python3 Tools/CodeMetrics/check_swift_metrics.py --changed-since origin/main
+python3 -m unittest discover -s Tools/CodeMetrics/Tests -v
 ```
+
+- 複雑さチェック(`Tools/CodeMetrics/`、仕様は同 README): Swift の編集のたびに PostToolUse フック(`.claude/settings.json`)が自動で走り、上限超過を Claude に返す。CI も変更ファイルを確かめる。既存の超過は `baseline.json` で許容し、値が増えたらエラー。要 `pip install --user -r Tools/CodeMetrics/requirements.txt`。ベースラインは超過を解消した時だけ `--update-baseline` で更新し、超過を増やすために更新しない。
 
 - 実行範囲: Swift は変更した型の `-only-testing:ProjectZD8Tests/<TestClass>`(複数可)、`Tools/VehicleChangeDataQuality/` は unittest 全件、`.github/` は ruby テスト。PR 説明の「テスト」欄にコマンドと結果を書く。
 - CI: `tests.yml`(PR と main push。macOS 単体テスト全件 `-only-testing:ProjectZD8Tests`、UI テストは署名なしで起動不可のため対象外。Ruby・Python テストも実行。Xcode 26.6、`CODE_SIGNING_ALLOWED=NO`)、`testflight.yml`(main で手動、iOS/macOS アーカイブ→TestFlight)。
@@ -38,6 +42,18 @@ ruby .github/testflight_build_publisher_test.rb
 - Feature 間は具象型に依存しない。横断ワークフローは所有 Feature を1つ決め、Domain 型か狭いポートで連携。
 - `Helpers`/`Utils`/`Common`/広い `Manager` は作らない。新 Feature・トップレベルディレクトリは作る前にユーザーへ提案。
 
+## 段階的なモジュール化
+
+業務のまとまり(コンテキスト)ごとに、ローカル Swift Package `Packages/` のモジュールへ少しずつ移す。作り直しはせず、振る舞いを変えない移動で進める。対応表・順番・状態は `Documentation/MODULARIZATION_PLAN.md` が正。
+
+- 改修で触った型が「移行中」のコンテキストに属するなら、その PR で一緒に移す。「未着手」のコンテキストの型は移さない。
+- 移せるのは、依存先がすべて移行済み(Domain モジュールか同じモジュール)の型だけ。依存の末端(値型・Ports・State)から移し、UseCase はその後。
+- 他コンテキストの具象型に依存していて移せない型は、Domain の型か狭いポートに置き換えてから移す。置き換えは仕様変更なしで行い、移動とは別コミットにする。
+- 移動と振る舞いの変更はコミットを分ける。移動のコミットは既存テストがそのまま通ることで確認する。1つの PR で移すのは1つのコンテキストの中だけ。
+- モジュールの外へ見せる型・メソッドだけ `public` にする。テストは `@testable import <モジュール>` を使い、ミラー配置を保つ。
+- Data(GRDB・CloudKit・デバイス)、Platform、App はアプリ本体に残す。DB は1つのまま、リポジトリの契約だけをコンテキスト側に置く。
+- 移行済みのコンテキストの型をアプリ本体に新しく作らない。移した後は `MODULARIZATION_PLAN.md` の状態を同じ PR で更新する。
+
 ## 画面の分割とフォルダ構成(単一責任)
 
 型もファイルも「変更理由は1つ」で分ける。View に判定・整形・文言選択を溜めない。新規画面と、分割・改修で手を入れる画面に適用(既存画面は触る時に移行)。
@@ -48,7 +64,7 @@ ruby .github/testflight_build_publisher_test.rb
 - 表示ロジックは SwiftUI を import しない純粋型にする: iOS/macOS 共通の判定・整形・文言キー・alert 内容は `Application/Features/<F>/State/`(ローカライズキーは `String` で返し View で `LocalizedStringKey` に変換)、片方の OS だけのものは `Platform/<OS>/Features/<F>/Presentation/`。
 - 複数画面で使う部品: 同一 Feature・同一 OS 内は `Views/Components/`、Feature/OS をまたぐなら機能知識を持たない汎用部品として `Shared/DesignSystem/Components/`。
 - iOS と macOS に同じロジックをコピーしない。共通化するのはロジックと汎用部品で、画面レイアウトは OS ごとに別型。
-- 目安: 1行160文字以内(SourceScan の上限)、View ファイルは250行程度まで。超えたら分割を検討。
+- 目安: 1行160文字以内(SourceScan の上限)、View ファイルは250行程度まで。超えたら分割を検討。全コード共通の上限: 1関数の循環的複雑度10・認知的複雑度15・制御構造のネスト3段、1ファイルの関数20個・500行(詳細は共通ルール §5)。
 - テスト: 分離した純粋型は公開メソッド・計算プロパティごとに分岐と境界値を網羅する。SwiftUI の `body` は対象外とし、判定を純粋型へ出して検証する。
 
 ## Feature(Application と Platform で同名)

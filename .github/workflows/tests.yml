@@ -145,6 +145,19 @@ jobs:
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           persist-credentials: false
+          # 複雑さチェックが main との差分ファイルを求めるため、履歴をすべて取得する。
+          fetch-depth: 0
+
+      - name: Install code metrics tool
+        run: |
+          python3 -m venv "$RUNNER_TEMP/code-metrics-venv"
+          "$RUNNER_TEMP/code-metrics-venv/bin/pip" install --quiet -r Tools/CodeMetrics/requirements.txt
+
+      - name: Code metrics tool tests (Python)
+        run: '"$RUNNER_TEMP/code-metrics-venv/bin/python" -m unittest discover -s Tools/CodeMetrics/Tests -v'
+
+      - name: Swift complexity limits on changed files
+        run: '"$RUNNER_TEMP/code-metrics-venv/bin/python" Tools/CodeMetrics/check_swift_metrics.py --changed-since origin/main'
 
       - name: TestFlight publisher script tests (Ruby)
         run: ruby .github/testflight_build_publisher_test.rb
