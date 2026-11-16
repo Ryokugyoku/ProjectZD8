@@ -3,8 +3,9 @@ import Foundation
 /// 車両確認の窓(10分)と回数の安全上限から、次の確認を続けるかを決める純粋な方針です。
 ///
 /// 窓の内か外かは確認の結果を受け取るたびに判定します(時刻は単調時計基準)。窓の終了時刻ちょうどは窓の外です。
-/// アプリが前面にいる間は、窓切れを理由に休止せず窓を取り直します。回数の上限(窓 ÷ 最短間隔)は前面でも休止の理由になります
-/// (時計が進まない不具合でも確認が無限に続かないため)。
+/// アプリが前面にいる間は休止に入らず、窓切れでも回数の上限(窓 ÷ 最短間隔)到達でも、窓と回数を取り直して確認を続けます
+/// (ユーザーが画面を見ている間は検知を止めないため)。背面では、窓切れまたは回数の上限で休止します
+/// (時計が進まない不具合でも、背面で確認が無限に続かないため)。
 nonisolated struct AdapterLinkVehicleConfirmationWindowPolicy: Sendable {
     /// 確認窓と回数上限の定数です。
     let timing: AdapterLinkSupervisionTiming
@@ -19,7 +20,7 @@ nonisolated struct AdapterLinkVehicleConfirmationWindowPolicy: Sendable {
 
     /// 次の確認を続けるか・窓を取り直すか・休止するかを返します。
     ///
-    /// 責務: 回数の上限を先に判定し、次に窓の終了時刻と前面かどうかで判定します。
+    /// 責務: 前面なら、回数の上限か窓切れで取り直し、どちらでもなければ続けます。背面なら、回数の上限か窓切れで休止します。
     /// - Parameters:
     ///   - confirmation: 現在の確認進行状況。
     ///   - now: 結果を受け取った時刻。
@@ -30,8 +31,8 @@ nonisolated struct AdapterLinkVehicleConfirmationWindowPolicy: Sendable {
         now: Date,
         isForeground: Bool
     ) -> AdapterLinkVehicleConfirmationWindowDecision {
-        guard confirmation.attemptCount < timing.maximumVehicleConfirmationAttempts else { return .pause }
-        if isInsideWindow(confirmation, now: now) { return .continueInWindow }
+        let isWithinAttemptLimit = confirmation.attemptCount < timing.maximumVehicleConfirmationAttempts
+        if isWithinAttemptLimit, isInsideWindow(confirmation, now: now) { return .continueInWindow }
         return isForeground ? .renewWindow : .pause
     }
 

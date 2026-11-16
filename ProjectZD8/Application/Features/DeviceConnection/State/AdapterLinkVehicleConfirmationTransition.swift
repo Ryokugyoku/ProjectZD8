@@ -89,11 +89,12 @@ nonisolated struct AdapterLinkVehicleConfirmationTransition: Sendable {
                 effects: [.readVIN]
             )
         case .noResponse:
-            guard windowPolicy.decision(for: confirmation, now: conditions.now, isForeground: conditions.isForeground) != .pause else {
+            let decision = windowPolicy.decision(for: confirmation, now: conditions.now, isForeground: conditions.isForeground)
+            guard decision != .pause else {
                 return AdapterLinkSupervisionTransitionResult(state: .confirmingVehicle(paused(confirmation)))
             }
             guard let wait = pacing.remainingWait(sentAt: conditions.lastVehicleConfirmationSentAt, now: conditions.now) else {
-                return confirmAgain(confirmation, conditions: conditions)
+                return confirmAgain(confirmation, decision: decision, now: conditions.now)
             }
             return AdapterLinkSupervisionTransitionResult(
                 state: .confirmingVehicle(confirmation),
@@ -117,10 +118,11 @@ nonisolated struct AdapterLinkVehicleConfirmationTransition: Sendable {
         guard case let .confirmingVehicle(confirmation) = state, confirmation.phase == .probing else {
             return AdapterLinkSupervisionTransitionResult(state: state)
         }
-        guard windowPolicy.decision(for: confirmation, now: conditions.now, isForeground: conditions.isForeground) != .pause else {
+        let decision = windowPolicy.decision(for: confirmation, now: conditions.now, isForeground: conditions.isForeground)
+        guard decision != .pause else {
             return AdapterLinkSupervisionTransitionResult(state: .confirmingVehicle(paused(confirmation)))
         }
-        return confirmAgain(confirmation, conditions: conditions)
+        return confirmAgain(confirmation, decision: decision, now: conditions.now)
     }
 
     /// アプリの前面復帰に対する遷移を返します。
@@ -161,18 +163,20 @@ nonisolated struct AdapterLinkVehicleConfirmationTransition: Sendable {
 
     /// 同じ窓で(または取り直した窓で)最大タイムアウトの確認を1回送る遷移を返します。
     ///
-    /// 責務: 窓の内なら回数を1増やし、窓切れで前面なら窓を取り直してから、`.adapterMaximum` の確認を要求します。
-    /// 休止の判定は呼び出し側が済ませている前提です。
+    /// 責務: 窓の判定が続行なら回数を1増やし、取り直し(前面での窓切れ・回数の上限)なら窓と回数を取り直してから、
+    /// `.adapterMaximum` の確認を要求します。休止の判定は呼び出し側が済ませている前提です。
     /// - Parameters:
     ///   - confirmation: 現在の確認進行状況。
-    ///   - conditions: 現在時刻と前面かどうかを含む条件。
+    ///   - decision: 窓と回数の判定結果(休止以外)。
+    ///   - now: 現在時刻。取り直す窓の起点です。
     /// - Returns: 確認中への遷移と確認の作用。
     private func confirmAgain(
         _ confirmation: AdapterLinkVehicleConfirmation,
-        conditions: AdapterLinkSupervisionConditions
+        decision: AdapterLinkVehicleConfirmationWindowDecision,
+        now: Date
     ) -> AdapterLinkSupervisionTransitionResult {
         let next: AdapterLinkVehicleConfirmation
-        if windowPolicy.isInsideWindow(confirmation, now: conditions.now) {
+        if decision == .continueInWindow {
             next = AdapterLinkVehicleConfirmation(
                 adapterProbeEvidence: confirmation.adapterProbeEvidence,
                 windowEndsAt: confirmation.windowEndsAt,
@@ -180,7 +184,7 @@ nonisolated struct AdapterLinkVehicleConfirmationTransition: Sendable {
                 phase: .probing
             )
         } else {
-            next = windowPolicy.renewed(confirmation, at: conditions.now)
+            next = windowPolicy.renewed(confirmation, at: now)
         }
         return AdapterLinkSupervisionTransitionResult(state: .confirmingVehicle(next), effects: [.confirmVehicle(.adapterMaximum)])
     }
