@@ -154,7 +154,9 @@ final class GRDBConnectionSessionRepositoryTests: XCTestCase {
     ///
     /// 責務: 取得中のRaw応答と終了更新が同じセッションの永続状態として共存することを確認します。
     func testRawEntriesSurviveSessionFinalizationAndRemainVehicleScoped() throws {
-        let repository = try GRDBConnectionSessionRepository(databaseQueue: DatabaseQueue())
+        let queue = try DatabaseQueue()
+        let repository = try GRDBConnectionSessionRepository(databaseQueue: queue)
+        let rawAppender = GRDBConnectionSessionRawLogTestAppender(queue: queue)
         let vehicle = VehicleProfile(vin: "TESTVIN-ZD8", name: "BRZ")
         var session = ConnectionSession(
             accountIdentifier: "account",
@@ -163,7 +165,7 @@ final class GRDBConnectionSessionRepositoryTests: XCTestCase {
         )
         try repository.save(session)
 
-        try repository.append(
+        try rawAppender.append(
             OBDRawResponseObservation(
                 observedAt: Date(timeIntervalSince1970: 101),
                 batchElapsedNanoseconds: 4_200_000,
@@ -172,7 +174,7 @@ final class GRDBConnectionSessionRepositoryTests: XCTestCase {
             ),
             to: session.id
         )
-        try repository.append(
+        try rawAppender.append(
             OBDRawResponseObservation(
                 observedAt: Date(timeIntervalSince1970: 102),
                 batchElapsedNanoseconds: 5_100_000,
@@ -203,9 +205,10 @@ final class GRDBConnectionSessionRepositoryTests: XCTestCase {
     func testSessionsUseActualRawRowsForLocalSummary() throws {
         let queue = try DatabaseQueue()
         let repository = try GRDBConnectionSessionRepository(databaseQueue: queue)
+        let rawAppender = GRDBConnectionSessionRawLogTestAppender(queue: queue)
         let session = ConnectionSession(accountIdentifier: "account")
         try repository.save(session)
-        try repository.append(
+        try rawAppender.append(
             OBDRawResponseObservation(
                 observedAt: Date(),
                 batchElapsedNanoseconds: 1,
@@ -232,12 +235,14 @@ final class GRDBConnectionSessionRepositoryTests: XCTestCase {
     ///
     /// 責務: 1件の所有者確認済みセッション削除が別アカウントを保持してCascade削除することを確認します。
     func testDeleteSessionRemovesOnlyOwnedSessionAndRawEntries() throws {
-        let repository = try GRDBConnectionSessionRepository(databaseQueue: DatabaseQueue())
+        let queue = try DatabaseQueue()
+        let repository = try GRDBConnectionSessionRepository(databaseQueue: queue)
+        let rawAppender = GRDBConnectionSessionRawLogTestAppender(queue: queue)
         let deleted = ConnectionSession(accountIdentifier: "account")
         let retained = ConnectionSession(accountIdentifier: "other")
         try repository.save(deleted)
         try repository.save(retained)
-        try repository.append(
+        try rawAppender.append(
             OBDRawResponseObservation(
                 observedAt: Date(),
                 batchElapsedNanoseconds: 1,
@@ -259,10 +264,12 @@ final class GRDBConnectionSessionRepositoryTests: XCTestCase {
     ///
     /// 責務: iPhoneローカル除去が履歴、車両、件数、およびMac受領証を破壊しないことを確認します。
     func testLocalRemovalKeepsSummaryAndMatchingMacReceipt() throws {
-        let repository = try GRDBConnectionSessionRepository(databaseQueue: DatabaseQueue())
+        let queue = try DatabaseQueue()
+        let repository = try GRDBConnectionSessionRepository(databaseQueue: queue)
+        let rawAppender = GRDBConnectionSessionRawLogTestAppender(queue: queue)
         var session = ConnectionSession(accountIdentifier: "account", startedAt: Date(timeIntervalSince1970: 100))
         try repository.save(session)
-        try repository.append(
+        try rawAppender.append(
             OBDRawResponseObservation(
                 observedAt: Date(timeIntervalSince1970: 101),
                 batchElapsedNanoseconds: 2_000_000,
@@ -299,10 +306,12 @@ final class GRDBConnectionSessionRepositoryTests: XCTestCase {
     ///
     /// 責務: ローカル除去とRaw再取込を繰り返してもPayloadと一致するMac受領証を保持することを確認します。
     func testRawTransferImportRestoresRemovedPayloadBySessionID() throws {
-        let repository = try GRDBConnectionSessionRepository(databaseQueue: DatabaseQueue())
+        let queue = try DatabaseQueue()
+        let repository = try GRDBConnectionSessionRepository(databaseQueue: queue)
+        let rawAppender = GRDBConnectionSessionRawLogTestAppender(queue: queue)
         var session = ConnectionSession(accountIdentifier: "account", startedAt: Date(timeIntervalSince1970: 100))
         try repository.save(session)
-        try repository.append(
+        try rawAppender.append(
             OBDRawResponseObservation(
                 observedAt: Date(timeIntervalSince1970: 101),
                 batchElapsedNanoseconds: 2_000_000,
@@ -380,13 +389,15 @@ final class GRDBConnectionSessionRepositoryTests: XCTestCase {
     ///
     /// 責務: セッションID基準のRaw取込がローカルの高精度日時を変更しないことを確認します。
     func testRawTransferPreservesHigherPrecisionLocalSessionMetadata() throws {
-        let repository = try GRDBConnectionSessionRepository(databaseQueue: DatabaseQueue())
+        let queue = try DatabaseQueue()
+        let repository = try GRDBConnectionSessionRepository(databaseQueue: queue)
+        let rawAppender = GRDBConnectionSessionRawLogTestAppender(queue: queue)
         var session = ConnectionSession(
             accountIdentifier: "account",
             startedAt: Date(timeIntervalSince1970: 100.123_456)
         )
         try repository.save(session)
-        try repository.append(
+        try rawAppender.append(
             OBDRawResponseObservation(
                 observedAt: Date(timeIntervalSince1970: 101.123_456),
                 batchElapsedNanoseconds: 2_000_000,
@@ -505,10 +516,12 @@ final class GRDBConnectionSessionRepositoryTests: XCTestCase {
     ///
     /// 責務: 端末固有同期状態だけでDigestが変わった既存セッションを内容競合として拒否しないことを確認します。
     func testEquivalentTransferReconcilesStaleManifestWithoutReplacingRawEntries() throws {
-        let repository = try GRDBConnectionSessionRepository(databaseQueue: DatabaseQueue())
+        let queue = try DatabaseQueue()
+        let repository = try GRDBConnectionSessionRepository(databaseQueue: queue)
+        let rawAppender = GRDBConnectionSessionRawLogTestAppender(queue: queue)
         var session = ConnectionSession(accountIdentifier: "account", startedAt: Date(timeIntervalSince1970: 100))
         try repository.save(session)
-        try repository.append(
+        try rawAppender.append(
             OBDRawResponseObservation(
                 observedAt: Date(timeIntervalSince1970: 101),
                 batchElapsedNanoseconds: 2_000_000,
@@ -564,7 +577,9 @@ final class GRDBConnectionSessionRepositoryTests: XCTestCase {
     ///
     /// 責務: 将来の学習入力が別車両のRawレコードを混在させず取得できることを確認します。
     func testVehicleScopedEntriesExcludeOtherVehicles() throws {
-        let repository = try GRDBConnectionSessionRepository(databaseQueue: DatabaseQueue())
+        let queue = try DatabaseQueue()
+        let repository = try GRDBConnectionSessionRepository(databaseQueue: queue)
+        let rawAppender = GRDBConnectionSessionRawLogTestAppender(queue: queue)
         let firstVehicle = VehicleProfile(vin: "FIRST-VIN", name: "First BRZ")
         let secondVehicle = VehicleProfile(vin: "SECOND-VIN", name: "Second BRZ")
         var firstSession = ConnectionSession(
@@ -579,7 +594,7 @@ final class GRDBConnectionSessionRepositoryTests: XCTestCase {
         )
         try repository.save(firstSession)
         try repository.save(secondSession)
-        try repository.append(
+        try rawAppender.append(
             OBDRawResponseObservation(
                 observedAt: Date(timeIntervalSince1970: 101),
                 batchElapsedNanoseconds: 1_000_000,
@@ -588,7 +603,7 @@ final class GRDBConnectionSessionRepositoryTests: XCTestCase {
             ),
             to: firstSession.id
         )
-        try repository.append(
+        try rawAppender.append(
             OBDRawResponseObservation(
                 observedAt: Date(timeIntervalSince1970: 201),
                 batchElapsedNanoseconds: 2_000_000,
@@ -617,12 +632,14 @@ final class GRDBConnectionSessionRepositoryTests: XCTestCase {
     ///
     /// 責務: ローカル運転データ全削除が別アカウントを保持しつつ子RawログをCascade削除することを確認します。
     func testDeleteSessionsRemovesAccountHistoryAndRawEntries() throws {
-        let repository = try GRDBConnectionSessionRepository(databaseQueue: DatabaseQueue())
+        let queue = try DatabaseQueue()
+        let repository = try GRDBConnectionSessionRepository(databaseQueue: queue)
+        let rawAppender = GRDBConnectionSessionRawLogTestAppender(queue: queue)
         let deletedSession = ConnectionSession(accountIdentifier: "delete-account", startedAt: Date(timeIntervalSince1970: 100))
         let retainedSession = ConnectionSession(accountIdentifier: "retain-account", startedAt: Date(timeIntervalSince1970: 200))
         try repository.save(deletedSession)
         try repository.save(retainedSession)
-        try repository.append(
+        try rawAppender.append(
             OBDRawResponseObservation(
                 observedAt: Date(timeIntervalSince1970: 101),
                 batchElapsedNanoseconds: 1_000_000,
@@ -631,7 +648,7 @@ final class GRDBConnectionSessionRepositoryTests: XCTestCase {
             ),
             to: deletedSession.id
         )
-        try repository.append(
+        try rawAppender.append(
             OBDRawResponseObservation(
                 observedAt: Date(timeIntervalSince1970: 201),
                 batchElapsedNanoseconds: 2_000_000,

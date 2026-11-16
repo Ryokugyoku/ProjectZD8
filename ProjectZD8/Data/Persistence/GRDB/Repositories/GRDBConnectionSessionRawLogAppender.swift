@@ -3,16 +3,17 @@ import GRDB
 
 /// 既存Raw表への採番追記と親session集計更新を同じGRDB境界で実行します。
 struct GRDBConnectionSessionRawLogAppender {
-    /// 未デコード応答を次のRaw sequenceへ追加します。
+    /// 未デコード応答を次のRaw sequenceへ採番して追加します。
     ///
     /// 責務: 1件の未デコード応答をopen sessionへ採番追記して親集計を同期します。
+    /// 本番の記録はチャンク保存(`insertNumbered`)を使い、これを使うのは取得証跡のbatch API(`saveRespondedRequest`)だけです。
     /// - Parameters:
     ///   - observation: 追加する未デコード応答。
     ///   - sessionID: Rawと集計を所有する接続session。
     ///   - database: 呼出元が所有するGRDB transaction境界。
     /// - Returns: 採番済みsequenceを持つcanonical Raw entry。
     /// - Throws: session不在、終了済み、整数範囲外、またはSQLite保存失敗。
-    func append(
+    func appendNextSequence(
         _ observation: OBDRawResponseObservation,
         to sessionID: ConnectionSessionID,
         in database: Database

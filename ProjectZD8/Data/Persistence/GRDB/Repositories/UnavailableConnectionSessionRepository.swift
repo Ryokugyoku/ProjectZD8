@@ -247,17 +247,6 @@ struct UnavailableConnectionSessionRepository:
         throw ConnectionSessionRepositoryError.unavailable
     }
 
-    /// Raw応答保存要求を利用不能として失敗させます。
-    ///
-    /// 責務: 1件のRaw応答追記を明示的な保存先利用不能へ変換します。
-    /// - Parameters:
-    ///   - observation: 保存できない未デコード応答。
-    ///   - sessionID: 利用不能な保存先のセッションID。
-    /// - Throws: 常に `ConnectionSessionRepositoryError.unavailable`。
-    func append(_ observation: OBDRawResponseObservation, to sessionID: ConnectionSessionID) throws {
-        throw ConnectionSessionRepositoryError.unavailable
-    }
-
     /// Rawログ読込要求を利用不能として失敗させます。
     ///
     /// 責務: 1件のRawログ照会を明示的な保存先利用不能へ変換します。

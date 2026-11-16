@@ -383,7 +383,7 @@ final class GRDBConnectionSessionAcquisitionRepository: ConnectionSessionAcquisi
                 guard stored.dispatchState == .dispatchBegun else {
                     throw ConnectionSessionAcquisitionRepositoryError.conflict
                 }
-                let rawEntry = try GRDBConnectionSessionRawLogAppender().append(
+                let rawEntry = try GRDBConnectionSessionRawLogAppender().appendNextSequence(
                     observation,
                     to: sessionID,
                     in: database

@@ -223,23 +223,6 @@ final class GRDBConnectionSessionRepository:
         }
     }
 
-    /// 未デコードOBD応答をセッションの次の順序へ追記します。
-    ///
-    /// 責務: 1件のRaw応答を未終了セッションへ原子的に追加して集計値を更新します。
-    /// - Parameters:
-    ///   - observation: 取得境界から受け取った未デコード応答。
-    ///   - sessionID: 追記対象の接続セッションID。
-    /// - Throws: セッション不在、終了済み、またはSQLite書込み失敗。
-    func append(_ observation: OBDRawResponseObservation, to sessionID: ConnectionSessionID) throws {
-        try databaseQueue.write { database in
-            _ = try GRDBConnectionSessionRawLogAppender().append(
-                observation,
-                to: sessionID,
-                in: database
-            )
-        }
-    }
-
     /// セッション内のRaw応答を記録順で復元します。
     ///
     /// 責務: 1件のセッションに属するGRDB Rawログを順序付きDomain値へ変換します。

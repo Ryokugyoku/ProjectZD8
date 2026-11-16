@@ -416,14 +416,6 @@ private final class PausingConnectionSessionTransferRepository: ConnectionSessio
 
 /// Rawログを保持しない同期モデルテスト実装です。
 private struct EmptyConnectionSessionRawLogRepository: ConnectionSessionRawLogRepository {
-    /// Raw応答追記を副作用なしで受理します。
-    ///
-    /// 責務: テスト対象外のRaw追記要求を満たします。
-    /// - Parameters:
-    ///   - observation: 使用しないRaw応答。
-    ///   - sessionID: 使用しないセッションID。
-    func append(_ observation: OBDRawResponseObservation, to sessionID: ConnectionSessionID) throws {}
-
     /// 空のセッションRawログを返します。
     ///
     /// 責務: 任意セッションIDを空のRawログ配列へ変換します。

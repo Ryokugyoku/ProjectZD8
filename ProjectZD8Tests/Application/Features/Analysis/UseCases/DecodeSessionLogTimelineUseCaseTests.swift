@@ -181,10 +181,6 @@ final class DecodeSessionLogTimelineUseCaseTests: XCTestCase {
 private struct RawLogRepositoryFake: ConnectionSessionRawLogRepository {
     /// テストで返すRawログです。
     let entries: [ConnectionSessionRawLogEntry]
-    /// このテストでは使用しない追記要求を受理します。
-    ///
-    /// 責務: 解析読取テストで不要なRaw追記を副作用なく受理します。
-    func append(_ observation: OBDRawResponseObservation, to sessionID: ConnectionSessionID) throws {}
     /// 固定Rawログを返します。
     ///
     /// 責務: 任意のセッション読取要求へ固定Rawログを返します。
