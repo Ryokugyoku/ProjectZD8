@@ -201,10 +201,22 @@ actor ConnectionSessionAcquisitionRecorder: LiveTelemetryAcquisitionRecordingPor
     func finishRound(generation: UInt, batchOrdinal: Int64) async throws {
         let session = try openSegmentSession(generation)
         let completedAt = now()
-        try buffer.updateOpenBatch(ordinal: session.storedBatchOrdinal(batchOrdinal)) { batch in
+        try completeOpenBatch(ordinal: session.storedBatchOrdinal(batchOrdinal), at: completedAt)
+        try commitIfDue()
+    }
+
+    /// 未完了batchを終端状態へ確定します。
+    ///
+    /// 責務: 末尾の未完了batchへ完了を適用します。
+    /// Swift コンパイラの Release 最適化でクラッシュするため、throwing クロージャを同期関数へ切り出している。
+    /// - Parameters:
+    ///   - ordinal: 保存用に変換済みのbatch番号。
+    ///   - completedAt: 周回の完了時刻。
+    /// - Throws: 該当する未完了batchが無い場合や未終了要求が残る場合。
+    private func completeOpenBatch(ordinal: Int64, at completedAt: Date) throws {
+        try buffer.updateOpenBatch(ordinal: ordinal) { batch in
             try batch.complete(at: completedAt, classifier: classifier)
         }
-        try commitIfDue()
     }
 
     /// 件数や経過時間にかかわらず、終端済みの記録をすべて保存します。
