@@ -49,11 +49,7 @@ nonisolated struct AdapterLinkSupervisionTransition: Sendable {
         case .operatingConditionsChanged:
             lifecycle.operatingConditionsChanged(from: state, conditions: conditions)
         case let .linkStateChanged(linkState):
-            if case let .heldAfterUserStop(watch) = state, case let .awaitingLink(userStoppedAt) = watch.phase {
-                heldLinkWait.linkStateChanged(to: linkState, userStoppedAt: userStoppedAt, watch: watch, conditions: conditions)
-            } else {
-                lifecycle.linkStateChanged(to: linkState, from: state, conditions: conditions)
-            }
+            linkStateResult(to: linkState, from: state, conditions: conditions)
         case .vehicleConfirmationCompleted, .vehicleConfirmationFailed, .vehicleConfirmationIntervalElapsed,
              .appDidBecomeActive, .recordingEndSettled:
             if case let .heldAfterUserStop(watch) = state {
@@ -67,18 +63,58 @@ nonisolated struct AdapterLinkSupervisionTransition: Sendable {
              .recordingStartConfirmed:
             recordingResult(from: state, on: event, conditions: conditions)
         case .externalAdapterUseBegan:
-            if case let .heldAfterUserStop(watch) = state {
-                heldWatch.externalAdapterUseBegan(watch)
-            } else {
-                externalAdapterUse.began(from: state)
-            }
+            externalAdapterUseBeganResult(from: state)
         case .externalAdapterUseEnded:
-            if case let .heldAfterUserStop(watch) = state {
-                heldWatch.externalAdapterUseEnded(watch, conditions: conditions)
-            } else {
-                externalAdapterUse.ended(from: state, conditions: conditions)
-            }
+            externalAdapterUseEndedResult(from: state, conditions: conditions)
         }
+    }
+
+    /// リンク状態の変化を、リンク待ちの保持か稼働条件の遷移へ渡します。
+    ///
+    /// 責務: リンク待ちの保持中だけ保持の遷移へ、それ以外はリンク状態の遷移へ委ねます。
+    /// - Parameters:
+    ///   - linkState: 変化後のリンク状態。
+    ///   - state: 現在の監視状態。
+    ///   - conditions: 状態以外の現在の条件。
+    /// - Returns: 次の状態と作用。
+    private func linkStateResult(
+        to linkState: AdapterLinkState,
+        from state: AdapterLinkSupervisionState,
+        conditions: AdapterLinkSupervisionConditions
+    ) -> AdapterLinkSupervisionTransitionResult {
+        if case let .heldAfterUserStop(watch) = state, case let .awaitingLink(userStoppedAt) = watch.phase {
+            return heldLinkWait.linkStateChanged(to: linkState, userStoppedAt: userStoppedAt, watch: watch, conditions: conditions)
+        }
+        return lifecycle.linkStateChanged(to: linkState, from: state, conditions: conditions)
+    }
+
+    /// 手動接続の使用開始を、抑止中の見張りか手動接続の遷移へ渡します。
+    ///
+    /// 責務: 抑止中だけ見張りの遷移へ、それ以外は手動接続の遷移へ委ねます。
+    /// - Parameter state: 現在の監視状態。
+    /// - Returns: 次の状態と作用。
+    private func externalAdapterUseBeganResult(from state: AdapterLinkSupervisionState) -> AdapterLinkSupervisionTransitionResult {
+        if case let .heldAfterUserStop(watch) = state {
+            return heldWatch.externalAdapterUseBegan(watch)
+        }
+        return externalAdapterUse.began(from: state)
+    }
+
+    /// 手動接続の使用終了を、抑止中の見張りか手動接続の遷移へ渡します。
+    ///
+    /// 責務: 抑止中だけ見張りの遷移へ、それ以外は手動接続の遷移へ委ねます。
+    /// - Parameters:
+    ///   - state: 現在の監視状態。
+    ///   - conditions: 状態以外の現在の条件。
+    /// - Returns: 次の状態と作用。
+    private func externalAdapterUseEndedResult(
+        from state: AdapterLinkSupervisionState,
+        conditions: AdapterLinkSupervisionConditions
+    ) -> AdapterLinkSupervisionTransitionResult {
+        if case let .heldAfterUserStop(watch) = state {
+            return heldWatch.externalAdapterUseEnded(watch, conditions: conditions)
+        }
+        return externalAdapterUse.ended(from: state, conditions: conditions)
     }
 
     /// 初期化・車両確認・前面復帰のイベントを担当の遷移へ渡します。

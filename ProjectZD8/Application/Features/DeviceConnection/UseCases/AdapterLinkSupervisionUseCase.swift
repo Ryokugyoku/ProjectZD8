@@ -329,7 +329,7 @@ final class AdapterLinkSupervisionUseCase {
 
     /// 1件の作用を実行します。
     ///
-    /// 責務: 作用を対応する能力の呼び出しへ変換します。判断は行いません。
+    /// 責務: 作用をリンク操作として直接実行するか、非同期処理系・通知と記録系の実行へ振り分けます。判断は行いません。
     /// - Parameter effect: 実行する作用。
     private func execute(_ effect: AdapterLinkSupervisionEffect) {
         switch effect {
@@ -342,6 +342,21 @@ final class AdapterLinkSupervisionUseCase {
             link.stop()
         case .prepareNotifications:
             prepareNotificationsIfNeeded()
+        case .cancelOperations, .initializeAdapter, .confirmVehicle, .scheduleVehicleConfirmation,
+             .scheduleAdapterInitializationRetry, .readVIN:
+            executeOperationEffect(effect)
+        case .presentVehicleDetected, .presentRecordingStarted, .dismissNotification, .requestRecordingStart,
+             .requestRecordingStop, .completeFinishing:
+            executeNotificationOrRecordingEffect(effect)
+        }
+    }
+
+    /// 非同期処理系(初期化・車両確認・予約・VIN読取・取り消し)の作用を実行します。
+    ///
+    /// 責務: 作用を `AdapterLinkSupervisionOperationRunner` の呼び出しへ変換し、最後に確認を送った時刻を更新します。
+    /// - Parameter effect: 実行する作用。他の系統の作用は無視します。
+    private func executeOperationEffect(_ effect: AdapterLinkSupervisionEffect) {
+        switch effect {
         case .cancelOperations:
             lastVehicleConfirmationSentAt = nil
             operations.cancel()
@@ -358,6 +373,17 @@ final class AdapterLinkSupervisionUseCase {
         case .readVIN:
             lastVehicleConfirmationSentAt = nil
             operations.readVIN()
+        default:
+            break
+        }
+    }
+
+    /// 通知と記録の作用を実行します。
+    ///
+    /// 責務: 作用を通知・記録制御の呼び出しか、終了処理の完了イベントの入力へ変換します。
+    /// - Parameter effect: 実行する作用。他の系統の作用は無視します。
+    private func executeNotificationOrRecordingEffect(_ effect: AdapterLinkSupervisionEffect) {
+        switch effect {
         case let .presentVehicleDetected(vin):
             notifications.presentVehicleDetected(vin: vin)
         case let .presentRecordingStarted(vin):
@@ -370,6 +396,8 @@ final class AdapterLinkSupervisionUseCase {
             recordingControl.requestRecordingStop(reason: reason)
         case .completeFinishing:
             send(.finishingDidComplete)
+        default:
+            break
         }
     }
 
