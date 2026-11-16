@@ -112,20 +112,29 @@ final class AdapterLinkSupervisionUseCaseRecordingIntentOutcomeTests: XCTestCase
         XCTAssertEqual(harness.notifications.presentedRecordingStartFailedReasons, [])
     }
 
-    /// 期限を過ぎてから検知が完了したら、意思を捨てて「車両を検知できなかった」を知らせ、通常の検知通知にします。
+    /// 期限を過ぎた直後(期限の待ちが動く前)に検知が完了したら、意思は黙って消し、「記録を開始できませんでした」は出しません。
     ///
-    /// 責務: 120.001秒後の検知完了で、失敗通知 `[.vehicleNotDetected]`・検知通知1件・記録開始要求0件であることを確認します(受け入れ条件 7)。
-    func testDetectionAfterLifetimeNotifiesVehicleNotDetected() async throws {
+    /// 責務: 120.001秒後の検知完了で、検知通知1件・失敗通知0件・記録開始要求0件・`.vehicleDetected(.awaitingRecordingStart)` で、
+    /// その後に期限の待ちが明けても失敗通知が出ず、検知通知を取り下げないことを確認します(U8 R2。U4 受け入れ条件 7 の改訂)。
+    func testDetectionJustAfterLifetimeDropsIntentSilentlyAndKeepsDetection() async throws {
         let harness = makeHarness()
         harness.startSignedIn()
-        harness.useCase.recordingStartSelected()
+        try await selectAndWaitForExpirySleep(harness)
         harness.clock.now = F.date(120.001)
 
         try await completeDetection(harness)
 
-        XCTAssertEqual(harness.notifications.presentedRecordingStartFailedReasons, [.vehicleNotDetected])
         XCTAssertEqual(harness.notifications.presentedVehicleDetectedVINs, [F.vin])
+        XCTAssertEqual(harness.notifications.presentedRecordingStartFailedReasons, [], "検知が完了した時点で期限切れの意思は黙って消す")
         XCTAssertEqual(harness.recordingControl.startRequests, [])
+        XCTAssertEqual(harness.useCase.state, .vehicleDetected(F.detectedVehicle, phase: .awaitingRecordingStart))
+
+        let dismissals = harness.notifications.dismissCount
+        guard harness.clock.finishOldestSleep(advancingBy: 0) else { return }
+        try await BLEBoundedWaiter.settle()
+        XCTAssertEqual(harness.notifications.presentedRecordingStartFailedReasons, [], "期限の待ちが明けても失敗通知を出さない")
+        XCTAssertEqual(harness.notifications.dismissCount, dismissals, "検知通知を取り下げない")
+        XCTAssertEqual(harness.useCase.state, .vehicleDetected(F.detectedVehicle, phase: .awaitingRecordingStart))
     }
 
     /// 検知が完了しないまま期限が切れたら、その時点で意思を捨てて「車両を検知できなかった」を知らせます。

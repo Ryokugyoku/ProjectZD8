@@ -44,15 +44,15 @@ final class AdapterLinkVehicleConfirmationWindowPolicyTests: XCTestCase {
         }
     }
 
-    /// 回数上限に達したら、窓の内でも前面でも休止です。
+    /// 回数上限に達したら、背面では窓の内外によらず休止し、前面では休止せず窓と回数を取り直します。
     ///
-    /// 責務: 回数600で、窓の内外・前面背面のすべてで `.pause` になることを確認します。
-    func testAttemptLimitPausesEverywhere() {
+    /// 責務: 回数600で、背面は窓の内外とも `.pause`、前面は窓の内外とも `.renewWindow` になることを確認します
+    /// (U8 R6。仕様「前面にいる間は休止に入らない」)。
+    func testAttemptLimitPausesInBackgroundAndRenewsInForeground() {
         for now in [F.date(10), F.date(600)] {
-            for isForeground in [false, true] {
-                let decision = policy.decision(for: F.confirmation(attemptCount: F.maximumAttempts), now: now, isForeground: isForeground)
-                XCTAssertEqual(decision, .pause, "\(now) \(isForeground)")
-            }
+            let confirmation = F.confirmation(attemptCount: F.maximumAttempts)
+            XCTAssertEqual(policy.decision(for: confirmation, now: now, isForeground: false), .pause, "背面 \(now)")
+            XCTAssertEqual(policy.decision(for: confirmation, now: now, isForeground: true), .renewWindow, "前面 \(now)")
         }
     }
 

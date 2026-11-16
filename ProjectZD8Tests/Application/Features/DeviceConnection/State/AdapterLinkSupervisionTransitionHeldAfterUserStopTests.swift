@@ -121,20 +121,36 @@ final class AdapterLinkSupervisionTransitionHeldAfterUserStopTests: XCTestCase {
         XCTAssertFalse(result.effects.contains(.confirmVehicle(.heldWatch)))
     }
 
-    /// 見張りの開始前(記録の終了通知の前)に手動接続が始まっても終わっても、抑止はそのままで、作用を出しません。
+    /// 見張りの開始待ちで手動接続が始まっても、抑止はそのままで、作用を出しません。
     ///
-    /// 責務: `.heldAfterUserStop(.awaitingStart)` で `externalAdapterUseBegan`・`externalAdapterUseEnded` を受けた時に、
-    /// 状態不変・作用なし(見張りの確認はまだ送っていないので、取り消すものも再開するものも無い)であることを確認します。
-    func testExternalAdapterUseBeforeWatchStartKeepsHeldWithoutEffects() {
+    /// 責務: `.heldAfterUserStop(.awaitingStart)` で `externalAdapterUseBegan` を受けた時に、状態不変・作用なし
+    /// (見張りの確認はまだ送っていないので取り消すものが無い)であることを確認します。
+    func testExternalAdapterUseBeganBeforeWatchStartKeepsHeldWithoutEffects() {
         let held = AdapterLinkSupervisionState.heldAfterUserStop(.awaitingStart)
-        let cases: [(AdapterLinkSupervisionEvent, AdapterLinkSupervisionConditions)] = [
-            (.externalAdapterUseBegan, F.conditions(isExternalAdapterUseActive: true)),
-            (.externalAdapterUseEnded, F.conditions()),
-        ]
-        for (event, conditions) in cases {
-            let result = transition.result(from: held, on: event, conditions: conditions)
-            A.assertIgnored(result, from: held, "\(event)")
-        }
+        let result = transition.result(from: held, on: .externalAdapterUseBegan, conditions: F.conditions(isExternalAdapterUseActive: true))
+        A.assertIgnored(result, from: held)
+    }
+
+    /// 見張りの開始待ちで手動接続が終わり、リンクが `ready` なら、その時刻から見張りを始めます。
+    ///
+    /// 責務: `.heldAfterUserStop(.awaitingStart)` で `externalAdapterUseEnded` を受けると、終わりの時刻=受けた時刻+上限の見張り中になり、
+    /// 見張りの確認が1件出ることを確認します(U8 R5)。
+    func testExternalAdapterUseEndedBeforeWatchStartStartsWatchWhenLinkReady() {
+        let held = AdapterLinkSupervisionState.heldAfterUserStop(.awaitingStart)
+        let now = F.date(30)
+        let result = transition.result(from: held, on: .externalAdapterUseEnded, conditions: F.conditions(now: now))
+        A.assertResult(
+            result, state: F.watching(noResponses: 0, endsAt: now.addingTimeInterval(F.heldWatchSeconds)), effects: [.confirmVehicle(.heldWatch)]
+        )
+    }
+
+    /// 見張りの開始待ちで手動接続が終わっても、リンクが `ready` でなければ見張りを始めません。
+    ///
+    /// 責務: リンクが接続中の時は状態不変・作用なしであることを確認します(U8 R5 の条件)。
+    func testExternalAdapterUseEndedBeforeWatchStartWithoutReadyLinkDoesNothing() {
+        let held = AdapterLinkSupervisionState.heldAfterUserStop(.awaitingStart)
+        let result = transition.result(from: held, on: .externalAdapterUseEnded, conditions: F.conditions(linkState: .connecting))
+        A.assertIgnored(result, from: held)
     }
 
     /// 抑止中は、記録開始選択・初期化・VIN読取・終了完了のイベントを無視します。

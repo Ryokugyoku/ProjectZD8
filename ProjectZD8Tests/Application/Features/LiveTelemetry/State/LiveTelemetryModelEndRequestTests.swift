@@ -66,6 +66,28 @@ final class LiveTelemetryModelEndRequestTests: XCTestCase {
         XCTAssertEqual(finishReasons(finishes), [.userDisconnected])
     }
 
+    /// 停止が2つ続けて届いたら、先に受け付けた停止の理由で、取得記録と終了通知の両方を1回だけ終えます。
+    ///
+    /// 責務: `endRequested(.accountSignedOut)` → `stopRequested` と、その逆順で、`recorder.finish` と `sessionDidEnd` の理由が
+    /// 先の理由で一致し、`sessionDidEnd` が1回だけであることを確認します(U8 R3)。
+    func testTwoConsecutiveStopsUseFirstAcceptedReasonForRecordingAndNotification() async {
+        let orders: [([LiveTelemetryAction], ConnectionSessionEndReason)] = [
+            ([.endRequested(.accountSignedOut), .stopRequested], .accountSignedOut),
+            ([.stopRequested, .endRequested(.accountSignedOut)], .userDisconnected),
+        ]
+        for (actions, expected) in orders {
+            let fixture = await makeLoaded()
+
+            actions.forEach { fixture.model.send($0) }
+            guard await fixture.waitUntil("待機状態 \(expected)", condition: { fixture.model.state.phase == .idle }) else { return }
+            await LiveTelemetryBoundedWaiter.settle()
+
+            XCTAssertEqual(fixture.notifications.endReasons, [expected], "終了通知は1回で先の理由: \(actions)")
+            let finishes = await fixture.recorder?.finishCalls ?? []
+            XCTAssertEqual(finishReasons(finishes), [expected], "取得記録は先の理由: \(actions)")
+        }
+    }
+
     /// 記録の終了呼び出しから終了原因を取り出します。
     ///
     /// 責務: 記録ポートのスパイの終了呼び出しを、終了原因の列へ変換します。

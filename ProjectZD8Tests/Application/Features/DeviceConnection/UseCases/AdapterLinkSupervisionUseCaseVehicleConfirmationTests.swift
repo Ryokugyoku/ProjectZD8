@@ -224,9 +224,10 @@ final class AdapterLinkSupervisionUseCaseVehicleConfirmationTests: XCTestCase {
         XCTAssertEqual(harness.link.stopCount, 0)
     }
 
-    /// 休止中にアプリ前面復帰したら、10分の窓を取り直して確認を再開し、新しい窓でも600回まで確認します。
+    /// 休止中にアプリ前面復帰したら、10分の窓を取り直して確認を再開し、背面へ移った後は新しい窓でも600回まで確認します。
     ///
-    /// 責務: 再開の確認が最大タイムアウトであること、再開後にも回数上限が新しく数えられることを確認します。
+    /// 責務: 再開の確認が最大タイムアウトであること、再開後に背面へ移ると回数上限が新しく数えられることを確認します
+    /// (前面にいる間は回数の上限で休止しないため、2回目の休止は背面で確かめます。U8 R6)。
     func testForegroundResumesPausedConfirmationWithNewWindow() async throws {
         let harness = makeHarness()
         try await harness.driveToConfirming()
@@ -237,8 +238,57 @@ final class AdapterLinkSupervisionUseCaseVehicleConfirmationTests: XCTestCase {
         XCTAssertEqual(harness.vehicleResponse.timeouts.last, .adapterMaximum)
         XCTAssertTrue(harness.isConfirming(.probing))
 
+        harness.useCase.appDidEnterBackground()
         try await runNoResponseCyclesUntilPaused(harness, eachTaking: 0)
         XCTAssertEqual(harness.vehicleResponse.timeouts.count, attemptLimit * 2)
+    }
+
+    /// 前面にいる間は、時計が進まず回数の上限(600回)に達しても休止せず、窓と回数を取り直して確認を続けます。
+    ///
+    /// 責務: 前面で上限を10回超える無応答を返しても `.paused` にならず、確認が送られ続けることを確認します(U8 R6)。
+    func testFrozenClockInForegroundKeepsConfirmingBeyondAttemptLimit() async throws {
+        let harness = makeHarness()
+        try await harness.driveToConfirming()
+        harness.useCase.appDidBecomeActive()
+        let cycles = attemptLimit + 10
+
+        for cycle in 1...cycles {
+            guard try await answerNoResponseAndWaitForNextConfirmation(harness, cycle: cycle) else { return }
+        }
+
+        XCTAssertEqual(harness.vehicleResponse.timeouts.count, cycles + 1)
+        XCTAssertTrue(harness.isConfirming(.probing))
+    }
+
+    /// 時計を進めずに無応答を返し、次の確認が送られるまで進めます(最短間隔の待ちが要求されたら時計を進めずに明けさせます)。
+    ///
+    /// 責務: 1周分を進め、休止した・保留が無い場合は失敗させて `false` を返します(呼び出し側は繰り返しを打ち切ります)。
+    /// 待ちが上限内に成り立たなければ `harness.wait` が throw します。
+    /// - Parameters:
+    ///   - harness: 車両確認が1件保留されている手段。
+    ///   - cycle: 何周目か(失敗時の表示用)。
+    /// - Returns: 次の確認が送られれば `true`。
+    private func answerNoResponseAndWaitForNextConfirmation(
+        _ harness: AdapterLinkSupervisionHarness, cycle: Int, file: StaticString = #filePath, line: UInt = #line
+    ) async throws -> Bool {
+        let confirmations = harness.vehicleResponse.timeouts.count
+        let sleeps = harness.clock.requestedDurations.count
+        guard harness.vehicleResponse.responses.resumeOldest(with: .success(.noResponse), file: file, line: line) else { return false }
+        try await harness.wait("\(cycle)周目: 次の確認か待機か休止", file: file, line: line) {
+            harness.vehicleResponse.timeouts.count > confirmations || harness.clock.requestedDurations.count > sleeps
+                || harness.isConfirming(.paused)
+        }
+        if harness.vehicleResponse.timeouts.count == confirmations, !harness.isConfirming(.paused) {
+            guard harness.clock.finishOldestSleep(advancingBy: 0, file: file, line: line) else { return false }
+            try await harness.wait("\(cycle)周目: 待ち明けの確認か休止", file: file, line: line) {
+                harness.vehicleResponse.timeouts.count > confirmations || harness.isConfirming(.paused)
+            }
+        }
+        guard !harness.isConfirming(.paused) else {
+            XCTFail("前面にいるのに\(cycle)周目(確認 \(confirmations) 回)で休止した", file: file, line: line)
+            return false
+        }
+        return true
     }
 
     /// 休止中に再接続(リンク断→`ready`)したら、初期化からやり直します。

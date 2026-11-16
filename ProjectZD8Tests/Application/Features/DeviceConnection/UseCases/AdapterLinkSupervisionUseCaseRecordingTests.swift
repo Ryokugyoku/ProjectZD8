@@ -206,20 +206,69 @@ final class AdapterLinkSupervisionUseCaseRecordingTests: XCTestCase {
         XCTAssertEqual(harness.recordingControl.startRequests.count, 1)
     }
 
-    /// リンク断のあいだにユーザーが切断した場合、抑止せず待機へ戻り、次の再接続で初期化からやり直します。
+    /// リンク断のあいだにユーザーが切断した場合、待機へは戻らずリンク待ちの保持に入り、リンクが戻るまでアダプターへ何も送りません。
     ///
-    /// 責務: 停止要求0回・待機・再接続での初期化2回目を確認します(U2 受け入れ条件 8)。
-    func testUserStopDuringLinkLossReturnsToStandby() async throws {
-        let harness = makeHarness()
-        try await harness.driveToRecording()
-        harness.link.emit(.disconnected(.peripheralDisconnected(errorDescription: nil)))
+    /// 責務: 停止要求0回・待機でない・接続中の間に初期化・車両確認・VIN読取が増えないことを確認します(U8 R4)。
+    func testUserStopDuringLinkLossWaitsForLinkWithoutSending() async throws {
+        let harness = try await userStoppedDuringLinkLoss()
+        harness.link.emit(.connecting)
+        try await BLEBoundedWaiter.settle()
 
-        harness.useCase.recordingDidFinish(endReason: .userDisconnected)
-
-        XCTAssertEqual(harness.useCase.state, .standby)
+        XCTAssertNotEqual(harness.useCase.state, .standby, "リンク待ちの保持に入る")
         XCTAssertEqual(harness.recordingControl.stopRequestCount, 0)
+        XCTAssertEqual(harness.initialization.responses.callCount, 1)
+        XCTAssertEqual(harness.vehicleResponse.timeouts.count, 1)
+        XCTAssertEqual(harness.vinReader.responses.callCount, 1)
+    }
+
+    /// リンク断中のユーザー切断から3分以内(直前・ちょうど)にリンクが `ready` へ戻ったら、再検知せず見張りを始めます。
+    ///
+    /// 責務: 179.999秒・180秒後の再接続で、初期化が増えず、`.heldWatch` の確認が送られ、検知通知が増えないことを確認します(U8 R4 の境界)。
+    func testLinkReturnWithinThreeMinutesOfUserStopStartsWatchWithoutRedetection() async throws {
+        for elapsed in [179.999, 180] {
+            let harness = try await userStoppedDuringLinkLoss()
+            let stoppedAt = harness.clock.now
+            let confirmations = harness.vehicleResponse.timeouts.count
+            harness.clock.now = stoppedAt.addingTimeInterval(elapsed)
+
+            harness.link.emit(.connecting)
+            harness.link.emit(.ready)
+            try await harness.wait("見張りの確認か初期化 \(elapsed)") {
+                harness.vehicleResponse.timeouts.count > confirmations || harness.initialization.responses.callCount > 1
+            }
+
+            XCTAssertEqual(harness.initialization.responses.callCount, 1, "同じ走行なので初期化しない: \(elapsed)")
+            XCTAssertEqual(harness.vehicleResponse.timeouts.last, .heldWatch, "見張りを始める: \(elapsed)")
+            XCTAssertTrue(harness.useCase.state.isHeldAfterUserStop, "保持を続ける: \(elapsed)")
+            XCTAssertEqual(harness.notifications.presentedVehicleDetectedVINs.count, 1, "再検知しない: \(elapsed)")
+        }
+    }
+
+    /// リンク断中のユーザー切断から3分を超えてリンクが `ready` へ戻ったら、新しい走行として初期化からやり直します。
+    ///
+    /// 責務: 180.001秒後の再接続で初期化が2回目になり、`.initializing(linkReadyAt: 再接続の時刻)` になることを確認します(U8 R4 の境界)。
+    func testLinkReturnAfterThreeMinutesOfUserStopStartsDetection() async throws {
+        let harness = try await userStoppedDuringLinkLoss()
+        let now = harness.clock.now.addingTimeInterval(180.001)
+        harness.clock.now = now
+
         try await harness.makeLinkReady()
+
         XCTAssertEqual(harness.initialization.responses.callCount, 2)
+        XCTAssertEqual(harness.useCase.state, .initializing(linkReadyAt: now))
+    }
+
+    /// 記録中にリンクが切れ、30秒後にユーザーが切断した段階まで進めます。
+    ///
+    /// 責務: 記録中まで進め、リンク断の30秒後に `.userDisconnected` で記録を終えた手段を返します(切断の時刻は時計の `now`)。
+    /// - Returns: ユーザー切断の直後の手段。
+    private func userStoppedDuringLinkLoss(file: StaticString = #filePath, line: UInt = #line) async throws -> AdapterLinkSupervisionHarness {
+        let harness = makeHarness()
+        try await harness.driveToRecording(file: file, line: line)
+        harness.link.emit(.disconnected(.peripheralDisconnected(errorDescription: nil)))
+        harness.clock.now = harness.clock.now.addingTimeInterval(30)
+        harness.useCase.recordingDidFinish(endReason: .userDisconnected)
+        return harness
     }
 
     /// リンク断の後にリンクが `ready` へ戻ってからユーザーが切断した場合は、従来どおり抑止状態へ移ります。
