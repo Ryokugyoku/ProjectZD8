@@ -1,5 +1,7 @@
 /// 常駐リンク以外の経路(手動接続)によるアダプター使用の開始・終了を、監視の状態と作用へ変換する純粋な遷移です。
 ///
+/// ユーザー切断後の抑止中は、見張りの取り消し・再開を `AdapterLinkHeldWatchTransition` が扱います(この型は抑止中を変えません)。
+///
 /// 使用中に初期化・車両確認を始めない抑止は `AdapterLinkSupervisionConditions.isExternalAdapterUseActive` を参照する
 /// リンク状態・前面復帰の遷移が担い、この型は開始・終了の瞬間の遷移だけを決めます。リンクは止めません。
 nonisolated struct AdapterLinkExternalAdapterUseTransition: Sendable {

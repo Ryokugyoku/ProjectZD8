@@ -58,9 +58,17 @@ nonisolated struct AdapterLinkSupervisionTransition: Sendable {
         case .vinReadCompleted, .vinReadFailed, .recordingStartSelected, .recordingDidFinish, .finishingDidComplete:
             recordingResult(from: state, on: event, conditions: conditions)
         case .externalAdapterUseBegan:
-            externalAdapterUse.began(from: state)
+            if case let .heldAfterUserStop(watch) = state {
+                heldWatch.externalAdapterUseBegan(watch)
+            } else {
+                externalAdapterUse.began(from: state)
+            }
         case .externalAdapterUseEnded:
-            externalAdapterUse.ended(from: state)
+            if case let .heldAfterUserStop(watch) = state {
+                heldWatch.externalAdapterUseEnded(watch, conditions: conditions)
+            } else {
+                externalAdapterUse.ended(from: state)
+            }
         }
     }
 

@@ -6,8 +6,9 @@ import Foundation
 /// タイムアウト満了まで待つので、結果の受信を次の確認の起点にするだけで約1秒周期になります(実アダプターでは未検証)。
 /// `ATAT0` を受け付けないアダプターで結果が早く返っても、最短間隔の待ち(`AdapterLinkVehicleConfirmationPacing`)で空回りしません。
 /// 無応答が連続2回なら走行の終わりとみなし、抑止を解いて初期化からやり直します(窓は解いた時刻から)。
-/// 見張りは抑止に入ってから(または前面復帰で取り直してから)上限の時間を過ぎたらやめ、従来の抑止へ戻ります。
-/// 手動接続がアダプターを使っている間は、新しい確認を送らず抑止も解きません。確認の失敗は無応答として数えません。
+/// 見張りは抑止に入ってから(または前面復帰で取り直してから)上限の時間を超えたらやめ(ちょうどは続ける)、従来の抑止へ戻ります。
+/// 手動接続が使い始めたら進行中の見張りの確認を取り消し、使っている間は新しい確認を送らず抑止も解きません。
+/// 使い終えたらリンクが `ready` なら見張りを再開します(上限はそのまま)。確認の失敗は無応答として数えません。
 nonisolated struct AdapterLinkHeldWatchTransition: Sendable {
     /// 走行の終わりとみなす連続無応答の回数です。
     static let consecutiveNoResponsesToRelease = 2
@@ -120,6 +121,42 @@ nonisolated struct AdapterLinkHeldWatchTransition: Sendable {
         return AdapterLinkSupervisionTransitionResult(state: .heldAfterUserStop(watch), effects: [.confirmVehicle(.heldWatch)])
     }
 
+    /// 抑止中に手動接続がアダプターを使い始めたときの遷移を返します。
+    ///
+    /// 責務: 見張り中なら進行中の見張りの確認を取り消します(手動接続とバイトストリームを取り合わないため)。状態は変えません。
+    /// - Parameter watch: 現在の見張りの進行状況。
+    /// - Returns: 見張り中なら `[.cancelOperations]`、それ以外は作用なし。
+    func externalAdapterUseBegan(_ watch: AdapterLinkHeldWatch) -> AdapterLinkSupervisionTransitionResult {
+        guard case .watching = watch.phase else {
+            return AdapterLinkSupervisionTransitionResult(state: .heldAfterUserStop(watch))
+        }
+        return AdapterLinkSupervisionTransitionResult(state: .heldAfterUserStop(watch), effects: [.cancelOperations])
+    }
+
+    /// 抑止中に手動接続がアダプターを使い終えたときの遷移を返します。
+    ///
+    /// 責務: 見張り中で、上限を超えておらず、リンクが `ready` なら、前面復帰を待たずに見張りの確認を再開します。
+    /// 上限は保持に入った(または前面復帰で取り直した)時点からのままにします。上限を超えていれば見張りをやめます。
+    /// - Parameters:
+    ///   - watch: 現在の見張りの進行状況。
+    ///   - conditions: リンク状態と現在時刻を含む条件。
+    /// - Returns: 抑止のままの遷移。
+    func externalAdapterUseEnded(
+        _ watch: AdapterLinkHeldWatch,
+        conditions: AdapterLinkSupervisionConditions
+    ) -> AdapterLinkSupervisionTransitionResult {
+        guard case .watching = watch.phase else {
+            return AdapterLinkSupervisionTransitionResult(state: .heldAfterUserStop(watch))
+        }
+        guard isWatching(watch, now: conditions.now) else {
+            return AdapterLinkSupervisionTransitionResult(state: .heldAfterUserStop(stoppedIfExpired(watch, now: conditions.now)))
+        }
+        guard canSend(conditions) else {
+            return AdapterLinkSupervisionTransitionResult(state: .heldAfterUserStop(watch))
+        }
+        return AdapterLinkSupervisionTransitionResult(state: .heldAfterUserStop(watch), effects: [.confirmVehicle(.heldWatch)])
+    }
+
     /// 結果を反映した見張りを、上限と送信の可否に応じて続ける遷移を返します。
     ///
     /// 責務: 見張り中で上限の内なら次の確認(早すぎれば残り時間の待機)を送り、上限を過ぎていれば見張りをやめます。
@@ -167,14 +204,14 @@ nonisolated struct AdapterLinkHeldWatchTransition: Sendable {
 
     /// 見張り中で、上限の内かどうかを返します。
     ///
-    /// 責務: 見張り中の段階で、終了時刻より前であることを判定します(ちょうどは外)。
+    /// 責務: 見張り中の段階で、終了時刻を超えていないことを判定します(ちょうど上限の時刻は見張りを続けます)。
     /// - Parameters:
     ///   - watch: 見張りの進行状況。
     ///   - now: 判定する時刻。
     /// - Returns: 見張りを続けるなら `true`。
     private func isWatching(_ watch: AdapterLinkHeldWatch, now: Date) -> Bool {
         guard case let .watching(endsAt) = watch.phase else { return false }
-        return now < endsAt
+        return now <= endsAt
     }
 
     /// 上限を過ぎた見張りを停止へ移した値を返します。
