@@ -4,6 +4,7 @@ from collections import defaultdict
 from typing import Dict, List
 
 from .function_count import count_functions
+from .long_lines import long_line_numbers
 from .model import FileMetrics, FunctionMetrics
 from .nesting import function_nesting
 from .tokenizer import TokenStream, tokenize
@@ -66,4 +67,5 @@ def measure_source(path: str, text: str) -> FileMetrics:
         file_lines=count_lines(text),
         function_count=count_functions(functions, stream.words_by_line()),
         functions=functions,
+        long_line_numbers=tuple(long_line_numbers(text)),
     )

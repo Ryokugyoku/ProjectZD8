@@ -156,6 +156,9 @@ jobs:
       - name: Code metrics tool tests (Python)
         run: '"$RUNNER_TEMP/code-metrics-venv/bin/python" -m unittest discover -s Tools/CodeMetrics/Tests -v'
 
+      - name: Xcode test runner tests (Python)
+        run: python3 -m unittest discover -s Tools/XcodeTestRunner/Tests -v
+
       - name: Swift complexity limits on changed files
         run: '"$RUNNER_TEMP/code-metrics-venv/bin/python" Tools/CodeMetrics/check_swift_metrics.py --changed-since origin/main'
 
