@@ -4,6 +4,15 @@ from typing import List
 
 from .model import Judgement
 
+_MAX_SHOWN_LINES = 5
+
+
+def _format_line_numbers(numbers) -> str:
+    """責務: 超過行の番号を `lines 12, 40` 形式にする(最大5件、超えたら `, ...`)。"""
+    shown = ", ".join(str(n) for n in numbers[:_MAX_SHOWN_LINES])
+    suffix = ", ..." if len(numbers) > _MAX_SHOWN_LINES else ""
+    return "lines " + shown + suffix
+
 
 def format_judgement(judgement: Judgement) -> str:
     """責務: 判定1件を出力1行にする。"""
@@ -12,6 +21,8 @@ def format_judgement(judgement: Judgement) -> str:
     line = "{}:{}: {}: {} {} > {}".format(
         f.path, f.line, severity, f.metric, f.value, f.limit
     )
+    if f.line_numbers:
+        line += " ({})".format(_format_line_numbers(f.line_numbers))
     if f.function is not None:
         line += " ({})".format(f.function)
     if judgement.baseline is not None:

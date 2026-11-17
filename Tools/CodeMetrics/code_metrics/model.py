@@ -1,7 +1,7 @@
 """計測結果と違反を表すデータ型。"""
 
 from dataclasses import dataclass, field
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 
 @dataclass(frozen=True)
@@ -26,6 +26,12 @@ class FileMetrics:
     file_lines: int
     function_count: int
     functions: List[FunctionMetrics] = field(default_factory=list)
+    long_line_numbers: Tuple[int, ...] = ()
+
+    @property
+    def long_lines(self) -> int:
+        """責務: 160文字を超える行の数を返す。"""
+        return len(self.long_line_numbers)
 
 
 @dataclass(frozen=True)
@@ -39,6 +45,7 @@ class Finding:
     limit: int
     function: Optional[str] = None
     occurrence: int = 0
+    line_numbers: Tuple[int, ...] = ()
 
 
 @dataclass(frozen=True)

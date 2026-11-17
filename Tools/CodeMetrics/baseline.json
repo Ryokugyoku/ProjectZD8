@@ -1,5 +1,11 @@
 {
   "files": {
+    "ProjectZD8/Application/Features/Analysis/State/SessionLogAnalysisState.swift": {
+      "long_lines": 1
+    },
+    "ProjectZD8/Application/Features/Analysis/UseCases/DecodeSessionLogTimelineUseCase.swift": {
+      "long_lines": 2
+    },
     "ProjectZD8/Application/Features/Logging/UseCases/ConnectionSessionAcquisitionRecorder.swift": {
       "file_lines": 528
     },
@@ -15,16 +21,24 @@
       "file_lines": 585,
       "function_count": 28
     },
+    "ProjectZD8/Data/Diagnostics/OSSignpostAcquisitionPerformanceAdapter.swift": {
+      "long_lines": 1
+    },
     "ProjectZD8/Data/Network/CloudKit/CloudKitConnectionSessionTransferRepository.swift": {
       "file_lines": 697,
       "function_count": 25
     },
     "ProjectZD8/Data/Persistence/GRDB/Database/ProjectZD8DatabaseMigrator.swift": {
-      "file_lines": 683
+      "file_lines": 683,
+      "long_lines": 3
+    },
+    "ProjectZD8/Data/Persistence/GRDB/Records/OBDPIDDefinitionRecord.swift": {
+      "long_lines": 1
     },
     "ProjectZD8/Data/Persistence/GRDB/Repositories/GRDBConnectionSessionAcquisitionRepository.swift": {
       "file_lines": 1736,
-      "function_count": 45
+      "function_count": 45,
+      "long_lines": 1
     },
     "ProjectZD8/Data/Persistence/GRDB/Repositories/GRDBConnectionSessionRepository.swift": {
       "file_lines": 728,
@@ -33,21 +47,36 @@
     "ProjectZD8/Data/Persistence/GRDB/Repositories/UnavailableConnectionSessionRepository.swift": {
       "function_count": 32
     },
+    "ProjectZD8/Domain/Entities/OBDPIDSample.swift": {
+      "long_lines": 1
+    },
     "ProjectZD8/Platform/iOS/Features/Analysis/Views/IOSSessionLogAnalysisView.swift": {
-      "file_lines": 641
+      "file_lines": 641,
+      "long_lines": 1
+    },
+    "ProjectZD8/Platform/iOS/Features/LiveTelemetry/Views/IOSLiveTelemetryView.swift": {
+      "long_lines": 3
     },
     "ProjectZD8/Platform/iOS/Features/LogHistory/Views/IOSConnectionHistoryView.swift": {
       "file_lines": 589
     },
+    "ProjectZD8/Platform/iOS/Features/VehicleManagement/Views/IOSVehicleRegistrationView.swift": {
+      "long_lines": 1
+    },
     "ProjectZD8/Platform/macOS/Features/Analysis/Views/MacOSSessionLogAnalysisView.swift": {
       "file_lines": 690
     },
-    "ProjectZD8Tests/Application/Features/Authentication/State/AuthenticationSessionModelTests.swift": {
-      "file_lines": 622,
-      "function_count": 39
+    "ProjectZD8/Platform/macOS/Features/LiveTelemetry/Views/MacOSLiveTelemetryView.swift": {
+      "long_lines": 2
     },
-    "ProjectZD8Tests/Application/Features/Authentication/UseCases/AuthenticationUseCaseTests.swift": {
-      "function_count": 36
+    "ProjectZD8/Platform/macOS/Features/Maintenance/Views/MacOSMaintenanceView.swift": {
+      "long_lines": 1
+    },
+    "ProjectZD8Tests/Application/Features/Analysis/UseCases/DecodeSessionLogTimelineUseCaseTests.swift": {
+      "long_lines": 5
+    },
+    "ProjectZD8Tests/Application/Features/Authentication/State/AuthenticationSessionModelTests.swift": {
+      "function_count": 24
     },
     "ProjectZD8Tests/Application/Features/DeviceConnection/State/AdapterLinkHeldWatchTransitionTests.swift": {
       "function_count": 21
@@ -70,6 +99,9 @@
       "file_lines": 794,
       "function_count": 41
     },
+    "ProjectZD8Tests/Application/Features/VehicleManagement/UseCases/DeleteVehicleWithSessionsUseCaseTests.swift": {
+      "long_lines": 1
+    },
     "ProjectZD8Tests/Data/Persistence/GRDB/Repositories/GRDBAcquisitionEvidenceSyntheticMeasurementTests.swift": {
       "file_lines": 1318,
       "function_count": 31
@@ -84,13 +116,20 @@
       "function_count": 21
     },
     "ProjectZD8Tests/Data/Persistence/GRDB/Repositories/GRDBConnectionSessionRepositoryTests.swift": {
-      "file_lines": 668
+      "file_lines": 668,
+      "long_lines": 1
     },
     "ProjectZD8Tests/Data/Persistence/GRDB/Repositories/GRDBConnectionSessionRepositoryTransitionTests.swift": {
       "function_count": 24
     },
+    "ProjectZD8Tests/Data/Persistence/GRDB/Repositories/GRDBOBDPIDDefinitionRepositoryTests.swift": {
+      "long_lines": 1
+    },
     "ProjectZD8Tests/Domain/Policies/AcquisitionManifestCompatibilityPolicyTests.swift": {
       "function_count": 21
+    },
+    "ProjectZD8Tests/Domain/Policies/OBDPIDFormulaEvaluatorTests.swift": {
+      "long_lines": 1
     },
     "ProjectZD8Tests/Platform/iOS/Features/DeviceConnection/Presentation/IOSSettingsPresentationModelTests.swift": {
       "function_count": 29
@@ -113,16 +152,6 @@
     "ProjectZD8/Application/Features/Authentication/State/AuthenticationSessionModel.swift": {
       "send#0": {
         "cyclomatic": 11
-      }
-    },
-    "ProjectZD8/Application/Features/DeviceConnection/State/AdapterLinkSupervisionTransition.swift": {
-      "result#0": {
-        "cyclomatic": 18
-      }
-    },
-    "ProjectZD8/Application/Features/DeviceConnection/UseCases/AdapterLinkSupervisionUseCase.swift": {
-      "execute#0": {
-        "cyclomatic": 15
       }
     },
     "ProjectZD8/Application/Features/LiveTelemetry/State/LiveTelemetryModel.swift": {

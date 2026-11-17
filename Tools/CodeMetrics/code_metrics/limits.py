@@ -6,6 +6,7 @@ NESTING = "nesting"
 FUNCTION_LENGTH = "function_length"
 FUNCTION_COUNT = "function_count"
 FILE_LINES = "file_lines"
+LONG_LINES = "long_lines"
 
 # 1関数ごとの指標と上限。
 FUNCTION_LIMITS = {
@@ -19,6 +20,7 @@ FUNCTION_LIMITS = {
 FILE_LIMITS = {
     FUNCTION_COUNT: 20,
     FILE_LINES: 500,
+    LONG_LINES: 0,
 }
 
 # 計測対象の拡張子。

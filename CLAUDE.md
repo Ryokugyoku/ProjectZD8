@@ -1,6 +1,6 @@
 # ProjectZD8 / RevTorque Insight
 
-OBDアダプター経由で車両テレメトリを取得・記録・分析する SwiftUI アプリ(iOS + macOS、単一マルチプラットフォームtarget)。製品名は **RevTorque Insight**。target・bundle ID・永続化パス等の識別子は `ProjectZD8` のまま(改名は要合意)。
+OBDアダプター経由で車両テレメトリを取得・記録・分析する SwiftUI アプリ(iOS + macOS。アプリ本体は単一のマルチプラットフォーム target `ProjectZD8`、ほかに Live Activity 用の拡張 target `RecordingSessionLiveActivity` とテスト target 2つ)。製品名は **RevTorque Insight**。target・bundle ID・永続化パス等の識別子は `ProjectZD8` のまま(改名は要合意)。
 
 ## Build / Test
 
@@ -8,17 +8,27 @@ Xcode 26.4+(deployment target iOS/macOS 26.4)、scheme `ProjectZD8` のみ、GRD
 
 ```sh
 xcodebuild -project ProjectZD8.xcodeproj -scheme ProjectZD8 -destination 'platform=macOS' build
-xcodebuild -project ProjectZD8.xcodeproj -scheme ProjectZD8 -destination 'platform=macOS' test -only-testing:ProjectZD8Tests/<TestClass>
+python3 Tools/XcodeTestRunner/run_xcodebuild.py --limit 600 --kill-pattern 'Build/Products/.*/RevTorque Insight' -- \
+  xcodebuild -project ProjectZD8.xcodeproj -scheme ProjectZD8 -destination 'platform=macOS' -enableCodeCoverage NO test -only-testing:ProjectZD8Tests/<TestClass>
 xcodebuild -project ProjectZD8.xcodeproj -scheme ProjectZD8 -destination 'generic/platform=iOS Simulator' build
 PYTHONPATH=Tools/VehicleChangeDataQuality python3 -m unittest discover -s Tools/VehicleChangeDataQuality/Tests -v
 ruby .github/testflight_build_publisher_test.rb
 python3 Tools/CodeMetrics/check_swift_metrics.py --changed-since origin/main
 python3 -m unittest discover -s Tools/CodeMetrics/Tests -v
+python3 -m unittest discover -s Tools/XcodeTestRunner/Tests -v
 ```
 
+- ローカルの `xcodebuild test` は必ず上の形(`Tools/XcodeTestRunner/`、仕様は同 README)で、前面で1回ずつ呼ぶ。担当へのブリーフにもこの形を書く。
+  - 同時に2本走らせるとテストホストが落ちて終わらなくなる。ラッパーがマシン共通のロックで1本ずつにする。
+  - `-enableCodeCoverage NO` を外さない(付けないと、テスト終了後のカバレッジ回収で約80分止まる)。CI のカバレッジ設定は変えない。
+  - `--limit` は秒。対象を絞った実行は 600 を目安にし、実装を壊しての確認は対象クラスを絞る。終了コード 124(時間上限)・125(ロック待ち超過)の時は再試行せず報告する。
+  - バックグラウンドで起動して `pgrep` で終了を待つループを作らない(自分のコマンド行に一致して回り続ける)。
 - 複雑さチェック(`Tools/CodeMetrics/`、仕様は同 README): Swift の編集のたびに PostToolUse フック(`.claude/settings.json`)が自動で走り、上限超過を Claude に返す。CI も変更ファイルを確かめる。既存の超過は `baseline.json` で許容し、値が増えたらエラー。要 `pip install --user -r Tools/CodeMetrics/requirements.txt`。ベースラインは超過を解消した時だけ `--update-baseline` で更新し、超過を増やすために更新しない。
+  - 最終レビューでは `--changed-since origin/main` を実行し、`error:` に加えて `warning:`(触ったファイルに残る既存の超過)も確かめる。フックは `error:` しか返さない。
+  - `--changed-since` は未追跡の新規ファイルを含まない。先に `git add -N <ファイル>` するか、ファイルを引数で直接渡す。
 
 - 実行範囲: Swift は変更した型の `-only-testing:ProjectZD8Tests/<TestClass>`(複数可)、`Tools/VehicleChangeDataQuality/` は unittest 全件、`.github/` は ruby テスト。PR 説明の「テスト」欄にコマンドと結果を書く。
+- 実行範囲(ツール): `Tools/CodeMetrics/`・`Tools/XcodeTestRunner/` を変えたら、それぞれの unittest 全件。
 - CI: `tests.yml`(PR と main push。macOS 単体テスト全件 `-only-testing:ProjectZD8Tests`、UI テストは署名なしで起動不可のため対象外。Ruby・Python テストも実行。Xcode 26.6、`CODE_SIGNING_ALLOWED=NO`)、`testflight.yml`(main で手動、iOS/macOS アーカイブ→TestFlight)。
 - ローカルのビルド/テスト成功を、見た目・実機・実アダプター・CloudKit 本番・CI の成功として報告しない。
 
@@ -41,6 +51,7 @@ python3 -m unittest discover -s Tools/CodeMetrics/Tests -v
 - 失敗(未接続・モデル不在・推論失敗等)を成功や空データに潰さない。「接続済み」等の表示は state の裏付けがある時だけ。
 - Feature 間は具象型に依存しない。横断ワークフローは所有 Feature を1つ決め、Domain 型か狭いポートで連携。
 - `Helpers`/`Utils`/`Common`/広い `Manager` は作らない。新 Feature・トップレベルディレクトリは作る前にユーザーへ提案。
+- `RecordingSessionLiveActivity/`(Live Activity の拡張 target)は Platform 層と同じ扱い: 描画だけを置き、業務ルール・Data・デバイスへ直接触れない。1ファイル1型で `RecordingSessionLiveActivity` を接頭辞にする。
 
 ## 段階的なモジュール化
 
@@ -53,6 +64,7 @@ python3 -m unittest discover -s Tools/CodeMetrics/Tests -v
 - モジュールの外へ見せる型・メソッドだけ `public` にする。テストは `@testable import <モジュール>` を使い、ミラー配置を保つ。
 - Data(GRDB・CloudKit・デバイス)、Platform、App はアプリ本体に残す。DB は1つのまま、リポジトリの契約だけをコンテキスト側に置く。
 - 移行済みのコンテキストの型をアプリ本体に新しく作らない。移した後は `MODULARIZATION_PLAN.md` の状態を同じ PR で更新する。
+- 複雑さのベースラインはパスで記録している。既存の超過があるファイルを移す時は、移動のコミットで `baseline.json` のパスだけを書き換え、値は変えない(超過の解消は振る舞いの変更と同じく別コミット)。
 
 ## 画面の分割とフォルダ構成(単一責任)
 
@@ -64,7 +76,7 @@ python3 -m unittest discover -s Tools/CodeMetrics/Tests -v
 - 表示ロジックは SwiftUI を import しない純粋型にする: iOS/macOS 共通の判定・整形・文言キー・alert 内容は `Application/Features/<F>/State/`(ローカライズキーは `String` で返し View で `LocalizedStringKey` に変換)、片方の OS だけのものは `Platform/<OS>/Features/<F>/Presentation/`。
 - 複数画面で使う部品: 同一 Feature・同一 OS 内は `Views/Components/`、Feature/OS をまたぐなら機能知識を持たない汎用部品として `Shared/DesignSystem/Components/`。
 - iOS と macOS に同じロジックをコピーしない。共通化するのはロジックと汎用部品で、画面レイアウトは OS ごとに別型。
-- 目安: 1行160文字以内(SourceScan の上限)、View ファイルは250行程度まで。超えたら分割を検討。全コード共通の上限: 1関数の循環的複雑度10・認知的複雑度15・制御構造のネスト3段、1ファイルの関数20個・500行(詳細は共通ルール §5)。
+- 目安: View ファイルは250行程度まで。超えたら分割を検討。
 - テスト: 分離した純粋型は公開メソッド・計算プロパティごとに分岐と境界値を網羅する。SwiftUI の `body` は対象外とし、判定を純粋型へ出して検証する。
 
 ## Feature(Application と Platform で同名)
@@ -73,6 +85,7 @@ python3 -m unittest discover -s Tools/CodeMetrics/Tests -v
 
 ## コード規約
 
+- 全コード共通の上限(`Tools/CodeMetrics/` が判定。詳細は共通ルール §5): 1関数の循環的複雑度10・認知的複雑度15・制御構造のネスト3段・80行(計算プロパティと SwiftUI の `body` を含む)、1ファイルの関数20個・500行、1行160文字。
 - 宣言に日本語 `///` DocC、メソッドには `責務:` の一文。
 - 1ファイル1主要型、ファイル名=主要宣言名。例 `XxxUseCase`、`GRDBXxxRepository`、`XxxState`/`XxxAction`。プラットフォーム固有型は `IOS`/`MacOS` 接頭辞。
 - テストは本番パスをミラー(`ProjectZD8/<path>/Foo.swift` → `ProjectZD8Tests/<path>/FooTests.swift`)。
