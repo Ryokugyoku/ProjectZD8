@@ -1,26 +1,37 @@
 #if os(iOS)
-/// iOS HOMEのアダプター導線に必要な表示専用状態です。
+/// iOSホームの表示状態です。iOSの接続先の規則だけを持ち、配置と内容は共通の `HomeScreenState` に任せます。
 struct IOSHomeState: Equatable {
     /// デフォルトアダプターの設定、未検出、接続可能を区別する共通状態です。
     let defaultAdapterAvailability: DefaultAdapterAvailability
-    /// PID取得または安全な終了処理が進行中かどうかです。
-    let isConnectionActive: Bool
-    /// 通信資源の終了完了を待っているかどうかです。
-    let isDisconnecting: Bool
+    /// ホームの配置、アダプターカード、セッション見出しの内容です。
+    let screen: HomeScreenState
 
-    /// iOS設定状態からHOME表示状態を生成します。
+    /// iOSの設定状態、PID取得状態、記録中のセッション、登録車両からホームの表示状態を作ります。
     ///
-    /// 責務: iOS設定画面のアダプター状態をHOMEの表示専用状態へ縮約します。
+    /// 責務: iOSの設定状態をデフォルトアダプターの状態へ縮約し、iOSの接続先の規則で共通のホーム表示状態を作ります。
     /// - Parameters:
     ///   - settingsState: 現在のiOS設定表示状態。
-    ///   - liveTelemetryState: 接続中判定に使用するPID取得状態。
-    init(settingsState: IOSSettingsState, liveTelemetryState: LiveTelemetryState = .init()) {
-        defaultAdapterAvailability = DefaultAdapterAvailability(
+    ///   - liveTelemetryState: 接続中かどうかと車両の判定に使うPID取得状態。
+    ///   - activeSession: 記録中の接続セッション。記録していなければ `nil`。
+    ///   - vehicles: 車両名の解決に使う登録車両。
+    init(
+        settingsState: IOSSettingsState,
+        liveTelemetryState: LiveTelemetryState = .init(),
+        activeSession: ConnectionSession? = nil,
+        vehicles: [VehicleProfile] = []
+    ) {
+        let availability = DefaultAdapterAvailability(
             preference: settingsState.defaultAdapterPreference,
             detectedAdapter: settingsState.selectedAdapters[.primary]
         )
-        isConnectionActive = liveTelemetryState.isConnectionActive
-        isDisconnecting = liveTelemetryState.isDisconnecting
+        defaultAdapterAvailability = availability
+        screen = HomeScreenState(
+            defaultAdapterAvailability: availability,
+            connectionEndpoint: availability.connectionEndpoint,
+            telemetry: liveTelemetryState,
+            activeSession: activeSession,
+            vehicles: vehicles
+        )
     }
 }
 #endif

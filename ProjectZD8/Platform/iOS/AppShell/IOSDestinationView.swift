@@ -18,8 +18,11 @@ struct IOSDestinationView: View {
     /// 整備画面へ渡す現在の車両別整備状態です。
     let maintenanceState: MaintenanceState
 
-    /// リアルタイムログ画面へ渡す主要PID読取状態です。
+    /// ホームのリアルタイム表示パネルとホームの配置判定へ渡すPID読取状態です。
     let liveTelemetryState: LiveTelemetryState
+
+    /// ホームのセッション見出しへ渡す記録中の接続セッションです。記録していなければ `nil` です。
+    let activeConnectionSession: ConnectionSession?
 
     /// 接続履歴画面へ渡す現在の履歴状態です。
     let connectionHistoryState: ConnectionHistoryState
@@ -89,56 +92,65 @@ struct IOSDestinationView: View {
     /// 責務: 現在の遷移先をiOS専用のFeature画面へ振り分けます。
     @ViewBuilder
     var body: some View {
-        if destination == .home {
-            if [.identifying, .confirmingIdentification, .registering, .failed].contains(vehicleManagementState.phase) {
-                IOSVehicleRegistrationView(
-                    state: vehicleManagementState,
-                    send: sendVehicleManagementAction
-                )
-            } else {
-                IOSHomeView(
-                    state: IOSHomeState(
-                        settingsState: settingsState,
-                        liveTelemetryState: liveTelemetryState
-                    ),
-                    send: sendHomeAction
-                )
-                .safeAreaInset(edge: .top, spacing: 0) { unassignedVINWarningInset }
-            }
-        } else if destination == .liveLog {
-            IOSLiveTelemetryView(
-                state: liveTelemetryState,
-                send: sendLiveTelemetryAction
-            )
-        } else if destination == .history {
+        switch destination {
+        case .home:
+            homeContent
+        case .history:
             IOSConnectionHistoryView(
                 state: connectionHistoryState,
                 send: sendConnectionHistoryAction,
                 analysisState: sessionLogAnalysisState,
                 sendAnalysis: sendSessionLogAnalysisAction
             )
-        } else if destination == .maintenance {
+        case .maintenance:
             IOSMaintenanceView(state: maintenanceState, send: sendMaintenanceAction)
-        } else if destination == .garage {
+        case .garage:
             IOSGarageView(state: vehicleManagementState, send: sendVehicleManagementAction)
                 .safeAreaInset(edge: .top, spacing: 0) { unassignedVINWarningInset }
-        } else if destination == .settings {
-            IOSSettingsView(
-                state: settingsState,
-                accountSettings: accountSettings,
-                send: sendSettingsAction,
-                sendAccountSettingsAction: sendAccountSettingsAction,
-                automaticRecordingSection: automaticRecordingSection,
-                sendAutomaticRecordingAction: sendAutomaticRecordingAction,
-                vehicleOffSection: vehicleOffSection,
-                sendVehicleOffAction: sendVehicleOffAction,
-                accountDeletionPhase: accountDeletionPhase,
-                accountDeletionFailure: accountDeletionFailure,
-                sendAuthenticationAction: sendAuthenticationAction
+        case .settings:
+            settingsContent
+        }
+    }
+
+    /// ホームの遷移先の画面です。車両の識別・登録の最中は登録画面を、それ以外はリアルタイム表示を差し込んだホームを出します。
+    @ViewBuilder
+    private var homeContent: some View {
+        if [.identifying, .confirmingIdentification, .registering, .failed].contains(vehicleManagementState.phase) {
+            IOSVehicleRegistrationView(
+                state: vehicleManagementState,
+                send: sendVehicleManagementAction
             )
         } else {
-            placeholder
+            IOSHomeView(
+                state: IOSHomeState(
+                    settingsState: settingsState,
+                    liveTelemetryState: liveTelemetryState,
+                    activeSession: activeConnectionSession,
+                    vehicles: vehicleManagementState.vehicles
+                ),
+                send: sendHomeAction
+            ) {
+                IOSLiveTelemetryPanel(state: liveTelemetryState, send: sendLiveTelemetryAction)
+            }
+            .safeAreaInset(edge: .top, spacing: 0) { unassignedVINWarningInset }
         }
+    }
+
+    /// 設定の遷移先の画面です。
+    private var settingsContent: some View {
+        IOSSettingsView(
+            state: settingsState,
+            accountSettings: accountSettings,
+            send: sendSettingsAction,
+            sendAccountSettingsAction: sendAccountSettingsAction,
+            automaticRecordingSection: automaticRecordingSection,
+            sendAutomaticRecordingAction: sendAutomaticRecordingAction,
+            vehicleOffSection: vehicleOffSection,
+            sendVehicleOffAction: sendVehicleOffAction,
+            accountDeletionPhase: accountDeletionPhase,
+            accountDeletionFailure: accountDeletionFailure,
+            sendAuthenticationAction: sendAuthenticationAction
+        )
     }
 
     /// ホームと車両画面の上端に重ねる未登録車両の警告と、車両を特定できなかったログの警告(別枠)です。
@@ -163,92 +175,6 @@ struct IOSDestinationView: View {
                     .padding(.top, IOSVehicleUnknownSessionMetrics.topInset)
             }
         }
-    }
-
-    /// 未実装の遷移先を識別できるモバイル向けプレースホルダーです。
-    private var placeholder: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 30) {
-                brandHeader
-
-                VStack(alignment: .leading, spacing: 20) {
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 24, style: .continuous)
-                            .fill(Color.accentColor.opacity(0.12))
-
-                        Image(systemName: destination.systemImage)
-                            .font(.system(size: 42, weight: .medium))
-                            .foregroundStyle(.tint)
-                    }
-                    .frame(width: 82, height: 82)
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 24, style: .continuous)
-                            .stroke(Color.accentColor.opacity(0.22), lineWidth: 1)
-                    }
-
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text(destination.title)
-                            .font(.system(.largeTitle, design: .rounded, weight: .bold))
-
-                        Text(destination.subtitle)
-                            .font(.system(.body, design: .rounded, weight: .medium))
-                            .foregroundStyle(.secondary)
-
-                        Text("shell.destination.placeholder")
-                            .font(.subheadline)
-                            .foregroundStyle(.tertiary)
-                            .padding(.top, 4)
-                    }
-                }
-                .padding(24)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 30, style: .continuous))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 30, style: .continuous)
-                        .stroke(Color.primary.opacity(0.08), lineWidth: 1)
-                }
-            }
-            .padding(.horizontal, 20)
-            .padding(.top, 18)
-            .padding(.bottom, 28)
-        }
-        .scrollIndicators(.hidden)
-        .accessibilityIdentifier("ios-destination-\(destination.rawValue)")
-    }
-
-    /// 製品名とモバイル向けコンセプトを示すコンパクトなブランド表示です。
-    private var brandHeader: some View {
-        HStack(spacing: 12) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(
-                        LinearGradient(
-                            colors: [Color.accentColor, Color.accentColor.opacity(0.58)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .shadow(color: Color.accentColor.opacity(0.28), radius: 12, y: 5)
-
-                Image(systemName: "gauge.with.dots.needle.50percent")
-                    .font(.system(size: 20, weight: .semibold))
-                    .foregroundStyle(.white)
-            }
-            .frame(width: 46, height: 46)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text("RevTorque Insight")
-                    .font(.system(.headline, design: .rounded, weight: .bold))
-
-                Text("ios.shell.tagline")
-                    .font(.system(size: 10, weight: .bold, design: .rounded))
-                    .tracking(1.2)
-                    .foregroundStyle(.secondary)
-            }
-
-            Spacer(minLength: 0)
-        }
-        .accessibilityElement(children: .combine)
     }
 }
 #endif

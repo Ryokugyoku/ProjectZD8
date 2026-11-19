@@ -21,8 +21,11 @@ struct MacOSDestinationView: View {
     /// 整備画面へ渡す現在の車両別整備状態です。
     let maintenanceState: MaintenanceState
 
-    /// リアルタイムログ画面へ渡す主要PID読取状態です。
+    /// ホームへ差し込むリアルタイム表示パネルとホームの配置判定へ渡す主要PID読取状態です。
     let liveTelemetryState: LiveTelemetryState
+
+    /// ホームのセッション見出しへ渡す記録中の接続セッションです。記録していなければ `nil` です。
+    let activeConnectionSession: ConnectionSession?
 
     /// 接続履歴画面へ渡す現在の履歴状態です。
     let connectionHistoryState: ConnectionHistoryState
@@ -71,25 +74,13 @@ struct MacOSDestinationView: View {
 
     /// 選択された遷移先に対応するmacOS画面を提供します。
     ///
-    /// 責務: 現在の遷移先を専用画面または識別用プレースホルダーへ振り分けます。
+    /// 責務: 現在の遷移先をmacOS専用のFeature画面へ振り分けます。
     @ViewBuilder
     var body: some View {
-        if destination == .home {
-            MacOSHomeView(
-                state: MacOSHomeState(
-                    settingsState: settingsState,
-                    liveTelemetryState: liveTelemetryState
-                ),
-                send: sendHomeAction,
-                metrics: metrics
-            )
-        } else if destination == .liveLog {
-            MacOSLiveTelemetryView(
-                state: liveTelemetryState,
-                send: sendLiveTelemetryAction,
-                metrics: metrics
-            )
-        } else if destination == .history {
+        switch destination {
+        case .home:
+            homeContent
+        case .history:
             MacOSConnectionHistoryView(
                 state: connectionHistoryState,
                 send: sendConnectionHistoryAction,
@@ -97,55 +88,45 @@ struct MacOSDestinationView: View {
                 sendAnalysis: sendSessionLogAnalysisAction,
                 metrics: metrics
             )
-        } else if destination == .maintenance {
-            MacOSMaintenanceView(
-                state: maintenanceState,
-                send: sendMaintenanceAction,
-                metrics: metrics
-            )
-        } else if destination == .garage {
-            MacOSGarageView(
-                state: vehicleManagementState,
-                send: sendVehicleManagementAction,
-                metrics: metrics
-            )
-        } else if destination == .settings {
-            MacOSSettingsView(
-                state: settingsState,
-                accountSettings: accountSettings,
-                send: sendSettingsAction,
-                sendAccountSettingsAction: sendAccountSettingsAction,
-                vehicleOffSection: vehicleOffSection,
-                sendVehicleOffAction: sendVehicleOffAction,
-                accountDeletionPhase: accountDeletionPhase,
-                accountDeletionFailure: accountDeletionFailure,
-                sendAuthenticationAction: sendAuthenticationAction,
-                metrics: metrics
-            )
-        } else {
-            placeholder
+        case .maintenance:
+            MacOSMaintenanceView(state: maintenanceState, send: sendMaintenanceAction, metrics: metrics)
+        case .garage:
+            MacOSGarageView(state: vehicleManagementState, send: sendVehicleManagementAction, metrics: metrics)
+        case .settings:
+            settingsContent
         }
     }
 
-    /// 未実装の遷移先を識別できるプレースホルダーです。
-    private var placeholder: some View {
-        VStack(spacing: 22 * metrics.scale) {
-            Image(systemName: destination.systemImage)
-                .font(.system(size: metrics.contentSymbolSize, weight: .medium))
-                .foregroundStyle(.tint)
-
-            Text(destination.title)
-                .font(.system(size: metrics.contentTitleSize, weight: .bold))
-
-            Text("shell.destination.placeholder")
-                .font(.system(size: 15 * metrics.scale))
-                .foregroundStyle(.secondary)
+    /// ホームの遷移先の画面です。リアルタイム表示パネルを差し込んだホームを出します。
+    private var homeContent: some View {
+        MacOSHomeView(
+            state: MacOSHomeState(
+                settingsState: settingsState,
+                liveTelemetryState: liveTelemetryState,
+                activeSession: activeConnectionSession,
+                vehicles: vehicleManagementState.vehicles
+            ),
+            send: sendHomeAction,
+            metrics: metrics
+        ) {
+            MacOSLiveTelemetryPanel(state: liveTelemetryState, send: sendLiveTelemetryAction, metrics: metrics)
         }
-        .multilineTextAlignment(.center)
-        .padding(32 * metrics.scale)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(nsColor: .windowBackgroundColor))
-        .accessibilityIdentifier("macos-destination-\(destination.rawValue)")
+    }
+
+    /// 設定の遷移先の画面です。
+    private var settingsContent: some View {
+        MacOSSettingsView(
+            state: settingsState,
+            accountSettings: accountSettings,
+            send: sendSettingsAction,
+            sendAccountSettingsAction: sendAccountSettingsAction,
+            vehicleOffSection: vehicleOffSection,
+            sendVehicleOffAction: sendVehicleOffAction,
+            accountDeletionPhase: accountDeletionPhase,
+            accountDeletionFailure: accountDeletionFailure,
+            sendAuthenticationAction: sendAuthenticationAction,
+            metrics: metrics
+        )
     }
 }
 #endif

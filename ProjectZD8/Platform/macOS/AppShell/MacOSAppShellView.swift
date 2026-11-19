@@ -27,6 +27,9 @@ struct MacOSAppShellView: View {
     /// 接続セッション履歴を提供するモデルです。
     let connectionHistoryModel: ConnectionHistoryModel
 
+    /// 記録中の接続セッション(開始時刻と車両)を提供するモデルです。
+    let connectionSessionLifecycleModel: ConnectionSessionLifecycleModel
+
     /// 保存済みPID時系列解析を提供するモデルです。
     let sessionLogAnalysisModel: SessionLogAnalysisModel
 
@@ -55,6 +58,7 @@ struct MacOSAppShellView: View {
     ///   - maintenanceModel: 車両別の整備一覧、編集、同期状態を提供するモデル。
     ///   - liveTelemetryModel: 主要PID読取状態を提供するモデル。
     ///   - connectionHistoryModel: アカウント単位の接続履歴を提供するモデル。
+    ///   - connectionSessionLifecycleModel: 記録中の接続セッションを提供するモデル。
     ///   - sessionLogAnalysisModel: 保存済みPID時系列解析を提供するモデル。
     ///   - startVehicleConnection: HOME接続要求を車両識別とPID取得へ展開するユースケース。
     ///   - vehicleOffDelayModel: 「エンジン停止とみなす時間」の設定を提供するモデル。
@@ -68,6 +72,7 @@ struct MacOSAppShellView: View {
         maintenanceModel: MaintenanceModel,
         liveTelemetryModel: LiveTelemetryModel,
         connectionHistoryModel: ConnectionHistoryModel,
+        connectionSessionLifecycleModel: ConnectionSessionLifecycleModel,
         sessionLogAnalysisModel: SessionLogAnalysisModel,
         startVehicleConnection: StartVehicleConnectionUseCase,
         vehicleOffDelayModel: VehicleOffDetectionDelayModel,
@@ -82,6 +87,7 @@ struct MacOSAppShellView: View {
         self.maintenanceModel = maintenanceModel
         self.liveTelemetryModel = liveTelemetryModel
         self.connectionHistoryModel = connectionHistoryModel
+        self.connectionSessionLifecycleModel = connectionSessionLifecycleModel
         self.sessionLogAnalysisModel = sessionLogAnalysisModel
         self.startVehicleConnection = startVehicleConnection
         self.accountDeletionPhase = accountDeletionPhase
@@ -133,6 +139,7 @@ struct MacOSAppShellView: View {
                     vehicleManagementState: vehicleManagementModel.state,
                     maintenanceState: maintenanceModel.state,
                     liveTelemetryState: liveTelemetryModel.state,
+                    activeConnectionSession: connectionSessionLifecycleModel.activeSession,
                     connectionHistoryState: connectionHistoryModel.state,
                     sessionLogAnalysisState: sessionLogAnalysisModel.state,
                     sendHomeAction: handleHomeAction,

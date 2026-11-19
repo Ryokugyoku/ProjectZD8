@@ -23,7 +23,7 @@ struct IOSAppShellTabBar<DestinationContent: View>: View {
         self.destinationContent = destinationContent
     }
 
-    /// 6件の遷移先をSafe Area対応のシステムタブとして提供します。
+    /// 5件の遷移先をSafe Area対応のシステムタブとして提供します。
     ///
     /// 責務: iOS標準タブの配置規則でコンテンツとナビゲーションの占有領域を分離します。
     var body: some View {
