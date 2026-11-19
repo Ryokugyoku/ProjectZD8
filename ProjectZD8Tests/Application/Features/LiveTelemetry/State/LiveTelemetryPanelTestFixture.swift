@@ -7,7 +7,7 @@ enum LiveTelemetryPanelTestFixture {
     /// サンプルの観測時刻に使う固定時刻です。
     static let observedAt = Date(timeIntervalSince1970: 1_800_000_000)
     /// 再試行の条件に使う接続先です。
-    static let endpoint = OBDConnectionEndpoint(transport: .serial, systemIdentifier: "/dev/cu.test", displayName: "Test Adapter")
+    static let endpoint = OBDConnectionEndpoint(transport: .serial, systemIdentifier: "test-adapter", displayName: "Test Adapter")
     /// 再試行の条件に使う登録済み車両の文脈です。
     static let registeredVehicle = LiveTelemetryVehicleContext.registered(VehicleID(), vehicleModelCode: "ZD8")
 

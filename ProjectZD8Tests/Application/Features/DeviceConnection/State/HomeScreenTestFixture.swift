@@ -9,7 +9,7 @@ enum HomeScreenTestFixture {
     /// アダプターの接続先です。
     static let endpoint = OBDConnectionEndpoint(transport: .bluetoothLowEnergy, systemIdentifier: "adapter-1", displayName: "OBD BLE")
     /// アダプターと別の接続先です(OS ごとの接続先規則で選ばれた値の代わり)。
-    static let otherEndpoint = OBDConnectionEndpoint(transport: .serial, systemIdentifier: "/dev/cu.usb", displayName: "OBD USB")
+    static let otherEndpoint = OBDConnectionEndpoint(transport: .serial, systemIdentifier: "adapter-2", displayName: "OBD USB")
 
     /// 表示状態を作ります。
     ///
