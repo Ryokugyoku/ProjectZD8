@@ -2,37 +2,58 @@ import SwiftUI
 import WidgetKit
 
 /// 記録中セッションのLive Activityの構成です。ロック画面とDynamic Islandの各表示へ部品を配置します。
+///
+/// どの表示で描くか(記録中・更新が止まった・終了)は `RecordingSessionLiveActivityDisplayMode` が決めます。
 struct RecordingSessionLiveActivityWidget: Widget {
     /// ロック画面の表示とDynamic Islandの各領域を `RecordingSessionActivityAttributes` に結び付けます。
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: RecordingSessionActivityAttributes.self) { context in
-            Self.lockScreen(state: context.state)
+            Self.lockScreen(state: context.state, mode: Self.mode(of: context))
                 .activitySystemActionForegroundColor(RecordingSessionLiveActivityPalette.accent)
         } dynamicIsland: { context in
-            Self.dynamicIsland(state: context.state)
+            Self.dynamicIsland(state: context.state, mode: Self.mode(of: context))
         }
+    }
+
+    /// 表示内容とシステムの判定から、どの表示で描くかを決めます。
+    ///
+    /// 責務: 終了表示かどうかと、有効期限を過ぎたかどうか(`isStale`)を表示の種類へ写します。
+    /// - Parameter context: Live Activityの表示内容とシステムの状態。
+    /// - Returns: 描く表示の種類。
+    private static func mode(of context: ActivityViewContext<RecordingSessionActivityAttributes>) -> RecordingSessionLiveActivityDisplayMode {
+        RecordingSessionLiveActivityDisplayMode(isEnded: context.state.isEnded, isStale: context.isStale)
     }
 
     /// ロック画面の表示を選びます。
     ///
-    /// 責務: 終了表示なら終了用の表示、記録中なら従来の表示を返します。
-    /// - Parameter state: Live Activityの最新の表示内容。
+    /// 責務: 終了表示なら終了用の表示、記録中(更新が止まった表示を含む)なら従来の表示を返します。
+    /// - Parameters:
+    ///   - state: Live Activityの最新の表示内容。
+    ///   - mode: 描く表示の種類。
     /// - Returns: ロック画面の表示。
     @ViewBuilder
-    private static func lockScreen(state: RecordingSessionActivityAttributes.ContentState) -> some View {
+    private static func lockScreen(
+        state: RecordingSessionActivityAttributes.ContentState,
+        mode: RecordingSessionLiveActivityDisplayMode
+    ) -> some View {
         if let summary = state.endedSummary {
             RecordingSessionLiveActivityEndedView(state: state, summary: summary)
         } else {
-            RecordingSessionLiveActivityLockScreenView(state: state)
+            RecordingSessionLiveActivityLockScreenView(state: state, mode: mode)
         }
     }
 
     /// Dynamic Islandの表示を組み立てます。
     ///
     /// 責務: expanded・compact・minimalの各領域へ部品を配置します。
-    /// - Parameter state: Live Activityの最新の表示内容。
+    /// - Parameters:
+    ///   - state: Live Activityの最新の表示内容。
+    ///   - mode: 描く表示の種類。
     /// - Returns: Dynamic Islandの構成。
-    private static func dynamicIsland(state: RecordingSessionActivityAttributes.ContentState) -> DynamicIsland {
+    private static func dynamicIsland(
+        state: RecordingSessionActivityAttributes.ContentState,
+        mode: RecordingSessionLiveActivityDisplayMode
+    ) -> DynamicIsland {
         DynamicIsland {
             DynamicIslandExpandedRegion(.leading) {
                 RecordingSessionLiveActivityVehiclePhotoView(
@@ -50,21 +71,21 @@ struct RecordingSessionLiveActivityWidget: Widget {
                 }
             }
             DynamicIslandExpandedRegion(.center) {
-                if state.isEnded {
+                if mode == .ended {
                     RecordingSessionLiveActivityEndedTitleView(state: state)
                 } else {
-                    RecordingSessionLiveActivityTitleView(state: state)
+                    RecordingSessionLiveActivityTitleView(state: state, mode: mode)
                 }
             }
             DynamicIslandExpandedRegion(.bottom) {
                 expandedBottom(state: state)
             }
         } compactLeading: {
-            RecordingSessionLiveActivityStatusIcon(tone: state.statusTone)
+            RecordingSessionLiveActivityStatusIcon(tone: mode.statusTone(for: state))
         } compactTrailing: {
             compactTrailing(state: state)
         } minimal: {
-            RecordingSessionLiveActivityStatusIcon(tone: state.statusTone)
+            RecordingSessionLiveActivityStatusIcon(tone: mode.statusTone(for: state))
         }
         .keylineTint(RecordingSessionLiveActivityPalette.accent)
     }

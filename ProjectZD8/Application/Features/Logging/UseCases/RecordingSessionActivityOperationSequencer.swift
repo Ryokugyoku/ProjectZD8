@@ -6,6 +6,8 @@ import Foundation
 ///   (終わったセッションの開始・更新が、次のセッションの表示を上書きしないため)。
 /// - 終了は世代に関係なく、実行時点で表示が出ている時だけ実行します。開始の最中にセッションが終わっても、
 ///   終了は開始の完了後に実行されるため、表示は直ちに閉じられます。
+/// - 開始・更新には、受け付けた時刻から `RecordingSessionActivityStalePolicy` で求めた有効期限を付けます。
+/// - 前回のプロセスが残した表示の片付けも同じ列に並べます(片付けの直後の開始が片付けに閉じられないため)。
 /// - 操作の失敗は診断へ1件ずつ残し、呼び出し元へは伝えません。後続の操作は失敗に関係なく実行します。
 @MainActor
 final class RecordingSessionActivityOperationSequencer {
@@ -16,6 +18,8 @@ final class RecordingSessionActivityOperationSequencer {
     private let activity: any SessionActivityPort
     /// 失敗を残す診断記録です。
     private let diagnostics: any RecordingSessionActivityDiagnosticsPort
+    /// 現在時刻を返す処理です。開始・更新を受け付けた時刻として有効期限の基準にします。
+    private let now: @MainActor () -> Date
     /// 最後に始めたセッションの世代です。
     private var latestGeneration: Generation = 0
     /// 続いているセッションの世代です。セッションが無ければ `nil` です。
@@ -23,15 +27,21 @@ final class RecordingSessionActivityOperationSequencer {
     /// 直前に受け付けた操作です。次の操作はこれの完了を待ってから始めます。
     private var operationTail: Task<Void, Never>?
 
-    /// 境界と診断記録を固定して生成します。
+    /// 境界・診断記録・時刻を固定して生成します。
     ///
-    /// 責務: 操作の実行先と失敗の記録先を保持します。
+    /// 責務: 操作の実行先と失敗の記録先と、有効期限の基準にする時刻を保持します。
     /// - Parameters:
     ///   - activity: 常時表示の境界。
     ///   - diagnostics: 失敗を残す診断記録。
-    init(activity: any SessionActivityPort, diagnostics: any RecordingSessionActivityDiagnosticsPort) {
+    ///   - now: 現在時刻を返す処理。
+    init(
+        activity: any SessionActivityPort,
+        diagnostics: any RecordingSessionActivityDiagnosticsPort,
+        now: @escaping @MainActor () -> Date = { Date() }
+    ) {
         self.activity = activity
         self.diagnostics = diagnostics
+        self.now = now
     }
 
     /// 続いているセッションの世代です。セッションが無ければ `nil` です。
@@ -66,7 +76,7 @@ final class RecordingSessionActivityOperationSequencer {
 
     /// 表示の開始を受け付けます。
     ///
-    /// 責務: 実行時点で世代が続いていて表示が出ていなければ開始し、開始できたら `didStart` を呼びます。
+    /// 責務: 受け付けた時刻から有効期限を決め、実行時点で世代が続いていて表示が出ていなければ開始し、開始できたら `didStart` を呼びます。
     /// - Parameters:
     ///   - content: 最初に出す表示内容。
     ///   - generation: 受け付けたセッションの世代。
@@ -76,23 +86,35 @@ final class RecordingSessionActivityOperationSequencer {
         generation: Generation,
         didStart: @escaping @MainActor () -> Void
     ) {
+        let staleDate = RecordingSessionActivityStalePolicy.staleDate(updatedAt: now())
         enqueue(.start) { [weak self] activity in
             guard let self, isLive(generation), !activity.isPresenting else { return }
-            try await activity.start(content)
+            try await activity.start(content, staleDate: staleDate)
             didStart()
         }
     }
 
     /// 表示内容の更新を受け付けます。
     ///
-    /// 責務: 実行時点で世代が続いている時だけ更新します。
+    /// 責務: 受け付けた時刻から有効期限を決め、実行時点で世代が続いている時だけ更新します。
     /// - Parameters:
     ///   - content: 新しい表示内容。
     ///   - generation: 受け付けたセッションの世代。
     func enqueueUpdate(_ content: RecordingSessionActivityContent, generation: Generation) {
+        let staleDate = RecordingSessionActivityStalePolicy.staleDate(updatedAt: now())
         enqueue(.update) { [weak self] activity in
             guard let self, isLive(generation) else { return }
-            try await activity.update(content)
+            try await activity.update(content, staleDate: staleDate)
+        }
+    }
+
+    /// 前回のプロセスが残した表示の片付けを受け付けます。
+    ///
+    /// 責務: 先に受け付けた操作の完了後に、このプロセスが追跡していない未終了の表示を閉じます。片付けは失敗を返さないため、
+    /// 診断の種類を増やしません。
+    func enqueueOrphanCleanup() {
+        append { activity in
+            await activity.endOrphanedPresentations()
         }
     }
 
@@ -122,7 +144,7 @@ final class RecordingSessionActivityOperationSequencer {
         await operationTail?.value
     }
 
-    /// 操作を、先に受け付けた操作の完了後に実行するよう受け付けます。
+    /// 失敗しうる操作を、先に受け付けた操作の完了後に実行するよう受け付けます。
     ///
     /// 責務: 操作を1列に並べ、失敗を診断へ残して呼び出し元へ波及させません。
     /// - Parameters:
@@ -132,16 +154,26 @@ final class RecordingSessionActivityOperationSequencer {
         _ operation: RecordingSessionActivityOperation,
         _ body: @escaping @MainActor (any SessionActivityPort) async throws -> Void
     ) {
-        let previous = operationTail
-        let activity = activity
         let diagnostics = diagnostics
-        operationTail = Task { @MainActor in
-            await previous?.value
+        append { activity in
             do {
                 try await body(activity)
             } catch {
                 diagnostics.operationFailed(operation, error: error)
             }
+        }
+    }
+
+    /// 操作を列の末尾へ足します。
+    ///
+    /// 責務: 直前に受け付けた操作の完了を待ってから実行するタスクを作り、列の末尾にします。
+    /// - Parameter body: 実行する操作。失敗は返しません。
+    private func append(_ body: @escaping @MainActor (any SessionActivityPort) async -> Void) {
+        let previous = operationTail
+        let activity = activity
+        operationTail = Task { @MainActor in
+            await previous?.value
+            await body(activity)
         }
     }
 }

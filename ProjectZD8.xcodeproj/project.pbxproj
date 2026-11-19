@@ -77,6 +77,7 @@
 				"Data/Devices/SessionActivity/RecordingSessionActivityAttributes+StatusTone.swift",
 				"Data/Devices/SessionActivity/RecordingSessionActivityAttributes+VehicleLabel.swift",
 				Data/Devices/SessionActivity/RecordingSessionActivityAttributes.swift,
+				Data/Devices/SessionActivity/RecordingSessionLiveActivityDisplayMode.swift,
 				Data/Devices/SessionActivity/RecordingSessionLiveActivityDurationFormatter.swift,
 				Data/Devices/SessionActivity/RecordingSessionLiveActivityMetricFormatter.swift,
 				Data/Devices/SessionActivity/RecordingSessionLiveActivityMetricKind.swift,

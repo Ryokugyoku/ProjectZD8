@@ -94,7 +94,7 @@ final class RecordingSessionActivityUseCaseRaceTests: XCTestCase {
         switch last {
         case let .start(content), let .update(content):
             XCTAssertEqual(content.startedAt, secondStartedAt, "最後の表示が古いセッションのもの: \(harness.activity.calls)")
-        case .end:
+        case .end, .endOrphanedPresentations:
             XCTFail("新しいセッションの表示が終了された: \(harness.activity.calls)")
         }
     }

@@ -2,7 +2,9 @@ import Foundation
 
 /// PID継続取得の状態変化と前面復帰を受け、記録中の常時表示(Live Activity)を開始・更新・終了します。
 ///
-/// - 開始はアプリが前面の時だけです。バックグラウンドで始まった記録は次の前面復帰で表示します。
+/// - 開始はアプリが前面の時だけです。バックグラウンドで始まった記録は、次の前面復帰で表示します。
+/// - 開始・更新には有効期限を付け、更新が途絶えた表示はシステムが古い扱いにします。
+/// - 記録中でない起動・前面復帰では、前回のプロセスが残した表示を片付けます。
 /// - システムに表示を閉じられても(8時間上限等)記録は止めず、次の前面復帰で表示し直します。
 /// - 取得が待機(`idle`)か失敗(`failed`)へ移ったら最終内容を出して閉じ、表示用の車両写真を消します。
 /// - 表示・写真の失敗はすべて診断へ残し、記録処理へは波及させません。
@@ -57,7 +59,7 @@ final class RecordingSessionActivityUseCase {
         lifecycleDiagnostics: (any RecordingSessionActivityLifecycleDiagnosticsPort)? = nil
     ) {
         self.activity = activity
-        operations = RecordingSessionActivityOperationSequencer(activity: activity, diagnostics: diagnostics)
+        operations = RecordingSessionActivityOperationSequencer(activity: activity, diagnostics: diagnostics, now: now)
         self.photos = photos
         self.diagnostics = diagnostics
         self.now = now
@@ -68,7 +70,7 @@ final class RecordingSessionActivityUseCase {
 
     /// 境界へ受け付けた操作がすべて終わるまで待ちます。
     ///
-    /// 責務: 呼び出し時点までに受け付けた開始・更新・終了の完了を待てるようにします。
+    /// 責務: 呼び出し時点までに受け付けた開始・更新・終了・片付けの完了を待てるようにします。
     func waitForPendingOperations() async {
         await operations.waitForPendingOperations()
     }
@@ -96,12 +98,32 @@ final class RecordingSessionActivityUseCase {
         operations.enqueueUpdate(content, generation: generation)
     }
 
+    /// アプリが起動したことを表示へ反映します。起動時に1回だけ呼びます(背面での起動を含む)。
+    ///
+    /// 責務: 記録中でなければ、前回のプロセスが残した表示の片付けを受け付けます。
+    func appDidLaunch() {
+        endOrphanedPresentationsIfIdle()
+    }
+
     /// アプリが前面へ戻ったことを表示へ反映します。
     ///
-    /// 責務: 記録中で表示が出ていなければ表示を開始します。出ていれば何もしません(二重開始の防止)。
+    /// 責務: 記録中でなければ残った表示の片付けを受け付けます。記録中で表示が出ていなければ表示を開始し、
+    /// 出ていれば何もしません(二重開始の防止)。
     func appDidEnterForeground() {
-        guard session != nil, !activity.isPresenting else { return }
+        guard session != nil else {
+            endOrphanedPresentationsIfIdle()
+            return
+        }
+        guard !activity.isPresenting else { return }
         startPresentation()
+    }
+
+    /// 記録中でなければ、前回のプロセスが残した表示の片付けを受け付けます。
+    ///
+    /// 責務: 記録中のセッションが無い時だけ、片付けを他の操作と同じ列へ並べます。
+    private func endOrphanedPresentationsIfIdle() {
+        guard session == nil else { return }
+        operations.enqueueOrphanCleanup()
     }
 
     /// 新しい記録セッションの表示情報を作り、前面なら表示を開始します。
@@ -189,6 +211,14 @@ final class RecordingSessionActivityUseCase {
         }
     }
 
+    /// 記録中のセッションの車両名を引きます。
+    ///
+    /// 責務: 確定した車両IDから登録済み車両の名前を引きます。
+    /// - Returns: 車両名。セッションが無い・未登録・名称不明なら `nil`。
+    private func currentVehicleName() -> String? {
+        session?.vehicleID.flatMap { vehicleProfile($0)?.name }
+    }
+
     /// 現在の取得状態とセッション情報から表示内容を作ります。
     ///
     /// 責務: 車両名を引き、純粋型の表示内容へ変換します。
@@ -197,7 +227,7 @@ final class RecordingSessionActivityUseCase {
         guard let session else { return nil }
         return RecordingSessionActivityContent(
             telemetry: telemetry,
-            vehicleName: session.vehicleID.flatMap { vehicleProfile($0)?.name },
+            vehicleName: currentVehicleName(),
             startedAt: session.startedAt,
             vehiclePhotoFileName: session.photoFileName
         )
@@ -212,7 +242,7 @@ final class RecordingSessionActivityUseCase {
         guard let session else { return nil }
         return RecordingSessionActivityContent(
             endedTelemetry: telemetry,
-            vehicleName: session.vehicleID.flatMap { vehicleProfile($0)?.name },
+            vehicleName: currentVehicleName(),
             startedAt: session.startedAt,
             endedAt: endedAt,
             maximums: maximumTracker.maximums,
