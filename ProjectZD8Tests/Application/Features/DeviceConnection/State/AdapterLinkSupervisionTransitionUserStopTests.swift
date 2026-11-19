@@ -28,12 +28,13 @@ final class AdapterLinkSupervisionTransitionUserStopTests: XCTestCase {
         XCTAssertFalse(result.effects.contains(.completeFinishing))
     }
 
-    /// ユーザー切断以外の終了理由(と理由なし)で記録が終わった時は、従来どおり終了中へ移ります。
+    /// ユーザー切断以外の終了理由がある状態で記録が終わった時は、リンクが `ready` でも従来どおり終了中へ移り、再初期化の待ちを予約しません。
     ///
-    /// 責務: 理由ごとに `.finishing` と `[.dismissNotification, .completeFinishing]` になることを確認します。
+    /// 責務: 理由ごとに `.finishing` と `[.dismissNotification, .completeFinishing]` だけになる(待ちの作用を含まない)ことを確認します。
+    /// 終了理由なし(辞退・失敗)の待ちは `AdapterLinkSupervisionTransitionDeclinedRecordingRetryTests` が確認します。
     func testOtherEndReasonsWhileRecordingStillFinish() {
         let reasons: [ConnectionSessionEndReason?] = [
-            .vehicleNoResponse, .connectionLost, .acquisitionFailed, .superseded, .accountSignedOut, nil,
+            .vehicleNoResponse, .connectionLost, .acquisitionFailed, .superseded, .accountSignedOut,
         ]
         for reason in reasons {
             let result = transition.result(
@@ -135,6 +136,7 @@ final class AdapterLinkSupervisionTransitionUserStopTests: XCTestCase {
     /// リンクが `ready` でない記録中に、ユーザー切断以外の理由で終わった時は、従来どおり終了中を経て待機へ戻ります。
     ///
     /// 責務: 猶予切れ(接続断)などの終了で、抑止せず `.finishing` と `[.dismissNotification, .completeFinishing]` になることを確認します(U2 受け入れ条件 3)。
+    /// 終了理由なしでもリンクが `ready` でないので待ちは予約されません。
     func testOtherEndReasonsWhileRecordingWithoutReadyLinkStillFinish() {
         let reasons: [ConnectionSessionEndReason?] = [.connectionLost, .vehicleNoResponse, .acquisitionFailed, nil]
         for reason in reasons {

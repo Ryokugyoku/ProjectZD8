@@ -1,5 +1,18 @@
+import Foundation
+
 /// 車両検知後の通知・記録開始と、記録終了から待機へ戻るまでを決める純粋な遷移です。
 nonisolated struct AdapterLinkRecordingTransition: Sendable {
+    /// 記録開始が辞退・失敗で終わった後、再初期化までに挟む待ちの秒数です(窓後の再確認間隔と同じ)。
+    private let declinedRecordingRetryInterval: TimeInterval
+
+    /// 辞退・失敗後の待ちの秒数を時間定数から固定して生成します。
+    ///
+    /// 責務: 記録終了後の再確認の待ちを、窓後の再確認間隔(`extendedConfirmationInterval`)へ結び付けます。
+    /// - Parameter timing: 監視の時間定数。既定は本番用の定数。
+    init(timing: AdapterLinkSupervisionTiming = .standard) {
+        declinedRecordingRetryInterval = timing.extendedConfirmationInterval
+    }
+
     /// VIN読取の結果に対する遷移を返します。
     ///
     /// 責務: VIN読取中であれば、自動記録オン(または有効期限内の記録開始の意思あり)なら記録開始を要求して記録中へ、
@@ -79,10 +92,7 @@ nonisolated struct AdapterLinkRecordingTransition: Sendable {
 
     /// 記録側からの記録終了通知に対する遷移を返します。
     ///
-    /// 責務: 記録中なら通知を取り下げて終了へ移し終了処理の完了を促し、終了中なら待機へ戻します。
-    /// 記録中にユーザーが切断し、リンクが `ready` のままなら、終了中を経ずに抑止状態へ移し、同じリンク接続のあいだ再検知しません。
-    /// リンクが `ready` でない(リンク断で一時停止中など)ユーザー切断も、終了中を経ずにリンク待ちの保持へ移します
-    /// (切断の時刻から上限以内にリンクが戻れば同じ走行とみなすため。アダプターへは何も送りません)。
+    /// 責務: 記録中なら記録中からの終了として扱い(`finishedWhileRecording`)、終了中なら待機へ戻します。
     /// - Parameters:
     ///   - endReason: テレメトリの終了理由。記録が始まらなかった・辞退した・手動記録に置き換えた場合は `nil`。
     ///   - state: 現在の監視状態。
@@ -94,20 +104,49 @@ nonisolated struct AdapterLinkRecordingTransition: Sendable {
         conditions: AdapterLinkSupervisionConditions
     ) -> AdapterLinkSupervisionTransitionResult {
         switch state {
-        case .recording where endReason == .userDisconnected && conditions.isLinkReady:
-            AdapterLinkSupervisionTransitionResult(state: .heldAfterUserStop(.awaitingStart), effects: [.dismissNotification])
-        case .recording where endReason == .userDisconnected:
-            AdapterLinkSupervisionTransitionResult(
-                state: .heldAfterUserStop(.awaitingLink(userStoppedAt: conditions.now)),
-                effects: [.dismissNotification]
-            )
         case .recording:
-            AdapterLinkSupervisionTransitionResult(state: .finishing, effects: [.dismissNotification, .completeFinishing])
+            finishedWhileRecording(endReason: endReason, conditions: conditions)
         case .finishing:
             AdapterLinkSupervisionTransitionResult(state: .standby)
         case .standby, .initializing, .confirmingVehicle, .vehicleDetected, .heldAfterUserStop:
             AdapterLinkSupervisionTransitionResult(state: state)
         }
+    }
+
+    /// 記録中に届いた記録終了通知に対する遷移を返します。
+    ///
+    /// 責務: ユーザー切断なら抑止へ移し(`heldAfterUserStop(conditions:)`)、それ以外は通知を取り下げて終了へ移し終了処理の完了を促します。
+    /// 終了理由なし(記録開始の辞退・失敗)でリンクが `ready` なら、窓後の再確認間隔の待ちを予約し、待ち明け
+    /// (`adapterInitializationRetryElapsed`)で再初期化させます。待ちを挟まずには再開しません。
+    /// 手動接続の使用中かどうかでは結果を変えません(待ち明けの時点の条件で遷移側が判定します)。
+    /// - Parameters:
+    ///   - endReason: テレメトリの終了理由。
+    ///   - conditions: 直前のリンク状態と現在時刻を含む条件。
+    /// - Returns: 次の状態と作用。
+    private func finishedWhileRecording(
+        endReason: ConnectionSessionEndReason?,
+        conditions: AdapterLinkSupervisionConditions
+    ) -> AdapterLinkSupervisionTransitionResult {
+        if endReason == .userDisconnected {
+            return heldAfterUserStop(conditions: conditions)
+        }
+        var effects: [AdapterLinkSupervisionEffect] = [.dismissNotification, .completeFinishing]
+        if endReason == nil, conditions.isLinkReady {
+            effects.append(.scheduleAdapterInitializationRetry(after: .seconds(declinedRecordingRetryInterval)))
+        }
+        return AdapterLinkSupervisionTransitionResult(state: .finishing, effects: effects)
+    }
+
+    /// 記録中のユーザー切断に対する抑止への遷移を返します。
+    ///
+    /// 責務: リンクが `ready` のままなら、終了中を経ずに抑止状態へ移し、同じリンク接続のあいだ再検知しません。
+    /// リンクが `ready` でない(リンク断で一時停止中など)なら、終了中を経ずにリンク待ちの保持へ移します
+    /// (切断の時刻から上限以内にリンクが戻れば同じ走行とみなすため。アダプターへは何も送りません)。
+    /// - Parameter conditions: 直前のリンク状態と現在時刻を含む条件。
+    /// - Returns: 抑止への遷移と通知の取り下げ。
+    private func heldAfterUserStop(conditions: AdapterLinkSupervisionConditions) -> AdapterLinkSupervisionTransitionResult {
+        let watch: AdapterLinkHeldWatch = conditions.isLinkReady ? .awaitingStart : .awaitingLink(userStoppedAt: conditions.now)
+        return AdapterLinkSupervisionTransitionResult(state: .heldAfterUserStop(watch), effects: [.dismissNotification])
     }
 
     /// 記録の終了通知を受けて終了処理が落ち着いた後の、待機からの検知のやり直しを返します。

@@ -172,7 +172,7 @@ final class AdapterLinkSupervisionUseCase {
 
     /// アプリが背面へ移ったことを反映します。
     ///
-    /// 責務: 前面ではないことを稼働条件へ反映します。状態は変えません。背面でも車両確認は窓後の間隔(60秒)で続きます。
+    /// 責務: 前面ではないことを稼働条件へ反映します。状態は変えません。背面でも車両確認は窓後の間隔(既定5秒)で続きます。
     func appDidEnterBackground() {
         isForeground = false
     }
@@ -206,7 +206,8 @@ final class AdapterLinkSupervisionUseCase {
     /// 責務: 記録中・終了中であれば終了を経て待機へ戻します。終了理由は監視の遷移へ渡します。
     /// 記録中から終わった記録(終了理由あり)なら、終了の処理の後に `recordingEndSettled` を続けて入力し、
     /// リンクが `ready` の待機なら検知をやり直し、ユーザー切断後の抑止なら見張りを始めさせます。
-    /// 監視が停止を要求した記録(終了中から終わる)と、記録が始まらなかった・辞退した場合はやり直しません。
+    /// 記録が始まらなかった・辞退した(終了理由なし)場合は、リンクが `ready` なら遷移が予約する窓後の間隔の待ちの後に
+    /// 再初期化からやり直します(待ちを挟まずには再開しません)。監視が停止を要求した記録(終了中から終わる)はやり直しません。
     /// - Parameter endReason: 記録中から終わった時のテレメトリ終了理由。記録が始まらなかった・辞退した・手動記録に置き換えた場合は `nil`。
     func recordingDidFinish(endReason: ConnectionSessionEndReason?) {
         let finishedWhileRecording: Bool = if case .recording = state { true } else { false }

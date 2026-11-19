@@ -1,7 +1,9 @@
 import XCTest
 @testable import ProjectZD8
 
-/// `AdapterLinkSupervisionTransition` が、確認窓(10分)を過ぎても車両確認を休止せず、60秒間隔で続けることを検証します。
+/// `AdapterLinkSupervisionTransition` が、確認窓(10分)を過ぎても車両確認を休止せず、5秒間隔で続けることを検証します。
+///
+/// 窓後の間隔は、背面でBLE送受信を途切れさせずアプリが suspend されないための値です(S1-1)。
 @MainActor
 final class AdapterLinkSupervisionTransitionExtendedConfirmationTests: XCTestCase {
     /// 共通の fixture です。
@@ -13,8 +15,8 @@ final class AdapterLinkSupervisionTransitionExtendedConfirmationTests: XCTestCas
     /// 検証対象の遷移です。
     private let transition = AdapterLinkSupervisionTransition()
 
-    /// 窓を過ぎた後の再確認の間隔(60秒)です。
-    private let extendedInterval = Duration.seconds(60)
+    /// 窓を過ぎた後の再確認の間隔(5秒。S1-1)です。
+    private let extendedInterval = Duration.seconds(5)
 
     /// 窓の中の確認中の状態です。窓の終了は基準時刻+10分です。
     private func probing(attemptCount: Int = 3) -> AdapterLinkSupervisionState {
@@ -31,10 +33,10 @@ final class AdapterLinkSupervisionTransitionExtendedConfirmationTests: XCTestCas
         XCTAssertEqual(confirmation.phase, .probing, "休止した: \(message)", line: line)
     }
 
-    /// 窓を過ぎた無応答は休止せず、確認を送った直後なら60秒後の再確認を予約します。
+    /// 窓を過ぎた無応答は休止せず、確認を送った直後なら5秒後の再確認を予約します。
     ///
-    /// 責務: 窓の終了ちょうど・その後・2時間後の背面で、`.scheduleVehicleConfirmation(after: 60秒)` が出ることを確認します(仕様3)。
-    func testNoResponseAfterWindowSchedulesConfirmationInSixtySeconds() {
+    /// 責務: 窓の終了ちょうど・その後・2時間後の背面で、`.scheduleVehicleConfirmation(after: 5秒)` が出ることを確認します(仕様3・S1-1)。
+    func testNoResponseAfterWindowSchedulesConfirmationInFiveSeconds() {
         for seconds in [F.windowSeconds, F.windowSeconds + 1, F.windowSeconds + 7200] {
             let now = F.date(seconds)
             let conditions = F.conditions(now: now, isForeground: false, lastVehicleConfirmationSentAt: now)
@@ -44,7 +46,7 @@ final class AdapterLinkSupervisionTransitionExtendedConfirmationTests: XCTestCas
         }
     }
 
-    /// 窓を過ぎた無応答でも、前面で窓を取り直したあとの確認は60秒間隔を要求しません(取り直しは従来どおり)。
+    /// 窓を過ぎた無応答でも、前面で窓を取り直したあとの確認は窓後の5秒間隔を要求しません(取り直しは従来どおり)。
     ///
     /// 責務: 前面では休止せず確認が続くことを確認します(仕様3)。
     func testNoResponseAfterWindowInForegroundDoesNotPause() {
@@ -55,23 +57,23 @@ final class AdapterLinkSupervisionTransitionExtendedConfirmationTests: XCTestCas
         XCTAssertFalse(result.effects.isEmpty)
     }
 
-    /// 窓を過ぎた無応答で、前回の確認から60秒以上経っていれば、待たずに次の確認を送ります。
+    /// 窓を過ぎた無応答で、前回の確認から5秒以上経っていれば、待たずに次の確認を送ります。
     ///
-    /// 責務: 最後の確認から60秒の境界(ちょうど・直前)で、確認の送信と待機の使い分けを確認します(仕様3)。
+    /// 責務: 最後の確認から5秒の境界(ちょうど・1秒前)で、確認の送信と待機の使い分けを確認します(仕様3・S1-1)。
     func testNoResponseAfterWindowConfirmsImmediatelyOnceIntervalPassed() {
         let now = F.date(F.windowSeconds + 3600)
         let due = transition.result(
             from: probing(), on: .vehicleConfirmationCompleted(.noResponse),
-            conditions: F.conditions(now: now, lastVehicleConfirmationSentAt: now.addingTimeInterval(-60))
+            conditions: F.conditions(now: now, lastVehicleConfirmationSentAt: now.addingTimeInterval(-5))
         )
-        assertNotPaused(due, "ちょうど60秒")
+        assertNotPaused(due, "ちょうど5秒")
         XCTAssertEqual(due.effects, [.confirmVehicle(.adapterMaximum)])
 
         let early = transition.result(
             from: probing(), on: .vehicleConfirmationCompleted(.noResponse),
-            conditions: F.conditions(now: now, lastVehicleConfirmationSentAt: now.addingTimeInterval(-59))
+            conditions: F.conditions(now: now, lastVehicleConfirmationSentAt: now.addingTimeInterval(-4))
         )
-        assertNotPaused(early, "59秒")
+        assertNotPaused(early, "4秒")
         XCTAssertEqual(early.effects, [.scheduleVehicleConfirmation(after: .seconds(1))])
     }
 
@@ -92,7 +94,7 @@ final class AdapterLinkSupervisionTransitionExtendedConfirmationTests: XCTestCas
         }
     }
 
-    /// 確認の失敗は無応答と同じ扱いで、窓を過ぎても休止せず60秒間隔で続けます。
+    /// 確認の失敗は無応答と同じ扱いで、窓を過ぎても休止せず5秒間隔で続けます。
     ///
     /// 責務: `vehicleConfirmationFailed` が窓の後でも再確認の予約になることを確認します(仕様3)。
     func testConfirmationFailedAfterWindowSchedulesConfirmation() {

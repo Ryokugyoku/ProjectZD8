@@ -183,15 +183,19 @@ final class AdapterLinkRecordingTransitionTests: XCTestCase {
         if case .recording = result.state { XCTFail("記録中へ移った: \(result.state)") }
     }
 
-    /// 記録中に記録終了が通知されたら終了へ進み、終了を完了させる作用を出し、その作用の結果として待機に落ち着きます。
+    /// リンクが `ready` でない時に、記録中の記録終了(終了理由なし)が通知されたら終了へ進み、終了を完了させる作用を出し、
+    /// その作用の結果として待機に落ち着きます(再確認の待ちは予約しません)。
     ///
-    /// 責務: 遷移結果が「終了中・作用は通知の取り下げと終了の完了だけ(停止要求なし)」の1通りで、
-    /// 続く終了の完了で作用なしに待機へ戻ることを確認します。
-    func testRecordingDidFinishWhileRecordingSettlesToStandby() {
-        let result = transition.recordingDidFinish(endReason: nil, from: .recording(F.detectedVehicle), conditions: F.conditions())
-        A.assertResult(result, state: .finishing, effects: [.dismissNotification, .completeFinishing])
+    /// 責務: リンクが `ready` でない・リンク未開始の各条件で、遷移結果が「終了中・作用は通知の取り下げと終了の完了だけ
+    /// (停止要求・待ちの予約なし)」の1通りで、続く終了の完了で作用なしに待機へ戻ることを確認します(S1-3 の「ready でなければ従来どおり待機」)。
+    /// リンクが `ready` の場合の待ちを挟んだ再確認は `AdapterLinkSupervisionTransitionDeclinedRecordingRetryTests` が扱います。
+    func testRecordingDidFinishWhileRecordingWithoutReadyLinkSettlesToStandby() {
+        for conditions in [F.conditions(linkState: .connecting), F.conditions(linkPreference: nil)] {
+            let result = transition.recordingDidFinish(endReason: nil, from: .recording(F.detectedVehicle), conditions: conditions)
+            A.assertResult(result, state: .finishing, effects: [.dismissNotification, .completeFinishing], "\(conditions)")
 
-        A.assertResult(transition.finishingDidComplete(from: result.state), state: .standby, effects: [])
+            A.assertResult(transition.finishingDidComplete(from: result.state), state: .standby, effects: [], "\(conditions)")
+        }
     }
 
     /// 終了中(リンク断で停止要求済み)に記録終了が通知されたら待機へ戻ります。

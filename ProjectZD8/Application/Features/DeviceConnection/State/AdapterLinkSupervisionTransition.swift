@@ -11,7 +11,7 @@ nonisolated struct AdapterLinkSupervisionTransition: Sendable {
     private let confirmation: AdapterLinkVehicleConfirmationTransition
 
     /// 検知後の通知・記録開始・記録終了を扱う遷移です。
-    private let recording = AdapterLinkRecordingTransition()
+    private let recording: AdapterLinkRecordingTransition
 
     /// 手動接続によるアダプター使用の開始・終了の遷移です。
     private let externalAdapterUse = AdapterLinkExternalAdapterUseTransition()
@@ -28,6 +28,7 @@ nonisolated struct AdapterLinkSupervisionTransition: Sendable {
     /// - Parameter timing: 確認窓と再確認間隔。既定は本番用の定数。
     init(timing: AdapterLinkSupervisionTiming = .standard) {
         confirmation = AdapterLinkVehicleConfirmationTransition(timing: timing)
+        recording = AdapterLinkRecordingTransition(timing: timing)
         heldWatch = AdapterLinkHeldWatchTransition(timing: timing)
         heldLinkWait = AdapterLinkHeldLinkWaitTransition(timing: timing)
     }

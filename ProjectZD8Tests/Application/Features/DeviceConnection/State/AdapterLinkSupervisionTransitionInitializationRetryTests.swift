@@ -3,7 +3,7 @@ import XCTest
 
 /// `AdapterLinkSupervisionTransition` が、初期化の失敗で待機へ戻るときに再試行を予約することを検証します。
 ///
-/// 再試行の効果は `AdapterLinkSupervisionEffect.scheduleAdapterInitializationRetry(after:)`、間隔は60秒です。
+/// 再試行の効果は `AdapterLinkSupervisionEffect.scheduleAdapterInitializationRetry(after:)`、間隔は5秒です(S1-2)。
 @MainActor
 final class AdapterLinkSupervisionTransitionInitializationRetryTests: XCTestCase {
     /// 共通の fixture です。
@@ -18,12 +18,12 @@ final class AdapterLinkSupervisionTransitionInitializationRetryTests: XCTestCase
     /// 初期化中の状態です。
     private let initializing = AdapterLinkSupervisionState.initializing(linkReadyAt: F.referenceDate)
 
-    /// 初期化の失敗でリンクが `ready` なら、待機へ戻して60秒後の再試行を予約します。
+    /// 初期化の失敗でリンクが `ready` なら、待機へ戻して5秒後の再試行を予約します。
     ///
-    /// 責務: 待機への遷移と `.scheduleAdapterInitializationRetry(after: .seconds(60))` を確認します(仕様2)。
-    func testInitializationFailedWithReadyLinkSchedulesRetryInSixtySeconds() {
+    /// 責務: 待機への遷移と `.scheduleAdapterInitializationRetry(after: .seconds(5))` を確認します(仕様2・S1-2)。
+    func testInitializationFailedWithReadyLinkSchedulesRetryInFiveSeconds() {
         let result = transition.result(from: initializing, on: .adapterInitializationFailed, conditions: F.conditions())
-        A.assertResult(result, state: .standby, effects: [.scheduleAdapterInitializationRetry(after: .seconds(60))])
+        A.assertResult(result, state: .standby, effects: [.scheduleAdapterInitializationRetry(after: .seconds(5))])
     }
 
     /// リンクが `ready` でない・リンク未開始・手動接続が使用中なら、待機へ戻すだけで再試行を予約しません。

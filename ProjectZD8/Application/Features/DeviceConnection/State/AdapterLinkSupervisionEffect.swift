@@ -23,7 +23,7 @@ nonisolated enum AdapterLinkSupervisionEffect: Equatable, Sendable {
 
     /// 指定した時間だけ待ってから再初期化を促します(`adapterInitializationRetryElapsed` を入力します)。
     ///
-    /// 初期化の失敗で待機へ戻ったとき、リンクが `ready` のままなら出します。取り消し・リンク断・手動接続の開始・停止で取り消されます。
+    /// 初期化の失敗で待機へ戻ったとき、または記録開始が辞退・失敗(終了理由なし)で終わったとき、リンクが `ready` のままなら出します。取り消し・リンク断・手動接続の開始・停止で取り消されます。
     case scheduleAdapterInitializationRetry(after: Duration)
 
     /// 自動記録設定を読み込んだ上でVINを読み取ります。

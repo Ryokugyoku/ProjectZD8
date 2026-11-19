@@ -11,6 +11,20 @@ final class AdapterLinkSupervisionTimingTests: XCTestCase {
         XCTAssertEqual(AdapterLinkSupervisionTiming.standard.vehicleConfirmationInterval, 1)
     }
 
+    /// 本番の定数では、確認窓を過ぎた後の延長確認の間隔は5秒です(背面でBLE送受信を途切れさせず suspend されないため)。
+    ///
+    /// 責務: `standard.extendedConfirmationInterval` が仕様の5秒であることを確認します(S1-1)。
+    func testStandardExtendedConfirmationIntervalIsFiveSeconds() {
+        XCTAssertEqual(AdapterLinkSupervisionTiming.standard.extendedConfirmationInterval, 5)
+    }
+
+    /// 本番の定数では、アダプター初期化の失敗後に再初期化を試みるまでの待ちは5秒です。
+    ///
+    /// 責務: `standard.initializationRetryInterval` が仕様の5秒であることを確認します(S1-2)。
+    func testStandardInitializationRetryIntervalIsFiveSeconds() {
+        XCTAssertEqual(AdapterLinkSupervisionTiming.standard.initializationRetryInterval, 5)
+    }
+
     /// 本番の定数では1窓あたりの確認は最初の確認を含めて600回(窓 ÷ 最短間隔)までです。
     ///
     /// 責務: 安全のための回数上限が仕様の600回であることを確認します(U3 受け入れ条件 4)。

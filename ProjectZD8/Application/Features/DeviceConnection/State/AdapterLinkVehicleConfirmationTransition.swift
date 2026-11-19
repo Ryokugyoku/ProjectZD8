@@ -60,7 +60,7 @@ nonisolated struct AdapterLinkVehicleConfirmationTransition: Sendable {
     /// アダプター初期化の失敗に対する遷移を返します。
     ///
     /// 責務: 初期化中であれば待機へ戻します。リンクが `ready` で手動接続がアダプターを使っていなければ、
-    /// 設定した間隔(既定60秒)後の再初期化を予約します(`.scheduleAdapterInitializationRetry`)。
+    /// 設定した間隔(`initializationRetryInterval`、既定5秒)後の再初期化を予約します(`.scheduleAdapterInitializationRetry`)。
     /// - Parameters:
     ///   - state: 現在の監視状態。
     ///   - conditions: リンク状態と手動接続の使用状況を含む条件。
