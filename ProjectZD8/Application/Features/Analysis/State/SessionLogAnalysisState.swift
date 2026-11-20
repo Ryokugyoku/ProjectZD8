@@ -59,6 +59,8 @@ struct SessionLogAnalysisState: Equatable {
         let payload: [UInt8]
         /// 数値化できなかった理由です。
         let decodingFailure: DecodingFailure?
+        /// Rawログの単調時刻(ナノ秒)です。旧い行では `nil` です。
+        let monotonicNanoseconds: UInt64?
 
         /// SwiftUIの行識別子です。
         var id: Int64 { sequence }
@@ -87,7 +89,20 @@ struct SessionLogAnalysisState: Equatable {
         ///   - vehicleModelCode: 車種専用PIDの適用型式。
         ///   - payload: 元の応答データ。
         ///   - decodingFailure: 数値化不能理由。
-        init(sequence: Int64, observedAt: Date, service: UInt8, pid: UInt8, nameKey: String?, value: Double?, unit: String?, vehicleModelCode: String? = nil, payload: [UInt8], decodingFailure: DecodingFailure?) {
+        ///   - monotonicNanoseconds: Rawログの単調時刻。旧い行では `nil`。
+        init(
+            sequence: Int64,
+            observedAt: Date,
+            service: UInt8,
+            pid: UInt8,
+            nameKey: String?,
+            value: Double?,
+            unit: String?,
+            vehicleModelCode: String? = nil,
+            payload: [UInt8],
+            decodingFailure: DecodingFailure?,
+            monotonicNanoseconds: UInt64? = nil
+        ) {
             self.sequence = sequence
             self.observedAt = observedAt
             self.service = service
@@ -98,6 +113,7 @@ struct SessionLogAnalysisState: Equatable {
             self.vehicleModelCode = vehicleModelCode
             self.payload = payload
             self.decodingFailure = decodingFailure
+            self.monotonicNanoseconds = monotonicNanoseconds
         }
     }
 

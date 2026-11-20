@@ -19,7 +19,12 @@ struct DecodeSessionLogTimelineUseCase {
     ///   - definitionRepository: PID変換定義の取得先。
     ///   - evaluator: 定義数式を評価するポリシー。
     ///   - batchSize: 1回の進捗通知へ含める最大件数。
-    init(rawLogRepository: any ConnectionSessionRawLogRepository, definitionRepository: any OBDPIDDefinitionRepository, evaluator: OBDPIDFormulaEvaluator = .init(), batchSize: Int = 128) {
+    init(
+        rawLogRepository: any ConnectionSessionRawLogRepository,
+        definitionRepository: any OBDPIDDefinitionRepository,
+        evaluator: OBDPIDFormulaEvaluator = .init(),
+        batchSize: Int = 128
+    ) {
         self.rawLogRepository = rawLogRepository
         self.definitionRepository = definitionRepository
         self.evaluator = evaluator
@@ -91,7 +96,12 @@ struct DecodeSessionLogTimelineUseCase {
     ///   - value: 数式変換後の値。
     ///   - failure: 数値化できなかった理由。
     /// - Returns: 原データ来歴を保持する表示用PIDサンプル。
-    private func sample(for entry: ConnectionSessionRawLogEntry, definition: OBDPIDDefinition?, value: Double?, failure: SessionLogAnalysisState.TimelineSample.DecodingFailure?) -> SessionLogAnalysisState.TimelineSample {
+    private func sample(
+        for entry: ConnectionSessionRawLogEntry,
+        definition: OBDPIDDefinition?,
+        value: Double?,
+        failure: SessionLogAnalysisState.TimelineSample.DecodingFailure?
+    ) -> SessionLogAnalysisState.TimelineSample {
         .init(
             sequence: entry.sequence,
             observedAt: entry.observedAt,
@@ -102,7 +112,8 @@ struct DecodeSessionLogTimelineUseCase {
             unit: definition?.unit,
             vehicleModelCode: definition?.vehicleModelCode,
             payload: entry.payload,
-            decodingFailure: failure
+            decodingFailure: failure,
+            monotonicNanoseconds: entry.monotonicNanoseconds
         )
     }
 }
