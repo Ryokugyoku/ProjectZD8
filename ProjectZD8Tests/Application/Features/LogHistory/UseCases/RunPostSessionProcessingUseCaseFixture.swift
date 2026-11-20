@@ -24,10 +24,14 @@ final class RunPostSessionProcessingUseCaseFixture {
     var automaticUploadEnabled = true
     /// アップロードで投げるエラーです。
     var uploadError: (any Error)?
+    /// 軌跡アップロードで投げるエラーです。
+    var locationTrackUploadError: (any Error)?
     /// 整理で投げるエラーです。
     var evictionError: (any Error)?
     /// アップロードの中で、エラーを投げる前に行う処理です。
     var duringUpload: (() -> Void)?
+    /// 軌跡アップロードの中で、エラーを投げる前に行う処理です。
+    var duringLocationTrackUpload: (() -> Void)?
     /// 整理の中で、エラーを投げる前に行う処理です。
     var duringEviction: (() -> Void)?
     /// ステップの呼び出し記録です。
@@ -51,6 +55,11 @@ final class RunPostSessionProcessingUseCaseFixture {
                 self.stepCalls.append(StepCall(step: .upload, accountIdentifier: accountIdentifier))
                 self.duringUpload?()
                 if let error = self.uploadError { throw error }
+            },
+            uploadLocationTracks: { accountIdentifier in
+                self.stepCalls.append(StepCall(step: .locationTrackUpload, accountIdentifier: accountIdentifier))
+                self.duringLocationTrackUpload?()
+                if let error = self.locationTrackUploadError { throw error }
             },
             evictStaleRawLogs: { accountIdentifier in
                 self.stepCalls.append(StepCall(step: .eviction, accountIdentifier: accountIdentifier))

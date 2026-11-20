@@ -65,6 +65,8 @@ struct IOSPostSessionProcessingComposition {
                 try await synchronization.execute(accountIdentifier: accountIdentifier, uploadsPendingSessions: true)
                 history.send(.localDataChanged)
             },
+            // 段階2の配線(U9)で実際の走行ルートのアップロードへ置き換える。
+            uploadLocationTracks: { _ in },
             evictStaleRawLogs: { accountIdentifier in
                 try eviction.execute(accountIdentifier: accountIdentifier)
                 history.send(.localDataChanged)

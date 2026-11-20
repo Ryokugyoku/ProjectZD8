@@ -50,11 +50,12 @@ final class OSLogPostSessionProcessingDiagnosticsAdapter: PostSessionProcessingD
         notice(formatter.deferredForUnavailableAccount())
     }
 
-    /// 自動アップロードがオフのためアップロードを省いたことを出力します。
+    /// 自動アップロードがオフのためアップロード系のステップを省いたことを出力します。
     ///
-    /// 責務: 設定によるアップロード省略を info として出力します。
-    func uploadSkippedForAutomaticUploadOff() {
-        info(formatter.uploadSkippedForAutomaticUploadOff())
+    /// 責務: 設定によるステップの省略を info として出力します。
+    /// - Parameter step: 省いたステップ。
+    func stepSkippedForAutomaticUploadOff(_ step: PostSessionProcessingStep) {
+        info(formatter.stepSkippedForAutomaticUploadOff(step))
     }
 
     /// ステップが成功したことを出力します。

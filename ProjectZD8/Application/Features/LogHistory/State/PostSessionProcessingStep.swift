@@ -1,4 +1,4 @@
-/// 記録セッション終了後の後処理を構成するステップです。実行順は宣言順(アップロード → 整理)です。
+/// 記録セッション終了後の後処理を構成するステップです。実行順は宣言順(Rawのアップロード → 走行ルートのアップロード → 整理)です。
 ///
 /// 順序の理由: 整理はRawを端末から消すため、CloudKitへの保存が確認できたセッションだけを対象にします
 /// (`ConnectionSessionRawCacheRetentionPolicy.shouldEvict` が、終了済み・端末にRawあり・`cloudState == .uploaded`・
@@ -8,6 +8,18 @@
 enum PostSessionProcessingStep: Equatable, Hashable, Sendable, CaseIterable {
     /// 送信待ちセッションのクラウドへのアップロード(端末間同期を含む)です。
     case upload
+    /// 走行ルート(位置の軌跡)のクラウドへのアップロードです。Rawと同じく自動アップロードがオンの時だけ実行します。
+    case locationTrackUpload
     /// 保持期限を過ぎたRawキャッシュの端末からの整理です。
     case eviction
+
+    /// 自動アップロードの設定がオンの時だけ実行するステップかどうかです。
+    ///
+    /// `upload` と `locationTrackUpload` が `true` で、端末内の整理である `eviction` は `false` です。
+    var requiresAutomaticUpload: Bool {
+        switch self {
+        case .upload, .locationTrackUpload: true
+        case .eviction: false
+        }
+    }
 }

@@ -27,10 +27,10 @@ final class RunPostSessionProcessingUseCaseExpirationTests: XCTestCase {
         )
     }
 
-    /// アップロードの実行中にキャンセルされたら、整理を呼ばずに期限切れで中断し、再予約します。
+    /// アップロードの実行中にキャンセルされたら、軌跡アップロードも整理も呼ばずに期限切れで中断し、再予約します。
     ///
     /// 責務: 仕様5(b)を確認します。アップロード自体は正常に戻ります。
-    func testCancelledDuringUploadSkipsEviction() async {
+    func testCancelledDuringUploadSkipsRemainingSteps() async {
         let fixture = Fixture()
         fixture.duringUpload = { Fixture.cancelCurrentTask() }
 
@@ -44,7 +44,7 @@ final class RunPostSessionProcessingUseCaseExpirationTests: XCTestCase {
         ])
     }
 
-    /// アップロードが `CancellationError` を投げたら、整理を呼ばずに中断として扱い、失敗とは記録しません。
+    /// アップロードが `CancellationError` を投げたら、軌跡アップロードも整理も呼ばずに中断として扱い、失敗とは記録しません。
     ///
     /// 責務: 仕様5(c)をアップロードで確認します。
     func testUploadThrowingCancellationErrorInterrupts() async {
@@ -72,10 +72,11 @@ final class RunPostSessionProcessingUseCaseExpirationTests: XCTestCase {
         let outcome = await fixture.run()
 
         XCTAssertEqual(outcome, .interruptedByExpiration)
-        XCTAssertEqual(fixture.calledSteps, [.upload, .eviction])
+        XCTAssertEqual(fixture.calledSteps, [.upload, .locationTrackUpload, .eviction])
         XCTAssertEqual(fixture.scheduler.requiresNetworkConnectivityRequests.count, 1)
         XCTAssertEqual(fixture.diagnostics.processingEvents, [
-            .started, .stepSucceeded(.upload), .interruptedByExpiration, .finished(.interruptedByExpiration)
+            .started, .stepSucceeded(.upload), .stepSucceeded(.locationTrackUpload),
+            .interruptedByExpiration, .finished(.interruptedByExpiration)
         ])
     }
 }

@@ -31,10 +31,11 @@ protocol PostSessionProcessingDiagnosticsPort: AnyObject {
     /// 責務: 1件のアカウント未解決による持ち越しを診断記録へ渡します。
     func deferredForUnavailableAccount()
 
-    /// 自動アップロードの設定がオフのため、アップロードのステップを省いたことを記録します。
+    /// 自動アップロードの設定がオフのため、アップロード系のステップを省いたことを記録します。
     ///
-    /// 責務: 1件の設定によるアップロード省略を診断記録へ渡します。
-    func uploadSkippedForAutomaticUploadOff()
+    /// 責務: 1件の設定によるステップの省略を、省いたステップとともに診断記録へ渡します。
+    /// - Parameter step: 省いたステップ。
+    func stepSkippedForAutomaticUploadOff(_ step: PostSessionProcessingStep)
 
     /// ステップが成功したことを記録します。
     ///
