@@ -28,6 +28,7 @@
 | 2 | `ZD8Vehicle` | VehicleManagement, Maintenance | 未着手 | 準備の完了 |
 | 3 | `ZD8SessionReview` | LogHistory, Analysis | 未着手 | 準備の完了 |
 | 4 | `ZD8Acquisition` | DeviceConnection, Logging, LiveTelemetry | 未着手 | 取得ワークフローの所有 Feature(Logging か LiveTelemetry)を決め、両者の相互参照を一方向にする |
+| 5 | `ZD8RoadRegulation` | RoadRegulation | 未着手 | 準備の完了 |
 
 - 各モジュールに置くのは、その Feature の `Application/Features/<F>/` 配下(Actions / State / UseCases / Ports)と、そのコンテキストだけが使うリポジトリの契約。
 - アプリ本体に残すもの: `Data/`(GRDB・CloudKit・デバイス。DB は1つのまま)、`Platform/`、`App/`、`Shared/`。

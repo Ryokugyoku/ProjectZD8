@@ -81,7 +81,7 @@ python3 -m unittest discover -s Tools/XcodeTestRunner/Tests -v
 
 ## Feature(Application と Platform で同名)
 
-`Authentication`(Apple サインイン・資格復元・アクセスゲート) / `Settings`(アカウント設定と端末間同期、接続設定除く) / `DeviceConnection`(アダプター探索・接続・切断・接続設定) / `VehicleManagement`(車両の識別・登録・プロフィール・画像・同期・選択) / `Maintenance`(整備記録・写真・同期) / `LiveTelemetry`(リアルタイム表示) / `Logging`(取得セッション開始・記録・終了) / `LogHistory`(記録済みログ照会) / `Analysis`(記録ログの分析実行と結果)
+`Authentication`(Apple サインイン・資格復元・アクセスゲート) / `Settings`(アカウント設定と端末間同期、接続設定除く) / `DeviceConnection`(アダプター探索・接続・切断・接続設定) / `VehicleManagement`(車両の識別・登録・プロフィール・画像・同期・選択) / `Maintenance`(整備記録・写真・同期) / `LiveTelemetry`(リアルタイム表示) / `Logging`(取得セッション開始・記録・終了) / `LogHistory`(記録済みログ照会) / `Analysis`(記録ログの分析実行と結果) / `RoadRegulation`(交通規制データの取得・保存・検索と走行の突き合わせ)
 
 ## コード規約
 
