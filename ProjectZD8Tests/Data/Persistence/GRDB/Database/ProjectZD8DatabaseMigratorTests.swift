@@ -38,7 +38,8 @@ final class ProjectZD8DatabaseMigratorTests: XCTestCase {
                 "release_v1_add_connection_session_observed_vin",
                 "release_v1_add_connection_session_acquisition_adapter_probe",
                 "release_v1_add_connection_session_location_samples_and_events",
-                "release_v1_add_connection_session_location_track_sync_states"
+                "release_v1_add_connection_session_location_track_sync_states",
+                "release_v1_add_road_regulation_datasets"
             ]
         )
     }
@@ -63,6 +64,10 @@ final class ProjectZD8DatabaseMigratorTests: XCTestCase {
             )
             try database.execute(sql: "DROP INDEX connection_sessions_account_observed_vin")
             try database.execute(sql: "ALTER TABLE connection_sessions DROP COLUMN observedVIN")
+            try database.drop(table: "road_regulation_cells")
+            try database.drop(table: "road_regulations")
+            try database.drop(table: "road_regulation_dataset_rejections")
+            try database.drop(table: "road_regulation_datasets")
             try database.drop(table: "connection_session_location_track_sync_states")
             try database.drop(table: "connection_session_location_events")
             try database.drop(table: "connection_session_location_samples")
@@ -104,6 +109,7 @@ final class ProjectZD8DatabaseMigratorTests: XCTestCase {
                     "release_v1_add_connection_session_location_track_sync_states",
                     "release_v1_add_connection_session_observed_vin",
                     "release_v1_add_connection_session_segments_gaps_can_frames",
+                    "release_v1_add_road_regulation_datasets",
                     "release_v1_create_schema",
                     "v8_add_connection_session_raw_last_accessed_at"
                 ]

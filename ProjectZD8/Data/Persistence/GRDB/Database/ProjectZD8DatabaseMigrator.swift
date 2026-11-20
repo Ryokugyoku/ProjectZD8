@@ -47,6 +47,9 @@ enum ProjectZD8DatabaseMigrator {
         migrator.registerMigration("release_v1_add_connection_session_location_track_sync_states") { database in
             try ConnectionSessionLocationTrackSyncSchema.create(in: database)
         }
+        migrator.registerMigration("release_v1_add_road_regulation_datasets") { database in
+            try RoadRegulationSchema.create(in: database)
+        }
         return migrator
     }
 
