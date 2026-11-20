@@ -28,10 +28,6 @@
       "file_lines": 697,
       "function_count": 25
     },
-    "ProjectZD8/Data/Persistence/GRDB/Database/ProjectZD8DatabaseMigrator.swift": {
-      "file_lines": 683,
-      "long_lines": 3
-    },
     "ProjectZD8/Data/Persistence/GRDB/Records/OBDPIDDefinitionRecord.swift": {
       "long_lines": 1
     },
@@ -201,14 +197,6 @@
     "ProjectZD8/Data/Diagnostics/OSSignpostAcquisitionPerformanceAdapter.swift": {
       "signpostName#0": {
         "cyclomatic": 14
-      }
-    },
-    "ProjectZD8/Data/Persistence/GRDB/Database/ProjectZD8DatabaseMigrator.swift": {
-      "createConnectionSessionAcquisitionBatchEvidence#0": {
-        "function_length": 140
-      },
-      "createConnectionSessionAcquisitionEvidence#0": {
-        "function_length": 162
       }
     },
     "ProjectZD8/Data/Persistence/GRDB/Records/ConnectionSessionRecord.swift": {
