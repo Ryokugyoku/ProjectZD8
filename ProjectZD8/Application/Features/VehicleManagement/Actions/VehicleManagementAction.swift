@@ -32,4 +32,8 @@ enum VehicleManagementAction {
     case pidCollectionChanged(OBDPIDRequest, Bool)
     /// PID収集設定を閉じます。
     case pidSettingsClosed
+    /// 接続セッションが始まった・続行に採用された・終わったことを通知します。
+    ///
+    /// `isSessionActive` は、通知の時点で現在の接続セッションがあるかどうかです。
+    case connectionSessionActivityChanged(isSessionActive: Bool)
 }

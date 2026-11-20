@@ -124,7 +124,22 @@ final class VehicleManagementModel {
             pidSettings.apply(action, to: &state)
         case .vehicleSaved, .photoSelected, .vehicleDeleted, .refreshRequested:
             startPersistenceWorkflow(for: action)
+        case let .connectionSessionActivityChanged(isSessionActive):
+            applyConnectionSessionActivity(isSessionActive: isSessionActive)
         }
+    }
+
+    /// 接続セッションの開始・続行・終了を、車両別の活動の集計と接続待ちの段階へ反映します。
+    ///
+    /// 責務: 活動の集計を読み直し、セッションが無くなった時だけ接続待ち(`.readyToConnect`)を操作待ちへ戻します。
+    /// セッションがある時と、接続待ち以外の段階は変えません(識別の途中で届いても順序に依存させないため)。
+    /// アカウントが無い時は何もしません。
+    /// - Parameter isSessionActive: 通知の時点で現在の接続セッションがあるかどうか。
+    private func applyConnectionSessionActivity(isSessionActive: Bool) {
+        guard let accountIdentifier else { return }
+        loadActivitySummaries(for: accountIdentifier)
+        guard !isSessionActive, state.phase == .readyToConnect else { return }
+        state.phase = .idle
     }
 
     /// 直前と同じOBD終端で車両識別を再試行します。
@@ -144,7 +159,7 @@ final class VehicleManagementModel {
         case let .vehicleSaved(vehicle): Task { await save(vehicle) }
         case let .photoSelected(url): Task { await importPhoto(at: url) }
         case let .vehicleDeleted(id): Task { await delete(id) }
-        case .refreshRequested: Task { await refreshVehicleCatalogIfIdle() }
+        case .refreshRequested: Task { await refresh() }
         default: break
         }
     }
@@ -200,10 +215,13 @@ final class VehicleManagementModel {
         )) ?? [:]
     }
 
-    /// 操作待ち状態で要求された車両一覧の再読込だけを開始します。
+    /// 要求された再読込として、活動の集計を読み直し、操作待ちの時だけ車両一覧も読み直します。
     ///
-    /// 責務: 進行中の識別・登録・編集状態を保持したまま、操作待ち時だけ車両カタログ再読込を開始します。
-    private func refreshVehicleCatalogIfIdle() async {
+    /// 責務: 段階に関わらず車両別の活動の集計を読み直し、進行中の識別・登録・編集・接続待ちの状態を保持したまま、
+    /// 操作待ち時だけ車両カタログ再読込を開始します。
+    private func refresh() async {
+        guard let accountIdentifier else { return }
+        loadActivitySummaries(for: accountIdentifier)
         guard state.phase == .idle else { return }
         await loadVehicles()
     }
