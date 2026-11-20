@@ -19,4 +19,6 @@ struct ApplicationRootModels {
     let connectionHistory: ConnectionHistoryModel
     /// 保存済みPIDログ解析のモデルです。
     let sessionLogAnalysis: SessionLogAnalysisModel
+    /// 現在のセッション・許可・前面かどうかを走行ルート記録へ伝える型です。`launch()` が未呼出しの状態で渡します。
+    let sessionLocationRecording: SessionLocationRecordingDriver
 }

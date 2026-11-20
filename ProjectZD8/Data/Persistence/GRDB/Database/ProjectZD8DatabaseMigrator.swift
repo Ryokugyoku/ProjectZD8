@@ -41,6 +41,9 @@ enum ProjectZD8DatabaseMigrator {
             try addConnectionSessionAcquisitionAdapterProbeColumns(in: database)
             try recreateAcquisitionManifestUpdateGuard(in: database)
         }
+        migrator.registerMigration("release_v1_add_connection_session_location_samples_and_events") { database in
+            try ConnectionSessionLocationSchema.create(in: database)
+        }
         return migrator
     }
 

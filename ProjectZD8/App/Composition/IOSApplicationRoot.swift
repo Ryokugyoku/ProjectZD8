@@ -19,13 +19,15 @@ struct IOSApplicationRoot {
     let adapterLinkSupervision: IOSAdapterLinkSupervisionDriver
     /// PID継続取得の状態と前面復帰を記録中の常時表示(Live Activity)へ伝える型です。
     let sessionActivity: IOSRecordingSessionActivityDriver
+    /// 設定画面の「走行ルートを記録」区画のモデルです。
+    let routeRecordingSettings: RouteRecordingSettingsModel
 
     /// iOSのルートモデル一式を組み立てます。
     ///
     /// 責務: 共通の土台・常駐リンク・記録の調停役・各Featureのモデルを生成し、通知応答の受け口と
     /// Live Activityの[切断]操作の受け口と、セッション終了後の後処理(`BGProcessingTask`)の予約・起動を有効にします。
-    /// - Returns: 常駐リンク監視と常時表示の観測が未開始のルートモデル一式。
-    ///   `adapterLinkSupervision.launch()` と `sessionActivity.launch()` で開始します。
+    /// - Returns: 常駐リンク監視・常時表示・走行ルート記録の観測が未開始のルートモデル一式。
+    ///   `adapterLinkSupervision.launch()`、`sessionActivity.launch()`、`models.sessionLocationRecording.launch()` で開始します。
     /// - Side Effects: 通知センターの delegate を車両検知通知へ置き換えます(起動完了前に呼ぶこと)。
     ///   [切断]操作の停止処理を `RecordingSessionStopIntentHandlerRegistry` へ登録します。
     ///   後処理の起動ハンドラを `BGTaskScheduler` へ登録します(起動完了前に呼ぶこと)。
@@ -59,7 +61,8 @@ struct IOSApplicationRoot {
             liveTelemetry: liveTelemetry,
             connectionSessionLifecycle: foundation.lifecycle,
             connectionHistory: foundation.history,
-            sessionLogAnalysis: foundation.analysis
+            sessionLogAnalysis: foundation.analysis,
+            sessionLocationRecording: foundation.sessionLocationRecording
         )
         return IOSApplicationRoot(
             models: models,
@@ -79,7 +82,8 @@ struct IOSApplicationRoot {
             sessionActivity: IOSRecordingSessionActivityDriver.make(
                 liveTelemetry: liveTelemetry,
                 vehicleManagement: vehicleManagement
-            )
+            ),
+            routeRecordingSettings: foundation.routeRecordingSettings
         )
     }
 

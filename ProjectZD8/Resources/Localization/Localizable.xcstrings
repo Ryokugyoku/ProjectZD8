@@ -708,6 +708,292 @@
         }
       }
     },
+    "settings.route_recording.description" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saves your iPhone's location during recording so you can review the driving route on a map later."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Guarda la ubicación del iPhone durante la grabación para que puedas revisar la ruta en un mapa más tarde."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "記録中の iPhone の位置を端末内に保存し、後で走行ルートを地図で振り返れるようにします。"
+          }
+        }
+      }
+    },
+    "settings.route_recording.eyebrow" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "DRIVING ROUTE"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "RUTA DE CONDUCCIÓN"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "走行ルート"
+          }
+        }
+      }
+    },
+    "settings.route_recording.open_system_settings" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Change Location in Settings"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cambiar la ubicación en Ajustes"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "設定アプリで位置情報を変更"
+          }
+        }
+      }
+    },
+    "settings.route_recording.reduced_accuracy_notice" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Precise Location is off, so the route will be recorded with reduced accuracy."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "«Ubicación precisa» está desactivada, por lo que la ruta se grabará con menos precisión."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "「正確な位置情報」がオフのため、ルートが粗く記録されます。"
+          }
+        }
+      }
+    },
+    "settings.route_recording.status.awaiting_permission" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Waiting for location permission. The route is not recorded until it is allowed."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esperando el permiso de ubicación. La ruta no se graba hasta que se conceda."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "位置情報の許可を待っています。許可されるまでルートは記録されません。"
+          }
+        }
+      }
+    },
+    "settings.route_recording.status.denied" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Location access is not allowed, so the route is not recorded."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El acceso a la ubicación no está permitido, por lo que la ruta no se graba."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "位置情報が許可されていないため、ルートは記録されません。"
+          }
+        }
+      }
+    },
+    "settings.route_recording.status.foreground_only" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Allowed only while using the app. The route is recorded only while the app is open. Choose Always to record in the background too."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Permitido solo al usar la app. La ruta se graba únicamente mientras la app está abierta. Elige «Siempre» para grabar también en segundo plano."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "「使用中のみ許可」です。アプリを開いている間だけルートを記録します。「常に許可」にすると、バックグラウンドでも記録できます。"
+          }
+        }
+      }
+    },
+    "settings.route_recording.status.off" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Off. The driving route is not recorded."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Desactivado. La ruta de conducción no se graba."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "オフです。走行ルートは記録されません。"
+          }
+        }
+      }
+    },
+    "settings.route_recording.status.records_in_background" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Always access is on. The route is saved even for recordings that start in the background."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El acceso permanente está activado. La ruta se guarda incluso en grabaciones iniciadas en segundo plano."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "「常に許可」です。バックグラウンドで始まった記録でもルートを保存します。"
+          }
+        }
+      }
+    },
+    "settings.route_recording.status.restricted" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Location use is restricted on this device, so the route is not recorded."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El uso de la ubicación está restringido en este dispositivo, por lo que la ruta no se graba."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この端末では位置情報の利用が制限されているため、ルートは記録されません。"
+          }
+        }
+      }
+    },
+    "settings.route_recording.status.unsupported_platform" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Driving routes are not recorded on this device."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La ruta de conducción no se graba en este dispositivo."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この端末では走行ルートを記録しません。"
+          }
+        }
+      }
+    },
+    "settings.route_recording.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Record Driving Route"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Grabar la ruta de conducción"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "走行ルートを記録"
+          }
+        }
+      }
+    },
+    "settings.route_recording.toggle" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Record driving route"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Grabar la ruta de conducción"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "走行ルートを記録する"
+          }
+        }
+      }
+    },
     "unassigned_vin.warning.action.register" : {
       "localizations" : {
         "en" : {

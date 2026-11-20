@@ -210,6 +210,19 @@ enum MacOSApplicationComposition: ApplicationPlatformComposing {
         )
     }
 
+    /// 位置を扱わない代替を入れた走行ルート記録の部品を生成します。
+    ///
+    /// 責務: macOSでは位置を記録しないため、常に未対応を返す許可と、すぐ終わる取得元を部品へ入れます。
+    /// - Returns: 常に前面とみなす走行ルート記録の部品一式。
+    static func makeSessionLocationPlatformComponents() -> SessionLocationPlatformComponents {
+        SessionLocationPlatformComponents(
+            authorization: UnavailableLocationAuthorization(),
+            source: UnavailableLocationUpdateSource(),
+            preference: UserDefaultsRouteRecordingPreferenceStore(),
+            isForeground: { true }
+        )
+    }
+
     /// 実Apple認証とKeychain保存を注入した認証セッションモデルを生成します。
     ///
     /// 責務: macOS表示ウインドウ、Apple認証、Keychain保存をAuthenticationユースケースへ結び付けます。

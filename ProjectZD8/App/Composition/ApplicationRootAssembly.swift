@@ -41,7 +41,8 @@ enum ApplicationRootAssembly {
             liveTelemetry: liveTelemetry,
             connectionSessionLifecycle: foundation.lifecycle,
             connectionHistory: foundation.history,
-            sessionLogAnalysis: foundation.analysis
+            sessionLogAnalysis: foundation.analysis,
+            sessionLocationRecording: foundation.sessionLocationRecording
         )
     }
 
@@ -59,7 +60,8 @@ enum ApplicationRootAssembly {
 
     /// 各モデルが共有する保存先と接続セッション系のモデルを組み立てます。
     ///
-    /// 責務: 計測境界・DB接続・接続セッション保存先を1回ずつ生成し、それらを共有する履歴・解析・ライフサイクルのモデルを生成します。
+    /// 責務: 計測境界・DB接続・接続セッション保存先を1回ずつ生成し、それらを共有する履歴・解析・ライフサイクルのモデルと、
+    /// ライフサイクルを観測する走行ルート記録を生成します。
     /// - Parameters:
     ///   - platform: OS固有の生成手順。
     ///   - sessionEndPersisted: 自動アップロード設定に関係なく、終了を保存できたセッションの通知先。既定は何もしません。
@@ -82,13 +84,20 @@ enum ApplicationRootAssembly {
             history: history,
             sessionEndPersisted: sessionEndPersisted
         )
+        let sessionLocation = SessionLocationRecordingAssembly.make(
+            components: Platform.makeSessionLocationPlatformComponents(),
+            lifecycle: lifecycle,
+            database: database
+        )
         return ApplicationRootFoundation(
             performanceEvents: performanceEvents,
             database: database,
             storage: storage,
             history: history,
             analysis: analysis,
-            lifecycle: lifecycle
+            lifecycle: lifecycle,
+            sessionLocationRecording: sessionLocation.driver,
+            routeRecordingSettings: sessionLocation.settings
         )
     }
 

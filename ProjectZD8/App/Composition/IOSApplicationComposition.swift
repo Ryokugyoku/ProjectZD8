@@ -233,6 +233,20 @@ enum IOSApplicationComposition: ApplicationPlatformComposing {
         )
     }
 
+    /// CoreLocationのアダプターを入れた走行ルート記録の部品を生成します。
+    ///
+    /// 責務: 許可用と取得用の別々の `CLLocationManager` を持つアダプター、端末ローカルの設定の保存先、
+    /// 背面でなければ前面とみなす判定を部品へ入れます。メインスレッドで呼びます。
+    /// - Returns: 走行ルート記録の部品一式。
+    static func makeSessionLocationPlatformComponents() -> SessionLocationPlatformComponents {
+        SessionLocationPlatformComponents(
+            authorization: IOSCoreLocationAuthorizationAdapter(),
+            source: IOSCoreLocationUpdateSource(),
+            preference: UserDefaultsRouteRecordingPreferenceStore(),
+            isForeground: { UIApplication.shared.applicationState != .background }
+        )
+    }
+
     /// 実Apple認証とKeychain保存を注入した認証セッションモデルを生成します。
     ///
     /// 責務: iOS表示ウインドウ、Apple認証、Keychain保存をAuthenticationユースケースへ結び付けます。

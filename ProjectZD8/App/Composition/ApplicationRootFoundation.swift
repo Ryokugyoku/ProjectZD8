@@ -16,4 +16,8 @@ struct ApplicationRootFoundation {
     let analysis: SessionLogAnalysisModel
     /// 接続セッションのライフサイクルのモデルです。
     let lifecycle: ConnectionSessionLifecycleModel
+    /// 現在のセッション・許可・前面かどうかを走行ルート記録へ伝える型です。`launch()` が未呼出しの状態で渡します。
+    let sessionLocationRecording: SessionLocationRecordingDriver
+    /// 設定画面の「走行ルートを記録」区画のモデルです。
+    let routeRecordingSettings: RouteRecordingSettingsModel
 }

@@ -36,12 +36,18 @@ struct ProjectZD8App: App {
     /// 「エンジン停止とみなす時間」の設定を保持するモデルです。
     @State private var vehicleOffDelayModel: VehicleOffDetectionDelayModel
 
+    /// 現在のセッション・位置情報の許可・前面かどうかを走行ルート記録へ伝える型です。
+    private let sessionLocationRecording: SessionLocationRecordingDriver
+
     #if os(iOS)
     /// iOS設定画面へ注入するプレゼンテーションモデルです。
     @State private var iOSSettingsModel: IOSSettingsPresentationModel
 
     /// 自動記録設定と記録開始方法の選択画面の状態を保持するモデルです。
     @State private var automaticRecordingModel: AutomaticRecordingPreferenceModel
+
+    /// 「走行ルートを記録」の設定と位置情報の許可の状態を保持するモデルです。
+    @State private var routeRecordingSettingsModel: RouteRecordingSettingsModel
 
     /// 未登録車両の警告を保持するモデルです。
     @State private var unassignedVINWarningModel: UnassignedObservedVINWarningModel
@@ -64,7 +70,7 @@ struct ProjectZD8App: App {
     /// プラットフォーム固有の依存関係を組み立ててアプリを生成します。
     ///
     /// 責務: 現在のプラットフォーム用Compositionからアプリケーションルート依存関係を構築します。
-    /// iOSでは画面の表示を待たずに常駐リンク監視を始めます。
+    /// 画面の表示を待たずに走行ルート記録の観測を、iOSでは常駐リンク監視も始めます。
     init() {
         #if os(iOS)
         let root = IOSApplicationRoot.make()
@@ -88,8 +94,11 @@ struct ProjectZD8App: App {
         _connectionHistoryModel = State(initialValue: models.connectionHistory)
         _sessionLogAnalysisModel = State(initialValue: models.sessionLogAnalysis)
         startVehicleConnection = ApplicationRootAssembly.makeStartVehicleConnection(vehicleManagement: models.vehicleManagement)
+        sessionLocationRecording = models.sessionLocationRecording
+        models.sessionLocationRecording.launch()
         #if os(iOS)
         _automaticRecordingModel = State(initialValue: root.automaticRecording)
+        _routeRecordingSettingsModel = State(initialValue: root.routeRecordingSettings)
         _unassignedVINWarningModel = State(initialValue: root.unassignedVINWarning)
         _vehicleUnknownSessionModel = State(initialValue: root.vehicleUnknownSessions)
         adapterLinkSupervision = root.adapterLinkSupervision
@@ -107,24 +116,7 @@ struct ProjectZD8App: App {
             Group {
 #if os(iOS)
                 if authenticationModel.state.phase.showsAuthenticatedShell {
-                    IOSAppShellView(
-                        accountSettingsModel: accountSettingsModel,
-                        settingsModel: iOSSettingsModel,
-                        vehicleManagementModel: vehicleManagementModel,
-                        maintenanceModel: maintenanceModel,
-                        liveTelemetryModel: liveTelemetryModel,
-                        connectionHistoryModel: connectionHistoryModel,
-                        connectionSessionLifecycleModel: connectionSessionLifecycleModel,
-                        sessionLogAnalysisModel: sessionLogAnalysisModel,
-                        startVehicleConnection: startVehicleConnection,
-                        automaticRecordingModel: automaticRecordingModel,
-                        vehicleOffDelayModel: vehicleOffDelayModel,
-                        unassignedVINWarningModel: unassignedVINWarningModel,
-                        vehicleUnknownSessionModel: vehicleUnknownSessionModel,
-                        accountDeletionPhase: authenticationModel.state.accountDeletionPhase,
-                        accountDeletionFailure: authenticationModel.state.accountDeletionFailure,
-                        sendAuthenticationAction: authenticationModel.send
-                    )
+                    iOSAuthenticatedShell
                     .transition(.opacity)
                     .onAppear(perform: activateAuthenticatedSettingsScope)
                 } else {
@@ -183,9 +175,34 @@ struct ProjectZD8App: App {
         }
     }
 
+    #if os(iOS)
+    /// 認証済みの時に表示するiOSのルート画面です。
+    private var iOSAuthenticatedShell: some View {
+        IOSAppShellView(
+            accountSettingsModel: accountSettingsModel,
+            settingsModel: iOSSettingsModel,
+            vehicleManagementModel: vehicleManagementModel,
+            maintenanceModel: maintenanceModel,
+            liveTelemetryModel: liveTelemetryModel,
+            connectionHistoryModel: connectionHistoryModel,
+            connectionSessionLifecycleModel: connectionSessionLifecycleModel,
+            sessionLogAnalysisModel: sessionLogAnalysisModel,
+            startVehicleConnection: startVehicleConnection,
+            automaticRecordingModel: automaticRecordingModel,
+            routeRecordingSettingsModel: routeRecordingSettingsModel,
+            vehicleOffDelayModel: vehicleOffDelayModel,
+            unassignedVINWarningModel: unassignedVINWarningModel,
+            vehicleUnknownSessionModel: vehicleUnknownSessionModel,
+            accountDeletionPhase: authenticationModel.state.accountDeletionPhase,
+            accountDeletionFailure: authenticationModel.state.accountDeletionFailure,
+            sendAuthenticationAction: authenticationModel.send
+        )
+    }
+    #endif
+
     /// バックグラウンド移行時に保存待ちの取得記録を保存させ、操作可能へ戻ったとき取得の一時停止へ復帰の機会を伝え、
     /// 認証へ前面復帰(確認できなかったサインインの再確認)を、iOSでは常駐リンク監視へ前面復帰・背面移行を、
-    /// 記録中のLive Activityへ前面復帰を伝え、認証済みセッション概要と整備記録を再同期します。
+    /// 記録中のLive Activityへ前面復帰を、走行ルート記録へ前面復帰・背面移行を伝え、認証済みセッション概要と整備記録を再同期します。
     ///
     /// 責務: 1件のScene段階変更を取得記録のflush要求・取得ループの起床通知・前面復帰の通知、
     /// または認証済み接続履歴と整備記録の更新要求へ変換します。
@@ -193,6 +210,7 @@ struct ProjectZD8App: App {
     private func handleScenePhaseChange(_ phase: ScenePhase) {
         if phase == .background {
             liveTelemetryModel.send(.backgroundTransitionOccurred)
+            sessionLocationRecording.appDidEnterBackground()
             #if os(iOS)
             adapterLinkSupervision.appDidEnterBackground()
             #endif
@@ -200,6 +218,7 @@ struct ProjectZD8App: App {
         guard phase == .active else { return }
         liveTelemetryModel.send(.foregroundTransitionOccurred)
         authenticationModel.send(.foregroundEntered)
+        sessionLocationRecording.appDidBecomeActive()
         #if os(iOS)
         adapterLinkSupervision.appDidBecomeActive()
         sessionActivity.appDidBecomeActive()

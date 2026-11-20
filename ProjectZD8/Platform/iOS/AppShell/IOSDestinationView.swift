@@ -60,6 +60,12 @@ struct IOSDestinationView: View {
     /// 記録開始方法の操作を自動記録設定モデルへ通知するクロージャです。
     let sendAutomaticRecordingAction: (AutomaticRecordingPreferenceAction) -> Void
 
+    /// 設定画面の「走行ルートを記録」区画に表示する内容です。
+    let routeRecordingSection: RouteRecordingSettingsSection
+
+    /// 「走行ルートを記録」の操作を設定モデルへ通知するクロージャです。
+    let sendRouteRecordingAction: (RouteRecordingSettingsAction) -> Void
+
     /// 設定画面の「エンジン停止とみなす時間」区画に表示する内容です。
     let vehicleOffSection: VehicleOffDetectionSettingsSection
 
@@ -145,6 +151,8 @@ struct IOSDestinationView: View {
             sendAccountSettingsAction: sendAccountSettingsAction,
             automaticRecordingSection: automaticRecordingSection,
             sendAutomaticRecordingAction: sendAutomaticRecordingAction,
+            routeRecordingSection: routeRecordingSection,
+            sendRouteRecordingAction: sendRouteRecordingAction,
             vehicleOffSection: vehicleOffSection,
             sendVehicleOffAction: sendVehicleOffAction,
             accountDeletionPhase: accountDeletionPhase,

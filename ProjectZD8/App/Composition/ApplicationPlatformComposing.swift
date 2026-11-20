@@ -103,4 +103,10 @@ protocol ApplicationPlatformComposing {
     /// 責務: OSの設定保存・同期をアカウント設定モデルへ結び付けます。
     /// - Returns: アカウント設定のモデル。
     static func makeAccountSettingsModel() -> AccountSettingsModel
+
+    /// 走行ルート記録に使うOSごとの部品を生成します。
+    ///
+    /// 責務: OSの位置情報の許可・取得元・設定の保存先・前面判定を1組にまとめます。
+    /// - Returns: 走行ルート記録の部品一式。
+    static func makeSessionLocationPlatformComponents() -> SessionLocationPlatformComponents
 }

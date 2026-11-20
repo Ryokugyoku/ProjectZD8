@@ -8,4 +8,6 @@ nonisolated enum ProductDatabaseStorageKind: String, Equatable, Sendable, CaseIt
     case vehiclePIDCapabilities
     /// 整備記録の保存先です。
     case maintenanceRecords
+    /// 接続セッションの位置サンプルと位置記録事象の保存先です。
+    case connectionSessionLocations
 }

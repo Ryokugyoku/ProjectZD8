@@ -79,4 +79,19 @@ struct ProductDatabaseRepositoryFactory {
             UnavailableMaintenanceRecordRepository()
         }
     }
+
+    /// 接続セッションの位置の保存先を生成します。
+    ///
+    /// 責務: 位置と位置記録事象の永続化を利用可能なGRDB実装または明示的な利用不能境界へ変換します。
+    /// - Parameter database: プロセス内で共有する製品DB接続。
+    /// - Returns: 位置 Repository。準備失敗時は利用不能Repository。
+    func makeConnectionSessionLocationRepository(
+        database: ApplicationDatabaseConnection
+    ) -> any ConnectionSessionLocationRepository {
+        prepare(.connectionSessionLocations) {
+            try GRDBConnectionSessionLocationRepository(databaseQueue: database.databaseQueue())
+        } unavailable: {
+            UnavailableConnectionSessionLocationRepository()
+        }
+    }
 }
