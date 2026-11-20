@@ -44,6 +44,9 @@ enum ProjectZD8DatabaseMigrator {
         migrator.registerMigration("release_v1_add_connection_session_location_samples_and_events") { database in
             try ConnectionSessionLocationSchema.create(in: database)
         }
+        migrator.registerMigration("release_v1_add_connection_session_location_track_sync_states") { database in
+            try ConnectionSessionLocationTrackSyncSchema.create(in: database)
+        }
         return migrator
     }
 

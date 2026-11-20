@@ -14,7 +14,8 @@ final class DiagnosticsLogSubsystemTests: XCTestCase {
         "AppleCoreBluetoothOBDTransport", "ConnectionSessionPersistence", "AcquisitionEvidencePersistence",
         "AcquisitionChunkPersistence", "OBDSerialTransport", "OBDBluetoothRFCOMMTransport", "BLELink",
         "VehicleDetectionNotification", "VehicleRecording", "PostSessionProcessing",
-        "Acquisition", "LiveActivity", "AcquisitionPerformance", "ProductDatabasePersistence"
+        "Acquisition", "LiveActivity", "AcquisitionPerformance", "ProductDatabasePersistence",
+        "SessionLocationRecording", "LocationTrackSync"
     ]
 
     /// すべての生成箇所が、共通の subsystem を渡しています(1件以上あること)。
