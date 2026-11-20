@@ -34,7 +34,7 @@ enum AccountDeletionComposition {
             deleteAccount: DeleteAccountUseCase(
                 sessionRevocation: sessionRevocation,
                 cloudErasers: AccountCloudDataErasers(
-                    sessionTransfers: CloudKitConnectionSessionTransferRepository(),
+                    sessionTransfers: ConnectionSessionLocationTrackSyncComposition.makeErasingTransferRepository(),
                     vehicleDataEraser: vehicleDataEraser,
                     maintenanceDataEraser: CloudKitMaintenanceRemoteStore()
                 ),

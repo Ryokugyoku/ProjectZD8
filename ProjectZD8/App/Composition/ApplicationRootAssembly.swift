@@ -129,7 +129,7 @@ enum ApplicationRootAssembly {
             releaseRawCache: ReleaseConnectionSessionRawCacheUseCase(repository: repository),
             deleteSessionEverywhere: DeleteConnectionSessionEverywhereUseCase(
                 localRepository: repository,
-                transferRepository: CloudKitConnectionSessionTransferRepository()
+                transferRepository: ConnectionSessionLocationTrackSyncComposition.makeErasingTransferRepository()
             ),
             reviewInterruptedSession: ReviewInterruptedConnectionSessionUseCase(repository: repository),
             evictStaleRawLogs: EvictStaleConnectionSessionRawLogsUseCase(

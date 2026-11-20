@@ -142,7 +142,7 @@ enum IOSApplicationComposition: ApplicationPlatformComposing {
             deleteVehicleWithSessions: DeleteVehicleWithSessionsUseCase(
                 sessionRepository: connectionSessionRepository,
                 localSessionErasureRepository: connectionSessionRepository,
-                sessionTransferRepository: CloudKitConnectionSessionTransferRepository(),
+                sessionTransferRepository: ConnectionSessionLocationTrackSyncComposition.makeErasingTransferRepository(),
                 vehicleRepository: vehicleRepository
             ),
             vehicleSessionsDidDelete: vehicleSessionsDidDelete,

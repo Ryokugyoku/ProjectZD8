@@ -18,10 +18,12 @@ struct IOSPostSessionProcessingComposition {
     let schedule: SchedulePostSessionProcessingUseCase
     /// アカウント別の自動アップロード設定の読み出し元です。
     private let accountSettings: AccountSettingsUseCase
+    /// 終了直後に走行ルート(位置の軌跡)のアップロードを1回起動するトリガーです。
+    private let locationTrackUploadTrigger: ConnectionSessionLocationTrackUploadTrigger
 
     /// 予約に必要な依存関係を組み立てます。
     ///
-    /// 責務: BGTaskScheduler の予約境界・統合ログの診断記録・アカウント設定の読み出し元を1回ずつ生成します。
+    /// 責務: BGTaskScheduler の予約境界・統合ログの診断記録・アカウント設定の読み出し元・軌跡の即時送信のトリガーを1回ずつ生成します。
     init() {
         let scheduler = IOSBackgroundTaskPostSessionProcessingScheduler()
         self.scheduler = scheduler
@@ -30,20 +32,25 @@ struct IOSPostSessionProcessingComposition {
             diagnostics: OSLogPostSessionProcessingDiagnosticsAdapter()
         )
         accountSettings = AccountSettingsUseCase(store: UbiquitousKeyValueStoreAccountSettingsStore())
+        locationTrackUploadTrigger = ConnectionSessionLocationTrackUploadTrigger(
+            diagnostics: OSLogConnectionSessionLocationTrackSyncDiagnosticsAdapter()
+        )
     }
 
-    /// 終了を保存できたセッションの所有アカウントの自動アップロード設定で、後処理を予約します。
+    /// 終了を保存できたセッションの所有アカウントの自動アップロード設定で、後処理を予約し、軌跡の即時送信を起動します。
     ///
-    /// 責務: 1件の終了保存の通知を予約要求へ変換します。設定は画面の表示を待たずに保存先から読みます。
+    /// 責務: 1件の終了保存の通知を予約要求と軌跡の即時送信の要求へ変換します。設定は画面の表示を待たずに保存先から読みます。
     /// - Parameter session: 終了を保存できたセッション。
     func sessionEndPersisted(_ session: ConnectionSession) {
-        schedule.execute(automaticUploadEnabled: isAutomaticUploadEnabled(for: session.accountIdentifier))
+        let automaticUploadEnabled = isAutomaticUploadEnabled(for: session.accountIdentifier)
+        schedule.execute(automaticUploadEnabled: automaticUploadEnabled)
+        locationTrackUploadTrigger.sessionDidEnd(session, automaticUploadEnabled: automaticUploadEnabled)
     }
 
     /// 後処理の起動ハンドラを登録します。アプリの起動完了より前に1回だけ呼びます。
     ///
-    /// 責務: 記録中の判定・アカウントの解決・設定・既存の同期と整理のユースケースを実行のユースケースへ結び付け、
-    /// その完了をOSへの完了報告へ結び付けます。
+    /// 責務: 記録中の判定・アカウントの解決・設定・既存の同期・軌跡のアップロード・整理のユースケースを実行のユースケースへ結び付け、
+    /// その完了をOSへの完了報告へ結び付けます。軌跡のアップロードは即時送信のトリガーにも結び付けます。
     /// - Parameters:
     ///   - foundation: 接続セッション保存先と履歴モデルを持つ共通の土台。
     ///   - liveTelemetry: 記録中かどうかを持つPID継続取得のモデル。
@@ -57,6 +64,8 @@ struct IOSPostSessionProcessingComposition {
         let synchronization = IOSApplicationComposition.makeConnectionSessionSynchronization(storage: storage)
         let eviction = EvictStaleConnectionSessionRawLogsUseCase(sessionRepository: storage, rawLogRepository: storage)
         let history = foundation.history
+        let locationTrackUpload = ConnectionSessionLocationTrackSyncComposition.makeUploadUseCase(database: foundation.database)
+        locationTrackUploadTrigger.connect { try await locationTrackUpload.execute(accountIdentifier: $0) }
         let run = RunPostSessionProcessingUseCase(
             isRecordingActive: { liveTelemetry.state.isConnectionActive },
             resolveAccountIdentifier: { await Self.resolveAccountIdentifier(authentication) },
@@ -65,8 +74,9 @@ struct IOSPostSessionProcessingComposition {
                 try await synchronization.execute(accountIdentifier: accountIdentifier, uploadsPendingSessions: true)
                 history.send(.localDataChanged)
             },
-            // 段階2の配線(U9)で実際の走行ルートのアップロードへ置き換える。
-            uploadLocationTracks: { _ in },
+            uploadLocationTracks: { accountIdentifier in
+                _ = try await locationTrackUpload.execute(accountIdentifier: accountIdentifier)
+            },
             evictStaleRawLogs: { accountIdentifier in
                 try eviction.execute(accountIdentifier: accountIdentifier)
                 history.send(.localDataChanged)
