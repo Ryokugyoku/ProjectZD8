@@ -47,6 +47,7 @@ struct IOSApplicationRoot {
         )
         let liveTelemetry = makeLiveTelemetryModel(foundation: foundation, coordinator: coordinator)
         let vehicleManagement = makeVehicleManagementModel(foundation: foundation, coordinator: coordinator)
+        ConnectionSessionActivityRelay.start(lifecycle: foundation.lifecycle, vehicleManagement: vehicleManagement)
         registerSessionActivityStop(liveTelemetry: liveTelemetry)
         postSessionProcessing.registerLaunchHandler(
             foundation: foundation,
