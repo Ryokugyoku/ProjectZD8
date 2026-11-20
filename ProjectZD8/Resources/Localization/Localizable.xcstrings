@@ -488,6 +488,28 @@
         }
       }
     },
+    "live_activity.status.stale" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not updating · last values"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sin actualizar · últimos valores"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "更新が止まっています・最終値"
+          }
+        }
+      }
+    },
     "live_activity.status.stopping" : {
       "localizations" : {
         "en" : {
@@ -10488,24 +10510,68 @@
         }
       }
     },
-    "home.future.caption" : {
+    "home.recording.active" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Telemetry and analysis modules will be added here as capabilities grow."
+            "value" : "Recording"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Los módulos de telemetría y análisis se añadirán aquí al ampliar las funciones."
+            "value" : "Grabando"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "今後、テレメトリーや分析モジュールをこのHOMEへ追加予定です。"
+            "value" : "記録中"
+          }
+        }
+      }
+    },
+    "home.recording.elapsed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recording time"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tiempo de grabación"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "記録時間"
+          }
+        }
+      }
+    },
+    "home.recording.not_recording" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not recording"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sin grabar"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "記録していません"
           }
         }
       }
@@ -10554,6 +10620,50 @@
         }
       }
     },
+    "home.vehicle.unnamed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unnamed vehicle"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vehículo sin nombre"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "名称未設定の車両"
+          }
+        }
+      }
+    },
+    "home.vehicle.unregistered" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unregistered vehicle"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vehículo no registrado"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未登録の車両"
+          }
+        }
+      }
+    },
     "ios.navigation.history" : {
       "localizations" : {
         "en" : {
@@ -10594,28 +10704,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ホーム"
-          }
-        }
-      }
-    },
-    "ios.navigation.live_log" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Live"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "En vivo"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ライブ"
           }
         }
       }
@@ -20621,28 +20709,6 @@
         }
       }
     },
-    "shell.destination.placeholder" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Feature content will appear here."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "El contenido de la función aparecerá aquí."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "機能の内容はここに表示されます。"
-          }
-        }
-      }
-    },
     "sidebar.brand.tagline" : {
       "localizations" : {
         "en" : {
@@ -20815,50 +20881,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "概要とハイライト"
-          }
-        }
-      }
-    },
-    "sidebar.live_log" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Real-Time Log Output"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Salida de registro en tiempo real"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "リアルタイムログ出力"
-          }
-        }
-      }
-    },
-    "sidebar.live_log.subtitle" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Live vehicle signals"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Señales del vehículo en vivo"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "車両信号をライブ表示"
           }
         }
       }
@@ -21194,28 +21216,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "このプラットフォームでは検証済みPID読取を利用できません。"
-          }
-        }
-      }
-    },
-    "telemetry.eyebrow" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "OBD LIVE CHECK"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "COMPROBACIÓN OBD"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "OBD LIVE CHECK"
           }
         }
       }
@@ -21658,72 +21658,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "収集を終了し、接続を閉じています…"
-          }
-        }
-      }
-    },
-    "telemetry.status.waiting_for_connection" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Press Connect on Home to start acquisition."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pulsa Conectar en Inicio para comenzar."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ホームの接続ボタンから取得を開始してください。"
-          }
-        }
-      }
-    },
-    "telemetry.subtitle" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Shows the latest value for every registered PID that responds."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Muestra el valor actual de cada PID registrado que responde."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "登録済みPIDを全件確認し、応答した項目の現在値を表示します。"
-          }
-        }
-      }
-    },
-    "telemetry.title" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Live PID values"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Valores PID en vivo"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "リアルタイムPID値"
           }
         }
       }

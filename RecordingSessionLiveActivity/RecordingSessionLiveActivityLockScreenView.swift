@@ -5,6 +5,8 @@ import WidgetKit
 struct RecordingSessionLiveActivityLockScreenView: View {
     /// Live Activityの最新の表示内容です。
     let state: RecordingSessionActivityAttributes.ContentState
+    /// 記録中の表示か、更新が止まった表示かです。
+    let mode: RecordingSessionLiveActivityDisplayMode
 
     /// 見出し・計測値・フッターを縦に配置します。
     var body: some View {
@@ -14,7 +16,7 @@ struct RecordingSessionLiveActivityLockScreenView: View {
                     fileName: state.vehiclePhotoFileName,
                     size: RecordingSessionLiveActivityMetrics.photoSize
                 )
-                RecordingSessionLiveActivityTitleView(state: state)
+                RecordingSessionLiveActivityTitleView(state: state, mode: mode)
                 Spacer(minLength: 0)
                 RecordingSessionLiveActivityElapsedTimerText(startedAt: state.startedAt)
                     .font(.title3.weight(.semibold))

@@ -24,12 +24,6 @@ struct MacOSAppShellMetrics: Equatable {
     /// ナビゲーション行に表示するシンボルの大きさです。
     let symbolSize: CGFloat
 
-    /// 遷移先プレースホルダーのタイトル文字サイズです。
-    let contentTitleSize: CGFloat
-
-    /// 遷移先プレースホルダーのシンボルサイズです。
-    let contentSymbolSize: CGFloat
-
     /// 低いウインドウ向けにサイドバー補助情報を省略するかどうかです。
     let usesCompactSidebarHeight: Bool
 
@@ -48,8 +42,6 @@ struct MacOSAppShellMetrics: Equatable {
         rowHeight = (usesCompactSidebarHeight ? 48 : 62) * scale
         rowSpacing = (usesCompactSidebarHeight ? 3 : 7) * scale
         symbolSize = 20 * scale
-        contentTitleSize = 32 * scale
-        contentSymbolSize = 72 * scale
     }
 
     /// 利用可能な幅と高さから制限済みの表示倍率を解決します。

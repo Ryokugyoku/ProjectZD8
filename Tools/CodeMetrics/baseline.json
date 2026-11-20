@@ -54,9 +54,6 @@
       "file_lines": 641,
       "long_lines": 1
     },
-    "ProjectZD8/Platform/iOS/Features/LiveTelemetry/Views/IOSLiveTelemetryView.swift": {
-      "long_lines": 3
-    },
     "ProjectZD8/Platform/iOS/Features/LogHistory/Views/IOSConnectionHistoryView.swift": {
       "file_lines": 589
     },
@@ -65,9 +62,6 @@
     },
     "ProjectZD8/Platform/macOS/Features/Analysis/Views/MacOSSessionLogAnalysisView.swift": {
       "file_lines": 690
-    },
-    "ProjectZD8/Platform/macOS/Features/LiveTelemetry/Views/MacOSLiveTelemetryView.swift": {
-      "long_lines": 2
     },
     "ProjectZD8/Platform/macOS/Features/Maintenance/Views/MacOSMaintenanceView.swift": {
       "long_lines": 1
@@ -80,9 +74,6 @@
     },
     "ProjectZD8Tests/Application/Features/DeviceConnection/State/AdapterLinkHeldWatchTransitionTests.swift": {
       "function_count": 21
-    },
-    "ProjectZD8Tests/Application/Features/DeviceConnection/State/AdapterLinkVehicleConfirmationTransitionTests.swift": {
-      "function_count": 24
     },
     "ProjectZD8Tests/Application/Features/DeviceConnection/UseCases/AdapterLinkSupervisionUseCaseRecordingTests.swift": {
       "function_count": 25

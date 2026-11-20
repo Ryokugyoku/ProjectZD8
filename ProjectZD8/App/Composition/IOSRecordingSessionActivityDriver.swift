@@ -24,9 +24,9 @@ final class IOSRecordingSessionActivityDriver {
         self.liveTelemetry = liveTelemetry
     }
 
-    /// ActivityKit・App Group共有コンテナ・統合ログの実装を注入した型を生成します。
+    /// ActivityKit・App Group共有コンテナ・ローカル通知・統合ログの実装を注入した型を生成します。
     ///
-    /// 責務: 常時表示のユースケースへ具象の境界・前面状態・車両プロフィールの参照先を結び付けます。
+    /// 責務: 常時表示のユースケースへ具象の境界・前面状態・車両プロフィールの参照先・背面開始の通知を結び付けます。
     /// - Parameters:
     ///   - liveTelemetry: 観測するPID継続取得のモデル。
     ///   - vehicleManagement: 車両名と写真を引く車両管理のモデル。
@@ -44,10 +44,11 @@ final class IOSRecordingSessionActivityDriver {
         return IOSRecordingSessionActivityDriver(useCase: useCase, liveTelemetry: liveTelemetry)
     }
 
-    /// 状態の観測を始めます。アプリ起動時に1回だけ呼びます。
+    /// 起動を伝えて状態の観測を始めます。アプリ起動時(BLEの状態復元による背面起動を含む)に1回だけ呼びます。
     ///
-    /// 責務: 現在の状態を伝えて以後の変化の観測を始めます。
+    /// 責務: 起動(前回のプロセスが残した表示の片付け)を先に伝え、現在の状態を伝えて以後の変化の観測を始めます。
     func launch() {
+        useCase.appDidLaunch()
         observeTelemetryState()
     }
 

@@ -18,14 +18,15 @@ final class MacOSAppShellUITests: XCTestCase {
 
     /// macOSサイドバーが要求されたすべての遷移先を公開することを検証します。
     ///
-    /// 責務: macOS AppShellが整備とGarageを含む6件のナビゲーション操作を表示することを確認します。
+    /// 責務: macOS AppShellが履歴・整備・Garageを含む5件のナビゲーション操作を表示し、統合で削除したリアルタイム表示がないことを確認します。
     @MainActor
     func testSidebarShowsEveryRequestedDestination() {
         let application = XCUIApplication.authenticatedProjectZD8()
         application.launch()
 
         XCTAssertTrue(application.buttons["macos-sidebar-home"].waitForExistence(timeout: 5))
-        XCTAssertTrue(application.buttons["macos-sidebar-liveLog"].exists)
+        XCTAssertFalse(application.buttons["macos-sidebar-liveLog"].exists)
+        XCTAssertTrue(application.buttons["macos-sidebar-history"].exists)
         XCTAssertTrue(application.buttons["macos-sidebar-maintenance"].exists)
         XCTAssertTrue(application.buttons["macos-sidebar-garage"].exists)
         XCTAssertTrue(application.buttons["macos-sidebar-settings"].exists)

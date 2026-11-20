@@ -18,12 +18,12 @@ final class AdapterLinkVehicleConfirmationTransitionInitializationRetryTests: XC
         [F.conditions(linkState: .connecting), F.conditions(linkPreference: nil), F.conditions(isExternalAdapterUseActive: true)]
     }
 
-    /// 初期化の失敗でリンクが `ready` なら、待機へ戻して60秒後の再初期化を予約します。
+    /// 初期化の失敗でリンクが `ready` なら、待機へ戻して5秒後の再初期化を予約します。
     ///
-    /// 責務: `standby` と `.scheduleAdapterInitializationRetry(after: .seconds(60))` を確認します(仕様2)。
+    /// 責務: `standby` と `.scheduleAdapterInitializationRetry(after: .seconds(5))` を確認します(仕様2・S1-2)。
     func testInitializationFailedWithReadyLinkSchedulesRetry() {
         let result = transition.adapterInitializationFailed(from: .initializing(linkReadyAt: F.referenceDate), conditions: F.conditions())
-        A.assertResult(result, state: .standby, effects: [.scheduleAdapterInitializationRetry(after: .seconds(60))])
+        A.assertResult(result, state: .standby, effects: [.scheduleAdapterInitializationRetry(after: .seconds(5))])
     }
 
     /// 再試行の待機が明けたとき、待機でリンクが `ready` なら現在時刻を起点に初期化からやり直します。

@@ -13,17 +13,21 @@ protocol SessionActivityPort: AnyObject {
 
     /// 表示を開始します。前のプロセスが残した表示があれば閉じてから開始します。
     ///
-    /// 責務: 1件の表示内容でシステムへ表示開始を要求します。
-    /// - Parameter content: 最初に出す表示内容。
+    /// 責務: 1件の表示内容と有効期限でシステムへ表示開始を要求します。
+    /// - Parameters:
+    ///   - content: 最初に出す表示内容。
+    ///   - staleDate: 次の更新が届かなければ表示が古い扱いになる時刻。
     /// - Throws: 表示が許可されていない、またはシステムが開始を断った場合。
-    func start(_ content: RecordingSessionActivityContent) async throws
+    func start(_ content: RecordingSessionActivityContent, staleDate: Date) async throws
 
     /// 出ている表示の内容を更新します。
     ///
-    /// 責務: 1件の表示内容でシステム上の表示を置き換えます。
-    /// - Parameter content: 新しい表示内容。
+    /// 責務: 1件の表示内容と有効期限でシステム上の表示を置き換えます。
+    /// - Parameters:
+    ///   - content: 新しい表示内容。
+    ///   - staleDate: 次の更新が届かなければ表示が古い扱いになる時刻。
     /// - Throws: 表示が出ていない場合(`SessionActivityPortError.notPresenting`)など。
-    func update(_ content: RecordingSessionActivityContent) async throws
+    func update(_ content: RecordingSessionActivityContent, staleDate: Date) async throws
 
     /// 最終内容を出して表示を終了します。
     ///
@@ -33,4 +37,10 @@ protocol SessionActivityPort: AnyObject {
     ///   - dismissAt: 終了表示を自動で消す時刻。
     /// - Throws: 表示が出ていない場合(`SessionActivityPortError.notPresenting`)など。
     func end(_ finalContent: RecordingSessionActivityContent, dismissAt: Date) async throws
+
+    /// このプロセスが追跡していない、まだ終了していない表示をすべて即時に閉じます。
+    ///
+    /// 責務: 前回のプロセスが残した表示(開始待ち・表示中・古い扱い)を閉じます。終了済みで消去待ちの終了表示と、
+    /// このプロセスが追跡中の表示は閉じません。個々の失敗は実装側で診断へ残し、呼び出し元へは返しません。
+    func endOrphanedPresentations() async
 }

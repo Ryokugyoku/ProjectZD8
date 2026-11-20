@@ -73,6 +73,14 @@ final class RecordingSessionActivityUseCaseHarness {
         await waitForOperations()
     }
 
+    /// アプリの起動を渡し、境界操作の完了まで待ちます。
+    ///
+    /// 責務: 起動を渡し、受け付けた操作が終わってから戻ります。
+    func launch() async {
+        useCase.appDidLaunch()
+        await waitForOperations()
+    }
+
     /// 受け付けた境界操作の完了を、上限付きで待ちます。
     ///
     /// 責務: 操作が終わらない場合は待ち続けず、`XCTFail` で明示的に失敗させます。

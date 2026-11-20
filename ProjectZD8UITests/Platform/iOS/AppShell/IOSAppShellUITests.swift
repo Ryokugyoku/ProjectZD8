@@ -20,9 +20,9 @@ final class IOSAppShellUITests: XCTestCase {
         add(screenshot)
     }
 
-    /// iOS下部ナビゲーションが主要タブと標準のその他導線を公開することを検証します。
+    /// iOS下部ナビゲーションが5件の遷移先すべてを、その他一覧を介さずタブに直接並べることを検証します。
     ///
-    /// 責務: iOS AppShellが4件の主要タブとGarage・設定を含む標準のその他一覧を表示することを確認します。
+    /// 責務: ホーム・履歴・整備・Garage・設定の5件のタブが直接押せ、統合で削除したリアルタイム表示のタブがないことを確認します。
     @MainActor
     func testTabBarShowsEveryRequestedDestination() {
         let application = XCUIApplication.authenticatedProjectZD8()
@@ -32,19 +32,12 @@ final class IOSAppShellUITests: XCTestCase {
         XCTAssertTrue(tabBar.waitForExistence(timeout: 5))
         XCTAssertTrue(tabBar.isHittable)
         XCTAssertEqual(tabBar.buttons.count, 5)
-        for index in 0..<4 {
-            XCTAssertTrue(tabBar.buttons.element(boundBy: index).isHittable)
+        for destination in ["home", "history", "maintenance", "garage", "settings"] {
+            let tab = application.buttons["ios-tab-\(destination)"]
+            XCTAssertTrue(tab.waitForExistence(timeout: 2), destination)
+            XCTAssertTrue(tab.isHittable, destination)
         }
-
-        let moreTab = tabBar.buttons.element(boundBy: 4)
-        XCTAssertTrue(moreTab.exists)
-        XCTAssertTrue(moreTab.isHittable)
-        moreTab.tap()
-
-        XCTAssertTrue(application.descendants(matching: .any)["Garage"].exists)
-        XCTAssertTrue(["設定", "Settings", "Ajustes"].contains {
-            application.descendants(matching: .any)[$0].exists
-        })
+        XCTAssertFalse(application.buttons["ios-tab-liveLog"].exists)
     }
 
     /// 下部ナビゲーションの整備操作でiPhone専用整備画面へ切り替わることを検証します。

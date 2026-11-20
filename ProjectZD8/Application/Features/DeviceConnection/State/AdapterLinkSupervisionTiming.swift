@@ -7,13 +7,14 @@ import Foundation
 nonisolated struct AdapterLinkSupervisionTiming: Equatable, Sendable {
     /// 本番で使う定数です。リンクが `ready` になってから10分間、最短1秒間隔で確認し、抑止中の見張りは8時間までです。
     /// リンクが `ready` でない間のユーザー切断から3分以内にリンクが戻れば、同じ走行として保持を続けます。
+    /// 窓後の再確認と初期化の再試行は5秒間隔です(BLE の送受信が長く途切れると背面で iOS に一時停止されるため)。
     static let standard = AdapterLinkSupervisionTiming(
         vehicleConfirmationWindow: 10 * 60,
         vehicleConfirmationInterval: 1,
         heldWatchLimit: 8 * 60 * 60,
         heldLinkWaitLimit: 3 * 60,
-        extendedConfirmationInterval: 60,
-        initializationRetryInterval: 60
+        extendedConfirmationInterval: 5,
+        initializationRetryInterval: 5
     )
 
     /// リンクが `ready` になった時刻(または窓の取り直しの時刻)から確認を続ける秒数です。
@@ -29,6 +30,7 @@ nonisolated struct AdapterLinkSupervisionTiming: Equatable, Sendable {
     let heldLinkWaitLimit: TimeInterval
 
     /// 確認窓を過ぎた後(または背面で回数の上限に達した後)、リンクが `ready` の間は無期限に続ける再確認の間隔の秒数です。
+    /// 記録開始が辞退・失敗で終わった後、再初期化までに挟む待ちにも使います。
     let extendedConfirmationInterval: TimeInterval
 
     /// 初期化の失敗で待機へ戻ったとき、リンクが `ready` のままなら再初期化を試みるまでの待ち秒数です。
@@ -42,15 +44,15 @@ nonisolated struct AdapterLinkSupervisionTiming: Equatable, Sendable {
     ///   - vehicleConfirmationInterval: 確認と確認の最短間隔の秒数(0より大きい値)。
     ///   - heldWatchLimit: 抑止中の見張りの上限の秒数。既定は8時間。
     ///   - heldLinkWaitLimit: リンク待ちの保持で、ユーザー切断からリンクの復帰を同じ走行とみなす秒数。既定は3分。
-    ///   - extendedConfirmationInterval: 窓を過ぎた後の再確認の間隔の秒数。既定は60秒。
-    ///   - initializationRetryInterval: 初期化失敗後の再初期化までの待ち秒数。既定は60秒。
+    ///   - extendedConfirmationInterval: 窓を過ぎた後の再確認の間隔の秒数。既定は5秒。
+    ///   - initializationRetryInterval: 初期化失敗後の再初期化までの待ち秒数。既定は5秒。
     init(
         vehicleConfirmationWindow: TimeInterval,
         vehicleConfirmationInterval: TimeInterval,
         heldWatchLimit: TimeInterval = 8 * 60 * 60,
         heldLinkWaitLimit: TimeInterval = 3 * 60,
-        extendedConfirmationInterval: TimeInterval = 60,
-        initializationRetryInterval: TimeInterval = 60
+        extendedConfirmationInterval: TimeInterval = 5,
+        initializationRetryInterval: TimeInterval = 5
     ) {
         self.vehicleConfirmationWindow = vehicleConfirmationWindow
         self.vehicleConfirmationInterval = vehicleConfirmationInterval

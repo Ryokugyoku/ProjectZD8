@@ -3,11 +3,8 @@ import SwiftUI
 
 /// macOSサイドバーに表示するプレゼンテーション専用の遷移先を識別します。
 enum MacOSSidebarDestination: String, CaseIterable, Identifiable {
-    /// ホーム画面を選択します。
+    /// 接続準備とリアルタイム表示をまとめたホーム画面を選択します。
     case home
-
-    /// リアルタイムログ画面を選択します。
-    case liveLog
 
     /// 接続セッション履歴画面を選択します。
     case history
@@ -29,8 +26,6 @@ enum MacOSSidebarDestination: String, CaseIterable, Identifiable {
         switch self {
         case .home:
             "sidebar.home"
-        case .liveLog:
-            "sidebar.live_log"
         case .history:
             "sidebar.connection_history"
         case .maintenance:
@@ -47,8 +42,6 @@ enum MacOSSidebarDestination: String, CaseIterable, Identifiable {
         switch self {
         case .home:
             "sidebar.home.subtitle"
-        case .liveLog:
-            "sidebar.live_log.subtitle"
         case .history:
             "sidebar.connection_history.subtitle"
         case .maintenance:
@@ -65,8 +58,6 @@ enum MacOSSidebarDestination: String, CaseIterable, Identifiable {
         switch self {
         case .home:
             "house.fill"
-        case .liveLog:
-            "waveform.path.ecg"
         case .history:
             "clock.arrow.circlepath"
         case .maintenance:
@@ -83,16 +74,14 @@ enum MacOSSidebarDestination: String, CaseIterable, Identifiable {
         switch self {
         case .home:
             "1"
-        case .liveLog:
-            "2"
         case .history:
-            "3"
+            "2"
         case .maintenance:
-            "4"
+            "3"
         case .garage:
-            "5"
+            "4"
         case .settings:
-            "6"
+            "5"
         }
     }
 
@@ -101,16 +90,14 @@ enum MacOSSidebarDestination: String, CaseIterable, Identifiable {
         switch self {
         case .home:
             "⌘1"
-        case .liveLog:
-            "⌘2"
         case .history:
-            "⌘3"
+            "⌘2"
         case .maintenance:
-            "⌘4"
+            "⌘3"
         case .garage:
-            "⌘5"
+            "⌘4"
         case .settings:
-            "⌘6"
+            "⌘5"
         }
     }
 }

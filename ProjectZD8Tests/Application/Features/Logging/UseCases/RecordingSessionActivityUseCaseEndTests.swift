@@ -84,7 +84,7 @@ final class RecordingSessionActivityUseCaseEndTests: XCTestCase {
         let nextSessionCalls = harness.activity.calls.filter {
             switch $0 {
             case let .start(content), let .update(content): content.startedAt == nextStartedAt
-            case .end: false
+            case .end, .endOrphanedPresentations: false
             }
         }
         XCTAssertFalse(nextSessionCalls.isEmpty, "次のセッションの表示の操作が届かない: \(harness.activity.calls)")

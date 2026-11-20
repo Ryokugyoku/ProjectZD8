@@ -138,7 +138,7 @@ final class AdapterLinkSupervisionUseCaseHeldWatchTests: XCTestCase {
 
     /// 背面へ移った後に窓が切れても休止せず、窓後の間隔で確認を続けます。
     ///
-    /// 責務: 窓切れの無応答(前回の確認から60秒以上)で確認が増えて確認中のままであること、続く前面復帰で確認が重複しないことを確認します(仕様3)。
+    /// 責務: 窓切れの無応答(前回の確認から窓後の間隔5秒以上)で確認が増えて確認中のままであること、続く前面復帰で確認が重複しないことを確認します(仕様3)。
     func testBackgroundContinuesConfirmingAfterWindowEnd() async throws {
         let harness = AdapterLinkSupervisionHarness()
         harnesses.append(harness)
@@ -187,13 +187,17 @@ final class AdapterLinkSupervisionUseCaseHeldWatchTests: XCTestCase {
         XCTAssertEqual(harness.vehicleResponse.timeouts.count, 1)
     }
 
-    /// 終了理由の無い記録の終了(記録が始まらなかった・辞退した)では、検知をやり直しません。
+    /// 終了理由の無い記録の終了(記録が始まらなかった・辞退した)では、すぐには検知をやり直さず、5秒の待ちを挟みます。
     ///
-    /// 責務: 理由 `nil` の終了の後に待機のままで、初期化が増えないことを確認します(仕様 13 の対象外)。
-    func testFinishWithoutEndReasonDoesNotRestartDetection() async throws {
+    /// 責務: 理由 `nil` の終了の後に待機で、5秒の待ちが1件要求され、待ちが明けるまで初期化が増えないことを確認します(S1-3)。
+    /// 待ち明けの再初期化から次の記録開始要求までは `AdapterLinkSupervisionUseCaseDeclinedRecordingRetryTests` が扱います。
+    func testFinishWithoutEndReasonWaitsBeforeRestartingDetection() async throws {
         let harness = try await recordingHarness()
+        let sleeps = harness.clock.requestedDurations.count
         harness.useCase.recordingDidFinish(endReason: nil)
+        try await harness.wait("辞退後の待ち") { harness.clock.requestedDurations.count == sleeps + 1 }
         try await BLEBoundedWaiter.settle()
+        XCTAssertEqual(harness.clock.requestedDurations.last, .seconds(5))
         XCTAssertEqual(harness.useCase.state, .standby)
         XCTAssertEqual(harness.initialization.responses.callCount, 1)
     }

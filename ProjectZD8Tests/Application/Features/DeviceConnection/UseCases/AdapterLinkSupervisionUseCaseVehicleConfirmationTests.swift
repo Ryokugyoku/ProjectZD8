@@ -191,9 +191,9 @@ final class AdapterLinkSupervisionUseCaseVehicleConfirmationTests: XCTestCase {
         XCTAssertEqual(harness.initialization.responses.callCount, 2)
     }
 
-    /// 背面で時計が進まなくても、600回の確認の後は休止せず、60秒間隔で確認を続けます。
+    /// 背面で時計が進まなくても、600回の確認の後は休止せず、5秒間隔で確認を続けます(S1-1)。
     ///
-    /// 責務: 600回目の無応答で60秒の待機が要求され、その待機明けごとに確認が1回ずつ増え、状態が確認中のままであることを確認します
+    /// 責務: 600回目の無応答で5秒の待機が要求され、その待機明けごとに確認が1回ずつ増え、状態が確認中のままであることを確認します
     /// (U3 受け入れ条件 4 を窓後継続へ改定)。
     func testFrozenClockInBackgroundContinuesAtExtendedIntervalAfterAttemptLimit() async throws {
         let harness = makeHarness()
@@ -202,7 +202,7 @@ final class AdapterLinkSupervisionUseCaseVehicleConfirmationTests: XCTestCase {
         XCTAssertEqual(harness.vehicleResponse.timeouts.count, attemptLimit)
         XCTAssertEqual(harness.vehicleResponse.timeouts.first, .standard)
         XCTAssertEqual(harness.vehicleResponse.timeouts.dropFirst().filter { $0 == .adapterMaximum }.count, attemptLimit - 1)
-        XCTAssertEqual(harness.clock.requestedDurations.last, .seconds(60))
+        XCTAssertEqual(harness.clock.requestedDurations.last, .seconds(5))
 
         for round in 1...3 {
             let confirmations = harness.vehicleResponse.timeouts.count
@@ -212,29 +212,30 @@ final class AdapterLinkSupervisionUseCaseVehicleConfirmationTests: XCTestCase {
             XCTAssertEqual(harness.vehicleResponse.timeouts.last, .adapterMaximum)
             XCTAssertTrue(harness.vehicleResponse.responses.resumeOldest(with: .success(.noResponse)))
             try await harness.wait("\(round)回目の窓後の待機") { harness.clock.requestedDurations.count == sleeps + 1 }
-            XCTAssertEqual(harness.clock.requestedDurations.last, .seconds(60))
+            XCTAssertEqual(harness.clock.requestedDurations.last, .seconds(5))
             XCTAssertTrue(harness.isConfirming(.probing))
         }
         XCTAssertEqual(harness.notifications.presentedVehicleDetectedVINs, [])
     }
 
-    /// 確認窓は初期化完了ではなくリンク `ready` の時刻から10分で、窓を過ぎた再確認は60秒間隔になります。
+    /// 確認窓は初期化完了ではなくリンク `ready` の時刻から10分で、窓を過ぎた再確認は5秒間隔になります(S1-1)。
     ///
-    /// 責務: 初期化に100秒かかり1回の確認に30秒かかる場合、100〜580秒に送った17回の後は、休止せず窓後の間隔(前回の確認から60秒)の
-    /// 待機が要求され、その待機明けに18回目を送ることを確認します。
+    /// 責務: 初期化に100秒かかり1回の確認に3秒かかる場合、100〜598秒に送った167回の後(601秒に受け取り)は、休止せず
+    /// 窓後の間隔(前回の確認から5秒)までの残り2秒の待機が要求され、その待機明けに168回目を送ることを確認します。
+    /// 窓を初期化完了(100秒)から測ると、601秒はまだ窓の内なので待機は要求されません。
     func testWindowIsMeasuredFromLinkReadyTime() async throws {
         let harness = makeHarness()
         harness.startSignedIn()
         try await harness.makeLinkReady()
         harness.clock.now = F.date(100)
         try await harness.finishInitialization()
-        try await runNoResponseCyclesUntilExtendedWait(harness, eachTaking: 30)
-        XCTAssertEqual(harness.vehicleResponse.timeouts.count, 17)
-        XCTAssertEqual(harness.clock.requestedDurations.last, .seconds(30), "610秒に受け取り、最後の確認(580秒)から60秒後まで")
+        try await runNoResponseCyclesUntilExtendedWait(harness, eachTaking: 3)
+        XCTAssertEqual(harness.vehicleResponse.timeouts.count, 167)
+        XCTAssertEqual(harness.clock.requestedDurations.last, .seconds(2), "601秒に受け取り、最後の確認(598秒)から5秒後まで")
         XCTAssertEqual(harness.link.stopCount, 0)
 
-        XCTAssertTrue(harness.clock.finishOldestSleep(advancingBy: 30))
-        try await harness.wait("18回目の確認") { harness.vehicleResponse.timeouts.count == 18 }
+        XCTAssertTrue(harness.clock.finishOldestSleep(advancingBy: 2))
+        try await harness.wait("168回目の確認") { harness.vehicleResponse.timeouts.count == 168 }
         XCTAssertTrue(harness.isConfirming(.probing))
     }
 
