@@ -9,10 +9,6 @@
     "ProjectZD8/Application/Features/Logging/UseCases/ConnectionSessionAcquisitionRecorder.swift": {
       "file_lines": 528
     },
-    "ProjectZD8/Application/Features/VehicleManagement/State/VehicleManagementModel.swift": {
-      "file_lines": 541,
-      "function_count": 21
-    },
     "ProjectZD8/Data/Devices/BLELink/BLEAdapterLink.swift": {
       "file_lines": 601,
       "function_count": 34
@@ -174,14 +170,6 @@
     "ProjectZD8/Application/Features/Maintenance/State/MaintenancePresentationText.swift": {
       "localizationKey#1": {
         "cyclomatic": 30
-      }
-    },
-    "ProjectZD8/Application/Features/VehicleManagement/State/VehicleManagementModel.swift": {
-      "identifyVehicle#0": {
-        "cyclomatic": 14
-      },
-      "send#0": {
-        "cyclomatic": 17
       }
     },
     "ProjectZD8/Data/Devices/BLELink/BLEAdapterLink.swift": {

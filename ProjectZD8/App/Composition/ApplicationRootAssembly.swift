@@ -28,6 +28,7 @@ enum ApplicationRootAssembly {
             lifecycle: foundation.lifecycle,
             liveTelemetry: liveTelemetry
         )
+        ConnectionSessionActivityRelay.start(lifecycle: foundation.lifecycle, vehicleManagement: vehicleManagement)
         let maintenance = Platform.makeMaintenanceModel(database: foundation.database)
         let authentication = Platform.makeAuthenticationSessionModel(
             database: foundation.database,
