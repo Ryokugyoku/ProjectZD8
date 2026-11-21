@@ -31,6 +31,7 @@ python3 -m unittest discover -s Tools/XcodeTestRunner/Tests -v
 - 実行範囲(ツール): `Tools/CodeMetrics/`・`Tools/XcodeTestRunner/` を変えたら、それぞれの unittest 全件。
 - CI: `tests.yml`(PR と main push。macOS 単体テスト全件 `-only-testing:ProjectZD8Tests`、UI テストは署名なしで起動不可のため対象外。Ruby・Python テストも実行。Xcode 26.6、`CODE_SIGNING_ALLOWED=NO`)、`testflight.yml`(main で手動、iOS/macOS アーカイブ→TestFlight)。
 - ローカルのビルド/テスト成功を、見た目・実機・実アダプター・CloudKit 本番・CI の成功として報告しない。
+- CloudKit のレコード種別・フィールド・クエリ条件を足した変更は、`Documentation/CLOUDKIT_SCHEMA_DEPLOYMENT.md` の表を同じ PR で更新し、PR 説明に「本番スキーマへの反映が必要」と書く。本番環境は種別を自動作成しないので、反映前の TestFlight 版ではその保存が必ず失敗する。
 
 ## アーキテクチャ
 
