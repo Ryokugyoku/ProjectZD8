@@ -34,9 +34,10 @@ nonisolated struct GeoPolylineSimplifier: Sendable {
     /// 責務: 各折れ線の端点を残し、合計の点数が pointBudget 以下になるまで許容誤差を倍々にし、上限でも超える時は等間隔に間引きます。
     /// - Parameters:
     ///   - polylines: 折れ線の列。
-    ///   - pointBudget: 合計の点数の上限。
+    ///   - requestedBudget: 合計の点数の上限。0 未満は 0 として扱い、各折れ線の端点だけを返します。
     /// - Returns: 減らした折れ線の列(本数と順序は入力と同じ)。
-    func simplify(_ polylines: [[GeoCoordinate]], pointBudget: Int) -> [[GeoCoordinate]] {
+    func simplify(_ polylines: [[GeoCoordinate]], pointBudget requestedBudget: Int) -> [[GeoCoordinate]] {
+        let pointBudget = max(requestedBudget, 0)
         guard Self.pointCount(of: polylines) > pointBudget else { return polylines }
         let significances = polylines.map(Self.significances(of:))
         var coarsest = polylines
