@@ -44,7 +44,9 @@ final class RoadRegulationDataMonthTests: XCTestCase {
         XCTAssertLessThan(nov2026, dec2026)
         XCTAssertLessThan(dec2026, jan2027)
         XCTAssertGreaterThan(jan2027, nov2026)
-        XCTAssertFalse(nov2026 < nov2026)
+        let sameMonth = try XCTUnwrap(RoadRegulationDataMonth(yyyymm: "202611"))
+        XCTAssertFalse(nov2026 < sameMonth)
+        XCTAssertFalse(sameMonth < nov2026)
         XCTAssertEqual(nov2026, RoadRegulationDataMonth(yyyymm: "202611"))
     }
 }
