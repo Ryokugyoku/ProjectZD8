@@ -14,6 +14,18 @@ struct MacOSConnectionHistoryView: View {
     let analysisState: SessionLogAnalysisState
     /// PID時系列解析操作をApplicationへ通知します。
     let sendAnalysis: (SessionLogAnalysisAction) -> Void
+    /// セッション詳細の走行ルート(地図)の表示状態です。
+    let drivingRouteState: DrivingRouteDetailState
+    /// 走行ルートの操作をApplicationへ通知します。
+    let sendDrivingRoute: (DrivingRouteDetailAction) -> Void
+    /// PID解析画面の走行ルート(色分けとグラフ連動)の表示状態です。
+    let routeAnalysisState: RouteAnalysisState
+    /// 解析画面の走行ルートの操作をApplicationへ通知します。
+    let sendRouteAnalysis: (RouteAnalysisAction) -> Void
+    /// PID解析画面の交通規制の照合の表示状態です。
+    let roadRegulationReviewState: SessionRoadRegulationReviewState
+    /// 解析画面の交通規制の照合の操作をApplicationへ通知します。
+    let sendRoadRegulationReview: (SessionRoadRegulationReviewAction) -> Void
     /// 現在のウインドウサイズに対応する表示寸法です。
     let metrics: MacOSAppShellMetrics
 
@@ -87,6 +99,12 @@ struct MacOSConnectionHistoryView: View {
                     send: send,
                     analysisState: analysisState,
                     sendAnalysis: sendAnalysis,
+                    drivingRouteState: drivingRouteState,
+                    sendDrivingRoute: sendDrivingRoute,
+                    routeAnalysisState: routeAnalysisState,
+                    sendRouteAnalysis: sendRouteAnalysis,
+                    roadRegulationReviewState: roadRegulationReviewState,
+                    sendRoadRegulationReview: sendRoadRegulationReview,
                     isDeleting: state.deletingSessionID == session.id,
                     back: { navigationState.returnToVehicleSessionList() }
                 )

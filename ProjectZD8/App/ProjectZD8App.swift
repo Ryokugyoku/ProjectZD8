@@ -30,6 +30,18 @@ struct ProjectZD8App: App {
     /// 保存済みPIDログの読取専用解析状態を保持するモデルです。
     @State private var sessionLogAnalysisModel: SessionLogAnalysisModel
 
+    /// セッション詳細の走行ルート(地図)の読み込み状態を保持するモデルです。
+    @State private var drivingRouteDetailModel: DrivingRouteDetailModel
+
+    /// 解析画面の走行ルート(色分けとグラフ連動)の状態を保持するモデルです。
+    @State private var routeAnalysisModel: RouteAnalysisModel
+
+    /// 交通規制データの管理画面(取得・更新・削除)の状態を保持するモデルです。
+    @State private var roadRegulationSettingsModel: RoadRegulationSettingsModel
+
+    /// 解析画面の交通規制の照合の状態を保持するモデルです。
+    @State private var sessionRoadRegulationReviewModel: SessionRoadRegulationReviewModel
+
     /// HOME接続要求を車両識別とPID継続取得へ展開するユースケースです。
     private let startVehicleConnection: StartVehicleConnectionUseCase
 
@@ -93,6 +105,10 @@ struct ProjectZD8App: App {
         _connectionSessionLifecycleModel = State(initialValue: models.connectionSessionLifecycle)
         _connectionHistoryModel = State(initialValue: models.connectionHistory)
         _sessionLogAnalysisModel = State(initialValue: models.sessionLogAnalysis)
+        _drivingRouteDetailModel = State(initialValue: models.drivingRouteDetail)
+        _routeAnalysisModel = State(initialValue: models.routeAnalysis)
+        _roadRegulationSettingsModel = State(initialValue: models.roadRegulationSettings)
+        _sessionRoadRegulationReviewModel = State(initialValue: models.sessionRoadRegulationReview)
         startVehicleConnection = ApplicationRootAssembly.makeStartVehicleConnection(vehicleManagement: models.vehicleManagement)
         sessionLocationRecording = models.sessionLocationRecording
         models.sessionLocationRecording.launch()
@@ -128,21 +144,7 @@ struct ProjectZD8App: App {
                 }
 #elseif os(macOS)
                 if authenticationModel.state.phase.showsAuthenticatedShell {
-                    MacOSAppShellView(
-                        accountSettingsModel: accountSettingsModel,
-                        settingsModel: macOSSettingsModel,
-                        vehicleManagementModel: vehicleManagementModel,
-                        maintenanceModel: maintenanceModel,
-                        liveTelemetryModel: liveTelemetryModel,
-                        connectionHistoryModel: connectionHistoryModel,
-                        connectionSessionLifecycleModel: connectionSessionLifecycleModel,
-                        sessionLogAnalysisModel: sessionLogAnalysisModel,
-                        startVehicleConnection: startVehicleConnection,
-                        vehicleOffDelayModel: vehicleOffDelayModel,
-                        accountDeletionPhase: authenticationModel.state.accountDeletionPhase,
-                        accountDeletionFailure: authenticationModel.state.accountDeletionFailure,
-                        sendAuthenticationAction: authenticationModel.send
-                    )
+                    macOSAuthenticatedShell
                     .transition(.opacity)
                     .onAppear(perform: activateAuthenticatedSettingsScope)
                 } else {
@@ -187,12 +189,41 @@ struct ProjectZD8App: App {
             connectionHistoryModel: connectionHistoryModel,
             connectionSessionLifecycleModel: connectionSessionLifecycleModel,
             sessionLogAnalysisModel: sessionLogAnalysisModel,
+            drivingRouteDetailModel: drivingRouteDetailModel,
+            routeAnalysisModel: routeAnalysisModel,
+            roadRegulationSettingsModel: roadRegulationSettingsModel,
+            sessionRoadRegulationReviewModel: sessionRoadRegulationReviewModel,
             startVehicleConnection: startVehicleConnection,
             automaticRecordingModel: automaticRecordingModel,
             routeRecordingSettingsModel: routeRecordingSettingsModel,
             vehicleOffDelayModel: vehicleOffDelayModel,
             unassignedVINWarningModel: unassignedVINWarningModel,
             vehicleUnknownSessionModel: vehicleUnknownSessionModel,
+            accountDeletionPhase: authenticationModel.state.accountDeletionPhase,
+            accountDeletionFailure: authenticationModel.state.accountDeletionFailure,
+            sendAuthenticationAction: authenticationModel.send
+        )
+    }
+    #endif
+
+    #if os(macOS)
+    /// 認証済みの時に表示するmacOSのルート画面です。
+    private var macOSAuthenticatedShell: some View {
+        MacOSAppShellView(
+            accountSettingsModel: accountSettingsModel,
+            settingsModel: macOSSettingsModel,
+            vehicleManagementModel: vehicleManagementModel,
+            maintenanceModel: maintenanceModel,
+            liveTelemetryModel: liveTelemetryModel,
+            connectionHistoryModel: connectionHistoryModel,
+            connectionSessionLifecycleModel: connectionSessionLifecycleModel,
+            sessionLogAnalysisModel: sessionLogAnalysisModel,
+            drivingRouteDetailModel: drivingRouteDetailModel,
+            routeAnalysisModel: routeAnalysisModel,
+            roadRegulationSettingsModel: roadRegulationSettingsModel,
+            sessionRoadRegulationReviewModel: sessionRoadRegulationReviewModel,
+            startVehicleConnection: startVehicleConnection,
+            vehicleOffDelayModel: vehicleOffDelayModel,
             accountDeletionPhase: authenticationModel.state.accountDeletionPhase,
             accountDeletionFailure: authenticationModel.state.accountDeletionFailure,
             sendAuthenticationAction: authenticationModel.send
@@ -256,6 +287,15 @@ struct ProjectZD8App: App {
         connectionHistoryModel.send(
             .automaticUploadChanged(accountSettingsModel.settings.automaticSessionUploadEnabled)
         )
+        drivingRouteDetailModel.send(
+            .accountIdentifierChanged(authenticationModel.state.session?.userIdentifier)
+        )
+        routeAnalysisModel.send(
+            .accountIdentifierChanged(authenticationModel.state.session?.userIdentifier)
+        )
+        sessionRoadRegulationReviewModel.send(
+            .accountIdentifierChanged(authenticationModel.state.session?.userIdentifier)
+        )
         #if os(iOS)
         automaticRecordingModel.send(.signInStateChanged(isSignedIn: authenticationModel.state.phase == .signedIn))
         unassignedVINWarningModel.send(
@@ -302,6 +342,9 @@ struct ProjectZD8App: App {
     private func detachAccountScope() {
         connectionSessionLifecycleModel.send(.accountIdentifierChanged(nil))
         connectionHistoryModel.send(.accountIdentifierChanged(nil))
+        drivingRouteDetailModel.send(.accountIdentifierChanged(nil))
+        routeAnalysisModel.send(.accountIdentifierChanged(nil))
+        sessionRoadRegulationReviewModel.send(.accountIdentifierChanged(nil))
         accountSettingsModel.send(.accountIdentifierChanged(nil))
         vehicleManagementModel.send(.accountIdentifierChanged(nil))
         maintenanceModel.send(.accountIdentifierChanged(nil))

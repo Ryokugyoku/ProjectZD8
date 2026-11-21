@@ -43,7 +43,11 @@ enum ApplicationRootAssembly {
             connectionSessionLifecycle: foundation.lifecycle,
             connectionHistory: foundation.history,
             sessionLogAnalysis: foundation.analysis,
-            sessionLocationRecording: foundation.sessionLocationRecording
+            drivingRouteDetail: foundation.drivingRouteDetail,
+            routeAnalysis: foundation.routeAnalysis,
+            sessionLocationRecording: foundation.sessionLocationRecording,
+            roadRegulationSettings: foundation.roadRegulationSettings,
+            sessionRoadRegulationReview: foundation.sessionRoadRegulationReview
         )
     }
 
@@ -96,9 +100,13 @@ enum ApplicationRootAssembly {
             storage: storage,
             history: history,
             analysis: analysis,
+            drivingRouteDetail: DrivingRouteComposition.makeDetailModel(database: database),
+            routeAnalysis: RouteAnalysisComposition.makeModel(database: database),
             lifecycle: lifecycle,
             sessionLocationRecording: sessionLocation.driver,
-            routeRecordingSettings: sessionLocation.settings
+            routeRecordingSettings: sessionLocation.settings,
+            roadRegulationSettings: RoadRegulationAssembly.makeSettingsModel(database: database),
+            sessionRoadRegulationReview: SessionRoadRegulationReviewComposition.makeModel(database: database, rawLogs: storage.sessions)
         )
     }
 

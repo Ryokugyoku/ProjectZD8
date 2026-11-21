@@ -30,6 +30,18 @@ struct IOSDestinationView: View {
     /// 接続履歴内のPID解析画面へ渡す状態です。
     let sessionLogAnalysisState: SessionLogAnalysisState
 
+    /// 接続履歴内のセッション詳細の走行ルート(地図)へ渡す状態です。
+    let drivingRouteDetailState: DrivingRouteDetailState
+
+    /// 接続履歴内のPID解析画面の走行ルート(色分けとグラフ連動)へ渡す状態です。
+    let routeAnalysisState: RouteAnalysisState
+
+    /// 設定画面の交通規制データのカードと管理画面へ渡す状態です。
+    let roadRegulationSettingsState: RoadRegulationSettingsState
+
+    /// 接続履歴内のPID解析画面の交通規制の照合へ渡す状態です。
+    let sessionRoadRegulationReviewState: SessionRoadRegulationReviewState
+
     /// HOMEの操作をAppShellへ通知するクロージャです。
     let sendHomeAction: (IOSHomeAction) -> Void
 
@@ -53,6 +65,18 @@ struct IOSDestinationView: View {
 
     /// PID解析操作をAnalysisへ通知します。
     let sendSessionLogAnalysisAction: (SessionLogAnalysisAction) -> Void
+
+    /// 走行ルートの操作をLogHistoryへ通知します。
+    let sendDrivingRouteDetailAction: (DrivingRouteDetailAction) -> Void
+
+    /// 解析画面の走行ルートの操作をAnalysisへ通知します。
+    let sendRouteAnalysisAction: (RouteAnalysisAction) -> Void
+
+    /// 交通規制データの管理画面の操作をRoadRegulationへ通知します。
+    let sendRoadRegulationSettingsAction: (RoadRegulationSettingsAction) -> Void
+
+    /// 解析画面の交通規制の照合の操作をAnalysisへ通知します。
+    let sendSessionRoadRegulationReviewAction: (SessionRoadRegulationReviewAction) -> Void
 
     /// 設定画面の「車両検知時の記録開始」区画に表示する内容です。
     let automaticRecordingSection: AutomaticRecordingSettingsSection
@@ -106,7 +130,13 @@ struct IOSDestinationView: View {
                 state: connectionHistoryState,
                 send: sendConnectionHistoryAction,
                 analysisState: sessionLogAnalysisState,
-                sendAnalysis: sendSessionLogAnalysisAction
+                sendAnalysis: sendSessionLogAnalysisAction,
+                drivingRouteState: drivingRouteDetailState,
+                sendDrivingRoute: sendDrivingRouteDetailAction,
+                routeAnalysisState: routeAnalysisState,
+                sendRouteAnalysis: sendRouteAnalysisAction,
+                roadRegulationReviewState: sessionRoadRegulationReviewState,
+                sendRoadRegulationReview: sendSessionRoadRegulationReviewAction
             )
         case .maintenance:
             IOSMaintenanceView(state: maintenanceState, send: sendMaintenanceAction)
@@ -157,7 +187,9 @@ struct IOSDestinationView: View {
             sendVehicleOffAction: sendVehicleOffAction,
             accountDeletionPhase: accountDeletionPhase,
             accountDeletionFailure: accountDeletionFailure,
-            sendAuthenticationAction: sendAuthenticationAction
+            sendAuthenticationAction: sendAuthenticationAction,
+            roadRegulationState: roadRegulationSettingsState,
+            sendRoadRegulationAction: sendRoadRegulationSettingsAction
         )
     }
 

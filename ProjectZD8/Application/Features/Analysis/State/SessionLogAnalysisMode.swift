@@ -8,6 +8,8 @@ nonisolated enum SessionLogAnalysisMode: String, CaseIterable, Identifiable, Sen
     case trends
     /// 2件のPIDの関係を散布図で確認します。
     case relationships
+    /// 走行ルートを記録した値で色分けし、グラフと連動させて確認します。
+    case route
 
     /// Pickerで使用する安定識別子です。
     var id: String { rawValue }
@@ -18,6 +20,7 @@ nonisolated enum SessionLogAnalysisMode: String, CaseIterable, Identifiable, Sen
         case .overview: "analysis.mode.overview"
         case .trends: "analysis.mode.trends"
         case .relationships: "analysis.mode.relationships"
+        case .route: "analysis.mode.route"
         }
     }
 }

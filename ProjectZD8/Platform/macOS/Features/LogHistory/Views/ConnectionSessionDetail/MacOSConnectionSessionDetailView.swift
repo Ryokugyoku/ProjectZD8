@@ -13,12 +13,26 @@ struct MacOSConnectionSessionDetailView: View {
     let analysisState: SessionLogAnalysisState
     /// PID時系列解析操作をApplicationへ通知します。
     let sendAnalysis: (SessionLogAnalysisAction) -> Void
+    /// 走行ルート(地図)の表示状態です。
+    let drivingRouteState: DrivingRouteDetailState
+    /// 走行ルートの操作をApplicationへ通知します。
+    let sendDrivingRoute: (DrivingRouteDetailAction) -> Void
+    /// PID解析画面の走行ルート(色分けとグラフ連動)の表示状態です。
+    let routeAnalysisState: RouteAnalysisState
+    /// 解析画面の走行ルートの操作をApplicationへ通知します。
+    let sendRouteAnalysis: (RouteAnalysisAction) -> Void
+    /// PID解析画面の交通規制の照合の表示状態です。
+    let roadRegulationReviewState: SessionRoadRegulationReviewState
+    /// 解析画面の交通規制の照合の操作をApplicationへ通知します。
+    let sendRoadRegulationReview: (SessionRoadRegulationReviewAction) -> Void
     /// 表示対象を全端末から削除している途中かを示します。
     let isDeleting: Bool
     /// 車両セッション一覧へ戻る一時的な画面遷移操作です。
     let back: () -> Void
     /// PID時系列解析画面を表示しているかを示す一時的なナビゲーション状態です。
     @State private var isAnalysisPresented = false
+    /// 走行ルートの地図を大きく表示しているかを示す一時的な表示状態です。
+    @State private var isRouteMapPresented = false
     /// 詳細画面の判定・整形・文言キーの選択です。
     private let formatter = ConnectionSessionDetailTextFormatter()
 
@@ -46,12 +60,30 @@ struct MacOSConnectionSessionDetailView: View {
         .background(MacOSConnectionSessionDetailBackground(scale: metrics.scale))
         .navigationTitle("history.detail.title")
         .navigationDestination(isPresented: $isAnalysisPresented) {
-            MacOSSessionLogAnalysisView(session: session, state: analysisState, send: sendAnalysis, metrics: metrics)
+            MacOSSessionLogAnalysisView(
+                session: session,
+                state: analysisState,
+                send: sendAnalysis,
+                routeAnalysisState: routeAnalysisState,
+                sendRouteAnalysis: sendRouteAnalysis,
+                roadRegulationReviewState: roadRegulationReviewState,
+                sendRoadRegulationReview: sendRoadRegulationReview,
+                metrics: metrics
+            )
         }
         .onChange(of: isAnalysisPresented) { wasPresented, isPresented in
             guard wasPresented, !isPresented else { return }
             send(.localDataChanged)
         }
+        .sheet(isPresented: routeMapSheetBinding) {
+            if let content = loadedRouteContent {
+                MacOSConnectionSessionDetailRouteMapSheet(content: content, scale: metrics.scale) {
+                    isRouteMapPresented = false
+                }
+            }
+        }
+        .task(id: session.id) { sendDrivingRoute(.sessionShown(session)) }
+        .onDisappear { sendDrivingRoute(.sessionHidden(session.id)) }
         .alert(
             "analysis.download.confirm.title",
             isPresented: Binding(
@@ -89,6 +121,12 @@ struct MacOSConnectionSessionDetailView: View {
                 messageKey: formatter.stopReviewMessageKey(session),
                 onReview: { send(.stopReviewRequested(session.id)) }
             )
+            MacOSConnectionSessionDetailRouteCard(
+                phase: drivingRouteState.phase,
+                scale: metrics.scale,
+                onExpand: { isRouteMapPresented = true },
+                onRetry: { sendDrivingRoute(.retryRequested) }
+            )
             HStack(alignment: .top, spacing: 16 * metrics.scale) {
                 rawDataCard
                 analysisCard
@@ -101,6 +139,20 @@ struct MacOSConnectionSessionDetailView: View {
             )
             MacOSConnectionSessionDetailLineageCard(scale: metrics.scale)
         }
+    }
+
+    /// 地図に描ける走行ルートの内容です。描ける段階でなければ `nil` です。
+    private var loadedRouteContent: DrivingRouteMapContent? {
+        guard case .loaded(let content) = drivingRouteState.phase else { return nil }
+        return content
+    }
+
+    /// 地図を大きく表示するシートの表示状態です。描ける内容が無くなった時はシートを閉じた扱いにします。
+    private var routeMapSheetBinding: Binding<Bool> {
+        Binding(
+            get: { isRouteMapPresented && loadedRouteContent != nil },
+            set: { isRouteMapPresented = $0 }
+        )
     }
 
     /// 未デコードRawログの件数と容量を表示します。

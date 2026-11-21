@@ -33,6 +33,18 @@ struct MacOSAppShellView: View {
     /// 保存済みPID時系列解析を提供するモデルです。
     let sessionLogAnalysisModel: SessionLogAnalysisModel
 
+    /// セッション詳細の走行ルート(地図)を提供するモデルです。
+    let drivingRouteDetailModel: DrivingRouteDetailModel
+
+    /// 解析画面の走行ルート(色分けとグラフ連動)を提供するモデルです。
+    let routeAnalysisModel: RouteAnalysisModel
+
+    /// 交通規制データの管理画面(取得・更新・削除)の状態を提供するモデルです。
+    let roadRegulationSettingsModel: RoadRegulationSettingsModel
+
+    /// 解析画面の交通規制の照合の状態を提供するモデルです。
+    let sessionRoadRegulationReviewModel: SessionRoadRegulationReviewModel
+
     /// HOME接続要求をApplicationワークフローへ通知するユースケースです。
     let startVehicleConnection: StartVehicleConnectionUseCase
 
@@ -60,6 +72,10 @@ struct MacOSAppShellView: View {
     ///   - connectionHistoryModel: アカウント単位の接続履歴を提供するモデル。
     ///   - connectionSessionLifecycleModel: 記録中の接続セッションを提供するモデル。
     ///   - sessionLogAnalysisModel: 保存済みPID時系列解析を提供するモデル。
+    ///   - drivingRouteDetailModel: セッション詳細の走行ルート(地図)を提供するモデル。
+    ///   - routeAnalysisModel: 解析画面の走行ルート(色分けとグラフ連動)を提供するモデル。
+    ///   - roadRegulationSettingsModel: 交通規制データの管理画面の状態を提供するモデル。
+    ///   - sessionRoadRegulationReviewModel: 解析画面の交通規制の照合の状態を提供するモデル。
     ///   - startVehicleConnection: HOME接続要求を車両識別とPID取得へ展開するユースケース。
     ///   - vehicleOffDelayModel: 「エンジン停止とみなす時間」の設定を提供するモデル。
     ///   - accountDeletionPhase: アカウント削除の現在段階。
@@ -74,6 +90,10 @@ struct MacOSAppShellView: View {
         connectionHistoryModel: ConnectionHistoryModel,
         connectionSessionLifecycleModel: ConnectionSessionLifecycleModel,
         sessionLogAnalysisModel: SessionLogAnalysisModel,
+        drivingRouteDetailModel: DrivingRouteDetailModel,
+        routeAnalysisModel: RouteAnalysisModel,
+        roadRegulationSettingsModel: RoadRegulationSettingsModel,
+        sessionRoadRegulationReviewModel: SessionRoadRegulationReviewModel,
         startVehicleConnection: StartVehicleConnectionUseCase,
         vehicleOffDelayModel: VehicleOffDetectionDelayModel,
         accountDeletionPhase: AccountDeletionPhase,
@@ -89,6 +109,10 @@ struct MacOSAppShellView: View {
         self.connectionHistoryModel = connectionHistoryModel
         self.connectionSessionLifecycleModel = connectionSessionLifecycleModel
         self.sessionLogAnalysisModel = sessionLogAnalysisModel
+        self.drivingRouteDetailModel = drivingRouteDetailModel
+        self.routeAnalysisModel = routeAnalysisModel
+        self.roadRegulationSettingsModel = roadRegulationSettingsModel
+        self.sessionRoadRegulationReviewModel = sessionRoadRegulationReviewModel
         self.startVehicleConnection = startVehicleConnection
         self.accountDeletionPhase = accountDeletionPhase
         self.accountDeletionFailure = accountDeletionFailure
@@ -142,6 +166,10 @@ struct MacOSAppShellView: View {
                     activeConnectionSession: connectionSessionLifecycleModel.activeSession,
                     connectionHistoryState: connectionHistoryModel.state,
                     sessionLogAnalysisState: sessionLogAnalysisModel.state,
+                    drivingRouteDetailState: drivingRouteDetailModel.state,
+                    routeAnalysisState: routeAnalysisModel.state,
+                    roadRegulationSettingsState: roadRegulationSettingsModel.state,
+                    sessionRoadRegulationReviewState: sessionRoadRegulationReviewModel.state,
                     sendHomeAction: handleHomeAction,
                     sendSettingsAction: settingsModel.send,
                     sendAccountSettingsAction: accountSettingsModel.send,
@@ -150,6 +178,10 @@ struct MacOSAppShellView: View {
                     sendLiveTelemetryAction: liveTelemetryModel.send,
                     sendConnectionHistoryAction: connectionHistoryModel.send,
                     sendSessionLogAnalysisAction: sessionLogAnalysisModel.send,
+                    sendDrivingRouteDetailAction: drivingRouteDetailModel.send,
+                    sendRouteAnalysisAction: routeAnalysisModel.send,
+                    sendRoadRegulationSettingsAction: roadRegulationSettingsModel.send,
+                    sendSessionRoadRegulationReviewAction: sessionRoadRegulationReviewModel.send,
                     accountDeletionPhase: accountDeletionPhase,
                     accountDeletionFailure: accountDeletionFailure,
                     vehicleOffSection: vehicleOffDelayModel.section,

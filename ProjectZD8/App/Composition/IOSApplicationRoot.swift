@@ -63,7 +63,11 @@ struct IOSApplicationRoot {
             connectionSessionLifecycle: foundation.lifecycle,
             connectionHistory: foundation.history,
             sessionLogAnalysis: foundation.analysis,
-            sessionLocationRecording: foundation.sessionLocationRecording
+            drivingRouteDetail: foundation.drivingRouteDetail,
+            routeAnalysis: foundation.routeAnalysis,
+            sessionLocationRecording: foundation.sessionLocationRecording,
+            roadRegulationSettings: foundation.roadRegulationSettings,
+            sessionRoadRegulationReview: foundation.sessionRoadRegulationReview
         )
         return IOSApplicationRoot(
             models: models,

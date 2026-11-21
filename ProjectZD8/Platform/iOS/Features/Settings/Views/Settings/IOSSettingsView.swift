@@ -16,6 +16,9 @@ struct IOSSettingsView: View {
     /// このViewが最後に処理した注目要求番号です。
     @State private var handledAdapterAttentionSequence: UInt = 0
 
+    /// 交通規制データの管理画面(シート)を出しているかどうかです。
+    @State private var isRoadRegulationDataPresented = false
+
     /// 注目要求を強調表示すべきかの判定です。
     private let attentionPolicy = AdapterSettingsAttentionPolicy()
 
@@ -58,6 +61,12 @@ struct IOSSettingsView: View {
     /// アカウント削除の型付き操作をAuthenticationへ通知します。
     let sendAuthenticationAction: (AuthenticationAction) -> Void
 
+    /// 交通規制データのカードと管理画面に表示する状態です。
+    let roadRegulationState: RoadRegulationSettingsState
+
+    /// 交通規制データの管理画面の操作をRoadRegulationへ通知するクロージャです。
+    let sendRoadRegulationAction: (RoadRegulationSettingsAction) -> Void
+
     /// iPhoneの縦方向操作に合わせた設定スクロール領域を提供します。
     ///
     /// 責務: アカウント同期対象設定とConnection固有設定を区別したiOS設定レイアウトとして描画します。
@@ -98,6 +107,10 @@ struct IOSSettingsView: View {
                     .environment(\.locale, Locale(identifier: accountSettings.language.localeIdentifier))
             }
         }
+        .sheet(isPresented: $isRoadRegulationDataPresented) {
+            IOSRoadRegulationDataView(state: roadRegulationState, send: sendRoadRegulationAction)
+                .environment(\.locale, Locale(identifier: accountSettings.language.localeIdentifier))
+        }
         .overlay {
             IOSAccountDeletionFlowView(
                 phase: accountDeletionPhase,
@@ -132,6 +145,10 @@ struct IOSSettingsView: View {
             IOSSettingsRouteRecordingCard(section: routeRecordingSection) {
                 sendRouteRecordingAction(.toggled(isEnabled: $0))
             }
+            IOSSettingsRoadRegulationCard(summary: roadRegulationState.summary) {
+                isRoadRegulationDataPresented = true
+            }
+            .onAppear { sendRoadRegulationAction(.appeared) }
             IOSSettingsVehicleOffCard(section: vehicleOffSection) {
                 sendVehicleOffAction(.delaySelected($0))
             }

@@ -11,10 +11,26 @@ struct IOSConnectionSessionDetailView: View {
     let analysisState: SessionLogAnalysisState
     /// PID時系列解析操作をApplicationへ通知します。
     let sendAnalysis: (SessionLogAnalysisAction) -> Void
+    /// 走行ルート(地図)の表示状態です。
+    let drivingRouteState: DrivingRouteDetailState
+    /// 走行ルートの操作をApplicationへ通知します。
+    let sendDrivingRoute: (DrivingRouteDetailAction) -> Void
+    /// PID解析画面の走行ルート(色分けとグラフ連動)の表示状態です。
+    let routeAnalysisState: RouteAnalysisState
+    /// 解析画面の走行ルートの操作をApplicationへ通知します。
+    let sendRouteAnalysis: (RouteAnalysisAction) -> Void
+    /// PID解析画面の交通規制の照合の表示状態です。
+    let roadRegulationReviewState: SessionRoadRegulationReviewState
+    /// 解析画面の交通規制の照合の操作をApplicationへ通知します。
+    let sendRoadRegulationReview: (SessionRoadRegulationReviewAction) -> Void
     /// 表示対象をiCloudを含めて削除している途中かを示します。
     let isDeleting: Bool
     /// PID時系列解析画面を表示しているかを示す一時的なナビゲーション状態です。
     @State private var isAnalysisPresented = false
+    /// 大きく表示している走行ルートの地図の内容です。表示していない時は `nil` です。
+    ///
+    /// 画面全体の表示中に下の画面の表示が外れて状態が変わっても、開いた時の内容を描き続けるために保持します。
+    @State private var expandedRouteContent: DrivingRouteMapContent?
     /// 詳細画面の判定・整形・文言キーの選択です。
     private let formatter = ConnectionSessionDetailTextFormatter()
 
@@ -39,6 +55,11 @@ struct IOSConnectionSessionDetailView: View {
                     messageKey: formatter.stopReviewMessageKey(session),
                     onReview: { send(.stopReviewRequested(session.id)) }
                 )
+                IOSConnectionSessionDetailRouteCard(
+                    phase: drivingRouteState.phase,
+                    onExpand: { expandedRouteContent = $0 },
+                    onRetry: { sendDrivingRoute(.retryRequested) }
+                )
                 IOSConnectionSessionDetailRawMetrics(
                     recordCountText: session.rawLogSummary.recordCount.formatted(),
                     byteCountText: formatter.byteCountText(session.rawLogSummary.byteCount)
@@ -56,8 +77,23 @@ struct IOSConnectionSessionDetailView: View {
         .navigationTitle("history.detail.title")
         .navigationBarTitleDisplayMode(.inline)
         .navigationDestination(isPresented: $isAnalysisPresented) {
-            IOSSessionLogAnalysisView(session: session, state: analysisState, send: sendAnalysis)
+            IOSSessionLogAnalysisView(
+                session: session,
+                state: analysisState,
+                send: sendAnalysis,
+                routeAnalysisState: routeAnalysisState,
+                sendRouteAnalysis: sendRouteAnalysis,
+                roadRegulationReviewState: roadRegulationReviewState,
+                sendRoadRegulationReview: sendRoadRegulationReview
+            )
         }
+        .fullScreenCover(isPresented: isRouteMapExpanded) {
+            if let expandedRouteContent {
+                IOSConnectionSessionDetailRouteMapSheet(content: expandedRouteContent, onClose: { self.expandedRouteContent = nil })
+            }
+        }
+        .task(id: session.id) { sendDrivingRoute(.sessionShown(session)) }
+        .onDisappear { sendDrivingRoute(.sessionHidden(session.id)) }
         .alert(
             "analysis.download.confirm.title",
             isPresented: Binding(
@@ -87,6 +123,16 @@ struct IOSConnectionSessionDetailView: View {
         if session.rawLogSummary.localState != .removed {
             isAnalysisPresented = true
         }
+    }
+
+    /// 走行ルートの地図を画面全体に表示しているかの束縛です。
+    ///
+    /// 責務: 保持している地図の内容の有無を表示の可否とし、閉じられた時に内容を捨てます。
+    private var isRouteMapExpanded: Binding<Bool> {
+        Binding(
+            get: { expandedRouteContent != nil },
+            set: { if !$0 { expandedRouteContent = nil } }
+        )
     }
 
     /// iCloud取得確認用に予定容量を含む本文を返します。

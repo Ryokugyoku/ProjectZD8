@@ -42,4 +42,23 @@ final class SessionLogAnalysisModeTests: XCTestCase {
             XCTAssertNotEqual(String(localized: String.LocalizationValue(key)), key)
         }
     }
+
+    /// ルートのモードは識別子とタイトルキーを持ち、最後に並びます。
+    ///
+    /// 責務: `.route` の id・titleKey・allCases の数と順を確認します。
+    func testRouteModeIdentifierTitleKeyAndPosition() {
+        XCTAssertEqual(SessionLogAnalysisMode.route.id, "route")
+        XCTAssertEqual(SessionLogAnalysisMode.route.titleKey, "analysis.mode.route")
+        XCTAssertEqual(SessionLogAnalysisMode.allCases, [.overview, .trends, .relationships, .route])
+        XCTAssertEqual(SessionLogAnalysisMode.allCases.last, .route)
+    }
+
+    /// ルートのモードのタイトルキーが文言へ解決できます。
+    ///
+    /// 責務: `analysis.mode.route` がカタログに存在し(キー自体が返らない)、他のモードと重複しないことを確認します。
+    func testRouteTitleKeyIsLocalizedAndDistinct() {
+        let key = SessionLogAnalysisMode.route.titleKey
+        XCTAssertNotEqual(String(localized: String.LocalizationValue(key)), key)
+        XCTAssertEqual(SessionLogAnalysisMode.allCases.filter { $0.titleKey == key }.count, 1)
+    }
 }

@@ -14,6 +14,9 @@ struct MacOSSettingsView: View {
     /// このViewが最後に処理した注目要求番号です。
     @State private var handledAdapterAttentionSequence: UInt = 0
 
+    /// 交通規制データの管理画面(シート)を出しているかどうかです。
+    @State private var isRoadRegulationDataPresented = false
+
     /// スクロール対象として使うアダプター設定カードの識別子です。
     private static let adapterCardID = "macos-settings-adapter-card"
 
@@ -46,6 +49,12 @@ struct MacOSSettingsView: View {
 
     /// アカウント削除の型付き操作をAuthenticationへ通知します。
     let sendAuthenticationAction: (AuthenticationAction) -> Void
+
+    /// 交通規制データのカードと管理画面に表示する状態です。
+    let roadRegulationState: RoadRegulationSettingsState
+
+    /// 交通規制データの管理画面の操作をRoadRegulationへ通知するクロージャです。
+    let sendRoadRegulationAction: (RoadRegulationSettingsAction) -> Void
 
     /// 現在のウインドウサイズに対応する表示寸法です。
     let metrics: MacOSAppShellMetrics
@@ -100,6 +109,10 @@ struct MacOSSettingsView: View {
                 metrics: metrics
             )
             .environment(\.locale, Locale(identifier: accountSettings.language.localeIdentifier))
+        }
+        .sheet(isPresented: $isRoadRegulationDataPresented) {
+            MacOSRoadRegulationDataView(state: roadRegulationState, send: sendRoadRegulationAction, metrics: metrics)
+                .environment(\.locale, Locale(identifier: accountSettings.language.localeIdentifier))
         }
         .overlay {
             MacOSAccountDeletionFlowView(
@@ -173,6 +186,7 @@ struct MacOSSettingsView: View {
                     adapterCard
                     vehicleOffCard
                     uploadCard
+                    roadRegulationCard
                 }
             }
         } else {
@@ -182,8 +196,15 @@ struct MacOSSettingsView: View {
                 adapterCard
                 vehicleOffCard
                 uploadCard
+                roadRegulationCard
             }
         }
+    }
+
+    /// 交通規制データの取得状況と、管理画面を開くボタンを持つ設定カードです。表示された時に手元の版を読ませます。
+    private var roadRegulationCard: some View {
+        MacOSSettingsRoadRegulationCard(summary: roadRegulationState.summary, manage: { isRoadRegulationDataPresented = true }, metrics: metrics)
+            .onAppear { sendRoadRegulationAction(.appeared) }
     }
 
     /// 「エンジン停止とみなす時間」を選ぶ設定カードです。
