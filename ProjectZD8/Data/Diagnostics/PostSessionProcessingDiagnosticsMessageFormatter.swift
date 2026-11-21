@@ -48,19 +48,20 @@ struct PostSessionProcessingDiagnosticsMessageFormatter {
         "\(Self.prefix) deferred: account unavailable"
     }
 
-    /// 自動アップロードがオフのためアップロードを省いたときの文言です。
+    /// 自動アップロードがオフのためアップロード系のステップを省いたときの文言です。
     ///
-    /// 責務: 設定によるアップロード省略を固定文言へ変換します。
-    /// - Returns: `Post-session processing step upload skipped: automatic upload off`。
-    func uploadSkippedForAutomaticUploadOff() -> String {
-        "\(Self.prefix) step \(Self.name(of: .upload)) skipped: automatic upload off"
+    /// 責務: 設定によるステップの省略を、省いたステップの名前つきの固定文言へ変換します。
+    /// - Parameter step: 省いたステップ。
+    /// - Returns: `Post-session processing step <upload|location-track-upload> skipped: automatic upload off`。
+    func stepSkippedForAutomaticUploadOff(_ step: PostSessionProcessingStep) -> String {
+        "\(Self.prefix) step \(Self.name(of: step)) skipped: automatic upload off"
     }
 
     /// ステップが成功したときの文言です。
     ///
     /// 責務: ステップ成功を固定文言へ変換します。
     /// - Parameter step: 成功したステップ。
-    /// - Returns: `Post-session processing step <upload|eviction> succeeded`。
+    /// - Returns: `Post-session processing step <upload|location-track-upload|eviction> succeeded`。
     func stepSucceeded(_ step: PostSessionProcessingStep) -> String {
         "\(Self.prefix) step \(Self.name(of: step)) succeeded"
     }
@@ -72,7 +73,7 @@ struct PostSessionProcessingDiagnosticsMessageFormatter {
     ///   - step: 失敗したステップ。
     ///   - errorDomain: 失敗したエラーの `domain`。
     ///   - errorCode: 失敗したエラーの `code`。
-    /// - Returns: `Post-session processing step <upload|eviction> failed: <domain> <code>`。
+    /// - Returns: `Post-session processing step <upload|location-track-upload|eviction> failed: <domain> <code>`。
     func stepFailed(_ step: PostSessionProcessingStep, errorDomain: String, errorCode: Int) -> String {
         "\(Self.prefix) step \(Self.name(of: step)) failed: \(errorDomain) \(errorCode)"
     }
@@ -96,12 +97,13 @@ struct PostSessionProcessingDiagnosticsMessageFormatter {
 
     /// ステップの文言上の名前です。
     ///
-    /// 責務: ステップを `upload` または `eviction` へ変換します。
+    /// 責務: ステップを `upload`・`location-track-upload`・`eviction` のいずれかへ変換します。
     /// - Parameter step: 名前にするステップ。
     /// - Returns: ステップの名前。
     private static func name(of step: PostSessionProcessingStep) -> String {
         switch step {
         case .upload: "upload"
+        case .locationTrackUpload: "location-track-upload"
         case .eviction: "eviction"
         }
     }

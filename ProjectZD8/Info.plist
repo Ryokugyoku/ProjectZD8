@@ -8,12 +8,17 @@
 	</array>
 	<key>NSBluetoothAlwaysUsageDescription</key>
 	<string>アダプターの検出・接続と、接続中の車両データ取得にBluetoothを使用します。</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>記録中の走行ルートを端末内に保存して後で地図で確認できるように、また、アプリがバックグラウンドのまま自動で記録が始まった場合も最初からルートを残すために、位置情報を使用します。</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>記録中の走行ルートを端末内に保存し、後で地図で確認できるようにするために、位置情報を使用します。</string>
 	<key>NSSupportsLiveActivities</key>
 	<true/>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>bluetooth-central</string>
 		<string>external-accessory</string>
+		<string>location</string>
 		<string>processing</string>
 	</array>
 	<key>UISupportedExternalAccessoryProtocols</key>

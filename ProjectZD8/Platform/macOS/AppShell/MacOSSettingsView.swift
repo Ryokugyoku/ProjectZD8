@@ -14,6 +14,9 @@ struct MacOSSettingsView: View {
     /// このViewが最後に処理した注目要求番号です。
     @State private var handledAdapterAttentionSequence: UInt = 0
 
+    /// 交通規制データの管理画面(シート)を出しているかどうかです。
+    @State private var isRoadRegulationDataPresented = false
+
     /// スクロール対象として使うアダプター設定カードの識別子です。
     private static let adapterCardID = "macos-settings-adapter-card"
 
@@ -46,6 +49,12 @@ struct MacOSSettingsView: View {
 
     /// アカウント削除の型付き操作をAuthenticationへ通知します。
     let sendAuthenticationAction: (AuthenticationAction) -> Void
+
+    /// 交通規制データのカードと管理画面に表示する状態です。
+    let roadRegulationState: RoadRegulationSettingsState
+
+    /// 交通規制データの管理画面の操作をRoadRegulationへ通知するクロージャです。
+    let sendRoadRegulationAction: (RoadRegulationSettingsAction) -> Void
 
     /// 現在のウインドウサイズに対応する表示寸法です。
     let metrics: MacOSAppShellMetrics
@@ -100,6 +109,10 @@ struct MacOSSettingsView: View {
                 metrics: metrics
             )
             .environment(\.locale, Locale(identifier: accountSettings.language.localeIdentifier))
+        }
+        .sheet(isPresented: $isRoadRegulationDataPresented) {
+            MacOSRoadRegulationDataView(state: roadRegulationState, send: sendRoadRegulationAction, metrics: metrics)
+                .environment(\.locale, Locale(identifier: accountSettings.language.localeIdentifier))
         }
         .overlay {
             MacOSAccountDeletionFlowView(
@@ -173,6 +186,7 @@ struct MacOSSettingsView: View {
                     adapterCard
                     vehicleOffCard
                     uploadCard
+                    roadRegulationCard
                 }
             }
         } else {
@@ -182,8 +196,15 @@ struct MacOSSettingsView: View {
                 adapterCard
                 vehicleOffCard
                 uploadCard
+                roadRegulationCard
             }
         }
+    }
+
+    /// 交通規制データの取得状況と、管理画面を開くボタンを持つ設定カードです。表示された時に手元の版を読ませます。
+    private var roadRegulationCard: some View {
+        MacOSSettingsRoadRegulationCard(summary: roadRegulationState.summary, manage: { isRoadRegulationDataPresented = true }, metrics: metrics)
+            .onAppear { sendRoadRegulationAction(.appeared) }
     }
 
     /// 「エンジン停止とみなす時間」を選ぶ設定カードです。
@@ -193,11 +214,12 @@ struct MacOSSettingsView: View {
 
     /// 表示言語を切り替える設定カードです。
     private var languageCard: some View {
-        settingsCard(
+        MacOSSettingsCard(
             eyebrow: "settings.language.eyebrow",
             title: "settings.language.title",
             description: "settings.language.description",
-            systemImage: "character.bubble.fill"
+            systemImage: "character.bubble.fill",
+            metrics: metrics
         ) {
             Picker(
                 "settings.language.title",
@@ -218,11 +240,12 @@ struct MacOSSettingsView: View {
 
     /// 外観モードを切り替える設定カードです。
     private var appearanceCard: some View {
-        settingsCard(
+        MacOSSettingsCard(
             eyebrow: "settings.appearance.eyebrow",
             title: "settings.appearance.title",
             description: "settings.appearance.description",
-            systemImage: "circle.lefthalf.filled"
+            systemImage: "circle.lefthalf.filled",
+            metrics: metrics
         ) {
             HStack(spacing: 8 * metrics.scale) {
                 ForEach(SettingsAppearance.allCases) { appearance in
@@ -234,11 +257,12 @@ struct MacOSSettingsView: View {
 
     /// プライマリーと受信専用セカンダリーを示すアダプター設定カードです。
     private var adapterCard: some View {
-        settingsCard(
+        MacOSSettingsCard(
             eyebrow: "settings.adapter.eyebrow",
             title: "settings.adapter.title",
             description: "settings.adapter.description",
-            systemImage: "cable.connector.horizontal"
+            systemImage: "cable.connector.horizontal",
+            metrics: metrics
         ) {
             VStack(spacing: 10 * metrics.scale) {
                 adapterRow(for: .primary)
@@ -284,11 +308,12 @@ struct MacOSSettingsView: View {
 
     /// セッション終了時のiCloud自動アップロードを切り替えるカードです。
     private var uploadCard: some View {
-        settingsCard(
+        MacOSSettingsCard(
             eyebrow: "settings.upload.eyebrow",
             title: "settings.upload.title",
             description: "settings.upload.description",
-            systemImage: "icloud.and.arrow.up.fill"
+            systemImage: "icloud.and.arrow.up.fill",
+            metrics: metrics
         ) {
             Toggle(
                 "settings.upload.automatic",
@@ -335,61 +360,6 @@ struct MacOSSettingsView: View {
         .overlay {
             RoundedRectangle(cornerRadius: 20 * metrics.scale, style: .continuous)
                 .stroke(.red.opacity(0.2), lineWidth: 1)
-        }
-    }
-
-    /// 共通階層を持つ設定カードを生成します。
-    ///
-    /// 責務: 1件の設定カテゴリを統一された見出しと操作領域を持つカードとして描画します。
-    /// - Parameters:
-    ///   - eyebrow: カテゴリを短く識別するローカライズキー。
-    ///   - title: 設定カードのローカライズ済みタイトル。
-    ///   - description: 設定内容を補足するローカライズキー。
-    ///   - systemImage: カテゴリを表すSF Symbol名。
-    ///   - content: カード下部へ配置する操作または状態表示。
-    /// - Returns: 設定画面の視覚階層へ揃えたカード。
-    private func settingsCard<Content: View>(
-        eyebrow: LocalizedStringKey,
-        title: LocalizedStringKey,
-        description: LocalizedStringKey,
-        systemImage: String,
-        @ViewBuilder content: () -> Content
-    ) -> some View {
-        VStack(alignment: .leading, spacing: 16 * metrics.scale) {
-            HStack(alignment: .top, spacing: 12 * metrics.scale) {
-                Image(systemName: systemImage)
-                    .font(.system(size: 16 * metrics.scale, weight: .semibold))
-                    .foregroundStyle(.tint)
-                    .frame(width: 34 * metrics.scale, height: 34 * metrics.scale)
-                    .background(Color.accentColor.opacity(0.11), in: RoundedRectangle(cornerRadius: 10 * metrics.scale, style: .continuous))
-                    .accessibilityHidden(true)
-
-                VStack(alignment: .leading, spacing: 3 * metrics.scale) {
-                    Text(eyebrow)
-                        .font(.system(size: 9 * metrics.scale, weight: .bold, design: .rounded))
-                        .tracking(1.2 * metrics.scale)
-                        .foregroundStyle(.tint)
-
-                    Text(title)
-                        .font(.system(size: 17 * metrics.scale, weight: .bold, design: .rounded))
-
-                    Text(description)
-                        .font(.system(size: 11.5 * metrics.scale, weight: .regular))
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-
-                Spacer(minLength: 0)
-            }
-
-            content()
-        }
-        .padding(18 * metrics.scale)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20 * metrics.scale, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 20 * metrics.scale, style: .continuous)
-                .stroke(Color.primary.opacity(0.07), lineWidth: 1)
         }
     }
 

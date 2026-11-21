@@ -131,6 +131,11 @@ enum IOSSettingsMetrics {
     /// 自動アップロードの切り替えの角丸半径です。
     static let uploadToggleCornerRadius: CGFloat = 14
 
+    /// 走行ルート記録カードの切り替えと状態表示の間隔です。
+    static let routeRecordingContentSpacing: CGFloat = 10
+    /// 走行ルート記録の状態表示内の行同士の間隔です。
+    static let routeRecordingNoticeSpacing: CGFloat = 8
+
     /// アカウント削除カード内の間隔です。
     static let accountDeletionSpacing: CGFloat = 14
     /// アカウント削除の開始ボタンの最小の高さです。

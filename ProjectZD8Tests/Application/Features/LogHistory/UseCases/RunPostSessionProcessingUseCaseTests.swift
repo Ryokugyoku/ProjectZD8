@@ -33,10 +33,10 @@ final class RunPostSessionProcessingUseCaseTests: XCTestCase {
         XCTAssertEqual(fixture.diagnostics.schedulingEvents, [.scheduled])
     }
 
-    /// 自動アップロードがオンなら、アップロード → 整理の順に同じアカウントで1回ずつ呼び、completed で再予約しません。
+    /// 自動アップロードがオンなら、アップロード → 軌跡アップロード → 整理の順に同じアカウントで1回ずつ呼び、completed で再予約しません。
     ///
     /// 責務: 仕様2(オンで両ステップ成功)と、成功の診断記録を確認します。
-    func testUploadThenEvictionCompleteWithoutReschedule() async {
+    func testUploadThenLocationTrackUploadThenEvictionCompleteWithoutReschedule() async {
         let fixture = Fixture()
 
         let outcome = await fixture.run()
@@ -44,17 +44,21 @@ final class RunPostSessionProcessingUseCaseTests: XCTestCase {
         XCTAssertEqual(outcome, .completed)
         XCTAssertEqual(fixture.stepCalls, [
             .init(step: .upload, accountIdentifier: "account-1"),
+            .init(step: .locationTrackUpload, accountIdentifier: "account-1"),
             .init(step: .eviction, accountIdentifier: "account-1")
         ])
         XCTAssertEqual(fixture.scheduler.requiresNetworkConnectivityRequests, [])
         XCTAssertEqual(
             fixture.diagnostics.processingEvents,
-            [.started, .stepSucceeded(.upload), .stepSucceeded(.eviction), .finished(.completed)]
+            [
+                .started, .stepSucceeded(.upload), .stepSucceeded(.locationTrackUpload),
+                .stepSucceeded(.eviction), .finished(.completed)
+            ]
         )
         XCTAssertEqual(fixture.diagnostics.schedulingEvents, [])
     }
 
-    /// 自動アップロードがオフなら、アップロードを呼ばずに整理だけを呼び、整理が成功すれば completed で再予約しません。
+    /// 自動アップロードがオフなら、アップロードと軌跡アップロードを呼ばずに整理だけを呼び、整理が成功すれば completed で再予約しません。
     ///
     /// 責務: 仕様3(オフでアップロード省略)と、省略の診断記録を確認します。
     func testAutomaticUploadOffSkipsUploadAndCompletesAfterEviction() async {
@@ -68,7 +72,13 @@ final class RunPostSessionProcessingUseCaseTests: XCTestCase {
         XCTAssertEqual(fixture.scheduler.requiresNetworkConnectivityRequests, [])
         XCTAssertEqual(
             fixture.diagnostics.processingEvents,
-            [.started, .uploadSkippedForAutomaticUploadOff, .stepSucceeded(.eviction), .finished(.completed)]
+            [
+                .started,
+                .stepSkippedForAutomaticUploadOff(.upload),
+                .stepSkippedForAutomaticUploadOff(.locationTrackUpload),
+                .stepSucceeded(.eviction),
+                .finished(.completed)
+            ]
         )
     }
 
@@ -82,11 +92,12 @@ final class RunPostSessionProcessingUseCaseTests: XCTestCase {
         let outcome = await fixture.run()
 
         XCTAssertEqual(outcome, .stepsFailed([.upload]))
-        XCTAssertEqual(fixture.calledSteps, [.upload, .eviction])
+        XCTAssertEqual(fixture.calledSteps, [.upload, .locationTrackUpload, .eviction])
         XCTAssertEqual(fixture.scheduler.requiresNetworkConnectivityRequests, [true])
         XCTAssertEqual(fixture.diagnostics.processingEvents, [
             .started,
             .stepFailed(.upload, domain: "UploadTestDomain", code: 11),
+            .stepSucceeded(.locationTrackUpload),
             .stepSucceeded(.eviction),
             .finished(.stepsFailed([.upload]))
         ])
@@ -103,11 +114,12 @@ final class RunPostSessionProcessingUseCaseTests: XCTestCase {
         let outcome = await fixture.run()
 
         XCTAssertEqual(outcome, .stepsFailed([.eviction]))
-        XCTAssertEqual(fixture.calledSteps, [.upload, .eviction])
+        XCTAssertEqual(fixture.calledSteps, [.upload, .locationTrackUpload, .eviction])
         XCTAssertEqual(fixture.scheduler.requiresNetworkConnectivityRequests, [true])
         XCTAssertEqual(fixture.diagnostics.processingEvents, [
             .started,
             .stepSucceeded(.upload),
+            .stepSucceeded(.locationTrackUpload),
             .stepFailed(.eviction, domain: "EvictionTestDomain", code: 22),
             .finished(.stepsFailed([.eviction]))
         ])
@@ -124,11 +136,12 @@ final class RunPostSessionProcessingUseCaseTests: XCTestCase {
         let outcome = await fixture.run()
 
         XCTAssertEqual(outcome, .stepsFailed([.upload, .eviction]))
-        XCTAssertEqual(fixture.calledSteps, [.upload, .eviction])
+        XCTAssertEqual(fixture.calledSteps, [.upload, .locationTrackUpload, .eviction])
         XCTAssertEqual(fixture.scheduler.requiresNetworkConnectivityRequests.count, 1)
         XCTAssertEqual(fixture.diagnostics.processingEvents, [
             .started,
             .stepFailed(.upload, domain: "UploadTestDomain", code: 11),
+            .stepSucceeded(.locationTrackUpload),
             .stepFailed(.eviction, domain: "EvictionTestDomain", code: 22),
             .finished(.stepsFailed([.upload, .eviction]))
         ])
@@ -149,10 +162,10 @@ final class RunPostSessionProcessingUseCaseTests: XCTestCase {
         XCTAssertEqual(fixture.scheduler.requiresNetworkConnectivityRequests, [false])
     }
 
-    /// アップロードの後に記録が始まっていたら、整理を呼ばずに記録中で持ち越し、再予約します。
+    /// アップロードの後に記録が始まっていたら、軌跡アップロードも整理も呼ばずに記録中で持ち越し、再予約します。
     ///
     /// 責務: 仕様6(ステップ間の記録開始)を確認します。
-    func testRecordingStartedAfterUploadDefersEviction() async {
+    func testRecordingStartedAfterUploadDefersRemainingSteps() async {
         let fixture = Fixture()
         fixture.duringUpload = { fixture.isRecordingActive = true }
 

@@ -15,8 +15,8 @@ final class PostSessionProcessingDiagnosticsSpy: PostSessionProcessingDiagnostic
         case deferredForActiveRecording
         /// アカウント未解決のため持ち越した。
         case deferredForUnavailableAccount
-        /// 設定オフのためアップロードを省いた。
-        case uploadSkippedForAutomaticUploadOff
+        /// 設定オフのため、自動アップロードが要るステップを省いた。
+        case stepSkippedForAutomaticUploadOff(PostSessionProcessingStep)
         /// ステップが成功した。
         case stepSucceeded(PostSessionProcessingStep)
         /// ステップが失敗した。
@@ -76,9 +76,10 @@ final class PostSessionProcessingDiagnosticsSpy: PostSessionProcessingDiagnostic
         events.append(.deferredForUnavailableAccount)
     }
 
-    /// 責務: 設定オフによるアップロード省略を記録します。
-    func uploadSkippedForAutomaticUploadOff() {
-        events.append(.uploadSkippedForAutomaticUploadOff)
+    /// 責務: 設定オフによるステップ省略を、ステップごとに記録します。
+    /// - Parameter step: 省いたステップ。
+    func stepSkippedForAutomaticUploadOff(_ step: PostSessionProcessingStep) {
+        events.append(.stepSkippedForAutomaticUploadOff(step))
     }
 
     /// 責務: ステップ成功を記録します。

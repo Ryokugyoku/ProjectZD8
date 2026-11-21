@@ -47,6 +47,52 @@
           }
         }
       }
+    },
+    "NSLocationAlwaysAndWhenInUseUsageDescription" : {
+      "comment" : "Privacy - Location Always and When In Use Usage Description",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your location is used to save the route you drive while recording, so you can review it on a map later. Always access lets the route be saved from the start even when recording begins automatically while the app is in the background."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La ubicación se utiliza para guardar la ruta recorrida durante la grabación y poder verla después en un mapa. El acceso permanente permite guardar la ruta desde el principio aunque la grabación empiece automáticamente con la app en segundo plano."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "記録中の走行ルートを端末内に保存し、後で地図で確認できるようにするために、位置情報を使用します。アプリがバックグラウンドのまま自動で記録が始まった場合も、最初からルートを残すため「常に許可」を使用します。"
+          }
+        }
+      }
+    },
+    "NSLocationWhenInUseUsageDescription" : {
+      "comment" : "Privacy - Location When In Use Usage Description",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your location is used to save the route you drive while recording, so you can review it on a map later."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La ubicación se utiliza para guardar la ruta recorrida durante la grabación y poder verla después en un mapa."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "記録中の走行ルートを端末内に保存し、後で地図で確認できるようにするために、位置情報を使用します。"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

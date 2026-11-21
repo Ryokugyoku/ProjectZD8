@@ -1,11 +1,5 @@
 {
   "files": {
-    "ProjectZD8/Application/Features/Analysis/State/SessionLogAnalysisState.swift": {
-      "long_lines": 1
-    },
-    "ProjectZD8/Application/Features/Analysis/UseCases/DecodeSessionLogTimelineUseCase.swift": {
-      "long_lines": 2
-    },
     "ProjectZD8/Application/Features/Logging/UseCases/ConnectionSessionAcquisitionRecorder.swift": {
       "file_lines": 528
     },
@@ -23,10 +17,6 @@
     "ProjectZD8/Data/Network/CloudKit/CloudKitConnectionSessionTransferRepository.swift": {
       "file_lines": 697,
       "function_count": 25
-    },
-    "ProjectZD8/Data/Persistence/GRDB/Database/ProjectZD8DatabaseMigrator.swift": {
-      "file_lines": 683,
-      "long_lines": 3
     },
     "ProjectZD8/Data/Persistence/GRDB/Records/OBDPIDDefinitionRecord.swift": {
       "long_lines": 1
@@ -46,18 +36,8 @@
     "ProjectZD8/Domain/Entities/OBDPIDSample.swift": {
       "long_lines": 1
     },
-    "ProjectZD8/Platform/iOS/Features/Analysis/Views/IOSSessionLogAnalysisView.swift": {
-      "file_lines": 641,
-      "long_lines": 1
-    },
-    "ProjectZD8/Platform/iOS/Features/LogHistory/Views/IOSConnectionHistoryView.swift": {
-      "file_lines": 589
-    },
     "ProjectZD8/Platform/iOS/Features/VehicleManagement/Views/IOSVehicleRegistrationView.swift": {
       "long_lines": 1
-    },
-    "ProjectZD8/Platform/macOS/Features/Analysis/Views/MacOSSessionLogAnalysisView.swift": {
-      "file_lines": 690
     },
     "ProjectZD8/Platform/macOS/Features/Maintenance/Views/MacOSMaintenanceView.swift": {
       "long_lines": 1
@@ -191,14 +171,6 @@
         "cyclomatic": 14
       }
     },
-    "ProjectZD8/Data/Persistence/GRDB/Database/ProjectZD8DatabaseMigrator.swift": {
-      "createConnectionSessionAcquisitionBatchEvidence#0": {
-        "function_length": 140
-      },
-      "createConnectionSessionAcquisitionEvidence#0": {
-        "function_length": 162
-      }
-    },
     "ProjectZD8/Data/Persistence/GRDB/Records/ConnectionSessionRecord.swift": {
       "makeDomainSession#0": {
         "cyclomatic": 16
@@ -262,11 +234,6 @@
         "cyclomatic": 24
       }
     },
-    "ProjectZD8/Platform/iOS/Features/Analysis/Views/IOSSessionLogAnalysisView.swift": {
-      "selectedContent#0": {
-        "cyclomatic": 12
-      }
-    },
     "ProjectZD8/Platform/iOS/Features/Authentication/Presentation/IOSLoginMetrics.swift": {
       "resolve#0": {
         "cognitive": 17,
@@ -287,11 +254,6 @@
       "destinationButton#0": {
         "cognitive": 17,
         "cyclomatic": 19
-      }
-    },
-    "ProjectZD8/Platform/macOS/Features/Analysis/Views/MacOSSessionLogAnalysisView.swift": {
-      "selectedContent#0": {
-        "cyclomatic": 12
       }
     },
     "ProjectZD8/Platform/macOS/Features/DeviceConnection/Presentation/MacOSSettingsPresentationModel.swift": {

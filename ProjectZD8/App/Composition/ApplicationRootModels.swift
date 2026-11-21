@@ -19,4 +19,14 @@ struct ApplicationRootModels {
     let connectionHistory: ConnectionHistoryModel
     /// 保存済みPIDログ解析のモデルです。
     let sessionLogAnalysis: SessionLogAnalysisModel
+    /// セッション詳細の走行ルート(地図)のモデルです。
+    let drivingRouteDetail: DrivingRouteDetailModel
+    /// 解析画面の走行ルート(色分けとグラフ連動)のモデルです。
+    let routeAnalysis: RouteAnalysisModel
+    /// 現在のセッション・許可・前面かどうかを走行ルート記録へ伝える型です。`launch()` が未呼出しの状態で渡します。
+    let sessionLocationRecording: SessionLocationRecordingDriver
+    /// 設定画面の交通規制データのモデルです。
+    let roadRegulationSettings: RoadRegulationSettingsModel
+    /// 解析画面の交通規制の照合のモデルです。
+    let sessionRoadRegulationReview: SessionRoadRegulationReviewModel
 }

@@ -79,4 +79,64 @@ struct ProductDatabaseRepositoryFactory {
             UnavailableMaintenanceRecordRepository()
         }
     }
+
+    /// 接続セッションの位置の保存先を生成します。
+    ///
+    /// 責務: 位置と位置記録事象の永続化を利用可能なGRDB実装または明示的な利用不能境界へ変換します。
+    /// - Parameter database: プロセス内で共有する製品DB接続。
+    /// - Returns: 位置 Repository。準備失敗時は利用不能Repository。
+    func makeConnectionSessionLocationRepository(
+        database: ApplicationDatabaseConnection
+    ) -> any ConnectionSessionLocationRepository {
+        prepare(.connectionSessionLocations) {
+            try GRDBConnectionSessionLocationRepository(databaseQueue: database.databaseQueue())
+        } unavailable: {
+            UnavailableConnectionSessionLocationRepository()
+        }
+    }
+
+    /// 走行ルートの同期記録の保存先を生成します。
+    ///
+    /// 責務: 同期記録の永続化を利用可能なGRDB実装または明示的な利用不能境界へ変換します。
+    /// - Parameter database: プロセス内で共有する製品DB接続。
+    /// - Returns: 同期記録 Repository。準備失敗時は利用不能Repository。
+    func makeConnectionSessionLocationTrackSyncRepository(
+        database: ApplicationDatabaseConnection
+    ) -> any ConnectionSessionLocationTrackSyncRepository {
+        prepare(.connectionSessionLocationTrackSync) {
+            try GRDBConnectionSessionLocationTrackSyncRepository(databaseQueue: database.databaseQueue())
+        } unavailable: {
+            UnavailableConnectionSessionLocationTrackSyncRepository()
+        }
+    }
+
+    /// 交通規制データの版の保存先を生成します。
+    ///
+    /// 責務: 版の取り込み・有効化・削除の永続化を利用可能なGRDB実装または明示的な利用不能境界へ変換します。
+    /// - Parameter database: プロセス内で共有する製品DB接続。
+    /// - Returns: 版の Repository。準備失敗時は利用不能Repository。
+    func makeRoadRegulationDatasetRepository(
+        database: ApplicationDatabaseConnection
+    ) -> any RoadRegulationDatasetRepository {
+        prepare(.roadRegulations) {
+            try GRDBRoadRegulationDatasetRepository(databaseQueue: database.databaseQueue())
+        } unavailable: {
+            UnavailableRoadRegulationDatasetRepository()
+        }
+    }
+
+    /// 交通規制データの検索の保存先を生成します。
+    ///
+    /// 責務: 升目からの規制の検索を利用可能なGRDB実装または明示的な利用不能境界へ変換します。
+    /// - Parameter database: プロセス内で共有する製品DB接続。
+    /// - Returns: 検索の Repository。準備失敗時は利用不能Repository。
+    func makeRoadRegulationQueryRepository(
+        database: ApplicationDatabaseConnection
+    ) -> any RoadRegulationQueryRepository {
+        prepare(.roadRegulations) {
+            try GRDBRoadRegulationQueryRepository(databaseQueue: database.databaseQueue())
+        } unavailable: {
+            UnavailableRoadRegulationQueryRepository()
+        }
+    }
 }

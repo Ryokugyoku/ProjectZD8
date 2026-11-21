@@ -1,6 +1,6 @@
 import Foundation
 
-/// 記録セッション終了後の後処理を、アップロード → Rawキャッシュの整理の順に1回実行します。
+/// 記録セッション終了後の後処理を、Rawのアップロード → 走行ルートのアップロード → Rawキャッシュの整理の順に1回実行します。
 ///
 /// 順序はRawを端末から消す整理の前にCloudKitへの保存を確かめるためです。整理の対象は保存が確認できた
 /// (`cloudState == .uploaded` かつ manifest digest あり)終了済みセッションだけなので、アップロードを先に行うと、
@@ -19,6 +19,8 @@ struct RunPostSessionProcessingUseCase {
     private let isAutomaticUploadEnabled: @MainActor (String) -> Bool
     /// 指定アカウントの送信待ちセッションをアップロードする処理です。
     private let upload: @MainActor (String) async throws -> Void
+    /// 指定アカウントの未送信の走行ルート(位置の軌跡)をアップロードする処理です。
+    private let uploadLocationTracks: @MainActor (String) async throws -> Void
     /// 指定アカウントの保持期限切れRawキャッシュを整理する処理です。
     private let evictStaleRawLogs: @MainActor (String) throws -> Void
     /// 未完了のとき次回の実行を予約するユースケースです。
@@ -34,6 +36,7 @@ struct RunPostSessionProcessingUseCase {
     ///   - resolveAccountIdentifier: サインイン中アカウントの識別子を返す処理。解決できなければ `nil`。
     ///   - isAutomaticUploadEnabled: 指定アカウントの自動アップロード設定を返す処理。
     ///   - upload: 送信待ちを含む同期を行う処理(`SynchronizeConnectionSessionsUseCase` へ結び付けます)。
+    ///   - uploadLocationTracks: 未送信の走行ルートをアップロードする処理(自動アップロードがオンの時だけ実行されます)。
     ///   - evictStaleRawLogs: Rawキャッシュを整理する処理(`EvictStaleConnectionSessionRawLogsUseCase` へ結び付けます)。
     ///   - schedule: 未完了のとき次回の実行を予約するユースケース。
     ///   - diagnostics: 実行の経過を残す診断記録の境界。
@@ -42,6 +45,7 @@ struct RunPostSessionProcessingUseCase {
         resolveAccountIdentifier: @escaping @MainActor () async -> String?,
         isAutomaticUploadEnabled: @escaping @MainActor (String) -> Bool,
         upload: @escaping @MainActor (String) async throws -> Void,
+        uploadLocationTracks: @escaping @MainActor (String) async throws -> Void,
         evictStaleRawLogs: @escaping @MainActor (String) throws -> Void,
         schedule: SchedulePostSessionProcessingUseCase,
         diagnostics: any PostSessionProcessingDiagnosticsPort
@@ -50,6 +54,7 @@ struct RunPostSessionProcessingUseCase {
         self.resolveAccountIdentifier = resolveAccountIdentifier
         self.isAutomaticUploadEnabled = isAutomaticUploadEnabled
         self.upload = upload
+        self.uploadLocationTracks = uploadLocationTracks
         self.evictStaleRawLogs = evictStaleRawLogs
         self.schedule = schedule
         self.diagnostics = diagnostics
@@ -91,7 +96,7 @@ struct RunPostSessionProcessingUseCase {
 
     /// 各ステップを宣言順に実行します。片方が失敗しても、もう片方は実行します。
     ///
-    /// 責務: ステップごとに記録開始と期限切れを確認し、設定オフのアップロードを省き、成否を1件の結果へまとめます。
+    /// 責務: ステップごとに記録開始と期限切れを確認し、設定オフの時は自動アップロードのステップを省き、成否を1件の結果へまとめます。
     /// - Parameter accountIdentifier: 処理対象のアカウント識別子。
     /// - Returns: 実行結果。
     private func runSteps(accountIdentifier: String) async -> PostSessionProcessingOutcome {
@@ -99,8 +104,8 @@ struct RunPostSessionProcessingUseCase {
         var failedSteps = Set<PostSessionProcessingStep>()
         for step in PostSessionProcessingStep.allCases {
             if let interruption = interruptionBeforeStep() { return interruption }
-            if step == .upload, !uploadEnabled {
-                diagnostics.uploadSkippedForAutomaticUploadOff()
+            if step.requiresAutomaticUpload, !uploadEnabled {
+                diagnostics.stepSkippedForAutomaticUploadOff(step)
                 continue
             }
             do {
@@ -149,6 +154,7 @@ struct RunPostSessionProcessingUseCase {
     private func perform(_ step: PostSessionProcessingStep, accountIdentifier: String) async throws {
         switch step {
         case .upload: try await upload(accountIdentifier)
+        case .locationTrackUpload: try await uploadLocationTracks(accountIdentifier)
         case .eviction: try evictStaleRawLogs(accountIdentifier)
         }
     }
